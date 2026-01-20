@@ -37,6 +37,21 @@ export interface DocumentVersion {
   status: string
 }
 
+export interface ReportResponse {
+  report_type: string
+  content: string
+  format: string
+}
+
+export interface AllReportsResponse {
+  reports: {
+    projects_md: string
+    performance_summary: string
+    company_integrated: string
+  }
+  formats: string[]
+}
+
 export const documentsApi = {
   getAll: (userId: number, params?: {
     status?: string
@@ -69,4 +84,29 @@ export const documentsApi = {
     apiClient.get<{ document_id: number; versions: DocumentVersion[]; total_versions: number }>(
       `/documents/${id}/versions`
     ),
+}
+
+export const reportsApi = {
+  getProjectsReport: (userId: number) =>
+    apiClient.get<ReportResponse>('/documents/reports/projects', {
+      params: { user_id: userId }
+    }),
+
+  getPerformanceReport: (userId: number) =>
+    apiClient.get<ReportResponse>('/documents/reports/performance', {
+      params: { user_id: userId }
+    }),
+
+  getCompanyIntegratedReport: (userId: number) =>
+    apiClient.get<ReportResponse>('/documents/reports/company-integrated', {
+      params: { user_id: userId }
+    }),
+
+  getAllReports: (userId: number) =>
+    apiClient.get<AllReportsResponse>('/documents/reports/all', {
+      params: { user_id: userId }
+    }),
+
+  getDownloadUrl: (reportType: 'projects' | 'performance' | 'company-integrated', userId: number) =>
+    `/api/documents/reports/download/${reportType}?user_id=${userId}`,
 }

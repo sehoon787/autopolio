@@ -31,6 +31,34 @@ export interface CompanyCreate {
   company_url?: string
 }
 
+// Company Summary types
+export interface ProjectSummary {
+  id: number
+  name: string
+  start_date: string | null
+  end_date: string | null
+  role: string | null
+  description: string | null
+  git_url: string | null
+  team_size: number | null
+  technologies: string[]
+}
+
+export interface CompanySummaryResponse {
+  company: Company
+  projects: ProjectSummary[]
+  project_count: number
+  aggregated_tech_stack: string[]
+  tech_categories: Record<string, string[]>
+  date_range: string
+}
+
+export interface CompanyGroupedResponse {
+  companies: CompanySummaryResponse[]
+  total_companies: number
+  total_projects: number
+}
+
 // Project types
 export interface Technology {
   id: number
@@ -120,6 +148,14 @@ export const companiesApi = {
 
   getProjects: (id: number) =>
     apiClient.get(`/knowledge/companies/${id}/projects`),
+
+  getSummary: (id: number) =>
+    apiClient.get<CompanySummaryResponse>(`/knowledge/companies/${id}/summary`),
+
+  getGroupedByCompany: (userId: number) =>
+    apiClient.get<CompanyGroupedResponse>('/knowledge/companies/grouped-by-company', {
+      params: { user_id: userId }
+    }),
 }
 
 export const projectsApi = {
@@ -155,6 +191,39 @@ export const projectsApi = {
     apiClient.post<Technology>('/knowledge/projects/technologies', data),
 }
 
+export interface AutoDetectResponse {
+  project_id: number
+  detected_achievements: Array<{
+    metric_name: string
+    metric_value: string
+    description?: string
+    category?: string
+    evidence?: string
+    source?: string
+  }>
+  saved_achievements: Achievement[]
+  stats: {
+    pattern_detected: number
+    code_stats_generated: number
+    llm_generated: number
+    total: number
+  }
+  message: string
+}
+
+export interface AutoDetectAllResponse {
+  user_id: number
+  projects_processed: number
+  total_detected: number
+  total_saved: number
+  results: Array<{
+    project_id: number
+    project_name: string
+    detected: number
+    saved: number
+  }>
+}
+
 export const achievementsApi = {
   getAll: (projectId: number, category?: string) =>
     apiClient.get<Achievement[]>('/knowledge/achievements', {
@@ -178,5 +247,15 @@ export const achievementsApi = {
   createBulk: (projectId: number, data: Omit<Achievement, 'id' | 'project_id' | 'created_at' | 'updated_at'>[]) =>
     apiClient.post<Achievement[]>('/knowledge/achievements/bulk', data, {
       params: { project_id: projectId }
+    }),
+
+  autoDetect: (projectId: number, useLlm: boolean = true, saveToDb: boolean = true) =>
+    apiClient.post<AutoDetectResponse>('/knowledge/achievements/auto-detect', null, {
+      params: { project_id: projectId, use_llm: useLlm, save_to_db: saveToDb }
+    }),
+
+  autoDetectAll: (userId: number, useLlm: boolean = false, saveToDb: boolean = true) =>
+    apiClient.post<AutoDetectAllResponse>('/knowledge/achievements/auto-detect-all', null, {
+      params: { user_id: userId, use_llm: useLlm, save_to_db: saveToDb }
     }),
 }

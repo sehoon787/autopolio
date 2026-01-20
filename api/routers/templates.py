@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
+from pydantic import BaseModel
 import os
 import uuid
 
@@ -9,11 +11,26 @@ from api.database import get_db
 from api.config import get_settings, PLATFORM_CONFIGS
 from api.models.template import Template
 from api.models.user import User
+from api.models.company import Company
+from api.models.project import Project, ProjectTechnology
 from api.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse, TemplateListResponse
 from api.services.document_service import DocumentService
 
 router = APIRouter()
 settings = get_settings()
+
+
+class TemplatePreviewRequest(BaseModel):
+    """Request body for template preview."""
+    template_content: str
+    sample_data: Optional[dict] = None
+
+
+class TemplatePreviewResponse(BaseModel):
+    """Response for template preview."""
+    preview_html: str
+    preview_text: str
+    fields_used: List[str]
 
 
 @router.get("", response_model=TemplateListResponse)
@@ -54,6 +71,246 @@ async def get_templates(
 async def get_platforms():
     """Get available platform configurations."""
     return PLATFORM_CONFIGS
+
+
+@router.get("/fields/available")
+async def get_available_fields():
+    """Get list of all available template fields with descriptions."""
+    return {
+        "user_fields": [
+            {"field": "name", "description": "사용자 이름", "example": "홍길동"},
+            {"field": "email", "description": "이메일 주소", "example": "hong@example.com"},
+            {"field": "github_username", "description": "GitHub 사용자명", "example": "honggildong"},
+            {"field": "summary", "description": "자기소개 요약", "example": "5년차 개발자입니다."},
+            {"field": "skills", "description": "기술 스택 (쉼표 구분)", "example": "React, Python, FastAPI"},
+        ],
+        "company_fields": [
+            {"field": "companies", "description": "회사 목록 (반복 섹션)", "is_section": True},
+            {"field": "name", "description": "회사명", "example": "테크 스타트업", "parent": "companies"},
+            {"field": "position", "description": "직책", "example": "시니어 개발자", "parent": "companies"},
+            {"field": "department", "description": "부서", "example": "개발팀", "parent": "companies"},
+            {"field": "start_date", "description": "입사일", "example": "2022.01", "parent": "companies"},
+            {"field": "end_date", "description": "퇴사일/현재", "example": "현재", "parent": "companies"},
+            {"field": "description", "description": "업무 설명", "example": "웹 서비스 개발", "parent": "companies"},
+        ],
+        "project_fields": [
+            {"field": "projects", "description": "프로젝트 목록 (반복 섹션)", "is_section": True},
+            {"field": "name", "description": "프로젝트명", "example": "이커머스 플랫폼", "parent": "projects"},
+            {"field": "short_description", "description": "한 줄 설명", "example": "B2C 서비스", "parent": "projects"},
+            {"field": "description", "description": "상세 설명", "example": "대규모 플랫폼 개발", "parent": "projects"},
+            {"field": "role", "description": "역할", "example": "백엔드 리드", "parent": "projects"},
+            {"field": "team_size", "description": "팀 규모", "example": "5", "parent": "projects"},
+            {"field": "contribution_percent", "description": "기여도(%)", "example": "40", "parent": "projects"},
+            {"field": "start_date", "description": "시작일", "example": "2023.01", "parent": "projects"},
+            {"field": "end_date", "description": "종료일", "example": "2023.12", "parent": "projects"},
+            {"field": "technologies", "description": "기술 스택", "example": "FastAPI, React", "parent": "projects"},
+        ],
+        "achievement_fields": [
+            {"field": "achievements", "description": "성과 목록 (프로젝트 내 반복)", "is_section": True, "parent": "projects"},
+            {"field": "metric_name", "description": "성과 지표명", "example": "성능 향상", "parent": "achievements"},
+            {"field": "metric_value", "description": "성과 수치", "example": "40% 개선", "parent": "achievements"},
+            {"field": "description", "description": "성과 설명", "example": "API 최적화", "parent": "achievements"},
+        ],
+        "syntax_guide": {
+            "simple_field": "{{field_name}}",
+            "section_start": "{{#section_name}}",
+            "section_end": "{{/section_name}}",
+            "example": """{{#projects}}
+### {{name}}
+- 역할: {{role}}
+- 기술: {{technologies}}
+{{#achievements}}
+- {{metric_name}}: {{metric_value}}
+{{/achievements}}
+{{/projects}}"""
+        }
+    }
+
+
+@router.post("/preview", response_model=TemplatePreviewResponse)
+async def preview_template(
+    request: TemplatePreviewRequest,
+    user_id: Optional[int] = Query(None, description="User ID for real data preview"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Preview template with sample or real data.
+
+    If user_id is provided, uses real user data for preview.
+    Otherwise, uses sample_data from request or default sample data.
+    """
+    import re
+    import markdown
+
+    # Get sample data
+    sample_data = request.sample_data or {}
+
+    if user_id and not sample_data:
+        # Use real user data
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+
+        if user:
+            # Get companies
+            companies_result = await db.execute(
+                select(Company).where(Company.user_id == user_id).limit(3)
+            )
+            companies = companies_result.scalars().all()
+
+            # Get projects with technologies and achievements
+            projects_result = await db.execute(
+                select(Project)
+                .where(Project.user_id == user_id)
+                .options(
+                    selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+                    selectinload(Project.achievements)
+                )
+                .limit(5)
+            )
+            projects = projects_result.scalars().all()
+
+            sample_data = {
+                "name": user.name or "사용자명",
+                "email": user.email or "user@example.com",
+                "github_username": user.github_username or "github_user",
+                "summary": "경험이 풍부한 개발자입니다.",
+                "skills": ", ".join(list(set(
+                    tech.technology.name
+                    for p in projects
+                    for tech in p.technologies
+                ))[:10]) or "React, Python, FastAPI",
+                "companies": [
+                    {
+                        "name": c.name,
+                        "position": c.position or "개발자",
+                        "department": c.department or "",
+                        "start_date": str(c.start_date) if c.start_date else "2020.01",
+                        "end_date": str(c.end_date) if c.end_date else "현재",
+                        "description": c.description or "소프트웨어 개발"
+                    }
+                    for c in companies
+                ],
+                "projects": [
+                    {
+                        "name": p.name,
+                        "short_description": p.short_description or "",
+                        "description": p.description or p.ai_summary or "프로젝트 설명",
+                        "role": p.role or "개발자",
+                        "team_size": p.team_size or 3,
+                        "contribution_percent": p.contribution_percent or 50,
+                        "start_date": str(p.start_date) if p.start_date else "2023.01",
+                        "end_date": str(p.end_date) if p.end_date else "2023.06",
+                        "technologies": ", ".join([t.technology.name for t in p.technologies][:5]) or "React, Node.js",
+                        "achievements": [
+                            {
+                                "metric_name": a.metric_name,
+                                "metric_value": a.metric_value,
+                                "description": a.description or ""
+                            }
+                            for a in p.achievements[:3]
+                        ],
+                        "links": p.links or {}
+                    }
+                    for p in projects
+                ]
+            }
+
+    # Default sample data if nothing provided
+    if not sample_data:
+        sample_data = {
+            "name": "홍길동",
+            "email": "hong@example.com",
+            "github_username": "honggildong",
+            "summary": "5년차 풀스택 개발자입니다.",
+            "skills": "React, TypeScript, Python, FastAPI, PostgreSQL",
+            "companies": [
+                {
+                    "name": "테크 스타트업",
+                    "position": "시니어 개발자",
+                    "department": "개발팀",
+                    "start_date": "2022.01",
+                    "end_date": "현재",
+                    "description": "웹 서비스 개발 및 팀 리드"
+                }
+            ],
+            "projects": [
+                {
+                    "name": "이커머스 플랫폼",
+                    "short_description": "B2C 이커머스 서비스",
+                    "description": "대규모 이커머스 플랫폼 개발",
+                    "role": "백엔드 리드",
+                    "team_size": 5,
+                    "contribution_percent": 40,
+                    "start_date": "2023.01",
+                    "end_date": "2023.12",
+                    "technologies": "FastAPI, PostgreSQL, Redis",
+                    "achievements": [
+                        {
+                            "metric_name": "성능 향상",
+                            "metric_value": "40% 개선",
+                            "description": "API 응답 시간 최적화"
+                        }
+                    ],
+                    "links": {"github": "https://github.com/example"}
+                }
+            ]
+        }
+
+    # Extract fields used in template
+    template_content = request.template_content
+    field_pattern = r'\{\{([^}]+)\}\}'
+    fields_used = list(set(re.findall(field_pattern, template_content)))
+
+    # Simple template rendering (Mustache-like)
+    preview_text = template_content
+
+    # Replace simple fields
+    for field in fields_used:
+        if field.startswith('#') or field.startswith('/'):
+            continue
+        value = sample_data.get(field, f"[{field}]")
+        if isinstance(value, (list, dict)):
+            value = str(value)
+        preview_text = preview_text.replace(f"{{{{{field}}}}}", str(value))
+
+    # Handle sections (simplified - just show first item)
+    section_pattern = r'\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}'
+    for match in re.finditer(section_pattern, template_content, re.DOTALL):
+        section_name = match.group(1)
+        section_template = match.group(2)
+
+        if section_name in sample_data and isinstance(sample_data[section_name], list):
+            section_output = []
+            for item in sample_data[section_name]:
+                item_text = section_template
+                for key, value in item.items():
+                    if isinstance(value, list):
+                        # Handle nested lists (like achievements)
+                        if value and isinstance(value[0], dict):
+                            nested_items = []
+                            for nested in value:
+                                nested_text = " / ".join(f"{v}" for v in nested.values() if v)
+                                nested_items.append(f"- {nested_text}")
+                            value = "\n".join(nested_items)
+                        else:
+                            value = ", ".join(str(v) for v in value)
+                    item_text = item_text.replace(f"{{{{{key}}}}}", str(value) if value else "")
+                section_output.append(item_text)
+            preview_text = preview_text.replace(match.group(0), "".join(section_output))
+        else:
+            preview_text = preview_text.replace(match.group(0), f"[{section_name} 항목 없음]")
+
+    # Convert markdown to HTML for preview
+    try:
+        preview_html = markdown.markdown(preview_text, extensions=['tables', 'fenced_code'])
+    except Exception:
+        preview_html = f"<pre>{preview_text}</pre>"
+
+    return TemplatePreviewResponse(
+        preview_html=preview_html,
+        preview_text=preview_text,
+        fields_used=fields_used
+    )
 
 
 @router.get("/{template_id}", response_model=TemplateResponse)
@@ -408,3 +665,46 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
     await db.flush()
     return {"message": f"Initialized {len(system_templates)} system templates"}
+
+
+@router.post("/{template_id}/clone", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
+async def clone_template(
+    template_id: int,
+    user_id: int = Query(..., description="User ID"),
+    new_name: Optional[str] = Query(None, description="New template name (optional)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Clone a template (system or user's own) to create a new user template."""
+    # Verify user exists
+    result = await db.execute(select(User).where(User.id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get source template
+    result = await db.execute(select(Template).where(Template.id == template_id))
+    source_template = result.scalar_one_or_none()
+    if not source_template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Create cloned template
+    cloned_name = new_name or f"{source_template.name} (복사본)"
+
+    cloned_template = Template(
+        user_id=user_id,
+        name=cloned_name,
+        description=source_template.description,
+        platform=source_template.platform,
+        is_system=0,
+        template_content=source_template.template_content,
+        template_file_path=None,  # Don't copy file path
+        field_mappings=source_template.field_mappings,
+        sections=source_template.sections,
+        style_settings=source_template.style_settings,
+        max_projects=source_template.max_projects,
+        max_characters=source_template.max_characters,
+        output_format=source_template.output_format
+    )
+    db.add(cloned_template)
+    await db.flush()
+    await db.refresh(cloned_template)
+    return cloned_template

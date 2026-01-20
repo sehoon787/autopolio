@@ -109,10 +109,54 @@ async def github_callback(
     await db.refresh(user)
 
     # Redirect to frontend with user info
-    redirect_url = state or "/"
-    frontend_url = f"http://localhost:5173{redirect_url}?user_id={user.id}&github_connected=true"
+    redirect_path = state or "/"
+    frontend_url = f"{settings.frontend_url}{redirect_path}?user_id={user.id}&github_connected=true"
 
     return RedirectResponse(url=frontend_url)
+
+
+@router.get("/status")
+async def get_github_status(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Check if GitHub is connected for a user."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    is_connected = bool(user.github_token_encrypted)
+
+    # If connected, verify the token is still valid
+    if is_connected:
+        try:
+            token = encryption.decrypt(user.github_token_encrypted)
+            github_service = GitHubService(token)
+            user_info = await github_service.get_user_info()
+            return {
+                "connected": True,
+                "github_username": user_info.get("login"),
+                "avatar_url": user_info.get("avatar_url"),
+                "valid": True
+            }
+        except Exception:
+            # Token is invalid or expired
+            return {
+                "connected": True,
+                "github_username": user.github_username,
+                "avatar_url": user.github_avatar_url,
+                "valid": False,
+                "message": "GitHub 토큰이 만료되었거나 유효하지 않습니다. 다시 연동해주세요."
+            }
+
+    return {
+        "connected": False,
+        "github_username": None,
+        "avatar_url": None,
+        "valid": False
+    }
 
 
 @router.get("/repos", response_model=GitHubRepoListResponse)

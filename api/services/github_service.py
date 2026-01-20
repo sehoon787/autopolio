@@ -122,6 +122,71 @@ class GitHubService:
 
         return all_commits
 
+    async def get_commit_details(self, git_url: str, sha: str) -> Dict[str, Any]:
+        """Get detailed information for a specific commit including stats."""
+        owner, repo = self._parse_repo_url(git_url)
+        try:
+            commit = await self._request("GET", f"/repos/{owner}/{repo}/commits/{sha}")
+            return {
+                "sha": commit["sha"],
+                "message": commit["commit"]["message"],
+                "author": commit["commit"]["author"]["name"],
+                "date": commit["commit"]["author"]["date"],
+                "additions": commit.get("stats", {}).get("additions", 0),
+                "deletions": commit.get("stats", {}).get("deletions", 0),
+                "files_changed": len(commit.get("files", [])),
+                "files": [
+                    {
+                        "filename": f["filename"],
+                        "additions": f.get("additions", 0),
+                        "deletions": f.get("deletions", 0),
+                        "status": f.get("status", "modified")
+                    }
+                    for f in commit.get("files", [])[:20]  # Limit files per commit
+                ]
+            }
+        except httpx.HTTPStatusError:
+            return {"sha": sha, "additions": 0, "deletions": 0, "files_changed": 0}
+
+    async def get_repo_stats(
+        self,
+        git_url: str,
+        username: Optional[str] = None,
+        max_commits_for_stats: int = 100
+    ) -> Dict[str, Any]:
+        """Get comprehensive repository statistics including code changes."""
+        owner, repo = self._parse_repo_url(git_url)
+
+        # Get commits
+        commits = await self.get_commits(git_url, username, per_page=100, max_pages=3)
+
+        total_additions = 0
+        total_deletions = 0
+        total_files_changed = 0
+        files_touched = set()
+
+        # Get detailed stats for recent commits (limited to avoid rate limits)
+        commits_to_analyze = commits[:max_commits_for_stats]
+
+        for commit in commits_to_analyze:
+            try:
+                details = await self.get_commit_details(git_url, commit["sha"])
+                total_additions += details.get("additions", 0)
+                total_deletions += details.get("deletions", 0)
+                for file in details.get("files", []):
+                    files_touched.add(file["filename"])
+            except Exception:
+                continue
+
+        return {
+            "total_commits": len(commits),
+            "analyzed_commits": len(commits_to_analyze),
+            "lines_added": total_additions,
+            "lines_deleted": total_deletions,
+            "files_changed": len(files_touched),
+            "files_list": list(files_touched)[:50]  # Limit output size
+        }
+
     async def get_commit_stats(
         self,
         git_url: str,
@@ -130,8 +195,6 @@ class GitHubService:
         """Get commit statistics for a repository."""
         commits = await self.get_commits(git_url, author)
 
-        total_additions = 0
-        total_deletions = 0
         commit_messages = []
 
         for commit in commits[:50]:  # Limit detailed analysis
@@ -785,7 +848,8 @@ class GitHubService:
     async def analyze_repository(
         self,
         git_url: str,
-        username: Optional[str] = None
+        username: Optional[str] = None,
+        include_detailed_stats: bool = True
     ) -> Dict[str, Any]:
         """Perform full repository analysis."""
         # Get basic info
@@ -807,15 +871,29 @@ class GitHubService:
         # Detect technologies
         technologies = await self.detect_technologies(git_url)
 
+        # Get detailed code statistics (lines added/deleted)
+        lines_added = 0
+        lines_deleted = 0
+        files_changed = 0
+
+        if include_detailed_stats:
+            try:
+                repo_stats = await self.get_repo_stats(git_url, username, max_commits_for_stats=50)
+                lines_added = repo_stats["lines_added"]
+                lines_deleted = repo_stats["lines_deleted"]
+                files_changed = repo_stats["files_changed"]
+            except Exception:
+                pass  # Fall back to 0 if stats collection fails
+
         return {
             "default_branch": repo_info.get("default_branch", "main"),
             "total_commits": commit_stats["total_commits"],
             "user_commits": user_commits,
             "first_commit_date": commit_stats["first_commit_date"],
             "last_commit_date": commit_stats["last_commit_date"],
-            "lines_added": 0,  # Would need additional API calls
-            "lines_deleted": 0,
-            "files_changed": 0,
+            "lines_added": lines_added,
+            "lines_deleted": lines_deleted,
+            "files_changed": files_changed,
             "languages": languages,
             "primary_language": primary_language,
             "detected_technologies": technologies,

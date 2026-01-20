@@ -34,8 +34,11 @@ class Settings(BaseSettings):
     templates_dir: Path = data_dir / "templates"
     result_dir: Path = base_dir / "result"
 
+    # Frontend URL (for OAuth redirect)
+    frontend_url: str = "http://localhost:5173"
+
     # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"]
 
     class Config:
         env_file = ".env"

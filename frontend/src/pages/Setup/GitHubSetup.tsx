@@ -1,33 +1,70 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { githubApi } from '@/api/github'
+import { githubApi, GitHubStatus } from '@/api/github'
 import { usersApi } from '@/api/users'
-import { Github, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Github, CheckCircle2, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function GitHubSetup() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
   const { user, setUser } = useUserStore()
+  const [tokenInvalid, setTokenInvalid] = useState(false)
 
   // Check if redirected from GitHub OAuth
   const userId = searchParams.get('user_id')
   const githubConnected = searchParams.get('github_connected')
+
+  // Check GitHub connection status
+  const { data: statusData, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
+    queryKey: ['github-status', user?.id],
+    queryFn: () => githubApi.getStatus(user!.id),
+    enabled: !!user?.id,
+    retry: false,
+  })
+
+  // Handle status response
+  useEffect(() => {
+    if (statusData?.data) {
+      const status = statusData.data
+      if (status.connected && !status.valid) {
+        setTokenInvalid(true)
+        toast({
+          title: 'GitHub 토큰 만료',
+          description: status.message || '다시 연동이 필요합니다.',
+          variant: 'destructive',
+        })
+      } else if (status.connected && status.valid) {
+        setTokenInvalid(false)
+        // Update user info with latest from GitHub
+        if (user && (user.github_username !== status.github_username || user.github_avatar_url !== status.avatar_url)) {
+          setUser({
+            ...user,
+            github_username: status.github_username,
+            github_avatar_url: status.avatar_url,
+          })
+        }
+      }
+    }
+  }, [statusData, user, setUser, toast])
 
   // Fetch updated user info after GitHub OAuth
   useEffect(() => {
     if (userId && githubConnected === 'true') {
       usersApi.getById(parseInt(userId)).then((response) => {
         setUser(response.data)
+        setTokenInvalid(false)
         toast({
           title: 'GitHub 연동 완료',
           description: 'GitHub 계정이 성공적으로 연동되었습니다.',
         })
+        // Clear URL params
+        window.history.replaceState({}, '', window.location.pathname)
       })
     }
   }, [userId, githubConnected, setUser, toast])
@@ -88,7 +125,12 @@ export default function GitHubSetup() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isConnected ? (
+          {statusLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-500">연동 상태 확인 중...</span>
+            </div>
+          ) : isConnected && !tokenInvalid ? (
             <>
               <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg">
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
@@ -118,6 +160,56 @@ export default function GitHubSetup() {
                 <Button onClick={() => navigate('/knowledge/projects')} className="flex-1">
                   프로젝트 관리로 이동
                   <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          ) : isConnected && tokenInvalid ? (
+            <>
+              <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-900">재연동 필요</p>
+                  <p className="text-sm text-amber-700">
+                    GitHub 토큰이 만료되었습니다. 다시 연동해주세요.
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    이전 연동: @{user.github_username}
+                  </p>
+                </div>
+                {user.github_avatar_url && (
+                  <img
+                    src={user.github_avatar_url}
+                    alt={user.github_username || ''}
+                    className="h-12 w-12 rounded-full opacity-50"
+                  />
+                )}
+              </div>
+
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => connectMutation.mutate()}
+                disabled={connectMutation.isPending}
+              >
+                <RefreshCw className="mr-2 h-5 w-5" />
+                {connectMutation.isPending ? '재연동 중...' : 'GitHub 다시 연동하기'}
+              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                  className="flex-1"
+                >
+                  연동 해제
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/dashboard')}
+                  className="flex-1"
+                >
+                  나중에 하기
                 </Button>
               </div>
             </>

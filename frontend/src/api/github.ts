@@ -51,7 +51,20 @@ export interface AIGeneratedDescription {
   technologies: string[]
 }
 
+export interface GitHubStatus {
+  connected: boolean
+  github_username: string | null
+  avatar_url: string | null
+  valid: boolean
+  message?: string
+}
+
 export const githubApi = {
+  getStatus: (userId: number) =>
+    apiClient.get<GitHubStatus>('/github/status', {
+      params: { user_id: userId }
+    }),
+
   connect: (redirectUrl?: string) =>
     apiClient.get<{ auth_url: string }>('/github/connect', {
       params: redirectUrl ? { redirect_url: redirectUrl } : {}

@@ -7,7 +7,9 @@ import GitHubSetup from '@/pages/Setup/GitHubSetup'
 import CompaniesPage from '@/pages/Knowledge/Companies'
 import ProjectsPage from '@/pages/Knowledge/Projects'
 import ProjectDetailPage from '@/pages/Knowledge/ProjectDetail'
+import CompanyTimelinePage from '@/pages/Knowledge/CompanyTimeline'
 import TemplatesPage from '@/pages/Templates'
+import TemplateEditor from '@/pages/Templates/Editor'
 import GeneratePage from '@/pages/Generate'
 import PipelinePage from '@/pages/Generate/Pipeline'
 import DocumentsPage from '@/pages/Documents'
@@ -26,7 +28,9 @@ function App() {
           <Route path="knowledge/companies" element={<CompaniesPage />} />
           <Route path="knowledge/projects" element={<ProjectsPage />} />
           <Route path="knowledge/projects/:id" element={<ProjectDetailPage />} />
+          <Route path="knowledge/companies/timeline" element={<CompanyTimelinePage />} />
           <Route path="templates" element={<TemplatesPage />} />
+          <Route path="templates/:templateId/edit" element={<TemplateEditor />} />
           <Route path="generate" element={<GeneratePage />} />
           <Route path="generate/pipeline" element={<PipelinePage />} />
           <Route path="documents" element={<DocumentsPage />} />

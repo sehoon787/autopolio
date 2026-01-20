@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
+from typing import Optional, Literal
 import os
 
 from api.database import get_db
@@ -10,6 +10,7 @@ from api.config import get_settings
 from api.models.document import GeneratedDocument
 from api.models.user import User
 from api.schemas.document import DocumentResponse, DocumentListResponse
+from api.services.report_service import ReportService
 
 router = APIRouter()
 settings = get_settings()
@@ -210,3 +211,121 @@ async def get_document_versions(document_id: int, db: AsyncSession = Depends(get
         ],
         "total_versions": len(versions)
     }
+
+
+# ==================== Report Generation Endpoints ====================
+
+@router.get("/reports/projects")
+async def generate_projects_report(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate PROJECTS.md style report.
+    Lists all projects with details like period, company, team size, role, etc.
+    """
+    report_service = ReportService(db)
+    try:
+        content = await report_service.generate_projects_md(user_id)
+        return {
+            "report_type": "projects_md",
+            "content": content,
+            "format": "markdown"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/reports/performance")
+async def generate_performance_report(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate PROJECT_PERFORMANCE_SUMMARY.md style report.
+    Focuses on quantitative achievements and metrics.
+    """
+    report_service = ReportService(db)
+    try:
+        content = await report_service.generate_performance_summary(user_id)
+        return {
+            "report_type": "performance_summary",
+            "content": content,
+            "format": "markdown"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/reports/company-integrated")
+async def generate_company_integrated_report(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate company-integrated report.
+    Groups projects by company with aggregated tech stacks.
+    """
+    report_service = ReportService(db)
+    try:
+        content = await report_service.generate_company_integrated_report(user_id)
+        return {
+            "report_type": "company_integrated",
+            "content": content,
+            "format": "markdown"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/reports/all")
+async def generate_all_reports(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate all report formats at once.
+    Returns projects_md, performance_summary, and company_integrated reports.
+    """
+    report_service = ReportService(db)
+    try:
+        reports = await report_service.generate_full_report(user_id)
+        return {
+            "reports": reports,
+            "formats": ["projects_md", "performance_summary", "company_integrated"]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/reports/download/{report_type}")
+async def download_report(
+    report_type: Literal["projects", "performance", "company-integrated"] = "projects",
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Download a report as markdown file.
+    """
+    report_service = ReportService(db)
+
+    try:
+        if report_type == "projects":
+            content = await report_service.generate_projects_md(user_id)
+            filename = "PROJECTS.md"
+        elif report_type == "performance":
+            content = await report_service.generate_performance_summary(user_id)
+            filename = "PROJECT_PERFORMANCE_SUMMARY.md"
+        else:  # company-integrated
+            content = await report_service.generate_company_integrated_report(user_id)
+            filename = "COMPANY_INTEGRATED_REPORT.md"
+
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

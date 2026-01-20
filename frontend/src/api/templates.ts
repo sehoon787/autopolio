@@ -32,6 +32,38 @@ export interface TemplateCreate {
   max_characters?: number
 }
 
+export interface TemplatePreviewRequest {
+  template_content: string
+  sample_data?: Record<string, unknown>
+}
+
+export interface TemplatePreviewResponse {
+  preview_html: string
+  preview_text: string
+  fields_used: string[]
+}
+
+export interface FieldInfo {
+  field: string
+  description: string
+  example?: string
+  is_section?: boolean
+  parent?: string
+}
+
+export interface AvailableFieldsResponse {
+  user_fields: FieldInfo[]
+  company_fields: FieldInfo[]
+  project_fields: FieldInfo[]
+  achievement_fields: FieldInfo[]
+  syntax_guide: {
+    simple_field: string
+    section_start: string
+    section_end: string
+    example: string
+  }
+}
+
 export interface PlatformConfig {
   name: string
   max_projects: number | null
@@ -70,4 +102,17 @@ export const templatesApi = {
 
   initSystemTemplates: () =>
     apiClient.post('/templates/init-system-templates'),
+
+  clone: (templateId: number, userId: number, newName?: string) =>
+    apiClient.post<Template>(`/templates/${templateId}/clone`, null, {
+      params: { user_id: userId, new_name: newName }
+    }),
+
+  preview: (data: TemplatePreviewRequest, userId?: number) =>
+    apiClient.post<TemplatePreviewResponse>('/templates/preview', data, {
+      params: userId ? { user_id: userId } : {}
+    }),
+
+  getAvailableFields: () =>
+    apiClient.get<AvailableFieldsResponse>('/templates/fields/available'),
 }

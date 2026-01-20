@@ -22,11 +22,13 @@ from api.models.company import Company
 from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.repo_analysis import RepoAnalysis
+from api.models.achievement import ProjectAchievement
 from api.services.task_service import TaskService
 from api.services.github_service import GitHubService
 from api.services.llm_service import LLMService
 from api.services.document_service import DocumentService
 from api.services.encryption_service import EncryptionService
+from api.services.achievement_service import AchievementService
 from api.schemas.pipeline import PipelineRunRequest
 
 
@@ -37,6 +39,7 @@ class PipelineService:
         "GitHub Analysis",
         "Code Extraction",
         "Tech Detection",
+        "Achievement Detection",
         "LLM Summarization",
         "Template Mapping",
         "Document Generation"
@@ -85,18 +88,23 @@ class PipelineService:
                 task_id, request, code_results
             )
 
-            # Step 4: LLM Summarization
+            # Step 4: Achievement Detection
+            achievement_results = await self._step_achievement_detection(
+                task_id, request, user
+            )
+
+            # Step 5: LLM Summarization
             summary_results, tokens = await self._step_llm_summarization(
                 task_id, request, user, tech_results
             )
             llm_tokens += tokens
 
-            # Step 5: Template Mapping
+            # Step 6: Template Mapping
             mapping_results = await self._step_template_mapping(
                 task_id, request, user, summary_results
             )
 
-            # Step 6: Document Generation
+            # Step 7: Document Generation
             document = await self._step_document_generation(
                 task_id, request, mapping_results
             )
@@ -263,6 +271,105 @@ class PipelineService:
         await self.task_service.complete_step(task_id, 3, results)
         return results
 
+    async def _step_achievement_detection(
+        self,
+        task_id: str,
+        request: PipelineRunRequest,
+        user: User
+    ) -> Dict[str, Any]:
+        """Step 4: Detect achievements from project data."""
+        await self.task_service.start_step(task_id, 4, self.STEP_NAMES[3])
+
+        results = {"projects": [], "total_detected": 0, "total_saved": 0}
+
+        # Get LLM provider for achievement detection
+        llm_provider = request.llm_provider or user.preferred_llm
+
+        # Get projects with repo analysis
+        projects_result = await self.db.execute(
+            select(Project)
+            .where(Project.id.in_(request.project_ids))
+            .options(
+                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+                selectinload(Project.repo_analysis),
+                selectinload(Project.achievements)
+            )
+        )
+        projects = projects_result.scalars().all()
+
+        for project in projects:
+            # Prepare project data
+            project_data = {
+                "name": project.name,
+                "description": project.description or "",
+                "role": project.role,
+                "team_size": project.team_size,
+                "contribution_percent": project.contribution_percent,
+                "technologies": [pt.technology.name for pt in project.technologies],
+                "total_commits": 0,
+                "lines_added": 0,
+                "lines_deleted": 0,
+                "files_changed": 0,
+                "commit_categories": {},
+                "commit_summary": None
+            }
+
+            commit_messages = []
+            if project.repo_analysis:
+                repo_analysis = project.repo_analysis
+                project_data.update({
+                    "total_commits": repo_analysis.total_commits or 0,
+                    "lines_added": repo_analysis.lines_added or 0,
+                    "lines_deleted": repo_analysis.lines_deleted or 0,
+                    "files_changed": repo_analysis.files_changed or 0,
+                    "commit_categories": repo_analysis.commit_categories or {},
+                    "commit_summary": repo_analysis.commit_messages_summary
+                })
+                if repo_analysis.commit_messages_summary:
+                    commit_messages = repo_analysis.commit_messages_summary.split("\n")
+
+            # Detect achievements (skip LLM in pipeline to save tokens)
+            achievement_service = AchievementService(llm_provider=None)
+            detected_achievements, stats = await achievement_service.detect_all(
+                project_data=project_data,
+                commit_messages=commit_messages,
+                use_llm=False  # Skip LLM in pipeline, can be done separately
+            )
+
+            # Filter out existing achievements
+            existing_keys = {(a.metric_name, a.metric_value) for a in project.achievements}
+            new_achievements = [
+                a for a in detected_achievements
+                if (a["metric_name"], a["metric_value"]) not in existing_keys
+            ]
+
+            # Save new achievements
+            saved_count = 0
+            for i, a in enumerate(new_achievements):
+                achievement = ProjectAchievement(
+                    project_id=project.id,
+                    metric_name=a["metric_name"],
+                    metric_value=a["metric_value"],
+                    description=a.get("description"),
+                    category=a.get("category"),
+                    evidence=a.get("evidence"),
+                    display_order=len(project.achievements) + i
+                )
+                self.db.add(achievement)
+                saved_count += 1
+
+            results["projects"].append({
+                "project_id": project.id,
+                "detected": len(new_achievements),
+                "saved": saved_count
+            })
+            results["total_detected"] += len(new_achievements)
+            results["total_saved"] += saved_count
+
+        await self.db.flush()
+        await self.task_service.complete_step(task_id, 4, results)
+        return results
+
     async def _step_llm_summarization(
         self,
         task_id: str,
@@ -270,14 +377,14 @@ class PipelineService:
         user: User,
         tech_results: Dict[str, Any]
     ) -> tuple[Dict[str, Any], int]:
-        """Step 4: Generate LLM-based summaries."""
-        await self.task_service.start_step(task_id, 4, self.STEP_NAMES[3])
+        """Step 5: Generate LLM-based summaries."""
+        await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         results = {"summaries": [], "tokens_used": 0}
         tokens_used = 0
 
         if request.skip_llm_summary:
-            await self.task_service.complete_step(task_id, 4, results)
+            await self.task_service.complete_step(task_id, 5, results)
             return results, 0
 
         try:
@@ -339,7 +446,7 @@ class PipelineService:
         except Exception as e:
             results["error"] = str(e)
 
-        await self.task_service.complete_step(task_id, 4, results)
+        await self.task_service.complete_step(task_id, 5, results)
         return results, tokens_used
 
     async def _step_template_mapping(
@@ -349,8 +456,8 @@ class PipelineService:
         user: User,
         summary_results: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Step 5: Map data to template fields."""
-        await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
+        """Step 6: Map data to template fields."""
+        await self.task_service.start_step(task_id, 6, self.STEP_NAMES[5])
 
         # Get template
         template_result = await self.db.execute(
@@ -435,7 +542,7 @@ class PipelineService:
             "output_format": request.output_format
         }
 
-        await self.task_service.complete_step(task_id, 5, {"mapped": True})
+        await self.task_service.complete_step(task_id, 6, {"mapped": True})
         return results
 
     async def _step_document_generation(
@@ -444,8 +551,8 @@ class PipelineService:
         request: PipelineRunRequest,
         mapping_results: Dict[str, Any]
     ) -> GeneratedDocument:
-        """Step 6: Generate the final document."""
-        await self.task_service.start_step(task_id, 6, self.STEP_NAMES[5])
+        """Step 7: Generate the final document."""
+        await self.task_service.start_step(task_id, 7, self.STEP_NAMES[6])
 
         # Generate document name
         document_name = request.document_name or f"Resume_{datetime.now().strftime('%Y%m%d')}"
@@ -480,7 +587,7 @@ class PipelineService:
         await self.db.flush()
         await self.db.refresh(document)
 
-        await self.task_service.complete_step(task_id, 6, {
+        await self.task_service.complete_step(task_id, 7, {
             "document_id": document.id,
             "file_path": file_path
         })

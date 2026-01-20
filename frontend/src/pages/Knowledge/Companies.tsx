@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,9 +18,10 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { companiesApi, Company, CompanyCreate } from '@/api/knowledge'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Building2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building2, LayoutList } from 'lucide-react'
 
 export default function CompaniesPage() {
+  const navigate = useNavigate()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -136,10 +138,16 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-bold">회사 관리</h1>
           <p className="text-gray-600">경력 사항을 관리합니다.</p>
         </div>
-        <Button onClick={() => { resetForm(); setEditingCompany(null); setIsDialogOpen(true) }}>
-          <Plus className="h-4 w-4 mr-2" />
-          회사 추가
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/knowledge/companies/timeline')}>
+            <LayoutList className="h-4 w-4 mr-2" />
+            타임라인 뷰
+          </Button>
+          <Button onClick={() => { resetForm(); setEditingCompany(null); setIsDialogOpen(true) }}>
+            <Plus className="h-4 w-4 mr-2" />
+            회사 추가
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
