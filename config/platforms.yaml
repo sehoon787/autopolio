@@ -1,0 +1,155 @@
+# Platform-specific Template Configurations
+
+platforms:
+  saramin_1:
+    name: "사람인 (표준)"
+    description: "사람인 표준 이력서 형식"
+    sections:
+      - name: "기본 정보"
+        fields:
+          - name: user_name
+            label: "이름"
+            required: true
+          - name: email
+            label: "이메일"
+            required: true
+          - name: phone
+            label: "연락처"
+            required: false
+      - name: "경력 사항"
+        fields:
+          - name: company_name
+            label: "회사명"
+            required: true
+          - name: position
+            label: "직책"
+            required: true
+          - name: period
+            label: "재직 기간"
+            required: true
+          - name: description
+            label: "담당 업무"
+            required: true
+      - name: "프로젝트"
+        fields:
+          - name: project_name
+            label: "프로젝트명"
+            required: true
+          - name: project_summary
+            label: "프로젝트 개요"
+            required: true
+          - name: tech_stack
+            label: "기술 스택"
+            required: false
+          - name: achievements
+            label: "주요 성과"
+            required: false
+
+  saramin_2:
+    name: "사람인 (상세)"
+    description: "사람인 상세 경력기술서 형식"
+    sections:
+      - name: "인적 사항"
+        fields:
+          - name: user_name
+            label: "성명"
+            required: true
+          - name: birth_date
+            label: "생년월일"
+            required: false
+      - name: "경력 요약"
+        fields:
+          - name: career_summary
+            label: "경력 요약"
+            required: true
+      - name: "상세 경력"
+        fields:
+          - name: company_details
+            label: "회사별 상세 내용"
+            required: true
+
+  saramin_3:
+    name: "사람인 (프로젝트 중심)"
+    description: "프로젝트 중심 포트폴리오"
+    sections:
+      - name: "프로젝트 목록"
+        fields:
+          - name: projects
+            label: "프로젝트"
+            required: true
+            type: "array"
+
+  wanted:
+    name: "원티드"
+    description: "원티드 이력서 형식"
+    max_length:
+      project_summary: 500
+      career_description: 1000
+    sections:
+      - name: "기본 정보"
+        fields:
+          - name: user_name
+            label: "이름"
+            required: true
+          - name: email
+            label: "이메일"
+            required: true
+          - name: intro
+            label: "한줄 소개"
+            required: false
+      - name: "경력"
+        fields:
+          - name: experiences
+            label: "경력 사항"
+            required: true
+      - name: "프로젝트"
+        fields:
+          - name: projects
+            label: "프로젝트"
+            required: false
+
+  remember:
+    name: "리멤버"
+    description: "리멤버 명함/프로필 형식"
+    compact: true
+    sections:
+      - name: "프로필"
+        fields:
+          - name: user_name
+            label: "이름"
+            required: true
+          - name: title
+            label: "직함"
+            required: true
+          - name: company
+            label: "소속"
+            required: true
+          - name: skills
+            label: "전문 분야"
+            required: false
+
+  notion:
+    name: "노션"
+    description: "노션 포트폴리오 형식 (Markdown)"
+    format: markdown
+    sections:
+      - name: "소개"
+        fields:
+          - name: intro
+            label: "자기소개"
+            required: true
+      - name: "기술 스택"
+        fields:
+          - name: skills
+            label: "기술 스택"
+            required: true
+      - name: "프로젝트"
+        fields:
+          - name: projects
+            label: "프로젝트 상세"
+            required: true
+      - name: "경력"
+        fields:
+          - name: career
+            label: "경력 사항"
+            required: false

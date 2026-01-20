@@ -1,0 +1,78 @@
+# Autopolio Configuration
+
+app:
+  name: Autopolio
+  version: "1.0.0"
+  description: "포트폴리오/이력서 자동화 플랫폼"
+
+# LLM Settings
+llm:
+  max_tokens: 4096
+  temperature: 0.7
+  summary_styles:
+    professional:
+      name: "전문적"
+      description: "격식있고 비즈니스 친화적인 톤"
+      temperature: 0.5
+    casual:
+      name: "친근한"
+      description: "편안하고 접근하기 쉬운 톤"
+      temperature: 0.7
+    technical:
+      name: "기술 중심"
+      description: "상세한 기술적 설명에 초점"
+      temperature: 0.3
+
+# GitHub Analysis
+github:
+  max_commits_per_repo: 500
+  max_files_to_analyze: 100
+  ignored_directories:
+    - node_modules
+    - .git
+    - __pycache__
+    - venv
+    - .env
+    - dist
+    - build
+  tech_detection:
+    package_json:
+      - dependencies
+      - devDependencies
+    requirements_txt: true
+    pyproject_toml: true
+    go_mod: true
+    cargo_toml: true
+    pom_xml: true
+    build_gradle: true
+
+# Document Generation
+document:
+  output_formats:
+    - docx
+    - pdf
+    - md
+  max_file_size_mb: 10
+  default_format: docx
+
+# Pipeline
+pipeline:
+  steps:
+    - name: "GitHub Analysis"
+      description: "GitHub 레포지토리 분석"
+      timeout_seconds: 300
+    - name: "Code Extraction"
+      description: "코드 패턴 및 아키텍처 추출"
+      timeout_seconds: 120
+    - name: "Tech Detection"
+      description: "기술 스택 자동 탐지"
+      timeout_seconds: 60
+    - name: "LLM Summarization"
+      description: "AI 기반 프로젝트 요약 생성"
+      timeout_seconds: 180
+    - name: "Template Mapping"
+      description: "템플릿 필드 매핑"
+      timeout_seconds: 30
+    - name: "Document Generation"
+      description: "최종 문서 생성"
+      timeout_seconds: 120
