@@ -15,7 +15,17 @@ class User(Base):
     github_avatar_url = Column(String(500))
 
     # LLM preferences
-    preferred_llm = Column(String(50), default="openai")  # "openai" or "anthropic"
+    preferred_llm = Column(String(50), default="openai")  # "openai", "anthropic", or "gemini"
+
+    # Model preferences per provider
+    openai_model = Column(String(100), default="gpt-4-turbo-preview")
+    anthropic_model = Column(String(100), default="claude-3-5-sonnet-20241022")
+    gemini_model = Column(String(100), default="gemini-2.0-flash")
+
+    # Encrypted API keys for LLM providers
+    openai_api_key_encrypted = Column(Text)
+    anthropic_api_key_encrypted = Column(Text)
+    gemini_api_key_encrypted = Column(Text)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

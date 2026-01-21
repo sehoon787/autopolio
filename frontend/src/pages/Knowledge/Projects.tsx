@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { TechBadge } from '@/components/ui/tech-badge'
 import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -49,14 +50,16 @@ interface ProjectKanbanItem extends KanbanItem {
 
 // Map project status to kanban column IDs
 function getColumnId(project: Project): string {
+  // is_analyzed가 true이면 completed로 표시 (status보다 우선)
+  // 이렇게 해야 리스트 뷰의 "분석됨" 배지와 칸반 뷰의 컬럼이 일치함
+  if (project.is_analyzed) {
+    return 'completed'
+  }
   if (project.status) {
     const validStatuses = PROJECT_STATUS_COLUMNS.map(c => c.id)
     if (validStatuses.includes(project.status)) {
       return project.status
     }
-  }
-  if (project.is_analyzed) {
-    return 'completed'
   }
   return 'pending'
 }
@@ -89,9 +92,7 @@ function ProjectKanbanCard({ project }: { project: Project }) {
 
         <div className="flex flex-wrap gap-1">
           {project.technologies?.slice(0, 4).map((tech) => (
-            <Badge key={tech.id} variant="secondary" className="text-xs py-0">
-              {tech.name}
-            </Badge>
+            <TechBadge key={tech.id} tech={tech.name} size="sm" />
           ))}
           {project.technologies?.length > 4 && (
             <Badge variant="secondary" className="text-xs py-0">
@@ -898,9 +899,7 @@ export default function ProjectsPage() {
                       {project.technologies?.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {project.technologies.map((tech) => (
-                            <Badge key={tech.id} variant="secondary">
-                              {tech.name}
-                            </Badge>
+                            <TechBadge key={tech.id} tech={tech.name} />
                           ))}
                         </div>
                       )}
@@ -1196,15 +1195,14 @@ export default function ProjectsPage() {
               {formData.technologies && formData.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.technologies.map((tech) => (
-                    <Badge
+                    <TechBadge
                       key={tech}
-                      variant="secondary"
-                      className="cursor-pointer"
+                      tech={tech}
+                      className="cursor-pointer hover:opacity-80"
                       onClick={() => removeTechnology(tech)}
-                    >
-                      {tech} ×
-                    </Badge>
+                    />
                   ))}
+                  <span className="text-xs text-gray-500 self-center ml-1">(클릭하여 제거)</span>
                 </div>
               )}
             </div>

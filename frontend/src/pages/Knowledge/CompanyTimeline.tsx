@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TechBadge } from '@/components/ui/tech-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserStore } from '@/stores/userStore'
 import { companiesApi, CompanySummaryResponse } from '@/api/knowledge'
@@ -21,29 +22,13 @@ import {
 } from 'lucide-react'
 
 function TechCategoryBadges({ techCategories }: { techCategories: Record<string, string[]> }) {
-  const categoryColors: Record<string, string> = {
-    Backend: 'bg-green-100 text-green-800',
-    Frontend: 'bg-blue-100 text-blue-800',
-    Mobile: 'bg-purple-100 text-purple-800',
-    Database: 'bg-orange-100 text-orange-800',
-    'DevOps/Infra': 'bg-gray-100 text-gray-800',
-    'AI/ML': 'bg-pink-100 text-pink-800',
-    Other: 'bg-yellow-100 text-yellow-800',
-  }
-
   return (
     <div className="space-y-2">
       {Object.entries(techCategories).map(([category, techs]) => (
         <div key={category} className="flex flex-wrap items-center gap-1">
           <span className="text-xs font-medium text-gray-500 w-20">{category}:</span>
           {techs.map((tech) => (
-            <Badge
-              key={tech}
-              variant="outline"
-              className={`text-xs ${categoryColors[category] || 'bg-gray-100 text-gray-800'}`}
-            >
-              {tech}
-            </Badge>
+            <TechBadge key={tech} tech={tech} size="sm" />
           ))}
         </div>
       ))}
@@ -162,9 +147,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
                     {project.technologies.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {project.technologies.slice(0, 8).map((tech) => (
-                          <Badge key={tech} variant="secondary" className="text-xs">
-                            {tech}
-                          </Badge>
+                          <TechBadge key={tech} tech={tech} size="sm" />
                         ))}
                         {project.technologies.length > 8 && (
                           <Badge variant="outline" className="text-xs">
@@ -319,9 +302,7 @@ export default function CompanyTimelinePage() {
                       </div>
                       <div className="flex flex-wrap gap-1 max-w-md">
                         {summary.aggregated_tech_stack.slice(0, 6).map((tech) => (
-                          <Badge key={tech} variant="outline" className="text-xs">
-                            {tech}
-                          </Badge>
+                          <TechBadge key={tech} tech={tech} size="sm" />
                         ))}
                         {summary.aggregated_tech_stack.length > 6 && (
                           <Badge variant="outline" className="text-xs">

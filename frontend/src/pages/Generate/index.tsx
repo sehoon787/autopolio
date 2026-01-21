@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { TechBadge } from '@/components/ui/tech-badge'
 import {
   Select,
   SelectContent,
@@ -163,9 +164,7 @@ export default function GeneratePage() {
                       {project.technologies?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {project.technologies.slice(0, 5).map((tech) => (
-                            <Badge key={tech.id} variant="outline" className="text-xs">
-                              {tech.name}
-                            </Badge>
+                            <TechBadge key={tech.id} tech={tech.name} size="sm" />
                           ))}
                           {project.technologies.length > 5 && (
                             <Badge variant="outline" className="text-xs">

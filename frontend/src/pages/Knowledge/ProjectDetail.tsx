@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TechBadge } from '@/components/ui/tech-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -506,15 +507,14 @@ export default function ProjectDetailPage() {
               {editFormData.technologies && editFormData.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {editFormData.technologies.map((tech) => (
-                    <Badge
+                    <TechBadge
                       key={tech}
-                      variant="secondary"
-                      className="cursor-pointer"
+                      tech={tech}
+                      className="cursor-pointer hover:opacity-80"
                       onClick={() => removeTechnology(tech)}
-                    >
-                      {tech} ×
-                    </Badge>
+                    />
                   ))}
+                  <span className="text-xs text-gray-500 self-center ml-1">(클릭하여 제거)</span>
                 </div>
               )}
             </div>
@@ -612,9 +612,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
             {project.technologies?.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {project.technologies.map((tech: any) => (
-                  <Badge key={tech.id} variant="secondary" className="text-sm">
-                    {tech.name}
-                  </Badge>
+                  <TechBadge key={tech.id} tech={tech.name} />
                 ))}
               </div>
             ) : (
@@ -847,9 +845,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
             <span className="text-gray-500 text-sm">기술 스택:</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {(final?.technologies || project.technologies?.map((t: any) => t.name) || []).map((tech: string) => (
-                <Badge key={tech} variant="outline" className="text-xs">
-                  {tech}
-                </Badge>
+                <TechBadge key={tech} tech={tech} size="sm" />
               ))}
             </div>
           </div>
@@ -915,9 +911,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
                 <p className="font-medium text-sm text-gray-500 mb-1">{category}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {techs.map((tech: string, idx: number) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
-                      {tech}
-                    </Badge>
+                    <TechBadge key={idx} tech={tech} size="sm" />
                   ))}
                 </div>
               </div>
@@ -1132,9 +1126,7 @@ function DetailTab({
                 <p className="font-medium text-sm text-gray-500 mb-2">{category}</p>
                 <div className="flex flex-wrap gap-2">
                   {techs.map((tech, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {tech}
-                    </Badge>
+                    <TechBadge key={idx} tech={tech} size="sm" />
                   ))}
                 </div>
               </div>
