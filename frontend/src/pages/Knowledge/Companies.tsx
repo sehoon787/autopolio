@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { companiesApi, Company, CompanyCreate } from '@/api/knowledge'
 import { formatDate } from '@/lib/utils'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { Plus, Pencil, Trash2, Building2, LayoutList } from 'lucide-react'
 
 export default function CompaniesPage() {
@@ -302,6 +303,8 @@ export default function CompaniesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ScrollToTop />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { templatesApi } from '@/api/templates'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { FileText, Upload, Trash2, Edit, Copy, Plus } from 'lucide-react'
 
 export default function TemplatesPage() {
@@ -253,6 +254,8 @@ export default function TemplatesPage() {
           )}
         </div>
       )}
+
+      <ScrollToTop />
     </div>
   )
 }

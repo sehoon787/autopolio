@@ -70,7 +70,10 @@ class ReportService:
     def _format_date_range(self, start: Optional[date], end: Optional[date], is_current: bool = False) -> str:
         """Format date range"""
         start_str = self._format_date(start)
-        end_str = "현재" if is_current else self._format_date(end)
+        if is_current or end is None:
+            end_str = "진행중"
+        else:
+            end_str = self._format_date(end)
         return f"{start_str} ~ {end_str}"
 
     async def generate_projects_md(self, user_id: int) -> str:

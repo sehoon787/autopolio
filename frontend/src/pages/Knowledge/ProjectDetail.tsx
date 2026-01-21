@@ -1,15 +1,34 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { projectsApi } from '@/api/knowledge'
+import { projectsApi, companiesApi, type ProjectCreate } from '@/api/knowledge'
 import { githubApi } from '@/api/github'
 import { reportsApi, type DetailedReportData, type FinalReportData, type PerformanceSummaryData } from '@/api/documents'
 import { formatDate } from '@/lib/utils'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import {
   ArrowLeft,
   Github,
@@ -22,6 +41,7 @@ import {
   BarChart3,
   ClipboardList,
   Sparkles,
+  Pencil,
 } from 'lucide-react'
 
 export default function ProjectDetailPage() {
@@ -31,7 +51,21 @@ export default function ProjectDetailPage() {
   const queryClient = useQueryClient()
   const { user } = useUserStore()
 
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editFormData, setEditFormData] = useState<Partial<ProjectCreate>>({})
+  const [techInput, setTechInput] = useState('')
+  const [isOngoing, setIsOngoing] = useState(false)
+
   const projectId = parseInt(id || '0')
+
+  // Fetch companies for edit form
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies', user?.id],
+    queryFn: () => companiesApi.getAll(user!.id),
+    enabled: !!user?.id,
+  })
+
+  const companies = companiesData?.data || []
 
   const { data: projectData, isLoading } = useQuery({
     queryKey: ['project', projectId],
@@ -84,6 +118,78 @@ export default function ProjectDetailPage() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: (data: Partial<ProjectCreate>) => projectsApi.update(projectId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      setIsEditDialogOpen(false)
+      toast({ title: '프로젝트가 수정되었습니다.' })
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || '수정에 실패했습니다.'
+      toast({ title: '오류', description: errorMessage, variant: 'destructive' })
+    },
+  })
+
+  // Open edit dialog with current project data
+  const openEditDialog = () => {
+    if (!project) return
+    setEditFormData({
+      name: project.name,
+      short_description: project.short_description || '',
+      description: project.description || '',
+      start_date: project.start_date || '',
+      end_date: project.end_date || '',
+      team_size: project.team_size || undefined,
+      role: project.role || '',
+      contribution_percent: project.contribution_percent || undefined,
+      git_url: project.git_url || '',
+      project_type: project.project_type || 'personal',
+      company_id: project.company_id || undefined,
+      technologies: project.technologies?.map((t: any) => t.name) || [],
+    })
+    setIsOngoing(!project.end_date)
+    setTechInput('')
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanedData: Partial<ProjectCreate> = {
+      name: editFormData.name,
+      short_description: editFormData.short_description || undefined,
+      description: editFormData.description || undefined,
+      start_date: editFormData.start_date || undefined,
+      end_date: editFormData.end_date || undefined,
+      team_size: editFormData.team_size,
+      role: editFormData.role || undefined,
+      contribution_percent: editFormData.contribution_percent,
+      git_url: editFormData.git_url || undefined,
+      project_type: editFormData.project_type || undefined,
+      company_id: editFormData.company_id,
+      technologies: editFormData.technologies,
+    }
+    updateMutation.mutate(cleanedData)
+  }
+
+  const addTechnology = () => {
+    if (techInput.trim() && !editFormData.technologies?.includes(techInput.trim())) {
+      setEditFormData({
+        ...editFormData,
+        technologies: [...(editFormData.technologies || []), techInput.trim()],
+      })
+      setTechInput('')
+    }
+  }
+
+  const removeTechnology = (tech: string) => {
+    setEditFormData({
+      ...editFormData,
+      technologies: editFormData.technologies?.filter((t) => t !== tech),
+    })
+  }
+
   const project = projectData?.data
   const analysis = analysisData?.data
   const summary = summaryReport?.data as PerformanceSummaryData | undefined
@@ -114,6 +220,10 @@ export default function ProjectDetailPage() {
             <p className="text-gray-600 mt-1">{project.short_description}</p>
           )}
         </div>
+        <Button variant="outline" onClick={openEditDialog}>
+          <Pencil className="h-4 w-4 mr-2" />
+          수정
+        </Button>
         {project.git_url && (
           <Button
             variant="outline"
@@ -158,6 +268,205 @@ export default function ProjectDetailPage() {
           <DetailTab project={project} analysis={analysis} detailed={detailed} />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>프로젝트 수정</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">프로젝트명 *</Label>
+              <Input
+                id="edit-name"
+                value={editFormData.name || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                required
+              />
+              <p className="text-xs text-gray-500">
+                프로젝트명은 GitHub 레포지토리 이름과 다르게 설정할 수 있습니다.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-short_description">간단 설명</Label>
+              <Input
+                id="edit-short_description"
+                value={editFormData.short_description || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, short_description: e.target.value })}
+                placeholder="한 줄 요약"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>프로젝트 유형</Label>
+                <Select
+                  value={editFormData.project_type || 'personal'}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, project_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="company">회사 프로젝트</SelectItem>
+                    <SelectItem value="personal">개인 프로젝트</SelectItem>
+                    <SelectItem value="open-source">오픈소스</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>회사</Label>
+                <Select
+                  value={editFormData.company_id?.toString() || 'none'}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, company_id: v === 'none' ? undefined : parseInt(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="선택 (선택사항)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">없음</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-start_date">시작일</Label>
+                <Input
+                  id="edit-start_date"
+                  type="date"
+                  value={editFormData.start_date || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-end_date">종료일</Label>
+                <Input
+                  id="edit-end_date"
+                  type="date"
+                  value={editFormData.end_date || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                  disabled={isOngoing}
+                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-is_ongoing"
+                checked={isOngoing}
+                onChange={(e) => {
+                  setIsOngoing(e.target.checked)
+                  if (e.target.checked) {
+                    setEditFormData({ ...editFormData, end_date: '' })
+                  }
+                }}
+              />
+              <Label htmlFor="edit-is_ongoing" className="cursor-pointer">현재 진행중인 프로젝트</Label>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">역할</Label>
+                <Input
+                  id="edit-role"
+                  value={editFormData.role || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                  placeholder="백엔드 개발"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-team_size">팀 규모</Label>
+                <Input
+                  id="edit-team_size"
+                  type="number"
+                  value={editFormData.team_size || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, team_size: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="5"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-contribution_percent">기여도 (%)</Label>
+                <Input
+                  id="edit-contribution_percent"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editFormData.contribution_percent || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, contribution_percent: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="70"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-git_url">GitHub URL</Label>
+              <Input
+                id="edit-git_url"
+                value={editFormData.git_url || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, git_url: e.target.value })}
+                placeholder="https://github.com/username/repo"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>기술 스택</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={techInput}
+                  onChange={(e) => setTechInput(e.target.value)}
+                  placeholder="기술명 입력 후 추가"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addTechnology()
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={addTechnology}>
+                  추가
+                </Button>
+              </div>
+              {editFormData.technologies && editFormData.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {editFormData.technologies.map((tech) => (
+                    <Badge
+                      key={tech}
+                      variant="secondary"
+                      className="cursor-pointer"
+                      onClick={() => removeTechnology(tech)}
+                    >
+                      {tech} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">상세 설명</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                취소
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? '저장 중...' : '저장'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ScrollToTop />
     </div>
   )
 }
@@ -408,7 +717,9 @@ function SummaryTab({ project, analysis, final }: SummaryTabProps) {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-500">기간:</span>{' '}
-              <span className="font-medium">{final?.overview?.date_range || formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : '진행중'}</span>
+              <span className="font-medium">
+                {final?.overview?.date_range || `${formatDate(project.start_date)} ~ ${project.end_date ? formatDate(project.end_date) : '진행중'}`}
+              </span>
             </div>
             <div>
               <span className="text-gray-500">소속:</span>{' '}

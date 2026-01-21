@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { documentsApi } from '@/api/documents'
 import { formatDateTime, formatFileSize } from '@/lib/utils'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { FileText, Download, Trash2, Eye, Archive, Plus } from 'lucide-react'
 
 export default function DocumentsPage() {
@@ -157,6 +158,8 @@ export default function DocumentsPage() {
           ))}
         </div>
       )}
+
+      <ScrollToTop />
     </div>
   )
 }

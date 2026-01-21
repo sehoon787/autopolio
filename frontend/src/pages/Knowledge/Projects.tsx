@@ -39,6 +39,7 @@ import {
   createKanbanColumns,
 } from '@/components/KanbanBoard'
 import { formatDate } from '@/lib/utils'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase } from 'lucide-react'
 
 // Extend Project to be a KanbanItem
@@ -170,6 +171,7 @@ export default function ProjectsPage() {
   const [selectedRepoUrl, setSelectedRepoUrl] = useState<string>('')
   const [isLoadingRepoInfo, setIsLoadingRepoInfo] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [isOngoing, setIsOngoing] = useState(false)
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -236,18 +238,20 @@ export default function ProjectsPage() {
       const info = infoResponse.data
       const technologies = techResponse.data.technologies || []
 
+      const endDate = info.end_date || ''
       setFormData((prev) => ({
         ...prev,
-        name: info.name || prev.name,
+        // name은 자동으로 채우지 않음 - 사용자가 직접 지정
         short_description: info.description || prev.short_description,
         git_url: info.html_url || repoUrl,
         start_date: info.start_date || prev.start_date,
-        end_date: info.end_date || prev.end_date,
+        end_date: endDate,
         team_size: info.team_size || prev.team_size,
         contribution_percent: info.contribution_percent || prev.contribution_percent,
         project_type: 'personal',
         technologies: technologies.length > 0 ? technologies : prev.technologies,
       }))
+      setIsOngoing(!endDate)
 
       toast({ title: '레포지토리 정보와 기술 스택을 불러왔습니다.' })
     } catch (error: any) {
@@ -408,6 +412,7 @@ export default function ProjectsPage() {
     })
     setTechInput('')
     setSelectedRepoUrl('')
+    setIsOngoing(false)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1021,8 +1026,12 @@ export default function ProjectsPage() {
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="예: 결제 시스템 고도화"
                 required
               />
+              <p className="text-xs text-gray-500">
+                GitHub 레포지토리 이름과 관계없이 원하는 프로젝트명을 지정하세요.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="short_description">간단 설명</Label>
@@ -1086,8 +1095,24 @@ export default function ProjectsPage() {
                   type="date"
                   value={formData.end_date}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  disabled={isOngoing}
+                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
                 />
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_ongoing"
+                checked={isOngoing}
+                onChange={(e) => {
+                  setIsOngoing(e.target.checked)
+                  if (e.target.checked) {
+                    setFormData({ ...formData, end_date: '' })
+                  }
+                }}
+              />
+              <Label htmlFor="is_ongoing" className="cursor-pointer">현재 진행중인 프로젝트</Label>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -1203,6 +1228,8 @@ export default function ProjectsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ScrollToTop />
     </div>
   )
 }
