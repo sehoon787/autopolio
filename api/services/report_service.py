@@ -17,6 +17,7 @@ from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
 from api.models.achievement import ProjectAchievement
 from api.models.repo_analysis import RepoAnalysis
+from api.models.repo_analysis_edits import RepoAnalysisEdits
 
 
 class ReportService:
@@ -315,7 +316,7 @@ class ReportService:
         }
 
     async def _get_project_with_analysis(self, project_id: int) -> Dict[str, Any]:
-        """Get project data with repo analysis"""
+        """Get project data with repo analysis and user edits applied"""
         # Get project with technologies and achievements
         project_result = await self.db.execute(
             select(Project)
@@ -335,6 +336,14 @@ class ReportService:
         )
         analysis = analysis_result.scalar_one_or_none()
 
+        # Get user edits if analysis exists
+        edits = None
+        if analysis:
+            edits_result = await self.db.execute(
+                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+            )
+            edits = edits_result.scalar_one_or_none()
+
         # Get company if exists
         company = None
         if project.company_id:
@@ -346,8 +355,27 @@ class ReportService:
         return {
             "project": project,
             "analysis": analysis,
+            "edits": edits,
             "company": company
         }
+
+    def _get_effective_key_tasks(self, analysis: Any, edits: Any) -> List:
+        """Get effective key_tasks (edited or original)"""
+        if edits and edits.key_tasks_modified and edits.key_tasks is not None:
+            return edits.key_tasks
+        return analysis.key_tasks if analysis else []
+
+    def _get_effective_implementation_details(self, analysis: Any, edits: Any) -> List:
+        """Get effective implementation_details (edited or original)"""
+        if edits and edits.implementation_details_modified and edits.implementation_details is not None:
+            return edits.implementation_details
+        return analysis.implementation_details if analysis else []
+
+    def _get_effective_detailed_achievements(self, analysis: Any, edits: Any) -> Dict:
+        """Get effective detailed_achievements (edited or original)"""
+        if edits and edits.detailed_achievements_modified and edits.detailed_achievements is not None:
+            return edits.detailed_achievements
+        return analysis.detailed_achievements if analysis else {}
 
     async def generate_detailed_report(self, project_id: int) -> Dict[str, Any]:
         """
@@ -363,6 +391,7 @@ class ReportService:
         data = await self._get_project_with_analysis(project_id)
         project = data["project"]
         analysis = data["analysis"]
+        edits = data.get("edits")
         company = data["company"]
 
         # Repository info
@@ -409,8 +438,8 @@ class ReportService:
         # Architecture patterns
         architecture_patterns = analysis.architecture_patterns if analysis else []
 
-        # Key tasks
-        key_tasks = analysis.key_tasks if analysis else []
+        # Key tasks (use effective - edited or original)
+        key_tasks = self._get_effective_key_tasks(analysis, edits)
 
         # Achievements by category
         achievements_by_category: Dict[str, List[Dict]] = {}
@@ -427,11 +456,11 @@ class ReportService:
                     "after_value": getattr(ach, 'after_value', None),
                 })
 
-        # LLM-generated detailed content (v1.2)
-        implementation_details = analysis.implementation_details if analysis else []
+        # LLM-generated detailed content (v1.2) - use effective content
+        implementation_details = self._get_effective_implementation_details(analysis, edits)
         development_timeline = analysis.development_timeline if analysis else []
         tech_stack_versions = analysis.tech_stack_versions if analysis else {}
-        detailed_achievements = analysis.detailed_achievements if analysis else {}
+        detailed_achievements = self._get_effective_detailed_achievements(analysis, edits)
 
         return {
             "report_type": "detailed",
@@ -458,7 +487,7 @@ class ReportService:
             "architecture_patterns": architecture_patterns,
             "key_tasks": key_tasks,
             "achievements_by_category": achievements_by_category,
-            # LLM-generated detailed content (v1.2)
+            # LLM-generated detailed content (v1.2) - using effective content
             "implementation_details": implementation_details,
             "development_timeline": development_timeline,
             "tech_stack_versions": tech_stack_versions,
@@ -477,6 +506,7 @@ class ReportService:
         data = await self._get_project_with_analysis(project_id)
         project = data["project"]
         analysis = data["analysis"]
+        edits = data.get("edits")
         company = data["company"]
 
         # Overview
@@ -492,10 +522,11 @@ class ReportService:
         # Technologies
         technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
 
-        # Key implementations (from key_tasks or commit analysis)
+        # Key implementations (use effective - edited or original)
+        effective_key_tasks = self._get_effective_key_tasks(analysis, edits)
         key_implementations = []
-        if analysis and analysis.key_tasks:
-            key_implementations = analysis.key_tasks
+        if effective_key_tasks:
+            key_implementations = effective_key_tasks
         elif analysis and analysis.commit_categories:
             # Generate from commit categories
             categories = analysis.commit_categories
@@ -564,6 +595,7 @@ class ReportService:
         data = await self._get_project_with_analysis(project_id)
         project = data["project"]
         analysis = data["analysis"]
+        edits = data.get("edits")
         company = data["company"]
 
         # Basic info
@@ -578,8 +610,8 @@ class ReportService:
         # Technologies
         technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
 
-        # Key tasks
-        key_tasks = analysis.key_tasks if analysis else []
+        # Key tasks (use effective - edited or original)
+        key_tasks = self._get_effective_key_tasks(analysis, edits)
 
         # Achievements
         achievements = []

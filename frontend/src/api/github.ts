@@ -139,6 +139,28 @@ export interface BatchAnalysisResponse {
   results: BatchAnalysisResult[]
 }
 
+// Inline editing types
+export interface EditStatus {
+  key_tasks_modified: boolean
+  implementation_details_modified: boolean
+  detailed_achievements_modified: boolean
+}
+
+export interface EffectiveRepoAnalysis extends RepoAnalysis {
+  edit_status: EditStatus
+}
+
+export interface AnalysisContentUpdate {
+  field: 'key_tasks' | 'implementation_details' | 'detailed_achievements'
+  content: any
+}
+
+export interface AnalysisUpdateResponse {
+  success: boolean
+  field: string
+  message: string
+}
+
 export const githubApi = {
   getStatus: (userId: number) =>
     apiClient.get<GitHubStatus>('/github/status', {
@@ -218,4 +240,14 @@ export const githubApi = {
     apiClient.post<BatchAnalysisResponse>('/github/analyze-batch', {
       project_ids: projectIds
     }, { params: { user_id: userId } }),
+
+  // Inline editing APIs
+  getEffectiveAnalysis: (projectId: number) =>
+    apiClient.get<EffectiveRepoAnalysis>(`/github/analysis/${projectId}/effective`),
+
+  updateAnalysisContent: (projectId: number, update: AnalysisContentUpdate) =>
+    apiClient.patch<AnalysisUpdateResponse>(`/github/analysis/${projectId}/content`, update),
+
+  resetAnalysisField: (projectId: number, field: string) =>
+    apiClient.post<AnalysisUpdateResponse>(`/github/analysis/${projectId}/reset/${field}`),
 }

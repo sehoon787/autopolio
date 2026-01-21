@@ -132,3 +132,60 @@ class BatchAnalysisResponse(BaseModel):
     completed: int
     failed: int
     results: List[BatchAnalysisResult]
+
+
+# ============ Inline Editing Schemas ============
+
+class AnalysisContentUpdate(BaseModel):
+    """Request to update analysis content."""
+    field: str  # 'key_tasks', 'implementation_details', or 'detailed_achievements'
+    content: Any  # The updated content (type depends on field)
+
+
+class ImplementationDetailItem(BaseModel):
+    """Single implementation detail item."""
+    title: str
+    items: List[str]
+
+
+class DetailedAchievementItem(BaseModel):
+    """Single detailed achievement item."""
+    title: str
+    description: str
+
+
+class EditStatus(BaseModel):
+    """Status of edited fields."""
+    key_tasks_modified: bool = False
+    implementation_details_modified: bool = False
+    detailed_achievements_modified: bool = False
+
+
+class EffectiveAnalysisResponse(BaseModel):
+    """Analysis response with user edits applied."""
+    id: int
+    project_id: int
+    git_url: str
+    total_commits: int
+    user_commits: int
+    lines_added: int
+    lines_deleted: int
+    files_changed: int
+    languages: Dict[str, float]
+    primary_language: Optional[str] = None
+    detected_technologies: List[str]
+    commit_messages_summary: Optional[str] = None
+    commit_categories: Optional[Dict[str, int]] = None
+    architecture_patterns: Optional[List[str]] = None
+    # These fields may contain edited content
+    key_tasks: Optional[List[str]] = None
+    implementation_details: Optional[List[Dict[str, Any]]] = None
+    development_timeline: Optional[List[Dict[str, Any]]] = None
+    tech_stack_versions: Optional[Dict[str, List[str]]] = None
+    detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None
+    analyzed_at: datetime
+    # Edit status
+    edit_status: EditStatus
+
+    class Config:
+        from_attributes = True

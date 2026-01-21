@@ -25,10 +25,12 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { projectsApi, companiesApi, type ProjectCreate } from '@/api/knowledge'
-import { githubApi } from '@/api/github'
-import { reportsApi, type DetailedReportData, type FinalReportData, type PerformanceSummaryData } from '@/api/documents'
+import { githubApi, type EffectiveRepoAnalysis, type EditStatus } from '@/api/github'
+import { reportsApi, type DetailedReportData, type FinalReportData } from '@/api/documents'
 import { formatDate } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
+import { EditableList } from '@/components/EditableList'
+import { EditableStructuredList, type StructuredItem } from '@/components/EditableStructuredList'
 import {
   ArrowLeft,
   Github,
@@ -73,19 +75,53 @@ export default function ProjectDetailPage() {
     enabled: !!projectId,
   })
 
+  // Use effective analysis (with user edits applied)
   const { data: analysisData } = useQuery({
-    queryKey: ['repo-analysis', projectId],
-    queryFn: () => githubApi.getAnalysis(projectId),
+    queryKey: ['repo-analysis-effective', projectId],
+    queryFn: () => githubApi.getEffectiveAnalysis(projectId),
     enabled: !!projectId && !!projectData?.data?.is_analyzed,
+  })
+
+  // Mutation for updating analysis content
+  const updateContentMutation = useMutation({
+    mutationFn: ({ field, content }: { field: 'key_tasks' | 'implementation_details' | 'detailed_achievements', content: any }) =>
+      githubApi.updateAnalysisContent(projectId, { field, content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
+      toast({ title: '저장 완료', description: '변경 내용이 저장되었습니다.' })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '저장 실패',
+        description: error?.response?.data?.detail || '저장에 실패했습니다.',
+        variant: 'destructive'
+      })
+    },
+  })
+
+  // Mutation for resetting analysis field
+  const resetFieldMutation = useMutation({
+    mutationFn: (field: string) => githubApi.resetAnalysisField(projectId, field),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
+      toast({ title: '복원 완료', description: '원본 내용으로 복원되었습니다.' })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '복원 실패',
+        description: error?.response?.data?.detail || '복원에 실패했습니다.',
+        variant: 'destructive'
+      })
+    },
   })
 
   // Fetch report data for tabs
-  const { data: summaryReport } = useQuery({
-    queryKey: ['report-summary', projectId],
-    queryFn: () => reportsApi.getPerformanceSummary(projectId),
-    enabled: !!projectId && !!projectData?.data?.is_analyzed,
-  })
-
   const { data: finalReport } = useQuery({
     queryKey: ['report-final', projectId],
     queryFn: () => reportsApi.getFinalReport(projectId),
@@ -102,7 +138,7 @@ export default function ProjectDetailPage() {
     mutationFn: () => githubApi.analyzeRepo(user!.id, project!.git_url!, project!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['repo-analysis', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
@@ -192,7 +228,6 @@ export default function ProjectDetailPage() {
 
   const project = projectData?.data
   const analysis = analysisData?.data
-  const summary = summaryReport?.data as PerformanceSummaryData | undefined
   const final = finalReport?.data as FinalReportData | undefined
   const detailed = detailedReport?.data as DetailedReportData | undefined
 
@@ -255,17 +290,55 @@ export default function ProjectDetailPage() {
 
         {/* Tab 1: 기본정보 (PROJECT_PERFORMANCE_SUMMARY style) */}
         <TabsContent value="basic" className="mt-6 space-y-6">
-          <BasicInfoTab project={project} analysis={analysis} summary={summary} />
+          <BasicInfoTab
+            project={project}
+            analysis={analysis}
+            editStatus={analysis?.edit_status}
+            onSaveKeyTasks={async (items) => {
+              await updateContentMutation.mutateAsync({ field: 'key_tasks', content: items })
+            }}
+            onResetKeyTasks={async () => {
+              await resetFieldMutation.mutateAsync('key_tasks')
+            }}
+          />
         </TabsContent>
 
         {/* Tab 2: 분석 요약 (FINAL_PROJECT_REPORT style) */}
         <TabsContent value="summary" className="mt-6 space-y-6">
-          <SummaryTab project={project} analysis={analysis} final={final} />
+          <SummaryTab
+            project={project}
+            analysis={analysis}
+            final={final}
+            editStatus={analysis?.edit_status}
+            onSaveKeyTasks={async (items) => {
+              await updateContentMutation.mutateAsync({ field: 'key_tasks', content: items })
+            }}
+            onResetKeyTasks={async () => {
+              await resetFieldMutation.mutateAsync('key_tasks')
+            }}
+          />
         </TabsContent>
 
         {/* Tab 3: 상세 분석 (DETAILED_COMPLETION_REPORT style) */}
         <TabsContent value="detail" className="mt-6 space-y-6">
-          <DetailTab project={project} analysis={analysis} detailed={detailed} />
+          <DetailTab
+            project={project}
+            analysis={analysis}
+            detailed={detailed}
+            editStatus={analysis?.edit_status}
+            onSaveImplementationDetails={async (sections) => {
+              await updateContentMutation.mutateAsync({ field: 'implementation_details', content: sections })
+            }}
+            onResetImplementationDetails={async () => {
+              await resetFieldMutation.mutateAsync('implementation_details')
+            }}
+            onSaveDetailedAchievements={async (achievements) => {
+              await updateContentMutation.mutateAsync({ field: 'detailed_achievements', content: achievements })
+            }}
+            onResetDetailedAchievements={async () => {
+              await resetFieldMutation.mutateAsync('detailed_achievements')
+            }}
+          />
         </TabsContent>
       </Tabs>
 
@@ -474,11 +547,15 @@ export default function ProjectDetailPage() {
 // Tab 1: 기본정보
 interface BasicInfoTabProps {
   project: any
-  analysis: any
-  summary: PerformanceSummaryData | undefined
+  analysis: EffectiveRepoAnalysis | undefined
+  editStatus?: EditStatus
+  onSaveKeyTasks: (items: string[]) => Promise<void>
+  onResetKeyTasks: () => Promise<void>
 }
 
-function BasicInfoTab({ project, analysis, summary }: BasicInfoTabProps) {
+function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKeyTasks }: BasicInfoTabProps) {
+  const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
+
   return (
     <>
       {/* 프로젝트 정보 & 기술 스택 */}
@@ -547,27 +624,52 @@ function BasicInfoTab({ project, analysis, summary }: BasicInfoTabProps) {
         </Card>
       </div>
 
-      {/* 주요 수행 업무 (신규) */}
-      {(summary?.key_tasks?.length || analysis?.key_tasks?.length) ? (
+      {/* 주요 수행 업무 (인라인 편집 가능) */}
+      {project.is_analyzed && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-blue-500" />
               주요 수행 업무
+              {editStatus?.key_tasks_modified && (
+                <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
+                  수정됨
+                </Badge>
+              )}
             </CardTitle>
+            {!isEditingKeyTasks && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingKeyTasks(true)}
+                className="h-8 text-gray-500 hover:text-gray-700"
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                편집
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
-              {(summary?.key_tasks || analysis?.key_tasks || []).map((task: string, index: number) => (
-                <li key={index} className="flex items-start gap-2">
-                  <span className="text-blue-500 font-medium">({index + 1})</span>
-                  <span>{task}</span>
-                </li>
-              ))}
-            </ul>
+            <EditableList
+              items={analysis?.key_tasks || []}
+              onSave={async (items) => {
+                await onSaveKeyTasks(items)
+                setIsEditingKeyTasks(false)
+              }}
+              onReset={async () => {
+                await onResetKeyTasks()
+                setIsEditingKeyTasks(false)
+              }}
+              isModified={editStatus?.key_tasks_modified || false}
+              emptyMessage="분석된 주요 수행 업무가 없습니다."
+              itemPrefix="(n)"
+              isEditing={isEditingKeyTasks}
+              onEditingChange={setIsEditingKeyTasks}
+              hideEditButton
+            />
           </CardContent>
         </Card>
-      ) : null}
+      )}
 
       {/* 성과 */}
       <Card>
@@ -689,11 +791,16 @@ function BasicInfoTab({ project, analysis, summary }: BasicInfoTabProps) {
 // Tab 2: 분석 요약
 interface SummaryTabProps {
   project: any
-  analysis: any
+  analysis: EffectiveRepoAnalysis | undefined
   final: FinalReportData | undefined
+  editStatus?: EditStatus
+  onSaveKeyTasks: (items: string[]) => Promise<void>
+  onResetKeyTasks: () => Promise<void>
 }
 
-function SummaryTab({ project, analysis, final }: SummaryTabProps) {
+function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onResetKeyTasks }: SummaryTabProps) {
+  const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
+
   if (!project.is_analyzed || !analysis) {
     return (
       <Card>
@@ -749,24 +856,49 @@ function SummaryTab({ project, analysis, final }: SummaryTabProps) {
         </CardContent>
       </Card>
 
-      {/* 주요 구현 내용 */}
-      {(final?.key_implementations?.length || analysis?.key_tasks?.length) ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>주요 구현 내용</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {(final?.key_implementations || analysis?.key_tasks || []).map((item: string, index: number) => (
-                <li key={index} className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* 주요 구현 내용 (인라인 편집 가능) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="flex items-center gap-2">
+            주요 구현 내용
+            {editStatus?.key_tasks_modified && (
+              <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
+                수정됨
+              </Badge>
+            )}
+          </CardTitle>
+          {!isEditingKeyTasks && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditingKeyTasks(true)}
+              className="h-8 text-gray-500 hover:text-gray-700"
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              편집
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <EditableList
+            items={analysis?.key_tasks || []}
+            onSave={async (items) => {
+              await onSaveKeyTasks(items)
+              setIsEditingKeyTasks(false)
+            }}
+            onReset={async () => {
+              await onResetKeyTasks()
+              setIsEditingKeyTasks(false)
+            }}
+            isModified={editStatus?.key_tasks_modified || false}
+            emptyMessage="분석된 주요 구현 내용이 없습니다."
+            itemPrefix="•"
+            isEditing={isEditingKeyTasks}
+            onEditingChange={setIsEditingKeyTasks}
+            hideEditButton
+          />
+        </CardContent>
+      </Card>
 
       {/* 기술 스택 (버전 포함) - 상세 분석에서 가져옴 */}
       {analysis?.tech_stack_versions && Object.keys(analysis.tech_stack_versions).length > 0 && (
@@ -883,11 +1015,25 @@ function SummaryTab({ project, analysis, final }: SummaryTabProps) {
 // Tab 3: 상세 분석
 interface DetailTabProps {
   project: any
-  analysis: any
+  analysis: EffectiveRepoAnalysis | undefined
   detailed: DetailedReportData | undefined
+  editStatus?: EditStatus
+  onSaveImplementationDetails: (sections: StructuredItem[]) => Promise<void>
+  onResetImplementationDetails: () => Promise<void>
+  onSaveDetailedAchievements?: (achievements: Record<string, any>) => Promise<void>
+  onResetDetailedAchievements?: () => Promise<void>
 }
 
-function DetailTab({ project, analysis, detailed }: DetailTabProps) {
+function DetailTab({
+  project,
+  analysis,
+  detailed,
+  editStatus,
+  onSaveImplementationDetails,
+  onResetImplementationDetails,
+}: DetailTabProps) {
+  const [isEditingImplementationDetails, setIsEditingImplementationDetails] = useState(false)
+
   if (!project.is_analyzed || !analysis) {
     return (
       <Card>
@@ -902,31 +1048,49 @@ function DetailTab({ project, analysis, detailed }: DetailTabProps) {
 
   return (
     <>
-      {/* 주요 구현 기능 (LLM-generated) */}
-      {detailed?.implementation_details && detailed.implementation_details.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              주요 구현 기능
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {detailed.implementation_details.map((feature, idx) => (
-              <div key={idx} className="space-y-2">
-                <h4 className="font-semibold text-lg text-gray-900">
-                  {idx + 1}. {feature.title}
-                </h4>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 ml-2">
-                  {feature.items.map((item, itemIdx) => (
-                    <li key={itemIdx} className="text-sm">{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {/* 주요 구현 기능 (인라인 편집 가능) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            주요 구현 기능
+            {editStatus?.implementation_details_modified && (
+              <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
+                수정됨
+              </Badge>
+            )}
+          </CardTitle>
+          {!isEditingImplementationDetails && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditingImplementationDetails(true)}
+              className="h-8 text-gray-500 hover:text-gray-700"
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              편집
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <EditableStructuredList
+            sections={analysis?.implementation_details || []}
+            onSave={async (sections) => {
+              await onSaveImplementationDetails(sections)
+              setIsEditingImplementationDetails(false)
+            }}
+            onReset={async () => {
+              await onResetImplementationDetails()
+              setIsEditingImplementationDetails(false)
+            }}
+            isModified={editStatus?.implementation_details_modified || false}
+            emptyMessage="분석된 주요 구현 기능이 없습니다."
+            isEditing={isEditingImplementationDetails}
+            onEditingChange={setIsEditingImplementationDetails}
+            hideEditButton
+          />
+        </CardContent>
+      </Card>
 
       {/* 개발 타임라인 (LLM-generated) */}
       {detailed?.development_timeline && detailed.development_timeline.length > 0 && (

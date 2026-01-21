@@ -10,12 +10,14 @@ from api.config import get_settings
 from api.models.user import User
 from api.models.project import Project, Technology, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
+from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.schemas.github import (
     GitHubConnectRequest, GitHubCallbackResponse,
     RepoAnalysisRequest, RepoAnalysisResponse,
     GitHubRepoListResponse, GitHubRepoInfo,
     ImportReposRequest, ImportReposResponse, ImportRepoResult,
-    BatchAnalysisRequest, BatchAnalysisResponse, BatchAnalysisResult
+    BatchAnalysisRequest, BatchAnalysisResponse, BatchAnalysisResult,
+    AnalysisContentUpdate, EffectiveAnalysisResponse, EditStatus
 )
 from api.services.github_service import (
     GitHubService,
@@ -1125,3 +1127,180 @@ async def analyze_batch(
         failed=failed,
         results=results
     )
+
+
+# ============ Inline Editing Endpoints ============
+
+@router.get("/analysis/{project_id}/effective", response_model=EffectiveAnalysisResponse)
+async def get_effective_analysis(project_id: int, db: AsyncSession = Depends(get_db)):
+    """Get repository analysis with user edits applied."""
+    # Get analysis
+    result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    analysis = result.scalar_one_or_none()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    # Get user edits if any
+    edits_result = await db.execute(
+        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+    )
+    edits = edits_result.scalar_one_or_none()
+
+    # Build edit status
+    edit_status = EditStatus(
+        key_tasks_modified=edits.key_tasks_modified if edits else False,
+        implementation_details_modified=edits.implementation_details_modified if edits else False,
+        detailed_achievements_modified=edits.detailed_achievements_modified if edits else False,
+    )
+
+    # Apply edits to get effective content
+    effective_key_tasks = (
+        edits.key_tasks if edits and edits.key_tasks_modified and edits.key_tasks is not None
+        else analysis.key_tasks
+    )
+    effective_implementation_details = (
+        edits.implementation_details if edits and edits.implementation_details_modified and edits.implementation_details is not None
+        else analysis.implementation_details
+    )
+    effective_detailed_achievements = (
+        edits.detailed_achievements if edits and edits.detailed_achievements_modified and edits.detailed_achievements is not None
+        else analysis.detailed_achievements
+    )
+
+    return EffectiveAnalysisResponse(
+        id=analysis.id,
+        project_id=analysis.project_id,
+        git_url=analysis.git_url,
+        total_commits=analysis.total_commits,
+        user_commits=analysis.user_commits,
+        lines_added=analysis.lines_added,
+        lines_deleted=analysis.lines_deleted,
+        files_changed=analysis.files_changed,
+        languages=analysis.languages or {},
+        primary_language=analysis.primary_language,
+        detected_technologies=analysis.detected_technologies or [],
+        commit_messages_summary=analysis.commit_messages_summary,
+        commit_categories=analysis.commit_categories,
+        architecture_patterns=analysis.architecture_patterns,
+        key_tasks=effective_key_tasks,
+        implementation_details=effective_implementation_details,
+        development_timeline=analysis.development_timeline,
+        tech_stack_versions=analysis.tech_stack_versions,
+        detailed_achievements=effective_detailed_achievements,
+        analyzed_at=analysis.analyzed_at,
+        edit_status=edit_status
+    )
+
+
+@router.patch("/analysis/{project_id}/content")
+async def update_analysis_content(
+    project_id: int,
+    update: AnalysisContentUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update specific analysis content field."""
+    # Validate field name
+    valid_fields = ['key_tasks', 'implementation_details', 'detailed_achievements']
+    if update.field not in valid_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}"
+        )
+
+    # Get analysis
+    result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    analysis = result.scalar_one_or_none()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    # Get or create edits record
+    edits_result = await db.execute(
+        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+    )
+    edits = edits_result.scalar_one_or_none()
+
+    if not edits:
+        edits = RepoAnalysisEdits(repo_analysis_id=analysis.id)
+        db.add(edits)
+
+    # Update the specific field
+    if update.field == 'key_tasks':
+        edits.key_tasks = update.content
+        edits.key_tasks_modified = True
+    elif update.field == 'implementation_details':
+        edits.implementation_details = update.content
+        edits.implementation_details_modified = True
+    elif update.field == 'detailed_achievements':
+        edits.detailed_achievements = update.content
+        edits.detailed_achievements_modified = True
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "field": update.field,
+        "message": f"{update.field} 내용이 저장되었습니다."
+    }
+
+
+@router.post("/analysis/{project_id}/reset/{field}")
+async def reset_analysis_field(
+    project_id: int,
+    field: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Reset a specific field to original analysis content."""
+    # Validate field name
+    valid_fields = ['key_tasks', 'implementation_details', 'detailed_achievements']
+    if field not in valid_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}"
+        )
+
+    # Get analysis
+    result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    analysis = result.scalar_one_or_none()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    # Get edits record
+    edits_result = await db.execute(
+        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+    )
+    edits = edits_result.scalar_one_or_none()
+
+    if not edits:
+        return {
+            "success": True,
+            "field": field,
+            "message": "수정된 내용이 없습니다."
+        }
+
+    # Reset the specific field
+    if field == 'key_tasks':
+        edits.key_tasks = None
+        edits.key_tasks_modified = False
+    elif field == 'implementation_details':
+        edits.implementation_details = None
+        edits.implementation_details_modified = False
+    elif field == 'detailed_achievements':
+        edits.detailed_achievements = None
+        edits.detailed_achievements_modified = False
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "field": field,
+        "message": f"{field} 내용이 원본으로 복원되었습니다."
+    }

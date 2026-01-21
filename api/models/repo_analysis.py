@@ -67,3 +67,4 @@ class RepoAnalysis(Base):
 
     # Relationships
     project = relationship("Project", back_populates="repo_analysis")
+    user_edits = relationship("RepoAnalysisEdits", back_populates="repo_analysis", uselist=False)
