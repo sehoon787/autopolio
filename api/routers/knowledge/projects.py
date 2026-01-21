@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
+from datetime import date
 
 from api.database import get_db
 from api.models.project import Project, Technology, ProjectTechnology
@@ -35,9 +36,16 @@ async def get_or_create_technology(
 @router.get("", response_model=ProjectListResponse)
 async def get_projects(
     user_id: int = Query(..., description="User ID"),
-    company_id: Optional[int] = None,
-    project_type: Optional[str] = None,
-    is_analyzed: Optional[bool] = None,
+    company_id: Optional[int] = Query(None, description="Filter by company ID"),
+    project_type: Optional[str] = Query(None, description="Filter by project type (company, personal, open-source)"),
+    is_analyzed: Optional[bool] = Query(None, description="Filter by analyzed status"),
+    status: Optional[str] = Query(None, description="Filter by status (pending, analyzing, review, completed)"),
+    start_date_from: Optional[date] = Query(None, description="Filter projects starting from this date"),
+    start_date_to: Optional[date] = Query(None, description="Filter projects starting until this date"),
+    technologies: Optional[str] = Query(None, description="Filter by technologies (comma separated, e.g., 'React,TypeScript')"),
+    search: Optional[str] = Query(None, description="Search by project name"),
+    sort_by: str = Query("is_analyzed,created_at", description="Comma-separated sort fields (e.g., 'is_analyzed,created_at')"),
+    sort_order: str = Query("asc,desc", description="Comma-separated sort orders matching sort_by fields (asc/desc)"),
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
@@ -45,6 +53,7 @@ async def get_projects(
     """Get all projects for a user with optional filters."""
     query = select(Project).where(Project.user_id == user_id)
 
+    # Existing filters
     if company_id is not None:
         query = query.where(Project.company_id == company_id)
     if project_type:
@@ -52,20 +61,85 @@ async def get_projects(
     if is_analyzed is not None:
         query = query.where(Project.is_analyzed == (1 if is_analyzed else 0))
 
+    # New filters
+    if status:
+        query = query.where(Project.status == status)
+    if start_date_from:
+        query = query.where(Project.start_date >= start_date_from)
+    if start_date_to:
+        query = query.where(Project.start_date <= start_date_to)
+    if search:
+        query = query.where(Project.name.ilike(f"%{search}%"))
+
+    # Technology filter - requires subquery
+    if technologies:
+        tech_list = [t.strip() for t in technologies.split(",") if t.strip()]
+        if tech_list:
+            # Get project IDs that have at least one of the specified technologies
+            tech_subquery = (
+                select(ProjectTechnology.project_id)
+                .join(Technology)
+                .where(Technology.name.in_(tech_list))
+                .distinct()
+            )
+            query = query.where(Project.id.in_(tech_subquery))
+
     query = query.options(
         selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
         selectinload(Project.achievements)
-    ).order_by(Project.start_date.desc()).offset(skip).limit(limit)
+    )
+
+    # Build dynamic sort order
+    sort_fields = [f.strip() for f in sort_by.split(",") if f.strip()]
+    sort_orders = [o.strip() for o in sort_order.split(",") if o.strip()]
+
+    order_clauses = []
+    for i, field in enumerate(sort_fields):
+        direction = sort_orders[i] if i < len(sort_orders) else "asc"
+        column = getattr(Project, field, None)
+        if column is not None:
+            order_clauses.append(column.asc() if direction == "asc" else column.desc())
+
+    if order_clauses:
+        query = query.order_by(*order_clauses)
+    else:
+        # Default: unanalyzed first, then newest
+        query = query.order_by(Project.is_analyzed.asc(), Project.created_at.desc())
+
+    query = query.offset(skip).limit(limit)
 
     result = await db.execute(query)
     projects = result.scalars().all()
 
-    # Count total
-    count_query = select(Project).where(Project.user_id == user_id)
+    # Count total with same filters
+    count_query = select(func.count(Project.id)).where(Project.user_id == user_id)
     if company_id is not None:
         count_query = count_query.where(Project.company_id == company_id)
+    if project_type:
+        count_query = count_query.where(Project.project_type == project_type)
+    if is_analyzed is not None:
+        count_query = count_query.where(Project.is_analyzed == (1 if is_analyzed else 0))
+    if status:
+        count_query = count_query.where(Project.status == status)
+    if start_date_from:
+        count_query = count_query.where(Project.start_date >= start_date_from)
+    if start_date_to:
+        count_query = count_query.where(Project.start_date <= start_date_to)
+    if search:
+        count_query = count_query.where(Project.name.ilike(f"%{search}%"))
+    if technologies:
+        tech_list = [t.strip() for t in technologies.split(",") if t.strip()]
+        if tech_list:
+            tech_subquery = (
+                select(ProjectTechnology.project_id)
+                .join(Technology)
+                .where(Technology.name.in_(tech_list))
+                .distinct()
+            )
+            count_query = count_query.where(Project.id.in_(tech_subquery))
+
     count_result = await db.execute(count_query)
-    total = len(count_result.scalars().all())
+    total = count_result.scalar() or 0
 
     # Transform technologies for response
     projects_response = []

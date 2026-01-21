@@ -158,14 +158,23 @@ export const companiesApi = {
     }),
 }
 
+export interface ProjectFilters {
+  company_id?: number
+  project_type?: string
+  is_analyzed?: boolean
+  status?: string
+  start_date_from?: string
+  start_date_to?: string
+  technologies?: string  // Comma separated
+  search?: string
+  sort_by?: string       // Comma separated sort fields (e.g., "is_analyzed,created_at")
+  sort_order?: string    // Comma separated sort orders (e.g., "asc,desc")
+  skip?: number
+  limit?: number
+}
+
 export const projectsApi = {
-  getAll: (userId: number, params?: {
-    company_id?: number
-    project_type?: string
-    is_analyzed?: boolean
-    skip?: number
-    limit?: number
-  }) =>
+  getAll: (userId: number, params?: ProjectFilters) =>
     apiClient.get<ProjectListResponse>('/knowledge/projects', {
       params: { user_id: userId, ...params }
     }),

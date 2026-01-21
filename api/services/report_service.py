@@ -424,6 +424,12 @@ class ReportService:
                     "after_value": getattr(ach, 'after_value', None),
                 })
 
+        # LLM-generated detailed content (v1.2)
+        implementation_details = analysis.implementation_details if analysis else []
+        development_timeline = analysis.development_timeline if analysis else []
+        tech_stack_versions = analysis.tech_stack_versions if analysis else {}
+        detailed_achievements = analysis.detailed_achievements if analysis else {}
+
         return {
             "report_type": "detailed",
             "project": {
@@ -449,6 +455,11 @@ class ReportService:
             "architecture_patterns": architecture_patterns,
             "key_tasks": key_tasks,
             "achievements_by_category": achievements_by_category,
+            # LLM-generated detailed content (v1.2)
+            "implementation_details": implementation_details,
+            "development_timeline": development_timeline,
+            "tech_stack_versions": tech_stack_versions,
+            "detailed_achievements": detailed_achievements,
         }
 
     async def generate_final_report(self, project_id: int) -> Dict[str, Any]:

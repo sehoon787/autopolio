@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 
@@ -26,6 +26,8 @@ class AchievementBase(BaseModel):
     metric_name: str
     metric_value: Optional[str] = None
     description: Optional[str] = None
+    before_value: Optional[str] = None  # Before state for comparison
+    after_value: Optional[str] = None   # After state for comparison
     category: Optional[str] = None
     evidence: Optional[str] = None
     display_order: int = 0
@@ -39,6 +41,8 @@ class AchievementUpdate(BaseModel):
     metric_name: Optional[str] = None
     metric_value: Optional[str] = None
     description: Optional[str] = None
+    before_value: Optional[str] = None
+    after_value: Optional[str] = None
     category: Optional[str] = None
     evidence: Optional[str] = None
     display_order: Optional[int] = None
@@ -108,6 +112,41 @@ class ProjectResponse(ProjectBase):
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode='before')
+    @classmethod
+    def transform_technologies(cls, data):
+        """Transform ProjectTechnology associations to Technology objects."""
+        if hasattr(data, 'technologies') and data.technologies:
+            # ORM object - extract Technology from ProjectTechnology
+            tech_list = []
+            for pt in data.technologies:
+                if hasattr(pt, 'technology') and pt.technology:
+                    tech_list.append(pt.technology)
+            # Store transformed list in a temp attribute
+            data._transformed_technologies = tech_list
+        elif isinstance(data, dict) and 'technologies' in data and data['technologies']:
+            # Dict - transform if needed
+            tech_list = []
+            for pt in data['technologies']:
+                if hasattr(pt, 'technology') and pt.technology:
+                    tech_list.append(pt.technology)
+                elif isinstance(pt, dict) and 'technology' in pt:
+                    tech_list.append(pt['technology'])
+                else:
+                    tech_list.append(pt)
+            data['technologies'] = tech_list
+        return data
+
+    @model_validator(mode='after')
+    def apply_transformed_technologies(self):
+        """Apply transformed technologies after model creation."""
+        if hasattr(self, '_transformed_technologies'):
+            object.__setattr__(self, 'technologies', [
+                TechnologyResponse.model_validate(t, from_attributes=True)
+                for t in self._transformed_technologies
+            ])
+        return self
 
 
 class ProjectListResponse(BaseModel):

@@ -5,6 +5,9 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
 
+// Initialize i18n
+import '@/lib/i18n'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

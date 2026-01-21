@@ -1,0 +1,48 @@
+{
+  "title": "Settings",
+  "general": "General",
+  "language": "Language",
+  "theme": "Theme",
+  "github": {
+    "title": "GitHub Integration",
+    "connected": "Connected",
+    "notConnected": "Not Connected",
+    "connect": "Connect with GitHub",
+    "disconnect": "Disconnect",
+    "username": "Username",
+    "reconnect": "Reconnect",
+    "features": {
+      "title": "Features Available with Integration",
+      "repoList": "Repository listing",
+      "commitAnalysis": "Commit history analysis",
+      "techDetection": "Auto tech stack detection (200+ techs)",
+      "contributionStats": "Contribution statistics"
+    },
+    "tokenExpired": "GitHub token has expired or is invalid. Please reconnect."
+  },
+  "llm": {
+    "title": "LLM Settings",
+    "provider": "Provider",
+    "providers": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic"
+    }
+  },
+  "user": {
+    "title": "User Info",
+    "name": "Name",
+    "email": "Email"
+  },
+  "setup": {
+    "title": "Initial Setup",
+    "subtitle": "Set up basic information before starting Autopolio.",
+    "basicInfo": "Basic Info",
+    "basicInfoDesc": "Enter basic information for your resume.",
+    "githubConnect": "GitHub Integration",
+    "githubConnectDesc": "Connect GitHub to automatically analyze projects",
+    "complete": "Complete",
+    "completeDesc": "Setup is complete",
+    "skip": "Skip for now",
+    "start": "Get Started"
+  }
+}

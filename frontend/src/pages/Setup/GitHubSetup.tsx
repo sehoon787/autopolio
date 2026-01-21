@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { githubApi, GitHubStatus } from '@/api/github'
+import { githubApi } from '@/api/github'
 import { usersApi } from '@/api/users'
 import { Github, CheckCircle2, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react'
 
@@ -21,7 +21,7 @@ export default function GitHubSetup() {
   const githubConnected = searchParams.get('github_connected')
 
   // Check GitHub connection status
-  const { data: statusData, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
+  const { data: statusData, isLoading: statusLoading } = useQuery({
     queryKey: ['github-status', user?.id],
     queryFn: () => githubApi.getStatus(user!.id),
     enabled: !!user?.id,
@@ -49,6 +49,13 @@ export default function GitHubSetup() {
             github_avatar_url: status.avatar_url,
           })
         }
+      } else if (!status.connected && user?.github_username) {
+        // API says not connected but local store has github_username - clear it
+        setUser({
+          ...user,
+          github_username: null,
+          github_avatar_url: null,
+        })
       }
     }
   }, [statusData, user, setUser, toast])

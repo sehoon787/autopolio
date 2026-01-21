@@ -52,17 +52,73 @@ class AchievementService:
         "cost": [
             (r"(비용|cost).*(절감|reduce|save).*(\d+)\s*%", "비용 절감", "{value}% 비용 절감"),
             (r"(\d+)\s*%\s*(비용|cost).*(절감|reduce|save)", "비용 절감", "{value}% 비용 절감"),
+            (r"(\d+)\s*원.*(절감|절약|감소)", "비용 절감", "{value}원 비용 절감"),
+            (r"(서버|인프라).*(비용|cost).*(\d+)\s*%\s*(절감|감소)", "인프라 비용 절감", "{value}% 인프라 비용 절감"),
+        ],
+        "quality": [
+            # 코드 품질
+            (r"(코드\s*품질|code\s*quality).*(\d+)\s*%\s*(향상|개선)", "코드 품질 향상", "{value}% 코드 품질 향상"),
+            (r"(테스트\s*커버리지|test\s*coverage).*(\d+)\s*%", "테스트 커버리지", "테스트 커버리지 {value}%"),
+            (r"(커버리지|coverage).*(\d+)\s*%\s*(달성|향상)", "테스트 커버리지", "커버리지 {value}% 달성"),
+            (r"(\d+)\s*%\s*(커버리지|coverage)", "테스트 커버리지", "커버리지 {value}%"),
+            # 안정성
+            (r"(가용성|availability).*(\d+)\s*%", "가용성", "가용성 {value}%"),
+            (r"(\d+)\s*%\s*(가용성|uptime)", "가용성", "가용성 {value}%"),
+            (r"(장애|incident).*(\d+)\s*%\s*(감소|줄)", "장애 감소", "{value}% 장애 감소"),
+        ],
+        "delivery": [
+            # 개발 속도/배포
+            (r"(배포\s*주기|deploy\s*cycle).*(\d+)\s*%\s*(단축|개선)", "배포 주기 단축", "{value}% 배포 주기 단축"),
+            (r"(개발\s*시간|development\s*time).*(\d+)\s*%\s*(단축|절감)", "개발 시간 단축", "{value}% 개발 시간 단축"),
+            (r"(\d+)\s*회\/?(주|월|일).*(배포|deploy)", "배포 빈도", "{value}회 배포"),
+            (r"(리드\s*타임|lead\s*time).*(\d+)\s*%\s*(단축|감소)", "리드 타임 단축", "{value}% 리드 타임 단축"),
+        ],
+        "user": [
+            # 사용자 관련
+            (r"(사용자\s*만족도|user\s*satisfaction).*(\d+)\s*%", "사용자 만족도", "사용자 만족도 {value}%"),
+            (r"(NPS|nps).*(\d+)", "NPS", "NPS {value}"),
+            (r"(이탈률|churn).*(\d+)\s*%\s*(감소|줄)", "이탈률 감소", "{value}% 이탈률 감소"),
+            (r"(전환율|conversion).*(\d+)\s*%\s*(증가|향상)", "전환율 향상", "{value}% 전환율 향상"),
+            (r"(\d+)\s*%\s*(전환율|conversion)", "전환율", "전환율 {value}%"),
         ],
     }
 
-    # Commit message patterns for achievements
+    # Commit message patterns for achievements (Korean + English)
     COMMIT_ACHIEVEMENT_PATTERNS = [
+        # English patterns
         (r"improve.*(\d+)%", "개선", "{value}% 개선"),
         (r"optimize.*(\d+)%", "최적화", "{value}% 최적화"),
         (r"reduce.*(\d+)%", "감소", "{value}% 감소"),
         (r"fix.*#?(\d+).*bug", "버그 수정", "#{value} 버그 수정"),
         (r"add.*(\d+).*feature", "기능 추가", "{value}개 기능 추가"),
         (r"refactor.*(\d+).*file", "리팩토링", "{value}개 파일 리팩토링"),
+        # Korean patterns - 개선/최적화
+        (r"(\d+)\s*%\s*(개선|향상|증가)", "개선", "{value}% 개선"),
+        (r"(\d+)\s*배\s*(개선|향상|빨라)", "개선", "{value}배 개선"),
+        (r"(개선|향상|증가).*(\d+)\s*%", "개선", "{value}% 개선"),
+        (r"(최적화|optimize).*(\d+)\s*%", "최적화", "{value}% 최적화"),
+        # Korean patterns - 감소/절감
+        (r"(\d+)\s*%\s*(감소|절감|줄임|축소)", "감소", "{value}% 감소"),
+        (r"(감소|절감|줄임|축소).*(\d+)\s*%", "감소", "{value}% 감소"),
+        # Korean patterns - 버그/오류
+        (r"(버그|bug|오류|에러)\s*#?(\d+)\s*(수정|fix|해결)", "버그 수정", "#{value} 버그 수정"),
+        (r"(수정|fix|해결).*#?(\d+).*(버그|bug|오류)", "버그 수정", "#{value} 버그 수정"),
+        (r"(\d+)\s*개?\s*(버그|오류)\s*(수정|해결)", "버그 수정", "{value}개 버그 수정"),
+        # Korean patterns - 기능/리팩토링
+        (r"(\d+)\s*개?\s*(기능|feature).*(추가|구현|개발)", "기능 추가", "{value}개 기능 추가"),
+        (r"(기능|feature)\s*(\d+)\s*개?\s*(추가|구현|개발)", "기능 추가", "{value}개 기능 추가"),
+        (r"(\d+)\s*개?\s*(파일|모듈).*(리팩토링|refactor|정리)", "리팩토링", "{value}개 파일 리팩토링"),
+        # Korean patterns - API/테스트
+        (r"(\d+)\s*개?\s*API.*(추가|개발|구현)", "API 개발", "{value}개 API 추가"),
+        (r"(\d+)\s*개?\s*(테스트|test).*(추가|작성)", "테스트 추가", "{value}개 테스트 추가"),
+        (r"(커버리지|coverage).*(\d+)\s*%", "테스트 커버리지", "커버리지 {value}%"),
+        # Korean patterns - 응답 시간/처리량
+        (r"(응답\s*시간|response\s*time).*(\d+)\s*%\s*(단축|개선|감소)", "응답 시간 개선", "{value}% 응답 시간 개선"),
+        (r"(\d+)\s*ms.*(\d+)\s*ms.*(단축|개선)", "응답 시간 개선", "응답 시간 개선"),
+        (r"(처리량|throughput).*(\d+)\s*(배|%)\s*(증가|향상)", "처리량 향상", "{value}배 처리량 향상"),
+        # Korean patterns - 배포/자동화
+        (r"(배포\s*시간|deploy).*(\d+)\s*%\s*(단축|개선)", "배포 시간 단축", "{value}% 배포 시간 단축"),
+        (r"(자동화|automation).*(\d+)\s*%", "자동화", "{value}% 자동화"),
     ]
 
     def __init__(self, llm_provider: Optional[str] = None):
@@ -152,59 +208,63 @@ class AchievementService:
         """Generate achievements from code statistics."""
         achievements = []
 
-        # Commits count achievement
-        if total_commits > 0:
-            achievements.append({
-                "metric_name": "커밋 수",
-                "metric_value": f"{total_commits}개 커밋",
-                "category": "contribution",
-                "evidence": f"총 {total_commits}개의 커밋을 작성함",
-                "source": "code_stats"
-            })
-
-        # Lines of code achievement
+        # Code contribution achievement with meaningful description
         if lines_added > 0:
             net_lines = lines_added - lines_deleted
+            refactor_ratio = round((lines_deleted / lines_added) * 100) if lines_added > 0 else 0
+
+            # Determine contribution type
+            if refactor_ratio > 50:
+                description = "코드 리팩토링 및 최적화 수행"
+            elif net_lines > 5000:
+                description = "대규모 기능 개발 및 아키텍처 구축"
+            elif net_lines > 1000:
+                description = "주요 기능 개발 및 모듈 구현"
+            else:
+                description = "기능 추가 및 유지보수"
+
             achievements.append({
-                "metric_name": "코드 기여량",
+                "metric_name": "코드 기여",
                 "metric_value": f"+{lines_added:,} / -{lines_deleted:,} lines",
-                "description": f"순 추가량: {net_lines:,} lines",
+                "description": description,
+                "before_value": f"기존 코드베이스",
+                "after_value": f"순 {net_lines:,}줄 추가, {files_changed}개 파일 수정",
                 "category": "contribution",
-                "evidence": f"추가: {lines_added:,}줄, 삭제: {lines_deleted:,}줄",
+                "evidence": f"추가: {lines_added:,}줄, 삭제: {lines_deleted:,}줄, 파일: {files_changed}개",
                 "source": "code_stats"
             })
 
-        # Files changed achievement
-        if files_changed > 0:
-            achievements.append({
-                "metric_name": "수정 파일 수",
-                "metric_value": f"{files_changed}개 파일",
-                "category": "contribution",
-                "evidence": f"총 {files_changed}개 파일 수정",
-                "source": "code_stats"
-            })
-
-        # Feature commits ratio
+        # Feature commits ratio with context
         if commit_categories:
             feature_count = commit_categories.get("feature", 0)
             fix_count = commit_categories.get("fix", 0)
+            refactor_count = commit_categories.get("refactor", 0)
             total = sum(commit_categories.values())
 
             if total > 0 and feature_count > 0:
                 feature_ratio = round(feature_count / total * 100)
                 achievements.append({
-                    "metric_name": "기능 개발 비율",
-                    "metric_value": f"{feature_ratio}%",
-                    "description": f"전체 {total}개 커밋 중 {feature_count}개가 기능 개발",
+                    "metric_name": "기능 개발",
+                    "metric_value": f"{feature_count}개 기능",
+                    "description": f"프로젝트 전체 커밋의 {feature_ratio}% 차지",
                     "category": "contribution",
                     "source": "code_stats"
                 })
 
             if fix_count > 0:
                 achievements.append({
-                    "metric_name": "버그 수정",
-                    "metric_value": f"{fix_count}건",
-                    "description": f"{fix_count}개의 버그 수정 커밋",
+                    "metric_name": "버그 수정 및 안정화",
+                    "metric_value": f"{fix_count}건 해결",
+                    "description": "이슈 해결 및 품질 개선",
+                    "category": "quality",
+                    "source": "code_stats"
+                })
+
+            if refactor_count > 0:
+                achievements.append({
+                    "metric_name": "코드 리팩토링",
+                    "metric_value": f"{refactor_count}건",
+                    "description": "코드 품질 및 유지보수성 향상",
                     "category": "quality",
                     "source": "code_stats"
                 })
@@ -252,18 +312,26 @@ class AchievementService:
 각 성과는 구체적인 수치(%, 배, 건 등)를 포함해야 합니다.
 기존에 감지된 성과와 중복되지 않는 새로운 성과를 생성해주세요.
 
+성과 형식 예시 (Before/After 형식 사용):
+**[ Export 최적화 ]**
+- Keyframe 전용 export 구현
+  ▶ 파일 크기 **80% 감소**, 속도 **3-5배 향상**
+
 형식:
 [
     {{
-        "metric_name": "성과 지표명 (예: 성능 향상, API 응답 시간)",
-        "metric_value": "정량적 수치 (예: 40% 개선, 3배 향상)",
-        "description": "성과에 대한 간략한 설명",
+        "metric_name": "성과 제목 (예: API 응답 시간 최적화, 배포 자동화)",
+        "metric_value": "핵심 정량 수치 (예: 80% 개선, 3배 향상)",
+        "description": "수행한 작업 내용 (예: Redis 캐싱 적용으로 DB 부하 감소)",
+        "before_value": "개선 전 상태 (예: 평균 2초 응답 시간, 수동 배포)",
+        "after_value": "개선 후 상태 (예: 평균 200ms 응답 시간, CI/CD 자동화)",
         "category": "카테고리 (performance/efficiency/quality/scale/cost)"
     }}
 ]
 
 주의:
 - 반드시 정량적 수치를 포함해야 합니다
+- before_value와 after_value는 비교 가능한 형태로 작성하세요
 - 현실적이고 믿을 수 있는 수치를 사용하세요
 - 프로젝트 규모와 맥락에 맞는 성과를 생성하세요
 """

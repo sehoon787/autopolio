@@ -1,0 +1,36 @@
+{
+  "title": "Generated Documents",
+  "subtitle": "Manage generated resume and portfolio documents.",
+  "generate": "Generate Document",
+  "noDocuments": "No documents generated",
+  "noDocumentsDesc": "Select a template and generate a document.",
+  "documentName": "Document Name",
+  "template": "Template",
+  "format": "Format",
+  "createdAt": "Created At",
+  "download": "Download",
+  "preview": "Preview",
+  "formats": {
+    "docx": "Word (DOCX)",
+    "pdf": "PDF",
+    "md": "Markdown"
+  },
+  "pipeline": {
+    "title": "Pipeline Execution",
+    "step1": "GitHub Analysis",
+    "step2": "Code Extraction",
+    "step3": "Tech Detection",
+    "step4": "LLM Summary",
+    "step5": "Template Mapping",
+    "step6": "Document Generation",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "reports": {
+    "title": "Report Generation",
+    "projectsMd": "PROJECTS.md Style",
+    "performance": "Performance Summary",
+    "companyIntegrated": "Company Integrated Report"
+  }
+}

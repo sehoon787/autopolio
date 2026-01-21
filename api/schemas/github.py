@@ -67,6 +67,12 @@ class RepoAnalysisResponse(BaseModel):
     commit_messages_summary: Optional[str] = None
     commit_categories: Optional[Dict[str, int]] = None
     architecture_patterns: Optional[List[str]] = None
+    key_tasks: Optional[List[str]] = None  # LLM-generated key tasks
+    # LLM-generated detailed content (v1.2)
+    implementation_details: Optional[List[Dict[str, Any]]] = None  # [{title, items}]
+    development_timeline: Optional[List[Dict[str, Any]]] = None  # [{period, title, activities}]
+    tech_stack_versions: Optional[Dict[str, List[str]]] = None  # {Frontend: [...], Backend: [...]}
+    detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None  # {category: [{title, description}]}
     analyzed_at: datetime
 
     class Config:
@@ -77,3 +83,52 @@ class GitHubRepoListResponse(BaseModel):
     """List of user's GitHub repositories."""
     repos: List[GitHubRepoInfo]
     total: int
+    page: int = 1
+    per_page: int = 100
+    has_more: bool = False
+
+
+class ImportReposRequest(BaseModel):
+    """Request to import multiple repos as projects."""
+    repo_urls: List[str]
+    auto_analyze: bool = False
+
+
+class ImportRepoResult(BaseModel):
+    """Result of importing a single repo."""
+    repo_url: str
+    project_id: Optional[int] = None
+    project_name: str
+    success: bool
+    message: str
+
+
+class ImportReposResponse(BaseModel):
+    """Response from batch import."""
+    imported: int
+    failed: int
+    results: List[ImportRepoResult]
+
+
+class BatchAnalysisRequest(BaseModel):
+    """Request to analyze multiple projects."""
+    project_ids: List[int]
+
+
+class BatchAnalysisResult(BaseModel):
+    """Result of analyzing a single project."""
+    project_id: int
+    project_name: str
+    success: bool
+    message: str
+    detected_technologies: Optional[List[str]] = None
+    detected_role: Optional[str] = None
+
+
+class BatchAnalysisResponse(BaseModel):
+    """Response from batch analysis."""
+    task_id: Optional[str] = None
+    total: int
+    completed: int
+    failed: int
+    results: List[BatchAnalysisResult]

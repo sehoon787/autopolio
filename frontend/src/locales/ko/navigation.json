@@ -1,0 +1,14 @@
+{
+  "dashboard": "대시보드",
+  "githubRepos": "GitHub 레포",
+  "companies": "회사 관리",
+  "projects": "프로젝트 관리",
+  "projectsKanban": "프로젝트 칸반",
+  "templates": "템플릿",
+  "generate": "문서 생성",
+  "documents": "생성 문서",
+  "history": "작업 이력",
+  "setup": "초기 설정",
+  "github": "GitHub 연동",
+  "knowledge": "Knowledge Base"
+}

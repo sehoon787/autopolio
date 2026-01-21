@@ -14,20 +14,16 @@ if not exist .env (
 if not exist data mkdir data
 if not exist result mkdir result
 
-:: Install dependencies with uv
-echo Installing dependencies with uv...
-uv sync
-
 :: Start backend in new terminal
 echo Starting FastAPI backend...
-start "Autopolio API" cmd /k "cd /d %~dp0 && uv run uvicorn api.main:app --reload --host 0.0.0.0 --port 8000"
+start "Autopolio API" cmd /k "cd /d %~dp0 && python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000"
 
 :: Wait for backend to start
 timeout /t 3 /nobreak > nul
 
 :: Start frontend in new terminal
 echo Starting React frontend...
-start "Autopolio Frontend" cmd /k "cd /d %~dp0frontend && npm install && npm run dev"
+start "Autopolio Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
 
 echo.
 echo ============================================

@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/stores/userStore'
 import { cn } from '@/lib/utils'
 import {
@@ -12,19 +13,23 @@ import {
   FileOutput,
 } from 'lucide-react'
 
-const navigation = [
-  { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
-  { name: '회사 관리', href: '/knowledge/companies', icon: Building2 },
-  { name: '프로젝트 관리', href: '/knowledge/projects', icon: FolderKanban },
-  { name: '템플릿', href: '/templates', icon: FileText },
-  { name: '문서 생성', href: '/generate', icon: FileOutput },
-  { name: '생성 문서', href: '/documents', icon: FileText },
-  { name: '작업 이력', href: '/history', icon: History },
+const getNavigation = (t: (key: string) => string) => [
+  { name: t('navigation:dashboard'), href: '/dashboard', icon: LayoutDashboard },
+  { name: t('navigation:companies'), href: '/knowledge/companies', icon: Building2 },
+  { name: t('navigation:githubRepos'), href: '/github/repos', icon: Github },
+  { name: t('navigation:projects'), href: '/knowledge/projects', icon: FolderKanban },
+  { name: t('navigation:templates'), href: '/templates', icon: FileText },
+  { name: t('navigation:generate'), href: '/generate', icon: FileOutput },
+  { name: t('navigation:documents'), href: '/documents', icon: FileText },
+  { name: t('navigation:history'), href: '/history', icon: History },
+  { name: t('common:settings'), href: '/settings', icon: Settings },
 ]
 
 export default function Layout() {
   const location = useLocation()
   const { user } = useUserStore()
+  const { t } = useTranslation()
+  const navigation = getNavigation(t)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,7 +97,7 @@ export default function Layout() {
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 rounded-md"
               >
                 <Settings className="h-5 w-5" />
-                초기 설정
+                {t('navigation:setup')}
               </Link>
             )}
           </div>

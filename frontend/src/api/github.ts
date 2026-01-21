@@ -15,6 +15,23 @@ export interface GitHubRepo {
   pushed_at: string | null
 }
 
+// LLM-generated content types (v1.2)
+export interface ImplementationDetail {
+  title: string
+  items: string[]
+}
+
+export interface DevelopmentTimelinePhase {
+  period: string
+  title: string
+  activities: string[]
+}
+
+export interface DetailedAchievementItem {
+  title: string
+  description: string
+}
+
 export interface RepoAnalysis {
   id: number
   project_id: number
@@ -30,6 +47,12 @@ export interface RepoAnalysis {
   commit_messages_summary: string | null
   commit_categories: Record<string, number> | null
   architecture_patterns: string[] | null
+  key_tasks: string[] | null  // LLM-generated key tasks
+  // LLM-generated detailed content (v1.2)
+  implementation_details: ImplementationDetail[] | null
+  development_timeline: DevelopmentTimelinePhase[] | null
+  tech_stack_versions: Record<string, string[]> | null
+  detailed_achievements: Record<string, DetailedAchievementItem[]> | null
   analyzed_at: string
 }
 
@@ -59,6 +82,63 @@ export interface GitHubStatus {
   message?: string
 }
 
+export interface FileTreeItem {
+  type: 'file' | 'directory'
+  name: string
+  path: string
+  size: number
+  sha: string
+  download_url?: string
+}
+
+export interface FileTreeResponse {
+  files: FileTreeItem[]
+  path: string
+  git_url: string
+}
+
+export interface FileContentResponse {
+  name: string
+  path: string
+  size: number
+  sha: string
+  content: string
+  encoding: string
+  download_url: string | null
+}
+
+// Batch import types
+export interface ImportRepoResult {
+  repo_url: string
+  project_id?: number
+  project_name: string
+  success: boolean
+  message: string
+}
+
+export interface ImportReposResponse {
+  imported: number
+  failed: number
+  results: ImportRepoResult[]
+}
+
+export interface BatchAnalysisResult {
+  project_id: number
+  project_name: string
+  success: boolean
+  message: string
+  detected_technologies?: string[]
+  detected_role?: string
+}
+
+export interface BatchAnalysisResponse {
+  task_id?: string
+  total: number
+  completed: number
+  failed: number
+  results: BatchAnalysisResult[]
+}
+
 export const githubApi = {
   getStatus: (userId: number) =>
     apiClient.get<GitHubStatus>('/github/status', {
@@ -73,9 +153,9 @@ export const githubApi = {
   disconnect: (userId: number) =>
     apiClient.delete('/github/disconnect', { params: { user_id: userId } }),
 
-  getRepos: (userId: number, page: number = 1, perPage: number = 30) =>
-    apiClient.get<{ repos: GitHubRepo[]; total: number }>('/github/repos', {
-      params: { user_id: userId, page, per_page: perPage }
+  getRepos: (userId: number, fetchAll: boolean = true) =>
+    apiClient.get<{ repos: GitHubRepo[]; total: number; has_more: boolean }>('/github/repos', {
+      params: { user_id: userId, fetch_all: fetchAll }
     }),
 
   analyzeRepo: (userId: number, gitUrl: string, projectId?: number) =>
@@ -101,4 +181,41 @@ export const githubApi = {
     apiClient.get<{ technologies: string[] }>('/github/detect-technologies', {
       params: { user_id: userId, git_url: gitUrl }
     }),
+
+  getFileTree: (userId: number, gitUrl: string, options?: {
+    path?: string
+    ref?: string
+    recursive?: boolean
+  }) =>
+    apiClient.get<FileTreeResponse>('/github/file-tree', {
+      params: {
+        user_id: userId,
+        git_url: gitUrl,
+        path: options?.path || '',
+        ref: options?.ref,
+        recursive: options?.recursive || false
+      }
+    }),
+
+  getFileContent: (userId: number, gitUrl: string, filePath: string, ref?: string) =>
+    apiClient.get<FileContentResponse>('/github/file-content', {
+      params: {
+        user_id: userId,
+        git_url: gitUrl,
+        file_path: filePath,
+        ref
+      }
+    }),
+
+  // Batch operations
+  importRepos: (userId: number, repoUrls: string[], autoAnalyze: boolean = false) =>
+    apiClient.post<ImportReposResponse>('/github/import-repos', {
+      repo_urls: repoUrls,
+      auto_analyze: autoAnalyze
+    }, { params: { user_id: userId } }),
+
+  analyzeBatch: (userId: number, projectIds: number[]) =>
+    apiClient.post<BatchAnalysisResponse>('/github/analyze-batch', {
+      project_ids: projectIds
+    }, { params: { user_id: userId } }),
 }

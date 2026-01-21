@@ -16,6 +16,10 @@ class ProjectAchievement(Base):
     metric_value = Column(String(100))  # e.g., "40%", "3x", "$100K"
     description = Column(Text)  # Detailed description
 
+    # Before/After comparison values (for detailed achievements)
+    before_value = Column(String(200))  # e.g., "5초 로딩 시간", "수동 배포"
+    after_value = Column(String(200))  # e.g., "0.5초 로딩 시간", "자동 CI/CD"
+
     # Categorization
     category = Column(String(50))  # performance, cost, user, technical, business
 

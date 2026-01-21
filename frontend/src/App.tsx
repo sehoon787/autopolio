@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import Layout from '@/components/Layout'
 import Dashboard from '@/pages/Dashboard'
 import SetupPage from '@/pages/Setup'
@@ -15,19 +16,23 @@ import PipelinePage from '@/pages/Generate/Pipeline'
 import DocumentsPage from '@/pages/Documents'
 import DocumentPreviewPage from '@/pages/Documents/Preview'
 import HistoryPage from '@/pages/History'
+import SettingsPage from '@/pages/Settings'
+import RepoSelectorPage from '@/pages/GitHub/RepoSelector'
 
 function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="setup" element={<SetupPage />} />
           <Route path="setup/github" element={<GitHubSetup />} />
+          <Route path="github/repos" element={<RepoSelectorPage />} />
           <Route path="knowledge/companies" element={<CompaniesPage />} />
           <Route path="knowledge/projects" element={<ProjectsPage />} />
           <Route path="knowledge/projects/:id" element={<ProjectDetailPage />} />
+          <Route path="knowledge/projects/kanban" element={<Navigate to="/knowledge/projects" replace />} />
           <Route path="knowledge/companies/timeline" element={<CompanyTimelinePage />} />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="templates/:templateId/edit" element={<TemplateEditor />} />
@@ -36,10 +41,11 @@ function App() {
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="documents/:id" element={<DocumentPreviewPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
       <Toaster />
-    </>
+    </ErrorBoundary>
   )
 }
 
