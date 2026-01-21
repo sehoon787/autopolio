@@ -14,8 +14,9 @@ from sqlalchemy.orm import selectinload
 
 from api.models.user import User
 from api.models.company import Company
-from api.models.project import Project
+from api.models.project import Project, ProjectTechnology
 from api.models.achievement import ProjectAchievement
+from api.models.repo_analysis import RepoAnalysis
 
 
 class ReportService:
@@ -47,7 +48,7 @@ class ReportService:
             select(Project)
             .where(Project.user_id == user_id)
             .options(
-                selectinload(Project.technologies),
+                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
                 selectinload(Project.achievements)
             )
             .order_by(Project.start_date.desc())
@@ -102,7 +103,7 @@ class ReportService:
             company = companies.get(project.company_id) if project.company_id else None
             company_name = company.name if company else "개인/프리랜서"
 
-            tech_names = [t.name for t in project.technologies] if project.technologies else []
+            tech_names = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
             tech_str = ", ".join(tech_names) if tech_names else "미지정"
 
             lines.append(f"## {idx}. {project.name}")
@@ -251,7 +252,7 @@ class ReportService:
             all_techs = set()
             for project in company_projects:
                 if project.technologies:
-                    all_techs.update(t.name for t in project.technologies)
+                    all_techs.update(pt.technology.name for pt in project.technologies if pt.technology)
 
             tech_categories = categorize_tech(list(all_techs))
             date_range = self._format_date_range(company.start_date, company.end_date, company.is_current)
@@ -308,4 +309,298 @@ class ReportService:
             "projects_md": await self.generate_projects_md(user_id),
             "performance_summary": await self.generate_performance_summary(user_id),
             "company_integrated": await self.generate_company_integrated_report(user_id),
+        }
+
+    async def _get_project_with_analysis(self, project_id: int) -> Dict[str, Any]:
+        """Get project data with repo analysis"""
+        # Get project with technologies and achievements
+        project_result = await self.db.execute(
+            select(Project)
+            .where(Project.id == project_id)
+            .options(
+                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+                selectinload(Project.achievements)
+            )
+        )
+        project = project_result.scalar_one_or_none()
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Get repo analysis
+        analysis_result = await self.db.execute(
+            select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+        )
+        analysis = analysis_result.scalar_one_or_none()
+
+        # Get company if exists
+        company = None
+        if project.company_id:
+            company_result = await self.db.execute(
+                select(Company).where(Company.id == project.company_id)
+            )
+            company = company_result.scalar_one_or_none()
+
+        return {
+            "project": project,
+            "analysis": analysis,
+            "company": company
+        }
+
+    async def generate_detailed_report(self, project_id: int) -> Dict[str, Any]:
+        """
+        Generate DETAILED_COMPLETION_REPORT style - 상세 기술 분석
+
+        Returns structured data for:
+        - 프로젝트 개요 (저장소, 커밋 수, 기간, 코드 변경량)
+        - 기술 스택 (버전 포함)
+        - 주요 구현 기능 (커밋 메시지 분석 기반)
+        - 개발 타임라인 (커밋 히스토리 기반)
+        - 주요 성과 (카테고리별 정리)
+        """
+        data = await self._get_project_with_analysis(project_id)
+        project = data["project"]
+        analysis = data["analysis"]
+        company = data["company"]
+
+        # Repository info
+        repo_info = {
+            "name": project.name,
+            "git_url": project.git_url or "",
+            "total_commits": analysis.total_commits if analysis else 0,
+            "user_commits": analysis.user_commits if analysis else 0,
+            "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis and analysis.total_commits > 0 else 0,
+            "lines_added": analysis.lines_added if analysis else 0,
+            "lines_deleted": analysis.lines_deleted if analysis else 0,
+            "net_lines": (analysis.lines_added or 0) - (analysis.lines_deleted or 0) if analysis else 0,
+            "files_changed": analysis.files_changed if analysis else 0,
+            "analyzed_at": analysis.analyzed_at.strftime("%Y-%m-%d %H:%M") if analysis and analysis.analyzed_at else None,
+        }
+
+        # Commit analysis
+        commit_analysis = {
+            "total_commits": analysis.total_commits if analysis else 0,
+            "user_commits": analysis.user_commits if analysis else 0,
+            "contribution_percent": repo_info["contribution_percent"],
+            "categories": analysis.commit_categories if analysis else {},
+            "messages_summary": analysis.commit_messages_summary if analysis else "",
+        }
+
+        # Code analysis
+        code_analysis = {
+            "lines_added": analysis.lines_added if analysis else 0,
+            "lines_deleted": analysis.lines_deleted if analysis else 0,
+            "net_change": repo_info["net_lines"],
+            "files_changed": analysis.files_changed if analysis else 0,
+        }
+
+        # Languages
+        languages = []
+        if analysis and analysis.languages:
+            for lang, percent in sorted(analysis.languages.items(), key=lambda x: x[1], reverse=True):
+                languages.append({"name": lang, "percent": round(percent, 1)})
+
+        # Technologies
+        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+        detected_technologies = analysis.detected_technologies if analysis else []
+
+        # Architecture patterns
+        architecture_patterns = analysis.architecture_patterns if analysis else []
+
+        # Key tasks
+        key_tasks = analysis.key_tasks if analysis else []
+
+        # Achievements by category
+        achievements_by_category: Dict[str, List[Dict]] = {}
+        if project.achievements:
+            for ach in project.achievements:
+                category = ach.category or "기타"
+                if category not in achievements_by_category:
+                    achievements_by_category[category] = []
+                achievements_by_category[category].append({
+                    "metric_name": ach.metric_name,
+                    "metric_value": ach.metric_value,
+                    "description": ach.description,
+                    "before_value": getattr(ach, 'before_value', None),
+                    "after_value": getattr(ach, 'after_value', None),
+                })
+
+        return {
+            "report_type": "detailed",
+            "project": {
+                "id": project.id,
+                "name": project.name,
+                "description": project.description,
+                "role": project.role,
+                "team_size": project.team_size,
+                "start_date": self._format_date(project.start_date),
+                "end_date": self._format_date(project.end_date) if project.end_date else "진행중",
+                "date_range": self._format_date_range(project.start_date, project.end_date),
+            },
+            "company": {
+                "name": company.name if company else "개인/프리랜서",
+                "position": company.position if company else None,
+            } if company else None,
+            "repository": repo_info,
+            "commit_analysis": commit_analysis,
+            "code_analysis": code_analysis,
+            "languages": languages,
+            "technologies": technologies,
+            "detected_technologies": detected_technologies,
+            "architecture_patterns": architecture_patterns,
+            "key_tasks": key_tasks,
+            "achievements_by_category": achievements_by_category,
+        }
+
+    async def generate_final_report(self, project_id: int) -> Dict[str, Any]:
+        """
+        Generate FINAL_PROJECT_REPORT style - 업무/성과 양식 정리
+
+        Returns structured data for:
+        - 프로젝트 개요 (기간, 소속, 역할, 기술 스택)
+        - 주요 구현 내용 (bullet points)
+        - 성과 (Before/After 비교 형식)
+        """
+        data = await self._get_project_with_analysis(project_id)
+        project = data["project"]
+        analysis = data["analysis"]
+        company = data["company"]
+
+        # Overview
+        overview = {
+            "name": project.name,
+            "date_range": self._format_date_range(project.start_date, project.end_date),
+            "company": company.name if company else "개인/프리랜서",
+            "role": project.role or "개발자",
+            "team_size": project.team_size,
+            "description": project.description,
+        }
+
+        # Technologies
+        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+
+        # Key implementations (from key_tasks or commit analysis)
+        key_implementations = []
+        if analysis and analysis.key_tasks:
+            key_implementations = analysis.key_tasks
+        elif analysis and analysis.commit_categories:
+            # Generate from commit categories
+            categories = analysis.commit_categories
+            if categories.get("feature", 0) > 0:
+                key_implementations.append(f"신규 기능 {categories['feature']}개 개발")
+            if categories.get("fix", 0) > 0:
+                key_implementations.append(f"버그 수정 및 안정화 ({categories['fix']}건)")
+            if categories.get("refactor", 0) > 0:
+                key_implementations.append(f"코드 리팩토링 ({categories['refactor']}건)")
+
+        # Achievements with Before/After format
+        achievements = []
+        if project.achievements:
+            for ach in project.achievements:
+                achievement_data = {
+                    "metric_name": ach.metric_name,
+                    "metric_value": ach.metric_value,
+                    "description": ach.description,
+                }
+                # Check if has before/after values
+                if hasattr(ach, 'before_value') and ach.before_value:
+                    achievement_data["before_value"] = ach.before_value
+                if hasattr(ach, 'after_value') and ach.after_value:
+                    achievement_data["after_value"] = ach.after_value
+                achievements.append(achievement_data)
+
+        # Code contribution summary
+        code_contribution = None
+        if analysis:
+            net_lines = (analysis.lines_added or 0) - (analysis.lines_deleted or 0)
+            code_contribution = {
+                "lines_added": analysis.lines_added or 0,
+                "lines_deleted": analysis.lines_deleted or 0,
+                "net_lines": net_lines,
+                "files_changed": analysis.files_changed or 0,
+                "commits": analysis.user_commits or 0,
+                "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis.total_commits > 0 else 0,
+            }
+
+        # AI summary if available
+        ai_summary = {
+            "summary": project.ai_summary,
+            "key_features": project.ai_key_features,
+        } if project.ai_summary else None
+
+        return {
+            "report_type": "final",
+            "overview": overview,
+            "technologies": technologies,
+            "key_implementations": key_implementations,
+            "achievements": achievements,
+            "code_contribution": code_contribution,
+            "ai_summary": ai_summary,
+        }
+
+    async def generate_performance_summary_for_project(self, project_id: int) -> Dict[str, Any]:
+        """
+        Generate PROJECT_PERFORMANCE_SUMMARY style for a single project
+
+        Returns structured data for:
+        - 프로젝트 기본 정보
+        - 주요 수행 업무
+        - 성과 (정량적)
+        - 커밋/코드 통계
+        """
+        data = await self._get_project_with_analysis(project_id)
+        project = data["project"]
+        analysis = data["analysis"]
+        company = data["company"]
+
+        # Basic info
+        basic_info = {
+            "name": project.name,
+            "date_range": self._format_date_range(project.start_date, project.end_date),
+            "role": project.role or "개발자",
+            "team_size": project.team_size,
+            "git_url": project.git_url,
+        }
+
+        # Technologies
+        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+
+        # Key tasks
+        key_tasks = analysis.key_tasks if analysis else []
+
+        # Achievements
+        achievements = []
+        if project.achievements:
+            for ach in project.achievements:
+                achievements.append({
+                    "metric_name": ach.metric_name,
+                    "metric_value": ach.metric_value,
+                    "description": ach.description,
+                    "category": ach.category,
+                })
+
+        # Statistics
+        commit_stats = None
+        code_stats = None
+        if analysis:
+            commit_stats = {
+                "total_commits": analysis.total_commits or 0,
+                "user_commits": analysis.user_commits or 0,
+                "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis.total_commits > 0 else 0,
+                "categories": analysis.commit_categories or {},
+            }
+            code_stats = {
+                "lines_added": analysis.lines_added or 0,
+                "lines_deleted": analysis.lines_deleted or 0,
+                "files_changed": analysis.files_changed or 0,
+            }
+
+        return {
+            "report_type": "performance_summary",
+            "basic_info": basic_info,
+            "company": company.name if company else "개인/프리랜서",
+            "technologies": technologies,
+            "key_tasks": key_tasks,
+            "achievements": achievements,
+            "commit_stats": commit_stats,
+            "code_stats": code_stats,
         }
