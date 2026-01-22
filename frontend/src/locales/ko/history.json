@@ -1,0 +1,25 @@
+{
+  "title": "작업 이력",
+  "subtitle": "실행된 작업들의 이력을 확인합니다.",
+  "noJobs": "작업 이력이 없습니다",
+  "noJobsDesc": "문서 생성이나 레포지토리 분석을 실행하면 여기에 표시됩니다.",
+  "jobTypes": {
+    "pipeline": "문서 생성 파이프라인",
+    "github_analysis": "GitHub 분석",
+    "document_generation": "문서 생성"
+  },
+  "status": {
+    "completed": "완료",
+    "failed": "실패",
+    "running": "실행 중",
+    "pending": "대기 중",
+    "cancelled": "취소됨"
+  },
+  "fields": {
+    "started": "시작",
+    "completed": "완료",
+    "currentStep": "진행 단계",
+    "currentTask": "현재 작업",
+    "generatedDocId": "생성된 문서 ID:"
+  }
+}

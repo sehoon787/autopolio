@@ -1,0 +1,37 @@
+{
+  "title": "Generate Document",
+  "subtitle": "Select projects and apply a template to generate your resume/portfolio.",
+  "projectSelection": "Project Selection",
+  "selectProjectsToInclude": "Select projects to include in the document.",
+  "selectAll": "Select All",
+  "deselectAll": "Deselect All",
+  "noProjects": "No projects registered.",
+  "projectsSelected": "{{count}} project(s) selected",
+  "templateSettings": "Template Settings",
+  "template": "Template",
+  "selectTemplate": "Select Template",
+  "outputFormat": "Output Format",
+  "documentName": "Document Name (optional)",
+  "autoGenerate": "Auto-generate",
+  "generationOptions": "Generation Options",
+  "summaryStyle": "Summary Style",
+  "styles": {
+    "professional": "Professional",
+    "casual": "Casual",
+    "technical": "Technical"
+  },
+  "options": {
+    "includeAchievements": "Include Achievements",
+    "includeTechStack": "Include Tech Stack",
+    "regenerateSummaries": "Regenerate AI Summaries",
+    "skipLlmSummary": "Skip AI Summary"
+  },
+  "startGeneration": "Start Generation",
+  "generating": "Generating...",
+  "pipelineStarted": "Pipeline started.",
+  "pipelineFailed": "Pipeline execution failed.",
+  "selectProjectError": "Please select at least one project.",
+  "selectTemplateError": "Please select a template.",
+  "analyzed": "Analyzed",
+  "aiSummary": "AI Summary"
+}

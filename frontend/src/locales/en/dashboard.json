@@ -1,0 +1,34 @@
+{
+  "welcome": "Welcome to Autopolio",
+  "welcomeDesc": "Automatically generate resumes and portfolios with GitHub analysis, LLM-based summaries, and various platform templates.",
+  "getStarted": "Get Started",
+  "hello": "Hello, {{name}}",
+  "manageAndGenerate": "Manage and generate your portfolio/resume.",
+  "generateDocument": "Generate Document",
+  "stats": {
+    "companies": "Companies",
+    "projects": "Projects",
+    "analyzedProjects": "Analyzed Projects",
+    "documents": "Generated Documents"
+  },
+  "recentProjects": "Recent Projects",
+  "recentDocuments": "Recent Documents",
+  "recentJobs": "Recent Jobs",
+  "viewAll": "View All",
+  "noProjects": "No projects yet.",
+  "addProject": "Add Project",
+  "noDocuments": "No documents generated yet.",
+  "createFirstDocument": "Create First Document",
+  "noJobs": "No recent job history.",
+  "jobStatus": {
+    "completed": "Completed",
+    "running": "Running",
+    "failed": "Failed"
+  },
+  "pipelineJob": "Document Generation Pipeline",
+  "connectGitHub": {
+    "title": "Connect GitHub",
+    "description": "Connect GitHub to analyze repositories and generate more accurate project summaries.",
+    "button": "Connect"
+  }
+}

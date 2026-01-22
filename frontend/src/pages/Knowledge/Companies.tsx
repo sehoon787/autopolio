@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ import { ScrollToTop } from '@/components/ScrollToTop'
 import { Plus, Pencil, Trash2, Building2, LayoutList } from 'lucide-react'
 
 export default function CompaniesPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -52,9 +55,9 @@ export default function CompaniesPage() {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
       setIsDialogOpen(false)
       resetForm()
-      toast({ title: '회사가 추가되었습니다.' })
+      toast({ title: t('companies:companyAdded') })
     },
-    onError: () => toast({ title: '오류', description: '회사 추가에 실패했습니다.', variant: 'destructive' }),
+    onError: () => toast({ title: t('common:error'), description: t('companies:addFailed'), variant: 'destructive' }),
   })
 
   const updateMutation = useMutation({
@@ -65,18 +68,18 @@ export default function CompaniesPage() {
       setIsDialogOpen(false)
       setEditingCompany(null)
       resetForm()
-      toast({ title: '회사 정보가 수정되었습니다.' })
+      toast({ title: t('companies:companyUpdated') })
     },
-    onError: () => toast({ title: '오류', description: '수정에 실패했습니다.', variant: 'destructive' }),
+    onError: () => toast({ title: t('common:error'), description: t('companies:updateFailed'), variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => companiesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
-      toast({ title: '회사가 삭제되었습니다.' })
+      toast({ title: t('companies:companyDeleted') })
     },
-    onError: () => toast({ title: '오류', description: '삭제에 실패했습니다.', variant: 'destructive' }),
+    onError: () => toast({ title: t('common:error'), description: t('companies:deleteFailed'), variant: 'destructive' }),
   })
 
   const resetForm = () => {
@@ -136,32 +139,32 @@ export default function CompaniesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">회사 관리</h1>
-          <p className="text-gray-600">경력 사항을 관리합니다.</p>
+          <h1 className="text-3xl font-bold">{t('companies:title')}</h1>
+          <p className="text-muted-foreground">{t('companies:subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/knowledge/companies/timeline')}>
             <LayoutList className="h-4 w-4 mr-2" />
-            타임라인 뷰
+            {t('companies:timelineView')}
           </Button>
           <Button onClick={() => { resetForm(); setEditingCompany(null); setIsDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" />
-            회사 추가
+            {t('companies:addCompany')}
           </Button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">로딩 중...</div>
+        <div className="text-center py-8">{t('common:loading')}</div>
       ) : companies.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 회사가 없습니다</h3>
-            <p className="text-gray-500 mb-4">경력 사항을 추가해주세요.</p>
+            <Building2 className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium mb-2">{t('companies:noCompanies')}</h3>
+            <p className="text-muted-foreground mb-4">{t('companies:noCompaniesDesc')}</p>
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              첫 회사 추가
+              {t('companies:addFirstCompany')}
             </Button>
           </CardContent>
         </Card>
@@ -174,17 +177,17 @@ export default function CompaniesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-xl font-semibold">{company.name}</h3>
-                      {company.is_current && <Badge variant="success">재직중</Badge>}
+                      {company.is_current && <Badge variant="success">{t('companies:current')}</Badge>}
                     </div>
                     {company.position && (
-                      <p className="text-gray-700 font-medium">{company.position}</p>
+                      <p className="font-medium">{company.position}</p>
                     )}
-                    <p className="text-sm text-gray-500 mt-1">
-                      {formatDate(company.start_date)} ~ {company.end_date ? formatDate(company.end_date) : '현재'}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {formatDate(company.start_date)} ~ {company.end_date ? formatDate(company.end_date) : t('companies:current')}
                       {company.location && ` · ${company.location}`}
                     </p>
                     {company.description && (
-                      <p className="text-gray-600 mt-3">{company.description}</p>
+                      <p className="text-muted-foreground mt-3">{company.description}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -195,7 +198,7 @@ export default function CompaniesPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        if (confirm('정말 삭제하시겠습니까?')) {
+                        if (confirm(t('companies:confirmDelete'))) {
                           deleteMutation.mutate(company.id)
                         }
                       }}
@@ -213,12 +216,12 @@ export default function CompaniesPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingCompany ? '회사 수정' : '새 회사 추가'}</DialogTitle>
+            <DialogTitle>{editingCompany ? t('companies:editCompany') : t('companies:newCompany')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">회사명 *</Label>
+                <Label htmlFor="name">{t('companies:companyName')} *</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -227,7 +230,7 @@ export default function CompaniesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="position">직책</Label>
+                <Label htmlFor="position">{t('companies:position')}</Label>
                 <Input
                   id="position"
                   value={formData.position}
@@ -237,7 +240,7 @@ export default function CompaniesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="department">부서</Label>
+                <Label htmlFor="department">{t('companies:department')}</Label>
                 <Input
                   id="department"
                   value={formData.department}
@@ -245,7 +248,7 @@ export default function CompaniesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location">위치</Label>
+                <Label htmlFor="location">{t('companies:location')}</Label>
                 <Input
                   id="location"
                   value={formData.location}
@@ -255,22 +258,19 @@ export default function CompaniesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_date">시작일</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                <Label htmlFor="start_date">{t('companies:startDate')}</Label>
+                <DatePicker
+                  value={formData.start_date || ''}
+                  onChange={(value) => setFormData({ ...formData, start_date: value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">종료일</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                <Label htmlFor="end_date">{t('companies:endDate')}</Label>
+                <DatePicker
+                  value={formData.end_date || ''}
+                  onChange={(value) => setFormData({ ...formData, end_date: value })}
                   disabled={formData.is_current}
+                  className={formData.is_current ? 'opacity-50' : ''}
                 />
               </div>
             </div>
@@ -281,10 +281,10 @@ export default function CompaniesPage() {
                 checked={formData.is_current}
                 onChange={(e) => setFormData({ ...formData, is_current: e.target.checked, end_date: '' })}
               />
-              <Label htmlFor="is_current">현재 재직중</Label>
+              <Label htmlFor="is_current">{t('companies:currentlyWorking')}</Label>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">설명</Label>
+              <Label htmlFor="description">{t('companies:description')}</Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -294,10 +294,10 @@ export default function CompaniesPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                취소
+                {t('common:cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingCompany ? '수정' : '추가'}
+                {editingCompany ? t('common:edit') : t('common:add')}
               </Button>
             </DialogFooter>
           </form>

@@ -8,6 +8,12 @@ import koProjects from '@/locales/ko/projects.json'
 import koTemplates from '@/locales/ko/templates.json'
 import koDocuments from '@/locales/ko/documents.json'
 import koSettings from '@/locales/ko/settings.json'
+import koGenerate from '@/locales/ko/generate.json'
+import koCompanies from '@/locales/ko/companies.json'
+import koDashboard from '@/locales/ko/dashboard.json'
+import koPipeline from '@/locales/ko/pipeline.json'
+import koGithub from '@/locales/ko/github.json'
+import koHistory from '@/locales/ko/history.json'
 
 import enCommon from '@/locales/en/common.json'
 import enNavigation from '@/locales/en/navigation.json'
@@ -15,6 +21,12 @@ import enProjects from '@/locales/en/projects.json'
 import enTemplates from '@/locales/en/templates.json'
 import enDocuments from '@/locales/en/documents.json'
 import enSettings from '@/locales/en/settings.json'
+import enGenerate from '@/locales/en/generate.json'
+import enCompanies from '@/locales/en/companies.json'
+import enDashboard from '@/locales/en/dashboard.json'
+import enPipeline from '@/locales/en/pipeline.json'
+import enGithub from '@/locales/en/github.json'
+import enHistory from '@/locales/en/history.json'
 
 // Language resources
 const resources = {
@@ -25,6 +37,12 @@ const resources = {
     templates: koTemplates,
     documents: koDocuments,
     settings: koSettings,
+    generate: koGenerate,
+    companies: koCompanies,
+    dashboard: koDashboard,
+    pipeline: koPipeline,
+    github: koGithub,
+    history: koHistory,
   },
   en: {
     common: enCommon,
@@ -33,6 +51,12 @@ const resources = {
     templates: enTemplates,
     documents: enDocuments,
     settings: enSettings,
+    generate: enGenerate,
+    companies: enCompanies,
+    dashboard: enDashboard,
+    pipeline: enPipeline,
+    github: enGithub,
+    history: enHistory,
   },
 }
 
@@ -60,7 +84,20 @@ i18n.use(initReactI18next).init({
   lng: getInitialLanguage(),
   fallbackLng: 'ko',
   defaultNS: 'common',
-  ns: ['common', 'navigation', 'projects', 'templates', 'documents', 'settings'],
+  ns: [
+    'common',
+    'navigation',
+    'projects',
+    'templates',
+    'documents',
+    'settings',
+    'generate',
+    'companies',
+    'dashboard',
+    'pipeline',
+    'github',
+    'history',
+  ],
   interpolation: {
     escapeValue: false, // React already escapes values
   },

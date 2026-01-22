@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -50,6 +52,7 @@ import {
 export default function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -92,12 +95,12 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
-      toast({ title: '저장 완료', description: '변경 내용이 저장되었습니다.' })
+      toast({ title: t('detail.toast.saveSuccess'), description: t('detail.toast.saveSuccessDesc') })
     },
     onError: (error: any) => {
       toast({
-        title: '저장 실패',
-        description: error?.response?.data?.detail || '저장에 실패했습니다.',
+        title: t('detail.toast.saveFailed'),
+        description: error?.response?.data?.detail || t('detail.toast.saveFailedDesc'),
         variant: 'destructive'
       })
     },
@@ -111,12 +114,12 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
-      toast({ title: '복원 완료', description: '원본 내용으로 복원되었습니다.' })
+      toast({ title: t('detail.toast.resetSuccess'), description: t('detail.toast.resetSuccessDesc') })
     },
     onError: (error: any) => {
       toast({
-        title: '복원 실패',
-        description: error?.response?.data?.detail || '복원에 실패했습니다.',
+        title: t('detail.toast.resetFailed'),
+        description: error?.response?.data?.detail || t('detail.toast.resetFailedDesc'),
         variant: 'destructive'
       })
     },
@@ -143,12 +146,12 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
       queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
-      toast({ title: '분석 완료', description: '레포지토리 분석이 완료되었습니다.' })
+      toast({ title: t('detail.toast.analyzeSuccess'), description: t('detail.toast.analyzeSuccessDesc') })
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.detail || '분석에 실패했습니다. 잠시 후 다시 시도해주세요.'
+      const errorMessage = error?.response?.data?.detail || t('detail.toast.analyzeFailedDesc')
       toast({
-        title: '분석 오류',
+        title: t('detail.toast.analyzeFailed'),
         description: errorMessage,
         variant: 'destructive'
       })
@@ -161,11 +164,11 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       setIsEditDialogOpen(false)
-      toast({ title: '프로젝트가 수정되었습니다.' })
+      toast({ title: t('detail.toast.updateSuccess') })
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.detail || '수정에 실패했습니다.'
-      toast({ title: '오류', description: errorMessage, variant: 'destructive' })
+      const errorMessage = error?.response?.data?.detail || t('detail.toast.updateFailedDesc')
+      toast({ title: t('detail.toast.updateFailed'), description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -233,11 +236,11 @@ export default function ProjectDetailPage() {
   const detailed = detailedReport?.data as DetailedReportData | undefined
 
   if (isLoading) {
-    return <div className="text-center py-8">로딩 중...</div>
+    return <div className="text-center py-8">{t('detail.loading')}</div>
   }
 
   if (!project) {
-    return <div className="text-center py-8">프로젝트를 찾을 수 없습니다.</div>
+    return <div className="text-center py-8">{t('detail.notFound')}</div>
   }
 
   return (
@@ -250,7 +253,7 @@ export default function ProjectDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{project.name}</h1>
-            {project.is_analyzed && <Badge variant="success">분석됨</Badge>}
+            {project.is_analyzed && <Badge variant="success">{t('detail.badge.analyzed')}</Badge>}
           </div>
           {project.short_description && (
             <p className="text-gray-600 mt-1">{project.short_description}</p>
@@ -258,7 +261,7 @@ export default function ProjectDetailPage() {
         </div>
         <Button variant="outline" onClick={openEditDialog}>
           <Pencil className="h-4 w-4 mr-2" />
-          수정
+          {t('detail.buttons.edit')}
         </Button>
         {project.git_url && (
           <Button
@@ -267,7 +270,7 @@ export default function ProjectDetailPage() {
             disabled={analyzeMutation.isPending}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-spin' : ''}`} />
-            {project.is_analyzed ? '재분석' : '레포 분석'}
+            {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
           </Button>
         )}
       </div>
@@ -277,15 +280,15 @@ export default function ProjectDetailPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basic" className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4" />
-            기본정보
+            {t('detail.tabs.basic')}
           </TabsTrigger>
           <TabsTrigger value="summary" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            분석 요약
+            {t('detail.tabs.summary')}
           </TabsTrigger>
           <TabsTrigger value="detail" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            상세 분석
+            {t('detail.tabs.detail')}
           </TabsTrigger>
         </TabsList>
 
@@ -295,6 +298,7 @@ export default function ProjectDetailPage() {
             project={project}
             analysis={analysis}
             editStatus={analysis?.edit_status}
+            t={t}
             onSaveKeyTasks={async (items) => {
               await updateContentMutation.mutateAsync({ field: 'key_tasks', content: items })
             }}
@@ -311,6 +315,7 @@ export default function ProjectDetailPage() {
             analysis={analysis}
             final={final}
             editStatus={analysis?.edit_status}
+            t={t}
             onSaveKeyTasks={async (items) => {
               await updateContentMutation.mutateAsync({ field: 'key_tasks', content: items })
             }}
@@ -327,6 +332,7 @@ export default function ProjectDetailPage() {
             analysis={analysis}
             detailed={detailed}
             editStatus={analysis?.edit_status}
+            t={t}
             onSaveImplementationDetails={async (sections) => {
               await updateContentMutation.mutateAsync({ field: 'implementation_details', content: sections })
             }}
@@ -347,11 +353,11 @@ export default function ProjectDetailPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>프로젝트 수정</DialogTitle>
+            <DialogTitle>{t('detail.editDialog.title')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">프로젝트명 *</Label>
+              <Label htmlFor="edit-name">{t('detail.editDialog.projectName')}</Label>
               <Input
                 id="edit-name"
                 value={editFormData.name || ''}
@@ -359,21 +365,21 @@ export default function ProjectDetailPage() {
                 required
               />
               <p className="text-xs text-gray-500">
-                프로젝트명은 GitHub 레포지토리 이름과 다르게 설정할 수 있습니다.
+                {t('detail.editDialog.projectNameHint')}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-short_description">간단 설명</Label>
+              <Label htmlFor="edit-short_description">{t('detail.editDialog.shortDesc')}</Label>
               <Input
                 id="edit-short_description"
                 value={editFormData.short_description || ''}
                 onChange={(e) => setEditFormData({ ...editFormData, short_description: e.target.value })}
-                placeholder="한 줄 요약"
+                placeholder={t('detail.editDialog.shortDescPlaceholder')}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>프로젝트 유형</Label>
+                <Label>{t('detail.editDialog.projectType')}</Label>
                 <Select
                   value={editFormData.project_type || 'personal'}
                   onValueChange={(v) => setEditFormData({ ...editFormData, project_type: v })}
@@ -382,23 +388,23 @@ export default function ProjectDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="company">회사 프로젝트</SelectItem>
-                    <SelectItem value="personal">개인 프로젝트</SelectItem>
-                    <SelectItem value="open-source">오픈소스</SelectItem>
+                    <SelectItem value="company">{t('detail.editDialog.companyProject')}</SelectItem>
+                    <SelectItem value="personal">{t('detail.editDialog.personalProject')}</SelectItem>
+                    <SelectItem value="open-source">{t('detail.editDialog.openSource')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>회사</Label>
+                <Label>{t('detail.editDialog.company')}</Label>
                 <Select
                   value={editFormData.company_id?.toString() || 'none'}
                   onValueChange={(v) => setEditFormData({ ...editFormData, company_id: v === 'none' ? undefined : parseInt(v) })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="선택 (선택사항)" />
+                    <SelectValue placeholder={t('detail.editDialog.selectOptional')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">없음</SelectItem>
+                    <SelectItem value="none">{t('detail.editDialog.none')}</SelectItem>
                     {companies.map((c) => (
                       <SelectItem key={c.id} value={c.id.toString()}>
                         {c.name}
@@ -410,23 +416,19 @@ export default function ProjectDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-start_date">시작일</Label>
-                <Input
-                  id="edit-start_date"
-                  type="date"
+                <Label htmlFor="edit-start_date">{t('detail.editDialog.startDate')}</Label>
+                <DatePicker
                   value={editFormData.start_date || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                  onChange={(value) => setEditFormData({ ...editFormData, start_date: value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-end_date">종료일</Label>
-                <Input
-                  id="edit-end_date"
-                  type="date"
+                <Label htmlFor="edit-end_date">{t('detail.editDialog.endDate')}</Label>
+                <DatePicker
                   value={editFormData.end_date || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                  onChange={(value) => setEditFormData({ ...editFormData, end_date: value })}
                   disabled={isOngoing}
-                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
+                  className={isOngoing ? 'opacity-50' : ''}
                 />
               </div>
             </div>
@@ -442,20 +444,20 @@ export default function ProjectDetailPage() {
                   }
                 }}
               />
-              <Label htmlFor="edit-is_ongoing" className="cursor-pointer">현재 진행중인 프로젝트</Label>
+              <Label htmlFor="edit-is_ongoing" className="cursor-pointer">{t('detail.editDialog.ongoingProject')}</Label>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-role">역할</Label>
+                <Label htmlFor="edit-role">{t('detail.editDialog.role')}</Label>
                 <Input
                   id="edit-role"
                   value={editFormData.role || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
-                  placeholder="백엔드 개발"
+                  placeholder={t('detail.editDialog.rolePlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-team_size">팀 규모</Label>
+                <Label htmlFor="edit-team_size">{t('detail.editDialog.teamSize')}</Label>
                 <Input
                   id="edit-team_size"
                   type="number"
@@ -465,7 +467,7 @@ export default function ProjectDetailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-contribution_percent">기여도 (%)</Label>
+                <Label htmlFor="edit-contribution_percent">{t('detail.editDialog.contribution')}</Label>
                 <Input
                   id="edit-contribution_percent"
                   type="number"
@@ -478,7 +480,7 @@ export default function ProjectDetailPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-git_url">GitHub URL</Label>
+              <Label htmlFor="edit-git_url">{t('detail.editDialog.githubUrl')}</Label>
               <Input
                 id="edit-git_url"
                 value={editFormData.git_url || ''}
@@ -487,12 +489,12 @@ export default function ProjectDetailPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>기술 스택</Label>
+              <Label>{t('detail.editDialog.techStack')}</Label>
               <div className="flex gap-2">
                 <Input
                   value={techInput}
                   onChange={(e) => setTechInput(e.target.value)}
-                  placeholder="기술명 입력 후 추가"
+                  placeholder={t('detail.editDialog.techInputPlaceholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -501,7 +503,7 @@ export default function ProjectDetailPage() {
                   }}
                 />
                 <Button type="button" variant="outline" onClick={addTechnology}>
-                  추가
+                  {t('detail.buttons.add')}
                 </Button>
               </div>
               {editFormData.technologies && editFormData.technologies.length > 0 && (
@@ -514,12 +516,12 @@ export default function ProjectDetailPage() {
                       onClick={() => removeTechnology(tech)}
                     />
                   ))}
-                  <span className="text-xs text-gray-500 self-center ml-1">(클릭하여 제거)</span>
+                  <span className="text-xs text-gray-500 self-center ml-1">{t('detail.editDialog.clickToRemove')}</span>
                 </div>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">상세 설명</Label>
+              <Label htmlFor="edit-description">{t('detail.editDialog.description')}</Label>
               <Textarea
                 id="edit-description"
                 value={editFormData.description || ''}
@@ -529,10 +531,10 @@ export default function ProjectDetailPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                취소
+                {t('detail.buttons.cancel')}
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? '저장 중...' : '저장'}
+                {updateMutation.isPending ? t('detail.buttons.saving') : t('detail.buttons.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -549,11 +551,12 @@ interface BasicInfoTabProps {
   project: any
   analysis: EffectiveRepoAnalysis | undefined
   editStatus?: EditStatus
+  t: (key: string, options?: any) => string
   onSaveKeyTasks: (items: string[]) => Promise<void>
   onResetKeyTasks: () => Promise<void>
 }
 
-function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKeyTasks }: BasicInfoTabProps) {
+function BasicInfoTab({ project, analysis, editStatus, t, onSaveKeyTasks, onResetKeyTasks }: BasicInfoTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
 
   return (
@@ -564,26 +567,26 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Github className="h-5 w-5" />
-              프로젝트 정보
+              {t('detail.basicInfo.projectInfo')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <span className="text-sm text-gray-500">기간</span>
+              <span className="text-sm text-gray-500">{t('detail.basicInfo.period')}</span>
               <p>
-                {formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : '진행중'}
+                {formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : t('detail.basicInfo.ongoing')}
               </p>
             </div>
             {project.role && (
               <div>
-                <span className="text-sm text-gray-500">역할</span>
+                <span className="text-sm text-gray-500">{t('detail.basicInfo.role')}</span>
                 <p>{project.role}</p>
               </div>
             )}
             {project.team_size && (
               <div>
-                <span className="text-sm text-gray-500">팀 규모</span>
-                <p>{project.team_size}명</p>
+                <span className="text-sm text-gray-500">{t('detail.basicInfo.teamSize')}</span>
+                <p>{t('detail.basicInfo.teamSizeValue', { count: project.team_size })}</p>
               </div>
             )}
             {project.git_url && (
@@ -606,7 +609,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
 
         <Card>
           <CardHeader>
-            <CardTitle>기술 스택</CardTitle>
+            <CardTitle>{t('detail.basicInfo.techStack')}</CardTitle>
           </CardHeader>
           <CardContent>
             {project.technologies?.length > 0 ? (
@@ -616,7 +619,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">등록된 기술 스택이 없습니다.</p>
+              <p className="text-gray-500">{t('detail.basicInfo.noTechStack')}</p>
             )}
           </CardContent>
         </Card>
@@ -628,10 +631,10 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-blue-500" />
-              주요 수행 업무
+              {t('detail.basicInfo.keyTasks')}
               {editStatus?.key_tasks_modified && (
                 <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
-                  수정됨
+                  {t('detail.badge.modified')}
                 </Badge>
               )}
             </CardTitle>
@@ -643,7 +646,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
                 className="h-8 text-gray-500 hover:text-gray-700"
               >
                 <Pencil className="h-4 w-4 mr-1" />
-                편집
+                {t('detail.buttons.editBtn')}
               </Button>
             )}
           </CardHeader>
@@ -659,7 +662,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
                 setIsEditingKeyTasks(false)
               }}
               isModified={editStatus?.key_tasks_modified || false}
-              emptyMessage="분석된 주요 수행 업무가 없습니다."
+              emptyMessage={t('detail.basicInfo.noKeyTasks')}
               itemPrefix="(n)"
               isEditing={isEditingKeyTasks}
               onEditingChange={setIsEditingKeyTasks}
@@ -674,7 +677,7 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-500" />
-            성과
+            {t('detail.basicInfo.achievements')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -705,8 +708,8 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
           ) : (
             <div className="text-center py-6 text-gray-500">
               <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>등록된 성과가 없습니다.</p>
-              <p className="text-sm mt-1">프로젝트를 분석하면 성과가 자동으로 감지됩니다.</p>
+              <p>{t('detail.basicInfo.noAchievements')}</p>
+              <p className="text-sm mt-1">{t('detail.basicInfo.analyzeForAchievements')}</p>
             </div>
           )}
         </CardContent>
@@ -719,23 +722,23 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <GitCommit className="h-5 w-5" />
-                커밋 통계
+                {t('detail.basicInfo.commitStats')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 rounded-lg p-3">
-                  <span className="text-sm text-blue-600">총 커밋</span>
+                  <span className="text-sm text-blue-600">{t('detail.basicInfo.totalCommits')}</span>
                   <p className="text-2xl font-bold text-blue-700">{analysis.total_commits}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3">
-                  <span className="text-sm text-green-600">내 커밋</span>
+                  <span className="text-sm text-green-600">{t('detail.basicInfo.myCommits')}</span>
                   <p className="text-2xl font-bold text-green-700">{analysis.user_commits}</p>
                 </div>
               </div>
               {analysis.total_commits > 0 && analysis.user_commits > 0 && (
                 <div className="text-sm text-gray-600">
-                  기여도: <span className="font-semibold">{((analysis.user_commits / analysis.total_commits) * 100).toFixed(1)}%</span>
+                  {t('detail.basicInfo.contribution')}: <span className="font-semibold">{((analysis.user_commits / analysis.total_commits) * 100).toFixed(1)}%</span>
                 </div>
               )}
             </CardContent>
@@ -745,21 +748,21 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Code className="h-5 w-5" />
-                코드 통계
+                {t('detail.basicInfo.codeStats')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                  <span className="text-xs text-emerald-600">추가</span>
+                  <span className="text-xs text-emerald-600">{t('detail.basicInfo.added')}</span>
                   <p className="text-lg font-bold text-emerald-700">+{analysis.lines_added?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <span className="text-xs text-red-600">삭제</span>
+                  <span className="text-xs text-red-600">{t('detail.basicInfo.deleted')}</span>
                   <p className="text-lg font-bold text-red-700">-{analysis.lines_deleted?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <span className="text-xs text-purple-600">파일</span>
+                  <span className="text-xs text-purple-600">{t('detail.basicInfo.files')}</span>
                   <p className="text-lg font-bold text-purple-700">{analysis.files_changed?.toLocaleString() || 0}</p>
                 </div>
               </div>
@@ -773,11 +776,11 @@ function BasicInfoTab({ project, analysis, editStatus, onSaveKeyTasks, onResetKe
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Code className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">아직 분석되지 않았습니다</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('detail.basicInfo.notAnalyzed')}</h3>
             <p className="text-gray-500 mb-4 text-center">
               {project.git_url
-                ? 'GitHub 레포지토리를 분석하여 커밋 통계, 코드 통계, 기술 스택 등을 확인하세요.'
-                : 'GitHub URL을 등록하면 분석을 진행할 수 있습니다.'}
+                ? t('detail.basicInfo.notAnalyzedDescWithUrl')
+                : t('detail.basicInfo.notAnalyzedDescWithoutUrl')}
             </p>
           </CardContent>
         </Card>
@@ -792,11 +795,12 @@ interface SummaryTabProps {
   analysis: EffectiveRepoAnalysis | undefined
   final: FinalReportData | undefined
   editStatus?: EditStatus
+  t: (key: string, options?: any) => string
   onSaveKeyTasks: (items: string[]) => Promise<void>
   onResetKeyTasks: () => Promise<void>
 }
 
-function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onResetKeyTasks }: SummaryTabProps) {
+function SummaryTab({ project, analysis, final, editStatus, t, onSaveKeyTasks, onResetKeyTasks }: SummaryTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
 
   if (!project.is_analyzed || !analysis) {
@@ -804,8 +808,8 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
           <FileText className="h-16 w-16 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">분석 데이터가 없습니다</h3>
-          <p className="text-gray-500 text-center">프로젝트를 분석한 후 분석 요약을 확인할 수 있습니다.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('detail.summary.noData')}</h3>
+          <p className="text-gray-500 text-center">{t('detail.summary.noDataDesc')}</p>
         </CardContent>
       </Card>
     )
@@ -816,35 +820,35 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
       {/* 프로젝트 개요 */}
       <Card>
         <CardHeader>
-          <CardTitle>프로젝트 개요</CardTitle>
+          <CardTitle>{t('detail.summary.overview')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-gray-500">기간:</span>{' '}
+              <span className="text-gray-500">{t('detail.summary.periodLabel')}</span>{' '}
               <span className="font-medium">
-                {final?.overview?.date_range || `${formatDate(project.start_date)} ~ ${project.end_date ? formatDate(project.end_date) : '진행중'}`}
+                {final?.overview?.date_range || `${formatDate(project.start_date)} ~ ${project.end_date ? formatDate(project.end_date) : t('detail.basicInfo.ongoing')}`}
               </span>
             </div>
             <div>
-              <span className="text-gray-500">소속:</span>{' '}
-              <span className="font-medium">{final?.overview?.company || '개인/프리랜서'}</span>
+              <span className="text-gray-500">{t('detail.summary.companyLabel')}</span>{' '}
+              <span className="font-medium">{final?.overview?.company || t('detail.summary.freelancer')}</span>
             </div>
             <div>
-              <span className="text-gray-500">역할:</span>{' '}
-              <span className="font-medium">{final?.overview?.role || project.role || '개발자'}</span>
+              <span className="text-gray-500">{t('detail.summary.roleLabel')}</span>{' '}
+              <span className="font-medium">{final?.overview?.role || project.role || t('detail.summary.developer')}</span>
             </div>
             {(project.team_size || final?.overview?.team_size) && (
               <div>
-                <span className="text-gray-500">팀 규모:</span>{' '}
-                <span className="font-medium">{final?.overview?.team_size || project.team_size}명</span>
+                <span className="text-gray-500">{t('detail.summary.teamSizeLabel')}</span>{' '}
+                <span className="font-medium">{t('detail.summary.teamSizeValue', { count: final?.overview?.team_size || project.team_size })}</span>
               </div>
             )}
           </div>
           <div className="pt-2">
-            <span className="text-gray-500 text-sm">기술 스택:</span>
+            <span className="text-gray-500 text-sm">{t('detail.summary.techStackLabel')}</span>
             <div className="flex flex-wrap gap-1 mt-1">
-              {(final?.technologies || project.technologies?.map((t: any) => t.name) || []).map((tech: string) => (
+              {(final?.technologies || project.technologies?.map((tech: any) => tech.name) || []).map((tech: string) => (
                 <TechBadge key={tech} tech={tech} size="sm" />
               ))}
             </div>
@@ -856,10 +860,10 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="flex items-center gap-2">
-            주요 구현 내용
+            {t('detail.summary.keyImplementations')}
             {editStatus?.key_tasks_modified && (
               <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
-                수정됨
+                {t('detail.badge.modified')}
               </Badge>
             )}
           </CardTitle>
@@ -871,7 +875,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
               className="h-8 text-gray-500 hover:text-gray-700"
             >
               <Pencil className="h-4 w-4 mr-1" />
-              편집
+              {t('detail.buttons.editBtn')}
             </Button>
           )}
         </CardHeader>
@@ -887,7 +891,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
               setIsEditingKeyTasks(false)
             }}
             isModified={editStatus?.key_tasks_modified || false}
-            emptyMessage="분석된 주요 구현 내용이 없습니다."
+            emptyMessage={t('detail.summary.noKeyImplementations')}
             itemPrefix="•"
             isEditing={isEditingKeyTasks}
             onEditingChange={setIsEditingKeyTasks}
@@ -902,7 +906,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code className="h-5 w-5 text-green-500" />
-              기술 스택 (버전)
+              {t('detail.summary.techStackVersions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -924,7 +928,7 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
       {(final?.achievements?.length || project.achievements?.length) ? (
         <Card>
           <CardHeader>
-            <CardTitle>성과</CardTitle>
+            <CardTitle>{t('detail.summary.achievements')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {(final?.achievements || project.achievements || []).map((ach: any, index: number) => (
@@ -944,30 +948,30 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
       {(final?.code_contribution || analysis) && (
         <Card>
           <CardHeader>
-            <CardTitle>코드 기여도</CardTitle>
+            <CardTitle>{t('detail.summary.codeContribution')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div className="bg-emerald-50 rounded-lg p-3">
-                <div className="text-emerald-600 text-sm">추가된 코드</div>
+                <div className="text-emerald-600 text-sm">{t('detail.summary.addedCode')}</div>
                 <div className="text-xl font-bold text-emerald-700">
                   +{(final?.code_contribution?.lines_added || analysis?.lines_added || 0).toLocaleString()}
                 </div>
               </div>
               <div className="bg-red-50 rounded-lg p-3">
-                <div className="text-red-600 text-sm">삭제된 코드</div>
+                <div className="text-red-600 text-sm">{t('detail.summary.deletedCode')}</div>
                 <div className="text-xl font-bold text-red-700">
                   -{(final?.code_contribution?.lines_deleted || analysis?.lines_deleted || 0).toLocaleString()}
                 </div>
               </div>
               <div className="bg-blue-50 rounded-lg p-3">
-                <div className="text-blue-600 text-sm">커밋 수</div>
+                <div className="text-blue-600 text-sm">{t('detail.summary.commits')}</div>
                 <div className="text-xl font-bold text-blue-700">
                   {(final?.code_contribution?.commits || analysis?.user_commits || 0).toLocaleString()}
                 </div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3">
-                <div className="text-purple-600 text-sm">기여도</div>
+                <div className="text-purple-600 text-sm">{t('detail.summary.contribution')}</div>
                 <div className="text-xl font-bold text-purple-700">
                   {(final?.code_contribution?.contribution_percent ||
                     (analysis?.total_commits > 0 ? ((analysis?.user_commits / analysis?.total_commits) * 100).toFixed(1) : 0))}%
@@ -984,14 +988,14 @@ function SummaryTab({ project, analysis, final, editStatus, onSaveKeyTasks, onRe
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              AI 요약
+              {t('detail.summary.aiSummary')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p>{final?.ai_summary?.summary || project.ai_summary}</p>
             {(final?.ai_summary?.key_features?.length || project.ai_key_features?.length) ? (
               <div>
-                <span className="text-sm text-gray-500">주요 기능</span>
+                <span className="text-sm text-gray-500">{t('detail.summary.keyFeatures')}</span>
                 <ul className="list-disc list-inside mt-1 space-y-1">
                   {(final?.ai_summary?.key_features || project.ai_key_features || []).map((feature: string, index: number) => (
                     <li key={index}>{feature}</li>
@@ -1016,6 +1020,7 @@ interface DetailTabProps {
   onResetImplementationDetails: () => Promise<void>
   onSaveDetailedAchievements?: (achievements: Record<string, any>) => Promise<void>
   onResetDetailedAchievements?: () => Promise<void>
+  t: (key: string, options?: any) => string
 }
 
 function DetailTab({
@@ -1025,6 +1030,7 @@ function DetailTab({
   editStatus,
   onSaveImplementationDetails,
   onResetImplementationDetails,
+  t,
 }: DetailTabProps) {
   const [isEditingImplementationDetails, setIsEditingImplementationDetails] = useState(false)
 
@@ -1033,8 +1039,8 @@ function DetailTab({
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
           <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">분석 데이터가 없습니다</h3>
-          <p className="text-gray-500 text-center">프로젝트를 분석한 후 상세 분석을 확인할 수 있습니다.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('detail.detailTab.noData')}</h3>
+          <p className="text-gray-500 text-center">{t('detail.detailTab.noDataDesc')}</p>
         </CardContent>
       </Card>
     )
@@ -1047,10 +1053,10 @@ function DetailTab({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
-            주요 구현 기능
+            {t('detail.detailTab.keyFeatures')}
             {editStatus?.implementation_details_modified && (
               <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs ml-2">
-                수정됨
+                {t('detail.badge.modified')}
               </Badge>
             )}
           </CardTitle>
@@ -1062,7 +1068,7 @@ function DetailTab({
               className="h-8 text-gray-500 hover:text-gray-700"
             >
               <Pencil className="h-4 w-4 mr-1" />
-              편집
+              {t('detail.buttons.editBtn')}
             </Button>
           )}
         </CardHeader>
@@ -1078,7 +1084,7 @@ function DetailTab({
               setIsEditingImplementationDetails(false)
             }}
             isModified={editStatus?.implementation_details_modified || false}
-            emptyMessage="분석된 주요 구현 기능이 없습니다."
+            emptyMessage={t('detail.detailTab.noKeyFeatures')}
             isEditing={isEditingImplementationDetails}
             onEditingChange={setIsEditingImplementationDetails}
             hideEditButton
@@ -1092,7 +1098,7 @@ function DetailTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GitCommit className="h-5 w-5 text-blue-500" />
-              개발 타임라인
+              {t('detail.detailTab.devTimeline')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1117,7 +1123,7 @@ function DetailTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code className="h-5 w-5 text-green-500" />
-              기술 스택 (버전 포함)
+              {t('detail.detailTab.techStackVersions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1141,7 +1147,7 @@ function DetailTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-amber-500" />
-              주요 성과 (카테고리별)
+              {t('detail.detailTab.achievementsByCategory')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1167,26 +1173,26 @@ function DetailTab({
       {/* 저장소 정보 */}
       <Card>
         <CardHeader>
-          <CardTitle>저장소 정보</CardTitle>
+          <CardTitle>{t('detail.detailTab.repoInfo')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">저장소:</span>
+            <span className="text-gray-500">{t('detail.detailTab.repository')}</span>
             <span className="font-medium">{detailed?.repository?.name || project.name}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">GitHub:</span>
+            <span className="text-gray-500">{t('detail.detailTab.github')}</span>
             <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
               {project.git_url?.replace('https://github.com/', '')}
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">총 커밋:</span>
-            <span className="font-medium">{detailed?.repository?.total_commits || analysis.total_commits}개</span>
+            <span className="text-gray-500">{t('detail.detailTab.totalCommits')}</span>
+            <span className="font-medium">{t('detail.detailTab.countCommits', { count: detailed?.repository?.total_commits || analysis.total_commits })}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">코드 변경량:</span>
+            <span className="text-gray-500">{t('detail.detailTab.codeChanges')}</span>
             <span className="font-medium">
               <span className="text-emerald-600">+{(detailed?.repository?.lines_added || analysis.lines_added || 0).toLocaleString()}</span>
               {' / '}
@@ -1195,7 +1201,7 @@ function DetailTab({
           </div>
           {detailed?.repository?.analyzed_at && (
             <div className="flex justify-between">
-              <span className="text-gray-500">분석 시간:</span>
+              <span className="text-gray-500">{t('detail.detailTab.analysisTime')}</span>
               <span className="font-medium">{detailed.repository.analyzed_at}</span>
             </div>
           )}
@@ -1208,17 +1214,17 @@ function DetailTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GitCommit className="h-5 w-5" />
-              커밋 상세 분석
+              {t('detail.detailTab.commitAnalysis')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">총 커밋</span>
+                <span className="text-gray-500">{t('detail.detailTab.totalCommitsLabel')}</span>
                 <span className="font-medium">{detailed?.commit_analysis?.total_commits || analysis.total_commits}</span>
               </div>
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">내 커밋</span>
+                <span className="text-gray-500">{t('detail.detailTab.myCommitsLabel')}</span>
                 <span className="font-medium">
                   {detailed?.commit_analysis?.user_commits || analysis.user_commits} ({detailed?.commit_analysis?.contribution_percent || ((analysis.user_commits / analysis.total_commits) * 100).toFixed(1)}%)
                 </span>
@@ -1241,28 +1247,28 @@ function DetailTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code className="h-5 w-5" />
-              코드 상세 분석
+              {t('detail.detailTab.codeAnalysis')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">추가된 라인</span>
+                <span className="text-gray-500">{t('detail.detailTab.addedLines')}</span>
                 <span className="font-medium text-emerald-600">+{(detailed?.code_analysis?.lines_added || analysis.lines_added || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">삭제된 라인</span>
+                <span className="text-gray-500">{t('detail.detailTab.deletedLines')}</span>
                 <span className="font-medium text-red-600">-{(detailed?.code_analysis?.lines_deleted || analysis.lines_deleted || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">순 변경</span>
+                <span className="text-gray-500">{t('detail.detailTab.netChange')}</span>
                 <span className="font-medium text-blue-600">
                   {((detailed?.code_analysis?.net_change || (analysis.lines_added || 0) - (analysis.lines_deleted || 0)) > 0 ? '+' : '')}
                   {(detailed?.code_analysis?.net_change || (analysis.lines_added || 0) - (analysis.lines_deleted || 0)).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">변경된 파일</span>
+                <span className="text-gray-500">{t('detail.detailTab.changedFiles')}</span>
                 <span className="font-medium">{detailed?.code_analysis?.files_changed || analysis.files_changed || 0}</span>
               </div>
             </div>
@@ -1274,7 +1280,7 @@ function DetailTab({
       {analysis.languages && Object.keys(analysis.languages).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>언어 분석</CardTitle>
+            <CardTitle>{t('detail.detailTab.languageAnalysis')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -1305,7 +1311,7 @@ function DetailTab({
       {(detailed?.architecture_patterns?.length || analysis.architecture_patterns?.length) ? (
         <Card>
           <CardHeader>
-            <CardTitle>탐지된 아키텍처 패턴</CardTitle>
+            <CardTitle>{t('detail.detailTab.architecturePatterns')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -1323,7 +1329,7 @@ function DetailTab({
       {(detailed?.commit_analysis?.messages_summary || analysis.commit_messages_summary) && (
         <Card>
           <CardHeader>
-            <CardTitle>커밋 메시지 요약</CardTitle>
+            <CardTitle>{t('detail.detailTab.commitMessagesSummary')}</CardTitle>
           </CardHeader>
           <CardContent>
             <pre className="text-sm whitespace-pre-wrap bg-gray-50 p-4 rounded-lg border">

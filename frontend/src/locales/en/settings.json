@@ -3,6 +3,52 @@
   "general": "General",
   "language": "Language",
   "theme": "Theme",
+  "sidebar": {
+    "appearance": "Appearance",
+    "display": "Display",
+    "language": "Language",
+    "notifications": "Notifications",
+    "aiProviders": "AI Providers",
+    "github": "GitHub",
+    "account": "Account"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Customize the look and feel of the application",
+    "mode": "Mode",
+    "modeDescription": "Select how the application appears",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "colorTheme": "Color Theme",
+    "colorThemeDescription": "Choose your preferred accent color"
+  },
+  "display": {
+    "title": "Display",
+    "description": "Adjust the display settings",
+    "uiScale": "UI Scale",
+    "uiScaleDescription": "Adjust the size of UI elements",
+    "presets": "Presets",
+    "fineAdjustment": "Fine Adjustment",
+    "apply": "Apply",
+    "reset": "Reset"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Configure notification preferences",
+    "taskComplete": "Task Complete",
+    "taskCompleteDescription": "Notify when a task is completed successfully",
+    "taskFailed": "Task Failed",
+    "taskFailedDescription": "Notify when a task fails",
+    "reviewNeeded": "Review Needed",
+    "reviewNeededDescription": "Notify when a review is required",
+    "sound": "Sound",
+    "soundDescription": "Play sound for notifications"
+  },
+  "languageSection": {
+    "title": "Language",
+    "description": "Select your preferred language"
+  },
   "github": {
     "title": "GitHub Integration",
     "connected": "Connected",

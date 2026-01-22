@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ import {
 
 export default function RepoSelector() {
   const navigate = useNavigate()
+  const { t } = useTranslation('github')
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -75,8 +77,10 @@ export default function RepoSelector() {
 
       if (imported > 0) {
         toast({
-          title: '가져오기 완료',
-          description: `${imported}개의 레포지토리가 프로젝트로 등록되었습니다.${failed > 0 ? ` (${failed}개 실패)` : ''}`,
+          title: t('importSuccess'),
+          description: failed > 0
+            ? t('importSuccessWithFailed', { count: imported, failed })
+            : t('importSuccessDesc', { count: imported }),
         })
 
         // Clear selection
@@ -86,16 +90,16 @@ export default function RepoSelector() {
         queryClient.invalidateQueries({ queryKey: ['projects'] })
       } else {
         toast({
-          title: '가져오기 실패',
-          description: results[0]?.message || '레포지토리를 가져올 수 없습니다.',
+          title: t('importFailed'),
+          description: results[0]?.message || t('importFailedDesc'),
           variant: 'destructive',
         })
       }
     },
     onError: (error: any) => {
       toast({
-        title: '오류',
-        description: error?.response?.data?.detail || '레포지토리 가져오기에 실패했습니다.',
+        title: t('errorTitle'),
+        description: error?.response?.data?.detail || t('errorDesc'),
         variant: 'destructive',
       })
     },
@@ -123,8 +127,8 @@ export default function RepoSelector() {
   const handleImport = () => {
     if (selectedRepos.size === 0) {
       toast({
-        title: '선택 필요',
-        description: '가져올 레포지토리를 선택해주세요.',
+        title: t('selectionRequired'),
+        description: t('selectionRequiredDesc'),
         variant: 'destructive',
       })
       return
@@ -143,13 +147,13 @@ export default function RepoSelector() {
         <Card>
           <CardContent className="py-12 text-center">
             <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">GitHub 연동 필요</h2>
+            <h2 className="text-xl font-semibold mb-2">{t('connectionRequired')}</h2>
             <p className="text-gray-600 mb-4">
-              레포지토리를 가져오려면 먼저 GitHub를 연동해주세요.
+              {t('connectionRequiredDesc')}
             </p>
             <Button onClick={() => navigate('/setup/github')}>
               <Github className="mr-2 h-4 w-4" />
-              GitHub 연동하기
+              {t('connectGitHub')}
             </Button>
           </CardContent>
         </Card>
@@ -162,9 +166,9 @@ export default function RepoSelector() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">GitHub 레포지토리</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-gray-600">
-            프로젝트로 가져올 레포지토리를 선택하세요
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -174,7 +178,7 @@ export default function RepoSelector() {
             disabled={isLoading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            새로고침
+            {t('refresh')}
           </Button>
           <Button
             onClick={handleImport}
@@ -182,8 +186,8 @@ export default function RepoSelector() {
           >
             <Download className="mr-2 h-4 w-4" />
             {importMutation.isPending
-              ? '가져오는 중...'
-              : `선택한 레포 가져오기 (${selectedRepos.size})`
+              ? t('importing')
+              : t('importSelected', { count: selectedRepos.size })
             }
           </Button>
         </div>
@@ -197,7 +201,7 @@ export default function RepoSelector() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="레포지토리 검색..."
+                  placeholder={t('searchRepos')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -208,10 +212,10 @@ export default function RepoSelector() {
             <Select value={languageFilter} onValueChange={setLanguageFilter}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="언어 필터" />
+                <SelectValue placeholder={t('languageFilter')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">모든 언어</SelectItem>
+                <SelectItem value="all">{t('allLanguages')}</SelectItem>
                 {languages.map((lang) => (
                   <SelectItem key={lang} value={lang}>
                     {lang}
@@ -223,7 +227,7 @@ export default function RepoSelector() {
             {(searchQuery || languageFilter !== 'all') && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="mr-1 h-4 w-4" />
-                필터 초기화
+                {t('clearFilters')}
               </Button>
             )}
           </div>
@@ -233,16 +237,16 @@ export default function RepoSelector() {
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
-          <span>전체 {totalRepos}개 중 {filteredRepos.length}개 표시</span>
+          <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
           {selectedRepos.size > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />
-              {selectedRepos.size}개 선택됨
+              {t('selectedCount', { count: selectedRepos.size })}
             </Badge>
           )}
         </div>
         <Button variant="ghost" size="sm" onClick={toggleAll}>
-          {selectedRepos.size === filteredRepos.length ? '전체 해제' : '전체 선택'}
+          {selectedRepos.size === filteredRepos.length ? t('deselectAll') : t('selectAll')}
         </Button>
       </div>
 
@@ -251,16 +255,16 @@ export default function RepoSelector() {
         <Card>
           <CardContent className="py-12 text-center">
             <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">레포지토리 목록을 불러오는 중...</p>
+            <p className="text-gray-500">{t('loadingRepos')}</p>
           </CardContent>
         </Card>
       ) : isError ? (
         <Card>
           <CardContent className="py-12 text-center">
             <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">레포지토리 목록을 불러올 수 없습니다.</p>
+            <p className="text-gray-600 mb-4">{t('loadError')}</p>
             <Button variant="outline" onClick={() => refetch()}>
-              다시 시도
+              {t('retry')}
             </Button>
           </CardContent>
         </Card>
@@ -269,10 +273,7 @@ export default function RepoSelector() {
           <CardContent className="py-12 text-center">
             <Github className="h-8 w-8 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">
-              {repos.length === 0
-                ? '레포지토리가 없습니다.'
-                : '검색 조건에 맞는 레포지토리가 없습니다.'
-              }
+              {repos.length === 0 ? t('noRepos') : t('noMatchingRepos')}
             </p>
           </CardContent>
         </Card>
@@ -295,14 +296,14 @@ export default function RepoSelector() {
           <Card className="shadow-lg border-2">
             <CardContent className="py-3 px-6 flex items-center gap-4">
               <span className="text-sm font-medium">
-                {selectedRepos.size}개 레포지토리 선택됨
+                {t('reposSelected', { count: selectedRepos.size })}
               </span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setSelectedRepos(new Set())}
               >
-                선택 취소
+                {t('cancelSelection')}
               </Button>
               <Button
                 size="sm"
@@ -310,7 +311,7 @@ export default function RepoSelector() {
                 disabled={importMutation.isPending}
               >
                 <Download className="mr-2 h-4 w-4" />
-                프로젝트로 가져오기
+                {t('importAsProjects')}
               </Button>
             </CardContent>
           </Card>
@@ -328,9 +329,12 @@ interface RepoCardProps {
 }
 
 function RepoCard({ repo, selected, onToggle }: RepoCardProps) {
+  const { t } = useTranslation('github')
+  const { i18n } = useTranslation()
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('ko-KR', {
+    return date.toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -379,7 +383,7 @@ function RepoCard({ repo, selected, onToggle }: RepoCardProps) {
                 {repo.forks_count}
               </span>
               <span>
-                업데이트: {formatDate(repo.updated_at)}
+                {t('updated')} {formatDate(repo.updated_at)}
               </span>
             </div>
           </div>

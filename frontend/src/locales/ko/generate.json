@@ -1,0 +1,37 @@
+{
+  "title": "문서 생성",
+  "subtitle": "프로젝트를 선택하고 템플릿을 적용하여 이력서/포트폴리오를 생성합니다.",
+  "projectSelection": "프로젝트 선택",
+  "selectProjectsToInclude": "문서에 포함할 프로젝트를 선택하세요.",
+  "selectAll": "전체 선택",
+  "deselectAll": "전체 해제",
+  "noProjects": "등록된 프로젝트가 없습니다.",
+  "projectsSelected": "{{count}}개 프로젝트 선택됨",
+  "templateSettings": "템플릿 설정",
+  "template": "템플릿",
+  "selectTemplate": "템플릿 선택",
+  "outputFormat": "출력 형식",
+  "documentName": "문서명 (선택)",
+  "autoGenerate": "자동 생성",
+  "generationOptions": "생성 옵션",
+  "summaryStyle": "요약 스타일",
+  "styles": {
+    "professional": "전문적",
+    "casual": "친근한",
+    "technical": "기술 중심"
+  },
+  "options": {
+    "includeAchievements": "성과 포함",
+    "includeTechStack": "기술 스택 포함",
+    "regenerateSummaries": "AI 요약 재생성",
+    "skipLlmSummary": "AI 요약 건너뛰기"
+  },
+  "startGeneration": "문서 생성 시작",
+  "generating": "실행 중...",
+  "pipelineStarted": "파이프라인이 시작되었습니다.",
+  "pipelineFailed": "파이프라인 실행에 실패했습니다.",
+  "selectProjectError": "최소 1개의 프로젝트를 선택해주세요.",
+  "selectTemplateError": "템플릿을 선택해주세요.",
+  "analyzed": "분석됨",
+  "aiSummary": "AI 요약"
+}

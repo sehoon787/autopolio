@@ -1,20 +1,32 @@
 {
-  "title": "생성 문서",
-  "subtitle": "생성된 이력서 및 포트폴리오 문서를 관리합니다.",
+  "title": "생성된 문서",
+  "subtitle": "생성된 이력서/포트폴리오 문서를 관리합니다.",
   "generate": "문서 생성",
+  "newDocument": "새 문서 생성",
+  "firstDocument": "첫 문서 생성",
   "noDocuments": "생성된 문서가 없습니다",
-  "noDocumentsDesc": "템플릿을 선택하고 문서를 생성해보세요.",
+  "noDocumentsDesc": "프로젝트를 선택하고 문서를 생성해보세요.",
   "documentName": "문서 이름",
   "template": "템플릿",
   "format": "포맷",
   "createdAt": "생성일",
   "download": "다운로드",
   "preview": "미리보기",
+  "archive": "보관",
   "formats": {
     "docx": "Word (DOCX)",
     "pdf": "PDF",
     "md": "Markdown"
   },
+  "status": {
+    "completed": "완료",
+    "draft": "임시저장",
+    "archived": "보관됨"
+  },
+  "projectsIncluded": "{{count}}개 프로젝트",
+  "documentDeleted": "문서가 삭제되었습니다.",
+  "documentArchived": "문서가 보관되었습니다.",
+  "deleteError": "삭제에 실패했습니다.",
   "pipeline": {
     "title": "파이프라인 실행",
     "step1": "GitHub 분석",

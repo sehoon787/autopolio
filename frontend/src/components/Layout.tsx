@@ -1,7 +1,13 @@
+import { useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/stores/userStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { UsageDisplay } from '@/components/UsageDisplay'
+import { RateLimitBanner } from '@/components/RateLimitBanner'
+import { Logo } from '@/components/Logo'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -28,16 +34,24 @@ export default function Layout() {
   const location = useLocation()
   const { user } = useUserStore()
   const { t } = useTranslation()
+  const { initializeTheme } = useThemeStore()
   const navigation = getNavigation(t)
 
+  useEffect(() => {
+    initializeTheme()
+  }, [initializeTheme])
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen overflow-hidden bg-background">
+      {/* Rate Limit Banner */}
+      <RateLimitBanner />
+
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r">
+      <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-2 px-6 py-4 border-b">
-            <FileOutput className="h-8 w-8 text-primary" />
+            <Logo size={32} />
             <span className="text-xl font-bold">Autopolio</span>
           </div>
 
@@ -53,7 +67,7 @@ export default function Layout() {
                     'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-foreground/80 hover:bg-accent'
                   )}
                 >
                   <item.icon className="h-5 w-5" />
@@ -65,19 +79,27 @@ export default function Layout() {
 
           {/* Settings & User section */}
           <div className="border-t">
-            {/* Settings link - small, above profile */}
-            <Link
-              to="/settings"
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors',
-                location.pathname === '/settings'
-                  ? 'text-primary bg-primary/5'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              )}
-            >
-              <Settings className="h-3.5 w-3.5" />
-              {t('common:settings')}
-            </Link>
+            {/* Usage display */}
+            <div className="px-4 py-2 border-b">
+              <UsageDisplay compact />
+            </div>
+
+            {/* Settings link with theme toggle */}
+            <div className="flex items-center justify-between px-4 py-2">
+              <Link
+                to="/settings"
+                className={cn(
+                  'flex items-center gap-2 text-xs font-medium transition-colors',
+                  location.pathname === '/settings'
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                {t('common:settings')}
+              </Link>
+              <ThemeToggle />
+            </div>
 
             {/* User profile */}
             <div className="p-4 pt-2">
@@ -90,8 +112,8 @@ export default function Layout() {
                       className="h-10 w-10 rounded-full"
                     />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-600 font-medium">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                      <span className="text-muted-foreground font-medium">
                         {user.name.charAt(0)}
                       </span>
                     </div>
@@ -99,7 +121,7 @@ export default function Layout() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{user.name}</p>
                     {user.github_username && (
-                      <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                         <Github className="h-3 w-3" />
                         {user.github_username}
                       </p>
@@ -121,7 +143,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="pl-64">
+      <main className="pl-64 h-screen overflow-y-auto">
         <div className="p-8">
           <Outlet />
         </div>

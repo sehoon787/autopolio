@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +9,8 @@ import { formatDateTime } from '@/lib/utils'
 import { History, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react'
 
 export default function HistoryPage() {
+  const { t } = useTranslation('history')
+  const { t: tc } = useTranslation('common')
   const { user } = useUserStore()
 
   const { data: jobsData, isLoading } = useQuery({
@@ -37,48 +40,41 @@ export default function HistoryPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="success">완료</Badge>
+        return <Badge variant="success">{t('status.completed')}</Badge>
       case 'failed':
-        return <Badge variant="destructive">실패</Badge>
+        return <Badge variant="destructive">{t('status.failed')}</Badge>
       case 'running':
-        return <Badge variant="default">실행 중</Badge>
+        return <Badge variant="default">{t('status.running')}</Badge>
       case 'pending':
-        return <Badge variant="secondary">대기 중</Badge>
+        return <Badge variant="secondary">{t('status.pending')}</Badge>
       case 'cancelled':
-        return <Badge variant="outline">취소됨</Badge>
+        return <Badge variant="outline">{t('status.cancelled')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const getJobTypeLabel = (type: string) => {
-    switch (type) {
-      case 'pipeline':
-        return '문서 생성 파이프라인'
-      case 'github_analysis':
-        return 'GitHub 분석'
-      case 'document_generation':
-        return '문서 생성'
-      default:
-        return type
-    }
+    const key = `jobTypes.${type}` as const
+    const translated = t(key)
+    return translated === key ? type : translated
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">작업 이력</h1>
-        <p className="text-gray-600">실행된 작업들의 이력을 확인합니다.</p>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
+        <p className="text-gray-600 dark:text-gray-400">{t('subtitle')}</p>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">로딩 중...</div>
+        <div className="text-center py-8">{tc('loading')}</div>
       ) : jobs.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <History className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">작업 이력이 없습니다</h3>
-            <p className="text-gray-500">문서 생성이나 레포지토리 분석을 실행하면 여기에 표시됩니다.</p>
+            <History className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('noJobs')}</h3>
+            <p className="text-gray-500 dark:text-gray-400">{t('noJobsDesc')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -95,22 +91,22 @@ export default function HistoryPage() {
                       <span className="font-semibold">{getJobTypeLabel(job.job_type)}</span>
                       {getStatusBadge(job.status)}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 dark:text-gray-400">
                       <div>
-                        <span className="block text-xs">시작</span>
+                        <span className="block text-xs">{t('fields.started')}</span>
                         <span>{job.started_at ? formatDateTime(job.started_at) : '-'}</span>
                       </div>
                       <div>
-                        <span className="block text-xs">완료</span>
+                        <span className="block text-xs">{t('fields.completed')}</span>
                         <span>{job.completed_at ? formatDateTime(job.completed_at) : '-'}</span>
                       </div>
                       <div>
-                        <span className="block text-xs">진행 단계</span>
+                        <span className="block text-xs">{t('fields.currentStep')}</span>
                         <span>{job.current_step}/{job.total_steps}</span>
                       </div>
                       {job.step_name && (
                         <div>
-                          <span className="block text-xs">현재 작업</span>
+                          <span className="block text-xs">{t('fields.currentTask')}</span>
                           <span>{job.step_name}</span>
                         </div>
                       )}
@@ -118,15 +114,15 @@ export default function HistoryPage() {
                     {job.status === 'running' && (
                       <div className="mt-3">
                         <Progress value={job.progress} className="h-2" />
-                        <span className="text-xs text-gray-500">{job.progress}%</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{job.progress}%</span>
                       </div>
                     )}
                     {job.error_message && (
                       <p className="text-sm text-red-500 mt-3">{job.error_message}</p>
                     )}
                     {job.output_data?.document_id !== undefined && (
-                      <p className="text-sm text-gray-500 mt-3">
-                        생성된 문서 ID: {String(job.output_data.document_id)}
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                        {t('fields.generatedDocId')} {String(job.output_data.document_id)}
                       </p>
                     )}
                   </div>

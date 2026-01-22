@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,8 @@ import { ScrollToTop } from '@/components/ScrollToTop'
 import { FileText, Download, Trash2, Eye, Archive, Plus } from 'lucide-react'
 
 export default function DocumentsPage() {
+  const { t } = useTranslation('documents')
+  const { t: tc } = useTranslation('common')
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -25,16 +28,16 @@ export default function DocumentsPage() {
     mutationFn: (id: number) => documentsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
-      toast({ title: '문서가 삭제되었습니다.' })
+      toast({ title: t('documentDeleted') })
     },
-    onError: () => toast({ title: '오류', description: '삭제에 실패했습니다.', variant: 'destructive' }),
+    onError: () => toast({ title: tc('error'), description: t('deleteError'), variant: 'destructive' }),
   })
 
   const archiveMutation = useMutation({
     mutationFn: (id: number) => documentsApi.archive(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
-      toast({ title: '문서가 보관되었습니다.' })
+      toast({ title: t('documentArchived') })
     },
   })
 
@@ -47,11 +50,11 @@ export default function DocumentsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="success">완료</Badge>
+        return <Badge variant="success">{t('status.completed')}</Badge>
       case 'draft':
-        return <Badge variant="secondary">임시저장</Badge>
+        return <Badge variant="secondary">{t('status.draft')}</Badge>
       case 'archived':
-        return <Badge variant="outline">보관됨</Badge>
+        return <Badge variant="outline">{t('status.archived')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -61,29 +64,29 @@ export default function DocumentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">생성된 문서</h1>
-          <p className="text-gray-600">생성된 이력서/포트폴리오 문서를 관리합니다.</p>
+          <h1 className="text-3xl font-bold">{t('title')}</h1>
+          <p className="text-gray-600 dark:text-gray-400">{t('subtitle')}</p>
         </div>
         <Link to="/generate">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            새 문서 생성
+            {t('newDocument')}
           </Button>
         </Link>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">로딩 중...</div>
+        <div className="text-center py-8">{tc('loading')}</div>
       ) : documents.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">생성된 문서가 없습니다</h3>
-            <p className="text-gray-500 mb-4">프로젝트를 선택하고 문서를 생성해보세요.</p>
+            <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('noDocuments')}</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">{t('noDocumentsDesc')}</p>
             <Link to="/generate">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                첫 문서 생성
+                {t('firstDocument')}
               </Button>
             </Link>
           </CardContent>
@@ -106,16 +109,16 @@ export default function DocumentsPage() {
                       {getStatusBadge(doc.status)}
                       <Badge variant="outline">{doc.file_format?.toUpperCase()}</Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                       <span>{formatDateTime(doc.created_at)}</span>
                       {doc.file_size && <span>{formatFileSize(doc.file_size)}</span>}
                       {doc.included_projects && (
-                        <span>{doc.included_projects.length}개 프로젝트</span>
+                        <span>{t('projectsIncluded', { count: doc.included_projects.length })}</span>
                       )}
                       {doc.version > 1 && <span>v{doc.version}</span>}
                     </div>
                     {doc.description && (
-                      <p className="text-gray-600 mt-2 text-sm">{doc.description}</p>
+                      <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">{doc.description}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -144,7 +147,7 @@ export default function DocumentsPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        if (confirm('정말 삭제하시겠습니까?')) {
+                        if (confirm(tc('confirmDelete'))) {
                           deleteMutation.mutate(doc.id)
                         }
                       }}

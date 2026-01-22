@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,8 @@ import { ArrowLeft, Save, Eye, Copy, RefreshCw, Maximize2, X } from 'lucide-reac
 export default function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation('templates')
+  const { t: tc } = useTranslation('common')
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -72,10 +75,10 @@ export default function TemplateEditor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       queryClient.invalidateQueries({ queryKey: ['template', templateId] })
-      toast({ title: '템플릿이 저장되었습니다.' })
+      toast({ title: t('saved') })
     },
     onError: () => {
-      toast({ title: '오류', description: '저장에 실패했습니다.', variant: 'destructive' })
+      toast({ title: tc('error'), description: t('editor.saveFailed'), variant: 'destructive' })
     },
   })
 
@@ -85,18 +88,18 @@ export default function TemplateEditor() {
       templatesApi.create(user!.id, { ...data, output_format: 'md' }),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
-      toast({ title: '템플릿이 생성되었습니다.' })
+      toast({ title: t('saved') })
       navigate(`/templates/${response.data.id}/edit`)
     },
     onError: () => {
-      toast({ title: '오류', description: '생성에 실패했습니다.', variant: 'destructive' })
+      toast({ title: tc('error'), description: t('editor.createFailed'), variant: 'destructive' })
     },
   })
 
   // Preview template
   const handlePreview = useCallback(async () => {
     if (!content.trim()) {
-      toast({ title: '템플릿 내용을 입력하세요.' })
+      toast({ title: t('editor.enterTemplateContent') })
       return
     }
 
@@ -110,11 +113,11 @@ export default function TemplateEditor() {
       setPreviewText(response.data.preview_text)
       setFieldsUsed(response.data.fields_used)
     } catch {
-      toast({ title: '오류', description: '미리보기 생성 실패', variant: 'destructive' })
+      toast({ title: tc('error'), description: t('editor.previewFailed'), variant: 'destructive' })
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [content, user?.id, toast])
+  }, [content, user?.id, toast, t, tc])
 
   // Auto-preview on content change (debounced)
   useEffect(() => {
@@ -129,11 +132,11 @@ export default function TemplateEditor() {
   // Save template
   const handleSave = () => {
     if (!name.trim()) {
-      toast({ title: '템플릿 이름을 입력하세요.' })
+      toast({ title: t('editor.enterTemplateName') })
       return
     }
     if (!content.trim()) {
-      toast({ title: '템플릿 내용을 입력하세요.' })
+      toast({ title: t('editor.enterTemplateContent') })
       return
     }
 
@@ -176,7 +179,7 @@ export default function TemplateEditor() {
   const isNew = !templateId || templateId === 'new'
 
   if (isTemplateLoading) {
-    return <div className="text-center py-8">로딩 중...</div>
+    return <div className="text-center py-8">{tc('loading')}</div>
   }
 
   if (isSystemTemplate) {
@@ -185,18 +188,18 @@ export default function TemplateEditor() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => navigate('/templates')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            돌아가기
+            {t('editor.goBack')}
           </Button>
         </div>
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-gray-600 mb-4">
-              시스템 템플릿은 직접 수정할 수 없습니다.
+              {t('editor.systemTemplateNotEditable')}
               <br />
-              복제하여 수정해주세요.
+              {t('editor.cloneToEdit')}
             </p>
             <Button onClick={() => navigate('/templates')}>
-              템플릿 목록으로
+              {t('editor.goToList')}
             </Button>
           </CardContent>
         </Card>
@@ -208,10 +211,10 @@ export default function TemplateEditor() {
   const EditorPanel = ({ textareaId = 'template-content' }: { textareaId?: string }) => (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-        <h3 className="font-semibold">템플릿 내용</h3>
+        <h3 className="font-semibold">{t('editor.templateContent')}</h3>
         <Button variant="outline" size="sm" onClick={handlePreview} disabled={isPreviewLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isPreviewLoading ? 'animate-spin' : ''}`} />
-          미리보기
+          {t('editor.previewBtn')}
         </Button>
       </div>
       <div className="flex-1 p-4">
@@ -245,14 +248,14 @@ export default function TemplateEditor() {
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 p-4 border-b bg-gray-50">
         <Eye className="h-5 w-5" />
-        <h3 className="font-semibold">미리보기</h3>
+        <h3 className="font-semibold">{t('preview')}</h3>
       </div>
       <div className="flex-1 p-4 overflow-hidden">
         <Tabs defaultValue="rendered" className="h-full flex flex-col">
           <TabsList className="mb-4 flex-shrink-0">
-            <TabsTrigger value="rendered">렌더링</TabsTrigger>
-            <TabsTrigger value="text">텍스트</TabsTrigger>
-            <TabsTrigger value="fields">사용된 필드</TabsTrigger>
+            <TabsTrigger value="rendered">{t('editor.rendered')}</TabsTrigger>
+            <TabsTrigger value="text">{t('editor.text')}</TabsTrigger>
+            <TabsTrigger value="fields">{t('editor.fieldsUsed')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="rendered" className="flex-1 overflow-auto">
@@ -263,20 +266,20 @@ export default function TemplateEditor() {
               />
             ) : (
               <div className="text-center py-12 text-gray-500">
-                템플릿 내용을 입력하면 미리보기가 표시됩니다.
+                {t('editor.previewPlaceholder')}
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="text" className="flex-1 overflow-auto">
             <pre className="p-4 border rounded-lg bg-gray-50 overflow-auto h-full text-sm whitespace-pre-wrap">
-              {previewText || '미리보기 없음'}
+              {previewText || t('editor.noPreview')}
             </pre>
           </TabsContent>
 
           <TabsContent value="fields" className="flex-1 overflow-auto">
             <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-2">사용된 필드 ({fieldsUsed.length}개)</h4>
+              <h4 className="font-medium mb-2">{t('editor.fieldsUsedCount', { count: fieldsUsed.length })}</h4>
               <div className="flex flex-wrap gap-2">
                 {fieldsUsed.map((field) => (
                   <Badge key={field} variant="secondary">
@@ -310,13 +313,13 @@ export default function TemplateEditor() {
   const AvailableFieldsPanel = () => (
     <Card>
       <CardHeader>
-        <CardTitle>사용 가능한 필드</CardTitle>
+        <CardTitle>{t('availableFields')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* User Fields */}
           <div>
-            <h4 className="font-medium mb-3">사용자 정보</h4>
+            <h4 className="font-medium mb-3">{t('userFields')}</h4>
             <div className="space-y-2">
               {fieldsData?.data?.user_fields?.map((field: FieldInfo) => (
                 <button
@@ -334,7 +337,7 @@ export default function TemplateEditor() {
 
           {/* Company Fields */}
           <div>
-            <h4 className="font-medium mb-3">회사 정보</h4>
+            <h4 className="font-medium mb-3">{t('companyFields')}</h4>
             <div className="space-y-2">
               {fieldsData?.data?.company_fields?.map((field: FieldInfo) => (
                 <button
@@ -354,7 +357,7 @@ export default function TemplateEditor() {
 
           {/* Project Fields */}
           <div>
-            <h4 className="font-medium mb-3">프로젝트 정보</h4>
+            <h4 className="font-medium mb-3">{t('projectFields')}</h4>
             <div className="space-y-2">
               {fieldsData?.data?.project_fields?.map((field: FieldInfo) => (
                 <button
@@ -374,7 +377,7 @@ export default function TemplateEditor() {
 
           {/* Achievement Fields */}
           <div>
-            <h4 className="font-medium mb-3">성과 정보</h4>
+            <h4 className="font-medium mb-3">{t('achievementFields')}</h4>
             <div className="space-y-2">
               {fieldsData?.data?.achievement_fields?.map((field: FieldInfo) => (
                 <button
@@ -396,19 +399,19 @@ export default function TemplateEditor() {
         {/* Syntax Guide */}
         {fieldsData?.data?.syntax_guide && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium mb-2">문법 가이드</h4>
+            <h4 className="font-medium mb-2">{t('editor.syntaxGuide')}</h4>
             <div className="grid gap-4 md:grid-cols-3 text-sm">
               <div>
                 <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.simple_field}</span>
-                <span className="text-gray-500 ml-2">- 단일 필드</span>
+                <span className="text-gray-500 ml-2">- {t('editor.singleField')}</span>
               </div>
               <div>
                 <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.section_start}</span>
-                <span className="text-gray-500 ml-2">- 섹션 시작</span>
+                <span className="text-gray-500 ml-2">- {t('editor.sectionStart')}</span>
               </div>
               <div>
                 <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.section_end}</span>
-                <span className="text-gray-500 ml-2">- 섹션 종료</span>
+                <span className="text-gray-500 ml-2">- {t('editor.sectionEnd')}</span>
               </div>
             </div>
           </div>
@@ -425,23 +428,23 @@ export default function TemplateEditor() {
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/templates')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              돌아가기
+              {t('editor.goBack')}
             </Button>
             <h1 className="text-2xl font-bold">
-              {isNew ? '새 템플릿 만들기' : '템플릿 편집'}
+              {isNew ? t('editor.createNew') : t('editor.editExisting')}
             </h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setIsFullscreen(true)}>
               <Maximize2 className="h-4 w-4 mr-2" />
-              전체화면
+              {t('fullscreen')}
             </Button>
             <Button
               onClick={handleSave}
               disabled={updateMutation.isPending || createMutation.isPending}
             >
               <Save className="h-4 w-4 mr-2" />
-              저장
+              {t('editor.save')}
             </Button>
           </div>
         </div>
@@ -449,26 +452,26 @@ export default function TemplateEditor() {
         {/* Template Info */}
         <Card>
           <CardHeader>
-            <CardTitle>템플릿 정보</CardTitle>
+            <CardTitle>{t('editor.templateInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">템플릿 이름</Label>
+                <Label htmlFor="name">{t('editor.templateNameLabel')}</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="예: 사람인 이력서"
+                  placeholder={t('editor.templateNamePlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">설명 (선택)</Label>
+                <Label htmlFor="description">{t('editor.descriptionLabel')}</Label>
                 <Input
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="템플릿에 대한 간단한 설명"
+                  placeholder={t('editor.descriptionPlaceholder')}
                 />
               </div>
             </div>
@@ -488,9 +491,9 @@ export default function TemplateEditor() {
           <FullScreenDialogHeader>
             <div className="flex items-center gap-4">
               <FullScreenDialogTitle>
-                {name || '새 템플릿'} - 전체화면 편집
+                {name || t('newTemplate')} - {t('editor.fullscreenEdit')}
               </FullScreenDialogTitle>
-              <Badge variant="secondary">{isNew ? '새 템플릿' : '편집 중'}</Badge>
+              <Badge variant="secondary">{isNew ? t('editor.newTemplateStatus') : t('editor.editingStatus')}</Badge>
             </div>
             <div className="flex items-center gap-2 mr-12">
               <Button
@@ -499,7 +502,7 @@ export default function TemplateEditor() {
                 disabled={updateMutation.isPending || createMutation.isPending}
               >
                 <Save className="h-4 w-4 mr-2" />
-                저장
+                {t('editor.save')}
               </Button>
             </div>
           </FullScreenDialogHeader>
@@ -509,12 +512,12 @@ export default function TemplateEditor() {
           <FullScreenDialogFooter>
             <div className="flex-1">
               <p className="text-sm text-gray-500">
-                Mustache 문법 사용: {`{{field}}`} 단일 필드, {`{{#section}}...{{/section}}`} 반복 섹션
+                {t('editor.mustacheSyntax')}
               </p>
             </div>
             <Button variant="outline" onClick={() => setIsFullscreen(false)}>
               <X className="h-4 w-4 mr-2" />
-              닫기
+              {t('editor.close')}
             </Button>
           </FullScreenDialogFooter>
         </FullScreenDialogContent>

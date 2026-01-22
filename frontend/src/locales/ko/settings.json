@@ -3,6 +3,52 @@
   "general": "일반",
   "language": "언어",
   "theme": "테마",
+  "sidebar": {
+    "appearance": "외관",
+    "display": "디스플레이",
+    "language": "언어",
+    "notifications": "알림",
+    "aiProviders": "AI 제공자",
+    "github": "GitHub",
+    "account": "계정"
+  },
+  "appearance": {
+    "title": "외관",
+    "description": "앱의 모양과 느낌을 사용자 정의합니다",
+    "mode": "모드",
+    "modeDescription": "앱 표시 방식을 선택하세요",
+    "light": "라이트",
+    "dark": "다크",
+    "system": "시스템",
+    "colorTheme": "색상 테마",
+    "colorThemeDescription": "선호하는 강조 색상을 선택하세요"
+  },
+  "display": {
+    "title": "디스플레이",
+    "description": "디스플레이 설정을 조정합니다",
+    "uiScale": "UI 크기",
+    "uiScaleDescription": "UI 요소의 크기를 조정합니다",
+    "presets": "프리셋",
+    "fineAdjustment": "미세 조정",
+    "apply": "적용",
+    "reset": "초기화"
+  },
+  "notifications": {
+    "title": "알림",
+    "description": "알림 설정을 구성합니다",
+    "taskComplete": "작업 완료",
+    "taskCompleteDescription": "작업이 성공적으로 완료되면 알립니다",
+    "taskFailed": "작업 실패",
+    "taskFailedDescription": "작업이 실패하면 알립니다",
+    "reviewNeeded": "리뷰 필요",
+    "reviewNeededDescription": "리뷰가 필요할 때 알립니다",
+    "sound": "소리",
+    "soundDescription": "알림 시 소리를 재생합니다"
+  },
+  "languageSection": {
+    "title": "언어",
+    "description": "선호하는 언어를 선택하세요"
+  },
   "github": {
     "title": "GitHub 연동",
     "connected": "연결됨",

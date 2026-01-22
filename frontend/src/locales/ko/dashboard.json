@@ -1,0 +1,34 @@
+{
+  "welcome": "Autopolio에 오신 것을 환영합니다",
+  "welcomeDesc": "GitHub 분석, LLM 기반 요약, 다양한 플랫폼 템플릿으로 이력서와 포트폴리오를 자동으로 생성하세요.",
+  "getStarted": "시작하기",
+  "hello": "안녕하세요, {{name}}님",
+  "manageAndGenerate": "포트폴리오/이력서를 관리하고 생성하세요.",
+  "generateDocument": "문서 생성",
+  "stats": {
+    "companies": "회사",
+    "projects": "프로젝트",
+    "analyzedProjects": "분석된 프로젝트",
+    "documents": "생성된 문서"
+  },
+  "recentProjects": "최근 프로젝트",
+  "recentDocuments": "최근 생성 문서",
+  "recentJobs": "최근 작업",
+  "viewAll": "전체 보기",
+  "noProjects": "아직 프로젝트가 없습니다.",
+  "addProject": "프로젝트 추가하기",
+  "noDocuments": "아직 생성된 문서가 없습니다.",
+  "createFirstDocument": "첫 문서 생성하기",
+  "noJobs": "최근 작업 내역이 없습니다.",
+  "jobStatus": {
+    "completed": "완료",
+    "running": "진행중",
+    "failed": "실패"
+  },
+  "pipelineJob": "문서 생성 파이프라인",
+  "connectGitHub": {
+    "title": "GitHub 연동하기",
+    "description": "GitHub를 연동하면 레포지토리 분석을 통해 더 정확한 프로젝트 요약을 생성할 수 있습니다.",
+    "button": "연동하기"
+  }
+}

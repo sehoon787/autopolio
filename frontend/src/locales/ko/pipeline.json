@@ -1,0 +1,27 @@
+{
+  "title": "파이프라인 실행",
+  "steps": {
+    "step1": "GitHub 분석",
+    "step2": "코드 추출",
+    "step3": "기술 탐지",
+    "step4": "LLM 요약",
+    "step5": "템플릿 매핑",
+    "step6": "문서 생성"
+  },
+  "status": {
+    "pending": "대기",
+    "running": "실행 중",
+    "completed": "완료",
+    "failed": "실패"
+  },
+  "progress": "진행률",
+  "currentStep": "현재 단계",
+  "cancel": "취소",
+  "retry": "재시도",
+  "viewDocument": "문서 보기",
+  "downloadDocument": "문서 다운로드",
+  "errorOccurred": "오류가 발생했습니다",
+  "pipelineCompleted": "문서 생성이 완료되었습니다!",
+  "pipelineFailed": "문서 생성에 실패했습니다.",
+  "generatingDocument": "문서를 생성하고 있습니다..."
+}

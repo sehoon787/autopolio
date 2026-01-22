@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  /* UI Scale support */
+  :root {
+    --ui-scale: 1;
+  }
+
+  /* Default Theme (Blue) */
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -24,6 +30,8 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-border: 214.3 31.8% 91.4%;
   }
 
   .dark {
@@ -46,6 +54,92 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+    --sidebar-bg: 222.2 84% 4.9%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+  }
+
+  /* Ocean Theme (Teal/Cyan) */
+  [data-theme="ocean"] {
+    --primary: 192 91% 36%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 192 91% 36%;
+  }
+
+  [data-theme="ocean"].dark,
+  .dark[data-theme="ocean"] {
+    --primary: 192 91% 50%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 192 76% 48%;
+  }
+
+  /* Forest Theme (Green) */
+  [data-theme="forest"] {
+    --primary: 142 76% 36%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 142 76% 36%;
+  }
+
+  [data-theme="forest"].dark,
+  .dark[data-theme="forest"] {
+    --primary: 142 76% 50%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 142 76% 48%;
+  }
+
+  /* Dusk Theme (Purple) */
+  [data-theme="dusk"] {
+    --primary: 272 76% 53%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 272 76% 53%;
+  }
+
+  [data-theme="dusk"].dark,
+  .dark[data-theme="dusk"] {
+    --primary: 272 76% 60%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 272 76% 55%;
+  }
+
+  /* Lime Theme */
+  [data-theme="lime"] {
+    --primary: 84 81% 44%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 84 81% 44%;
+  }
+
+  [data-theme="lime"].dark,
+  .dark[data-theme="lime"] {
+    --primary: 84 81% 54%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 84 81% 50%;
+  }
+
+  /* Retro Theme (Orange) */
+  [data-theme="retro"] {
+    --primary: 25 95% 53%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 25 95% 53%;
+  }
+
+  [data-theme="retro"].dark,
+  .dark[data-theme="retro"] {
+    --primary: 25 95% 60%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 25 95% 55%;
+  }
+
+  /* Neo Theme (Pink) */
+  [data-theme="neo"] {
+    --primary: 330 81% 60%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 330 81% 60%;
+  }
+
+  [data-theme="neo"].dark,
+  .dark[data-theme="neo"] {
+    --primary: 330 81% 65%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --ring: 330 81% 60%;
   }
 }
 
@@ -56,4 +150,64 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Smooth transitions for theme changes */
+html {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* UI Scale wrapper */
+#root {
+  transform: scale(var(--ui-scale));
+  transform-origin: top left;
+  width: calc(100% / var(--ui-scale));
+  height: calc(100% / var(--ui-scale));
+  min-height: calc(100vh / var(--ui-scale));
+}
+
+/* Sidebar specific dark mode styles */
+.dark aside {
+  background-color: hsl(var(--sidebar-bg));
+  border-color: hsl(var(--sidebar-border));
+}
+
+.dark .bg-gray-50 {
+  background-color: hsl(217.2 32.6% 12%);
+}
+
+.dark .bg-gray-100 {
+  background-color: hsl(217.2 32.6% 15%);
+}
+
+.dark .text-gray-500 {
+  color: hsl(215 20.2% 65.1%);
+}
+
+.dark .text-gray-600 {
+  color: hsl(215 20.2% 55.1%);
+}
+
+.dark .text-gray-700 {
+  color: hsl(215 20.2% 75.1%);
+}
+
+.dark .text-gray-900 {
+  color: hsl(210 40% 98%);
+}
+
+.dark .bg-white {
+  background-color: hsl(var(--card));
+}
+
+.dark .border-gray-200 {
+  border-color: hsl(var(--border));
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: hsl(217.2 32.6% 15%);
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: hsl(217.2 32.6% 18%);
 }

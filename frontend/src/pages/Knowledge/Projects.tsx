@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -66,6 +68,7 @@ function getColumnId(project: Project): string {
 
 // Project card component for kanban
 function ProjectKanbanCard({ project }: { project: Project }) {
+  const { t } = useTranslation('projects')
   return (
     <Card className="hover:shadow-md transition-shadow bg-white">
       <CardHeader className="p-3 pb-2">
@@ -78,9 +81,9 @@ function ProjectKanbanCard({ project }: { project: Project }) {
           </Link>
           {project.project_type && (
             <Badge variant="outline" className="text-xs shrink-0">
-              {project.project_type === 'company' ? '회사' :
-               project.project_type === 'personal' ? '개인' :
-               project.project_type === 'open-source' ? 'OSS' : project.project_type}
+              {project.project_type === 'company' ? t('projectTypes.company') :
+               project.project_type === 'personal' ? t('projectTypes.personal') :
+               project.project_type === 'open-source' ? t('projectTypes.openSource') : project.project_type}
             </Badge>
           )}
         </div>
@@ -111,7 +114,7 @@ function ProjectKanbanCard({ project }: { project: Project }) {
           {project.team_size && (
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {project.team_size}명
+              {t('teamSizeValue', { count: project.team_size })}
             </span>
           )}
           {project.role && (
@@ -141,6 +144,8 @@ function ProjectKanbanCard({ project }: { project: Project }) {
 }
 
 export default function ProjectsPage() {
+  const { t } = useTranslation('projects')
+  const { t: tc } = useTranslation('common')
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
@@ -254,10 +259,10 @@ export default function ProjectsPage() {
       }))
       setIsOngoing(!endDate)
 
-      toast({ title: '레포지토리 정보와 기술 스택을 불러왔습니다.' })
+      toast({ title: t('repoInfoLoaded') })
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || '레포지토리 정보를 불러오지 못했습니다.'
-      toast({ title: '정보 불러오기 실패', description: errorMessage, variant: 'destructive' })
+      const errorMessage = error?.response?.data?.detail || t('repoInfoFailed')
+      toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
     } finally {
       setIsLoadingRepoInfo(false)
     }
@@ -266,7 +271,7 @@ export default function ProjectsPage() {
   // Handle AI description generation
   const handleGenerateAI = async () => {
     if (!user?.id || !formData.git_url) {
-      toast({ title: 'GitHub URL이 필요합니다.', variant: 'destructive' })
+      toast({ title: t('gitUrlRequired'), variant: 'destructive' })
       return
     }
 
@@ -284,10 +289,10 @@ export default function ProjectsPage() {
           : prev.technologies,
       }))
 
-      toast({ title: 'AI가 설명을 생성했습니다.' })
+      toast({ title: t('aiGenerated') })
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || 'AI로 설명을 생성하지 못했습니다.'
-      toast({ title: 'AI 생성 실패', description: errorMessage, variant: 'destructive' })
+      const errorMessage = error?.response?.data?.detail || t('aiGenerateFailed')
+      toast({ title: t('aiGenerateError'), description: errorMessage, variant: 'destructive' })
     } finally {
       setIsGeneratingAI(false)
     }
@@ -311,11 +316,11 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       setIsDialogOpen(false)
       resetForm()
-      toast({ title: '프로젝트가 추가되었습니다.' })
+      toast({ title: t('projectAdded') })
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.detail || '프로젝트 추가에 실패했습니다.'
-      toast({ title: '오류', description: errorMessage, variant: 'destructive' })
+      const errorMessage = error?.response?.data?.detail || t('addFailed')
+      toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -323,11 +328,11 @@ export default function ProjectsPage() {
     mutationFn: (id: number) => projectsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
-      toast({ title: '프로젝트가 삭제되었습니다.' })
+      toast({ title: t('projectDeleted') })
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.detail || '삭제에 실패했습니다.'
-      toast({ title: '오류', description: errorMessage, variant: 'destructive' })
+      const errorMessage = error?.response?.data?.detail || t('deleteFailed')
+      toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -340,8 +345,8 @@ export default function ProjectsPage() {
     },
     onError: () => {
       toast({
-        title: '오류',
-        description: '프로젝트 상태 변경에 실패했습니다.',
+        title: tc('error'),
+        description: t('statusChangeFailed'),
         variant: 'destructive',
       })
     },
@@ -360,8 +365,8 @@ export default function ProjectsPage() {
       setSelectedIds(new Set()) // Clear selections after batch analysis
 
       toast({
-        title: '일괄 분석 완료',
-        description: `${completed}개 완료, ${failed}개 실패`,
+        title: t('batchAnalysisComplete'),
+        description: t('batchAnalysisResult', { completed, failed }),
         variant: failed > 0 ? 'destructive' : 'default',
       })
 
@@ -376,8 +381,8 @@ export default function ProjectsPage() {
     onError: (error: any) => {
       setBatchProgress(null)
       toast({
-        title: '일괄 분석 오류',
-        description: error?.response?.data?.detail || '일괄 분석에 실패했습니다.',
+        title: t('batchAnalysisError'),
+        description: error?.response?.data?.detail || t('batchAnalysisFailed'),
         variant: 'destructive',
       })
     },
@@ -387,8 +392,8 @@ export default function ProjectsPage() {
   const handleSelectedBatchAnalyze = () => {
     if (selectedAnalyzableProjects.length === 0) {
       toast({
-        title: '분석 대상 없음',
-        description: '선택한 프로젝트 중 분석 가능한 항목이 없습니다. (Git URL이 있고 미분석 상태여야 합니다)',
+        title: t('noAnalysisTarget'),
+        description: t('noSelectedAnalyzable'),
         variant: 'destructive',
       })
       return
@@ -503,9 +508,10 @@ export default function ProjectsPage() {
   ) => {
     const projectId = typeof itemId === 'string' ? parseInt(itemId) : itemId
     updateStatusMutation.mutate({ id: projectId, status: toColumn })
+    const columnName = PROJECT_STATUS_COLUMNS.find(c => c.id === toColumn)?.title || toColumn
     toast({
-      title: '프로젝트 상태 변경',
-      description: `프로젝트가 "${PROJECT_STATUS_COLUMNS.find(c => c.id === toColumn)?.title || toColumn}"(으)로 이동되었습니다.`,
+      title: t('statusChanged'),
+      description: t('statusChangedTo', { column: columnName }),
     })
   }
 
@@ -518,8 +524,8 @@ export default function ProjectsPage() {
   const handleBatchAnalyze = () => {
     if (pendingProjects.length === 0) {
       toast({
-        title: '분석 대상 없음',
-        description: '분석 대기 중인 프로젝트가 없습니다.',
+        title: t('noAnalysisTarget'),
+        description: t('noPendingProjects'),
         variant: 'destructive',
       })
       return
@@ -539,15 +545,15 @@ export default function ProjectsPage() {
 
   // Empty state for columns
   const renderEmptyState = () => (
-    <span>프로젝트를 이 컬럼으로 드래그하세요</span>
+    <span>{t('dragProjectHere')}</span>
   )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">프로젝트 관리</h1>
-          <p className="text-gray-600">포트폴리오에 포함될 프로젝트를 관리합니다.</p>
+          <h1 className="text-3xl font-bold">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           {viewMode === 'kanban' && pendingProjects.length > 0 && (
@@ -562,15 +568,15 @@ export default function ProjectsPage() {
                 <Play className="h-4 w-4 mr-2" />
               )}
               {batchAnalyzeMutation.isPending
-                ? `분석 중 (${batchProgress?.current || 0}/${batchProgress?.total || 0})`
-                : `일괄 분석 (${pendingProjects.length})`
+                ? t('analyzing', { current: batchProgress?.current || 0, total: batchProgress?.total || 0 })
+                : t('batchAnalysis', { count: pendingProjects.length })
               }
             </Button>
           )}
           <Link to="/github/repos">
             <Button variant="outline">
               <Github className="h-4 w-4 mr-2" />
-              레포 가져오기
+              {t('importRepos')}
             </Button>
           </Link>
           <div className="flex items-center border rounded-lg">
@@ -581,7 +587,7 @@ export default function ProjectsPage() {
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4 mr-1" />
-              리스트
+              {t('listView')}
             </Button>
             <Button
               variant={viewMode === 'kanban' ? 'default' : 'ghost'}
@@ -590,12 +596,12 @@ export default function ProjectsPage() {
               onClick={() => setViewMode('kanban')}
             >
               <Kanban className="h-4 w-4 mr-1" />
-              칸반
+              {t('kanbanView')}
             </Button>
           </div>
           <Button onClick={() => { resetForm(); setIsDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" />
-            프로젝트 추가
+            {t('addProject')}
           </Button>
         </div>
       </div>
@@ -606,7 +612,7 @@ export default function ProjectsPage() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="프로젝트명 검색..."
+              placeholder={t('searchPlaceholder')}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -614,7 +620,7 @@ export default function ProjectsPage() {
             />
           </div>
           <Button variant="outline" onClick={handleSearch}>
-            검색
+            {tc('search')}
           </Button>
         </div>
         <Button
@@ -622,7 +628,7 @@ export default function ProjectsPage() {
           onClick={() => setIsFilterOpen(!isFilterOpen)}
         >
           <Filter className="h-4 w-4 mr-2" />
-          필터
+          {t('filter')}
           {activeFilterCount > 0 && (
             <Badge variant="destructive" className="ml-2 px-1.5 py-0.5 text-xs">
               {activeFilterCount}
@@ -632,7 +638,7 @@ export default function ProjectsPage() {
         {activeFilterCount > 0 && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             <X className="h-4 w-4 mr-1" />
-            필터 초기화
+            {t('clearFilters')}
           </Button>
         )}
       </div>
@@ -643,7 +649,7 @@ export default function ProjectsPage() {
           <Card className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label>회사</Label>
+                <Label>{t('filters.company')}</Label>
                 <Select
                   value={filters.company_id?.toString() || 'all'}
                   onValueChange={(v) => setFilters(prev => ({
@@ -652,10 +658,10 @@ export default function ProjectsPage() {
                   }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="전체" />
+                    <SelectValue placeholder={t('filters.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="all">{t('filters.all')}</SelectItem>
                     {companies.map((c) => (
                       <SelectItem key={c.id} value={c.id.toString()}>
                         {c.name}
@@ -665,7 +671,7 @@ export default function ProjectsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>프로젝트 유형</Label>
+                <Label>{t('filters.projectType')}</Label>
                 <Select
                   value={filters.project_type || 'all'}
                   onValueChange={(v) => setFilters(prev => ({
@@ -674,18 +680,18 @@ export default function ProjectsPage() {
                   }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="전체" />
+                    <SelectValue placeholder={t('filters.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="company">회사 프로젝트</SelectItem>
-                    <SelectItem value="personal">개인 프로젝트</SelectItem>
-                    <SelectItem value="open-source">오픈소스</SelectItem>
+                    <SelectItem value="all">{t('filters.all')}</SelectItem>
+                    <SelectItem value="company">{t('projectTypes.companyProject')}</SelectItem>
+                    <SelectItem value="personal">{t('projectTypes.personalProject')}</SelectItem>
+                    <SelectItem value="open-source">{t('projectTypes.openSource')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>상태</Label>
+                <Label>{t('filters.status')}</Label>
                 <Select
                   value={filters.status || 'all'}
                   onValueChange={(v) => setFilters(prev => ({
@@ -694,19 +700,19 @@ export default function ProjectsPage() {
                   }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="전체" />
+                    <SelectValue placeholder={t('filters.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="pending">대기 중</SelectItem>
-                    <SelectItem value="analyzing">분석 중</SelectItem>
-                    <SelectItem value="review">검토 중</SelectItem>
-                    <SelectItem value="completed">완료</SelectItem>
+                    <SelectItem value="all">{t('filters.all')}</SelectItem>
+                    <SelectItem value="pending">{t('status.pending')}</SelectItem>
+                    <SelectItem value="analyzing">{t('status.analyzing')}</SelectItem>
+                    <SelectItem value="review">{t('status.review')}</SelectItem>
+                    <SelectItem value="completed">{t('status.completed')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>분석 여부</Label>
+                <Label>{t('filters.analyzed')}</Label>
                 <Select
                   value={filters.is_analyzed === undefined ? 'all' : filters.is_analyzed.toString()}
                   onValueChange={(v) => setFilters(prev => ({
@@ -715,39 +721,37 @@ export default function ProjectsPage() {
                   }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="전체" />
+                    <SelectValue placeholder={t('filters.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="true">분석됨</SelectItem>
-                    <SelectItem value="false">미분석</SelectItem>
+                    <SelectItem value="all">{t('filters.all')}</SelectItem>
+                    <SelectItem value="true">{t('analyzed')}</SelectItem>
+                    <SelectItem value="false">{t('notAnalyzed')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>시작일 (부터)</Label>
-                <Input
-                  type="date"
+                <Label>{t('filters.startDateFrom')}</Label>
+                <DatePicker
                   value={filters.start_date_from || ''}
-                  onChange={(e) => setFilters(prev => ({
+                  onChange={(value) => setFilters(prev => ({
                     ...prev,
-                    start_date_from: e.target.value || undefined
+                    start_date_from: value || undefined
                   }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label>시작일 (까지)</Label>
-                <Input
-                  type="date"
+                <Label>{t('filters.startDateTo')}</Label>
+                <DatePicker
                   value={filters.start_date_to || ''}
-                  onChange={(e) => setFilters(prev => ({
+                  onChange={(value) => setFilters(prev => ({
                     ...prev,
-                    start_date_to: e.target.value || undefined
+                    start_date_to: value || undefined
                   }))}
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>기술 스택 (쉼표로 구분)</Label>
+                <Label>{t('filters.techStack')}</Label>
                 <Input
                   placeholder="React, TypeScript, Node.js..."
                   value={filters.technologies || ''}
@@ -765,8 +769,8 @@ export default function ProjectsPage() {
       {/* Results count */}
       {projectsData?.data && (
         <div className="text-sm text-gray-500">
-          {projectsData.data.total}개의 프로젝트
-          {activeFilterCount > 0 && ' (필터 적용됨)'}
+          {t('projectCount', { count: projectsData.data.total })}
+          {activeFilterCount > 0 && ` (${t('filterApplied')})`}
         </div>
       )}
 
@@ -778,7 +782,7 @@ export default function ProjectsPage() {
               <RefreshCw className="h-5 w-5 animate-spin text-primary" />
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">일괄 분석 진행 중...</span>
+                  <span className="text-sm font-medium">{t('batchAnalysisInProgress')}</span>
                   <span className="text-sm text-gray-500">
                     {batchProgress.current} / {batchProgress.total}
                   </span>
@@ -794,16 +798,16 @@ export default function ProjectsPage() {
       )}
 
       {isLoading ? (
-        <div className="text-center py-8">로딩 중...</div>
+        <div className="text-center py-8">{tc('loading')}</div>
       ) : projects.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FolderKanban className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 프로젝트가 없습니다</h3>
-            <p className="text-gray-500 mb-4">포트폴리오에 포함할 프로젝트를 추가해주세요.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noProjects')}</h3>
+            <p className="text-gray-500 mb-4">{t('noProjectsDesc')}</p>
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              첫 프로젝트 추가
+              {t('addFirstProject')}
             </Button>
           </CardContent>
         </Card>
@@ -819,11 +823,11 @@ export default function ProjectsPage() {
                 onCheckedChange={(checked) => handleSelectAll(checked === true)}
               />
               <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                전체 선택
+                {t('selectAll')}
               </label>
               {selectedIds.size > 0 && (
                 <span className="text-sm text-gray-500">
-                  ({selectedIds.size}개 선택됨)
+                  ({t('selectedCount', { count: selectedIds.size })})
                 </span>
               )}
             </div>
@@ -839,7 +843,7 @@ export default function ProjectsPage() {
                   ) : (
                     <Play className="h-4 w-4 mr-2" />
                   )}
-                  선택 분석 ({selectedAnalyzableProjects.length})
+                  {t('analyzeSelected', { count: selectedAnalyzableProjects.length })}
                 </Button>
                 <Button
                   variant="ghost"
@@ -847,7 +851,7 @@ export default function ProjectsPage() {
                   onClick={() => setSelectedIds(new Set())}
                 >
                   <X className="h-4 w-4 mr-1" />
-                  선택 해제
+                  {t('clearSelection')}
                 </Button>
               </div>
             )}
@@ -876,9 +880,9 @@ export default function ProjectsPage() {
                           <h3 className="text-xl font-semibold">{project.name}</h3>
                         </Link>
                         {project.is_analyzed ? (
-                          <Badge variant="success">분석됨</Badge>
+                          <Badge variant="success">{t('analyzed')}</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">미분석</Badge>
+                          <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">{t('notAnalyzed')}</Badge>
                         )}
                         {project.project_type && (
                           <Badge variant="outline">{project.project_type}</Badge>
@@ -890,11 +894,11 @@ export default function ProjectsPage() {
                       <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
                         {project.start_date && (
                           <span>
-                            {formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : '진행중'}
+                            {formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : t('ongoing')}
                           </span>
                         )}
                         {project.role && <span>· {project.role}</span>}
-                        {project.team_size && <span>· {project.team_size}명</span>}
+                        {project.team_size && <span>· {t('teamSizeValue', { count: project.team_size })}</span>}
                       </div>
                       {project.technologies?.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
@@ -927,7 +931,7 @@ export default function ProjectsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          if (confirm('정말 삭제하시겠습니까?')) {
+                          if (confirm(t('deleteConfirm'))) {
                             deleteMutation.mutate(project.id)
                           }
                         }}
@@ -975,24 +979,24 @@ export default function ProjectsPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>새 프로젝트 추가</DialogTitle>
+            <DialogTitle>{t('dialog.title')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* GitHub Repo Selection */}
             {isGitHubConnected && githubRepos.length > 0 && (
               <div className="space-y-2">
-                <Label>GitHub 레포지토리에서 불러오기</Label>
+                <Label>{t('dialog.importFromGithub')}</Label>
                 <Select
                   value={selectedRepoUrl}
                   onValueChange={handleRepoSelect}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="레포지토리 선택 (선택사항)">
+                    <SelectValue placeholder={t('dialog.selectRepo')}>
                       {isLoadingRepoInfo && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="manual">직접 입력</SelectItem>
+                    <SelectItem value="manual">{t('dialog.manualInput')}</SelectItem>
                     {githubRepos.map((repo) => (
                       <SelectItem key={repo.id} value={repo.html_url}>
                         <div className="flex items-center gap-2">
@@ -1007,7 +1011,7 @@ export default function ProjectsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  레포지토리를 선택하면 시작일, 종료일, 팀 규모, 기여도, 기술 스택이 자동으로 채워집니다.
+                  {t('dialog.repoSelectionHint')}
                 </p>
               </div>
             )}
@@ -1015,35 +1019,35 @@ export default function ProjectsPage() {
             {isLoadingRepoInfo && (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="ml-2 text-sm text-gray-500">레포지토리 정보 불러오는 중...</span>
+                <span className="ml-2 text-sm text-gray-500">{t('dialog.loadingRepoInfo')}</span>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">프로젝트명 *</Label>
+              <Label htmlFor="name">{t('dialog.projectName')} *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="예: 결제 시스템 고도화"
+                placeholder={t('dialog.projectNamePlaceholder')}
                 required
               />
               <p className="text-xs text-gray-500">
-                GitHub 레포지토리 이름과 관계없이 원하는 프로젝트명을 지정하세요.
+                {t('dialog.projectNameHint')}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="short_description">간단 설명</Label>
+              <Label htmlFor="short_description">{t('dialog.shortDesc')}</Label>
               <Input
                 id="short_description"
                 value={formData.short_description}
                 onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-                placeholder="한 줄 요약"
+                placeholder={t('dialog.shortDescPlaceholder')}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>프로젝트 유형</Label>
+                <Label>{t('dialog.projectType')}</Label>
                 <Select
                   value={formData.project_type}
                   onValueChange={(v) => setFormData({ ...formData, project_type: v })}
@@ -1052,20 +1056,20 @@ export default function ProjectsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="company">회사 프로젝트</SelectItem>
-                    <SelectItem value="personal">개인 프로젝트</SelectItem>
-                    <SelectItem value="open-source">오픈소스</SelectItem>
+                    <SelectItem value="company">{t('projectTypes.companyProject')}</SelectItem>
+                    <SelectItem value="personal">{t('projectTypes.personalProject')}</SelectItem>
+                    <SelectItem value="open-source">{t('projectTypes.openSource')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>회사</Label>
+                <Label>{t('dialog.company')}</Label>
                 <Select
                   value={formData.company_id?.toString() || ''}
                   onValueChange={(v) => setFormData({ ...formData, company_id: v ? parseInt(v) : undefined })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="선택 (선택사항)" />
+                    <SelectValue placeholder={t('dialog.selectOptional')} />
                   </SelectTrigger>
                   <SelectContent>
                     {companies.map((c) => (
@@ -1079,23 +1083,19 @@ export default function ProjectsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_date">시작일</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                <Label htmlFor="start_date">{t('dialog.startDate')}</Label>
+                <DatePicker
+                  value={formData.start_date || ''}
+                  onChange={(value) => setFormData({ ...formData, start_date: value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_date">종료일</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                <Label htmlFor="end_date">{t('dialog.endDate')}</Label>
+                <DatePicker
+                  value={formData.end_date || ''}
+                  onChange={(value) => setFormData({ ...formData, end_date: value })}
                   disabled={isOngoing}
-                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
+                  className={isOngoing ? 'opacity-50' : ''}
                 />
               </div>
             </div>
@@ -1111,20 +1111,20 @@ export default function ProjectsPage() {
                   }
                 }}
               />
-              <Label htmlFor="is_ongoing" className="cursor-pointer">현재 진행중인 프로젝트</Label>
+              <Label htmlFor="is_ongoing" className="cursor-pointer">{t('dialog.ongoingProject')}</Label>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="role">역할</Label>
+                <Label htmlFor="role">{t('dialog.role')}</Label>
                 <Input
                   id="role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="백엔드 개발"
+                  placeholder={t('dialog.rolePlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="team_size">팀 규모</Label>
+                <Label htmlFor="team_size">{t('dialog.teamSize')}</Label>
                 <Input
                   id="team_size"
                   type="number"
@@ -1134,7 +1134,7 @@ export default function ProjectsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contribution_percent">기여도 (%)</Label>
+                <Label htmlFor="contribution_percent">{t('dialog.contribution')}</Label>
                 <Input
                   id="contribution_percent"
                   type="number"
@@ -1147,7 +1147,7 @@ export default function ProjectsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="git_url">GitHub URL</Label>
+              <Label htmlFor="git_url">{t('dialog.githubUrl')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="git_url"
@@ -1167,20 +1167,20 @@ export default function ProjectsPage() {
                   ) : (
                     <Sparkles className="h-4 w-4 mr-2" />
                   )}
-                  AI 설명 생성
+                  {t('dialog.generateAI')}
                 </Button>
               </div>
               <p className="text-xs text-gray-500">
-                "AI 설명 생성" 버튼을 클릭하면 README 기반으로 설명이 자동 생성됩니다. (기술 스택은 레포 선택 시 자동 감지)
+                {t('dialog.aiGenerateHint')}
               </p>
             </div>
             <div className="space-y-2">
-              <Label>기술 스택</Label>
+              <Label>{t('dialog.techStack')}</Label>
               <div className="flex gap-2">
                 <Input
                   value={techInput}
                   onChange={(e) => setTechInput(e.target.value)}
-                  placeholder="기술명 입력 후 추가"
+                  placeholder={t('dialog.techInputPlaceholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -1189,7 +1189,7 @@ export default function ProjectsPage() {
                   }}
                 />
                 <Button type="button" variant="outline" onClick={addTechnology}>
-                  추가
+                  {tc('add')}
                 </Button>
               </div>
               {formData.technologies && formData.technologies.length > 0 && (
@@ -1202,12 +1202,12 @@ export default function ProjectsPage() {
                       onClick={() => removeTechnology(tech)}
                     />
                   ))}
-                  <span className="text-xs text-gray-500 self-center ml-1">(클릭하여 제거)</span>
+                  <span className="text-xs text-gray-500 self-center ml-1">({t('dialog.clickToRemove')})</span>
                 </div>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">상세 설명</Label>
+              <Label htmlFor="description">{t('dialog.description')}</Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -1217,10 +1217,10 @@ export default function ProjectsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                취소
+                {tc('cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                추가
+                {tc('add')}
               </Button>
             </DialogFooter>
           </form>

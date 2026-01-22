@@ -621,6 +621,22 @@ portfolio/
 - 마이그레이션 필요 시 Alembic 사용
 - 스키마 변경 시 기존 데이터 보존 고려
 
+### Docker 규칙 ⚠️ 필수
+- **코드 수정 완료 후 반드시 Docker 재빌드 및 재시작**
+- `npm run build`로 프론트엔드 빌드 검증 후 Docker 빌드
+- 수정 완료 시 다음 명령어 자동 실행:
+  ```bash
+  # 프론트엔드 빌드 검증
+  cd frontend && npm run build
+
+  # Docker 재빌드 (변경된 서비스만)
+  docker-compose build frontend  # 또는 api
+
+  # 컨테이너 재시작
+  docker-compose up -d
+  ```
+- 사용자가 별도로 요청하지 않아도 수정 완료 시 자동으로 수행
+
 ---
 
 ## 접속 정보

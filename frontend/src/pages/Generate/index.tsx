@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
 import { Play, FolderKanban } from 'lucide-react'
 
 export default function GeneratePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = useUserStore()
@@ -57,10 +59,10 @@ export default function GeneratePage() {
     mutationFn: (data: PipelineRunRequest) => pipelineApi.run(user!.id, data),
     onSuccess: (response) => {
       setTaskId(response.data.task_id)
-      toast({ title: '파이프라인이 시작되었습니다.' })
+      toast({ title: t('generate:pipelineStarted') })
       navigate('/generate/pipeline')
     },
-    onError: () => toast({ title: '오류', description: '파이프라인 실행에 실패했습니다.', variant: 'destructive' }),
+    onError: () => toast({ title: t('common:error'), description: t('generate:pipelineFailed'), variant: 'destructive' }),
   })
 
   const projects = projectsData?.data?.projects || []
@@ -84,11 +86,11 @@ export default function GeneratePage() {
 
   const handleSubmit = () => {
     if (selectedProjects.length === 0) {
-      toast({ title: '프로젝트 선택', description: '최소 1개의 프로젝트를 선택해주세요.', variant: 'destructive' })
+      toast({ title: t('generate:projectSelection'), description: t('generate:selectProjectError'), variant: 'destructive' })
       return
     }
     if (!templateId) {
-      toast({ title: '템플릿 선택', description: '템플릿을 선택해주세요.', variant: 'destructive' })
+      toast({ title: t('generate:template'), description: t('generate:selectTemplateError'), variant: 'destructive' })
       return
     }
 
@@ -112,8 +114,8 @@ export default function GeneratePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">문서 생성</h1>
-        <p className="text-gray-600">프로젝트를 선택하고 템플릿을 적용하여 이력서/포트폴리오를 생성합니다.</p>
+        <h1 className="text-3xl font-bold">{t('generate:title')}</h1>
+        <p className="text-muted-foreground">{t('generate:subtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -122,19 +124,19 @@ export default function GeneratePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>프로젝트 선택</CardTitle>
-                <CardDescription>문서에 포함할 프로젝트를 선택하세요.</CardDescription>
+                <CardTitle>{t('generate:projectSelection')}</CardTitle>
+                <CardDescription>{t('generate:selectProjectsToInclude')}</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                {selectedProjects.length === projects.length ? '전체 해제' : '전체 선택'}
+                {selectedProjects.length === projects.length ? t('generate:deselectAll') : t('generate:selectAll')}
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {projects.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <FolderKanban className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>등록된 프로젝트가 없습니다.</p>
+                <p>{t('generate:noProjects')}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
@@ -144,7 +146,7 @@ export default function GeneratePage() {
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedProjects.includes(project.id)
                         ? 'border-primary bg-primary/5'
-                        : 'hover:bg-gray-50'
+                        : 'hover:bg-accent'
                     }`}
                     onClick={() => handleProjectToggle(project.id)}
                   >
@@ -155,11 +157,11 @@ export default function GeneratePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{project.name}</span>
-                        {project.is_analyzed && <Badge variant="success" className="text-xs">분석됨</Badge>}
-                        {project.ai_summary && <Badge variant="secondary" className="text-xs">AI 요약</Badge>}
+                        {project.is_analyzed && <Badge variant="success" className="text-xs">{t('generate:analyzed')}</Badge>}
+                        {project.ai_summary && <Badge variant="secondary" className="text-xs">{t('generate:aiSummary')}</Badge>}
                       </div>
                       {project.short_description && (
-                        <p className="text-sm text-gray-500 truncate">{project.short_description}</p>
+                        <p className="text-sm text-muted-foreground truncate">{project.short_description}</p>
                       )}
                       {project.technologies?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -178,8 +180,8 @@ export default function GeneratePage() {
                 ))}
               </div>
             )}
-            <p className="text-sm text-gray-500 mt-4">
-              {selectedProjects.length}개 프로젝트 선택됨
+            <p className="text-sm text-muted-foreground mt-4">
+              {t('generate:projectsSelected', { count: selectedProjects.length })}
             </p>
           </CardContent>
         </Card>
@@ -188,26 +190,26 @@ export default function GeneratePage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>템플릿 설정</CardTitle>
+              <CardTitle>{t('generate:templateSettings')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>템플릿</Label>
+                <Label>{t('generate:template')}</Label>
                 <Select value={templateId} onValueChange={setTemplateId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="템플릿 선택" />
+                    <SelectValue placeholder={t('generate:selectTemplate')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()}>
-                        {t.name}
+                    {templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id.toString()}>
+                        {tpl.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>출력 형식</Label>
+                <Label>{t('generate:outputFormat')}</Label>
                 <Select value={outputFormat} onValueChange={setOutputFormat}>
                   <SelectTrigger>
                     <SelectValue />
@@ -220,11 +222,11 @@ export default function GeneratePage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>문서명 (선택)</Label>
+                <Label>{t('generate:documentName')}</Label>
                 <Input
                   value={documentName}
                   onChange={(e) => setDocumentName(e.target.value)}
-                  placeholder="자동 생성"
+                  placeholder={t('generate:autoGenerate')}
                 />
               </div>
             </CardContent>
@@ -232,19 +234,19 @@ export default function GeneratePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>생성 옵션</CardTitle>
+              <CardTitle>{t('generate:generationOptions')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>요약 스타일</Label>
+                <Label>{t('generate:summaryStyle')}</Label>
                 <Select value={summaryStyle} onValueChange={setSummaryStyle}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="professional">전문적</SelectItem>
-                    <SelectItem value="casual">친근한</SelectItem>
-                    <SelectItem value="technical">기술 중심</SelectItem>
+                    <SelectItem value="professional">{t('generate:styles.professional')}</SelectItem>
+                    <SelectItem value="casual">{t('generate:styles.casual')}</SelectItem>
+                    <SelectItem value="technical">{t('generate:styles.technical')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -255,7 +257,7 @@ export default function GeneratePage() {
                     checked={options.includeAchievements}
                     onCheckedChange={(c) => setOptions({ ...options, includeAchievements: !!c })}
                   />
-                  <Label htmlFor="includeAchievements">성과 포함</Label>
+                  <Label htmlFor="includeAchievements">{t('generate:options.includeAchievements')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -263,7 +265,7 @@ export default function GeneratePage() {
                     checked={options.includeTechStack}
                     onCheckedChange={(c) => setOptions({ ...options, includeTechStack: !!c })}
                   />
-                  <Label htmlFor="includeTechStack">기술 스택 포함</Label>
+                  <Label htmlFor="includeTechStack">{t('generate:options.includeTechStack')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -271,7 +273,7 @@ export default function GeneratePage() {
                     checked={options.regenerateSummaries}
                     onCheckedChange={(c) => setOptions({ ...options, regenerateSummaries: !!c })}
                   />
-                  <Label htmlFor="regenerateSummaries">AI 요약 재생성</Label>
+                  <Label htmlFor="regenerateSummaries">{t('generate:options.regenerateSummaries')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -279,7 +281,7 @@ export default function GeneratePage() {
                     checked={options.skipLlmSummary}
                     onCheckedChange={(c) => setOptions({ ...options, skipLlmSummary: !!c })}
                   />
-                  <Label htmlFor="skipLlmSummary">AI 요약 건너뛰기</Label>
+                  <Label htmlFor="skipLlmSummary">{t('generate:options.skipLlmSummary')}</Label>
                 </div>
               </div>
             </CardContent>
@@ -292,7 +294,7 @@ export default function GeneratePage() {
             disabled={runPipelineMutation.isPending || selectedProjects.length === 0 || !templateId}
           >
             <Play className="h-4 w-4 mr-2" />
-            {runPipelineMutation.isPending ? '실행 중...' : '문서 생성 시작'}
+            {runPipelineMutation.isPending ? t('generate:generating') : t('generate:startGeneration')}
           </Button>
         </div>
       </div>

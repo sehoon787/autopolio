@@ -1,0 +1,27 @@
+{
+  "title": "Pipeline Execution",
+  "steps": {
+    "step1": "GitHub Analysis",
+    "step2": "Code Extraction",
+    "step3": "Tech Detection",
+    "step4": "LLM Summary",
+    "step5": "Template Mapping",
+    "step6": "Document Generation"
+  },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "progress": "Progress",
+  "currentStep": "Current Step",
+  "cancel": "Cancel",
+  "retry": "Retry",
+  "viewDocument": "View Document",
+  "downloadDocument": "Download Document",
+  "errorOccurred": "An error occurred",
+  "pipelineCompleted": "Document generation completed!",
+  "pipelineFailed": "Document generation failed.",
+  "generatingDocument": "Generating document..."
+}

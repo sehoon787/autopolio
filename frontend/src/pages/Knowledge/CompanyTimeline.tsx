@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,7 +37,7 @@ function TechCategoryBadges({ techCategories }: { techCategories: Record<string,
   )
 }
 
-function CompanyCard({ companySummary }: { companySummary: CompanySummaryResponse }) {
+function CompanyCard({ companySummary, t }: { companySummary: CompanySummaryResponse, t: (key: string, options?: any) => string }) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(true)
   const { company, projects, project_count, tech_categories, date_range } = companySummary
@@ -52,7 +53,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-xl">{company.name}</CardTitle>
-                {company.is_current && <Badge variant="success">재직중</Badge>}
+                {company.is_current && <Badge variant="success">{t('current')}</Badge>}
               </div>
               {company.position && (
                 <p className="text-gray-700 font-medium mt-1">{company.position}</p>
@@ -64,7 +65,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
                 </span>
                 <span className="flex items-center gap-1">
                   <FolderGit2 className="h-4 w-4" />
-                  {project_count}개 프로젝트
+                  {t('timeline.projectsCount', { count: project_count })}
                 </span>
               </div>
             </div>
@@ -90,7 +91,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Code className="h-4 w-4" />
-                담당 기술 스택
+                {t('timeline.techStack')}
               </h4>
               <TechCategoryBadges techCategories={tech_categories} />
             </div>
@@ -100,7 +101,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
               <FolderGit2 className="h-4 w-4" />
-              주요 프로젝트
+              {t('timeline.keyProjects')}
             </h4>
             {projects.map((project, index) => (
               <div
@@ -129,12 +130,12 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                       <span>
-                        {formatDate(project.start_date)} ~ {formatDate(project.end_date) || '진행중'}
+                        {formatDate(project.start_date)} ~ {formatDate(project.end_date) || t('timeline.ongoing')}
                       </span>
                       {project.team_size && (
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          {project.team_size}명
+                          {t('timeline.teamMembers', { count: project.team_size })}
                         </span>
                       )}
                       {project.role && <span>| {project.role}</span>}
@@ -161,7 +162,7 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
               </div>
             ))}
             {projects.length === 0 && (
-              <p className="text-sm text-gray-500 italic">등록된 프로젝트가 없습니다.</p>
+              <p className="text-sm text-gray-500 italic">{t('timeline.noProjectsRegistered')}</p>
             )}
           </div>
         </CardContent>
@@ -172,6 +173,8 @@ function CompanyCard({ companySummary }: { companySummary: CompanySummaryRespons
 
 export default function CompanyTimelinePage() {
   const navigate = useNavigate()
+  const { t } = useTranslation('companies')
+  const { t: tc } = useTranslation('common')
   const { user } = useUserStore()
   const [viewMode, setViewMode] = useState<'timeline' | 'list'>('timeline')
 
@@ -192,12 +195,12 @@ export default function CompanyTimelinePage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => navigate('/knowledge/companies')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            돌아가기
+            {t('timeline.goBack')}
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">회사별 타임라인</h1>
+            <h1 className="text-3xl font-bold">{t('timeline.title')}</h1>
             <p className="text-gray-600">
-              회사별로 프로젝트와 기술 스택을 한눈에 확인합니다.
+              {t('timeline.subtitle')}
             </p>
           </div>
         </div>
@@ -211,7 +214,7 @@ export default function CompanyTimelinePage() {
               <Building2 className="h-8 w-8 text-primary" />
               <div>
                 <p className="text-2xl font-bold">{totalCompanies}</p>
-                <p className="text-sm text-gray-500">총 회사</p>
+                <p className="text-sm text-gray-500">{t('timeline.totalCompanies')}</p>
               </div>
             </div>
           </CardContent>
@@ -222,7 +225,7 @@ export default function CompanyTimelinePage() {
               <FolderGit2 className="h-8 w-8 text-blue-500" />
               <div>
                 <p className="text-2xl font-bold">{totalProjects}</p>
-                <p className="text-sm text-gray-500">총 프로젝트</p>
+                <p className="text-sm text-gray-500">{t('timeline.totalProjects')}</p>
               </div>
             </div>
           </CardContent>
@@ -237,7 +240,7 @@ export default function CompanyTimelinePage() {
                     companySummaries.flatMap((cs) => cs.aggregated_tech_stack)
                   ).size}
                 </p>
-                <p className="text-sm text-gray-500">총 기술 스택</p>
+                <p className="text-sm text-gray-500">{t('timeline.totalTechStack')}</p>
               </div>
             </div>
           </CardContent>
@@ -247,23 +250,23 @@ export default function CompanyTimelinePage() {
       {/* View Toggle */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'timeline' | 'list')}>
         <TabsList>
-          <TabsTrigger value="timeline">타임라인 뷰</TabsTrigger>
-          <TabsTrigger value="list">리스트 뷰</TabsTrigger>
+          <TabsTrigger value="timeline">{t('timelineView')}</TabsTrigger>
+          <TabsTrigger value="list">{t('timeline.listView')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="timeline" className="mt-6">
           {isLoading ? (
-            <div className="text-center py-8">로딩 중...</div>
+            <div className="text-center py-8">{tc('loading')}</div>
           ) : companySummaries.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Building2 className="h-16 w-16 text-gray-300 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  등록된 회사가 없습니다
+                  {t('noCompanies')}
                 </h3>
-                <p className="text-gray-500 mb-4">먼저 회사를 추가해주세요.</p>
+                <p className="text-gray-500 mb-4">{t('timeline.addCompanyFirst')}</p>
                 <Button onClick={() => navigate('/knowledge/companies')}>
-                  회사 추가하기
+                  {t('timeline.addCompanyBtn')}
                 </Button>
               </CardContent>
             </Card>
@@ -275,7 +278,7 @@ export default function CompanyTimelinePage() {
               {/* Company cards */}
               <div className="space-y-0 pl-12">
                 {companySummaries.map((summary) => (
-                  <CompanyCard key={summary.company.id} companySummary={summary} />
+                  <CompanyCard key={summary.company.id} companySummary={summary} t={t} />
                 ))}
               </div>
             </div>
@@ -284,7 +287,7 @@ export default function CompanyTimelinePage() {
 
         <TabsContent value="list" className="mt-6">
           {isLoading ? (
-            <div className="text-center py-8">로딩 중...</div>
+            <div className="text-center py-8">{tc('loading')}</div>
           ) : (
             <div className="space-y-4">
               {companySummaries.map((summary) => (
@@ -296,7 +299,7 @@ export default function CompanyTimelinePage() {
                         <div>
                           <h3 className="font-medium">{summary.company.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {summary.date_range} | {summary.project_count}개 프로젝트
+                            {summary.date_range} | {t('timeline.projectsCount', { count: summary.project_count })}
                           </p>
                         </div>
                       </div>

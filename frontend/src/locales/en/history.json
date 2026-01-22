@@ -1,0 +1,25 @@
+{
+  "title": "Job History",
+  "subtitle": "View the history of executed jobs.",
+  "noJobs": "No job history",
+  "noJobsDesc": "Job history will appear here after running document generation or repository analysis.",
+  "jobTypes": {
+    "pipeline": "Document Generation Pipeline",
+    "github_analysis": "GitHub Analysis",
+    "document_generation": "Document Generation"
+  },
+  "status": {
+    "completed": "Completed",
+    "failed": "Failed",
+    "running": "Running",
+    "pending": "Pending",
+    "cancelled": "Cancelled"
+  },
+  "fields": {
+    "started": "Started",
+    "completed": "Completed",
+    "currentStep": "Current Step",
+    "currentTask": "Current Task",
+    "generatedDocId": "Generated Document ID:"
+  }
+}
