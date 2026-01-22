@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -259,18 +258,21 @@ export default function CompaniesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="start_date">{t('companies:startDate')}</Label>
-                <DatePicker
+                <Input
+                  id="start_date"
+                  type="date"
                   value={formData.start_date || ''}
-                  onChange={(value) => setFormData({ ...formData, start_date: value })}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="end_date">{t('companies:endDate')}</Label>
-                <DatePicker
+                <Input
+                  id="end_date"
+                  type="date"
                   value={formData.end_date || ''}
-                  onChange={(value) => setFormData({ ...formData, end_date: value })}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   disabled={formData.is_current}
-                  className={formData.is_current ? 'opacity-50' : ''}
                 />
               </div>
             </div>

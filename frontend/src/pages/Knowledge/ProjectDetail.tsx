@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
-import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -417,18 +416,22 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-start_date">{t('detail.editDialog.startDate')}</Label>
-                <DatePicker
+                <Input
+                  id="edit-start_date"
+                  type="date"
                   value={editFormData.start_date || ''}
-                  onChange={(value) => setEditFormData({ ...editFormData, start_date: value })}
+                  onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-end_date">{t('detail.editDialog.endDate')}</Label>
-                <DatePicker
+                <Input
+                  id="edit-end_date"
+                  type="date"
                   value={editFormData.end_date || ''}
-                  onChange={(value) => setEditFormData({ ...editFormData, end_date: value })}
+                  onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
                   disabled={isOngoing}
-                  className={isOngoing ? 'opacity-50' : ''}
+                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
                 />
               </div>
             </div>

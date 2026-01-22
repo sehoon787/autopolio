@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
-import { DatePicker } from '@/components/ui/date-picker'
 import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -732,21 +731,23 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-2">
                 <Label>{t('filters.startDateFrom')}</Label>
-                <DatePicker
+                <Input
+                  type="date"
                   value={filters.start_date_from || ''}
-                  onChange={(value) => setFilters(prev => ({
+                  onChange={(e) => setFilters(prev => ({
                     ...prev,
-                    start_date_from: value || undefined
+                    start_date_from: e.target.value || undefined
                   }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>{t('filters.startDateTo')}</Label>
-                <DatePicker
+                <Input
+                  type="date"
                   value={filters.start_date_to || ''}
-                  onChange={(value) => setFilters(prev => ({
+                  onChange={(e) => setFilters(prev => ({
                     ...prev,
-                    start_date_to: value || undefined
+                    start_date_to: e.target.value || undefined
                   }))}
                 />
               </div>
@@ -1084,18 +1085,22 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="start_date">{t('dialog.startDate')}</Label>
-                <DatePicker
+                <Input
+                  id="start_date"
+                  type="date"
                   value={formData.start_date || ''}
-                  onChange={(value) => setFormData({ ...formData, start_date: value })}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="end_date">{t('dialog.endDate')}</Label>
-                <DatePicker
+                <Input
+                  id="end_date"
+                  type="date"
                   value={formData.end_date || ''}
-                  onChange={(value) => setFormData({ ...formData, end_date: value })}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   disabled={isOngoing}
-                  className={isOngoing ? 'opacity-50' : ''}
+                  className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
                 />
               </div>
             </div>
