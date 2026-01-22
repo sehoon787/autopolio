@@ -87,7 +87,25 @@
       "add": "추가",
       "cancel": "취소",
       "save": "저장",
-      "saving": "저장 중..."
+      "saving": "저장 중...",
+      "resetToOriginal": "원본으로",
+      "addItem": "추가",
+      "addSection": "새 섹션 추가"
+    },
+    "analyzeHelp": {
+      "description": "레포지토리를 분석하면 GitHub에서 최신 데이터를 가져와 모든 분석 결과를 업데이트합니다.",
+      "point1": "재분석 시 GitHub 레포지토리에서 모든 내용을 새로 생성합니다",
+      "point2": "직접 수정한 내용은 별도로 저장되어 보존됩니다",
+      "point3": "재분석 후에도 수정된 내용이 계속 표시됩니다"
+    },
+    "editor": {
+      "modified": "수정됨",
+      "editBtn": "편집",
+      "sectionTitlePlaceholder": "섹션 제목...",
+      "itemPlaceholder": "항목 내용...",
+      "addItemBtn": "항목 추가",
+      "newItemPlaceholder": "새 항목 추가...",
+      "noItems": "항목이 없습니다."
     },
     "toast": {
       "saveSuccess": "저장 완료",

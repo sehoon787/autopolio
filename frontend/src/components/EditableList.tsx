@@ -11,6 +11,18 @@ import {
   RotateCcw,
 } from 'lucide-react'
 
+// Translation keys interface for type safety
+interface EditorTranslations {
+  modified?: string
+  editBtn?: string
+  cancel?: string
+  save?: string
+  resetToOriginal?: string
+  newItemPlaceholder?: string
+  addItem?: string
+  noItems?: string
+}
+
 interface EditableListProps {
   items: string[]
   onSave: (items: string[]) => Promise<void>
@@ -24,6 +36,20 @@ interface EditableListProps {
   isEditing?: boolean
   onEditingChange?: (editing: boolean) => void
   hideEditButton?: boolean
+  // Translation props
+  translations?: EditorTranslations
+}
+
+// Default translations (Korean as fallback for backwards compatibility)
+const defaultTranslations: EditorTranslations = {
+  modified: '수정됨',
+  editBtn: '편집',
+  cancel: '취소',
+  save: '저장',
+  resetToOriginal: '원본으로',
+  newItemPlaceholder: '새 항목 추가...',
+  addItem: '추가',
+  noItems: '항목이 없습니다.',
 }
 
 export function EditableList({
@@ -32,13 +58,17 @@ export function EditableList({
   onReset,
   isModified = false,
   title,
-  emptyMessage = '항목이 없습니다.',
+  emptyMessage,
   itemPrefix,
   className = '',
   isEditing: externalIsEditing,
   onEditingChange,
   hideEditButton = false,
+  translations = {},
 }: EditableListProps) {
+  // Merge translations with defaults
+  const t = { ...defaultTranslations, ...translations }
+  const actualEmptyMessage = emptyMessage ?? t.noItems
   const [internalIsEditing, setInternalIsEditing] = useState(false)
 
   // Use external control if provided, otherwise use internal state
@@ -167,7 +197,7 @@ export function EditableList({
                   <span className="font-medium">{title}</span>
                   {isModified && (
                     <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">
-                      수정됨
+                      {t.modified}
                     </Badge>
                   )}
                 </div>
@@ -180,7 +210,7 @@ export function EditableList({
                   className="h-8 text-gray-500 hover:text-gray-700"
                 >
                   <Pencil className="h-4 w-4 mr-1" />
-                  편집
+                  {t.editBtn}
                 </Button>
               )}
             </div>
@@ -201,7 +231,7 @@ export function EditableList({
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-sm">{emptyMessage}</p>
+            <p className="text-gray-500 text-sm">{actualEmptyMessage}</p>
           )}
         </div>
       </div>
@@ -224,7 +254,7 @@ export function EditableList({
               className="h-8 text-orange-600 hover:text-orange-700"
             >
               <RotateCcw className="h-4 w-4 mr-1" />
-              원본으로
+              {t.resetToOriginal}
             </Button>
           )}
           <Button
@@ -235,7 +265,7 @@ export function EditableList({
             className="h-8"
           >
             <X className="h-4 w-4 mr-1" />
-            취소
+            {t.cancel}
           </Button>
           <Button
             size="sm"
@@ -244,7 +274,7 @@ export function EditableList({
             className="h-8"
           >
             <Check className="h-4 w-4 mr-1" />
-            저장
+            {t.save}
           </Button>
         </div>
       </div>
@@ -334,12 +364,12 @@ export function EditableList({
           onKeyDown={(e) => {
             if (e.key === 'Enter') addItem()
           }}
-          placeholder="새 항목 추가..."
+          placeholder={t.newItemPlaceholder}
           className="flex-1"
         />
         <Button variant="outline" size="sm" onClick={addItem} disabled={!newItem.trim()}>
           <Plus className="h-4 w-4 mr-1" />
-          추가
+          {t.addItem}
         </Button>
       </div>
     </div>

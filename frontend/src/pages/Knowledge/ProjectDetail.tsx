@@ -46,7 +46,14 @@ import {
   ClipboardList,
   Sparkles,
   Pencil,
+  HelpCircle,
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
@@ -263,14 +270,33 @@ export default function ProjectDetailPage() {
           {t('detail.buttons.edit')}
         </Button>
         {project.git_url && (
-          <Button
-            variant="outline"
-            onClick={() => analyzeMutation.mutate()}
-            disabled={analyzeMutation.isPending}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-spin' : ''}`} />
-            {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              onClick={() => analyzeMutation.mutate()}
+              disabled={analyzeMutation.isPending}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-spin' : ''}`} />
+              {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="text-sm">{t('detail.analyzeHelp.description')}</p>
+                  <ul className="text-xs mt-2 space-y-1 text-muted-foreground">
+                    <li>• {t('detail.analyzeHelp.point1')}</li>
+                    <li>• {t('detail.analyzeHelp.point2')}</li>
+                    <li>• {t('detail.analyzeHelp.point3')}</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         )}
       </div>
 
@@ -670,6 +696,16 @@ function BasicInfoTab({ project, analysis, editStatus, t, onSaveKeyTasks, onRese
               isEditing={isEditingKeyTasks}
               onEditingChange={setIsEditingKeyTasks}
               hideEditButton
+              translations={{
+                modified: t('detail.editor.modified'),
+                editBtn: t('detail.buttons.editBtn'),
+                cancel: t('detail.buttons.cancel'),
+                save: t('detail.buttons.save'),
+                resetToOriginal: t('detail.buttons.resetToOriginal'),
+                newItemPlaceholder: t('detail.editor.newItemPlaceholder'),
+                addItem: t('detail.buttons.addItem'),
+                noItems: t('detail.editor.noItems'),
+              }}
             />
           </CardContent>
         </Card>
@@ -899,6 +935,16 @@ function SummaryTab({ project, analysis, final, editStatus, t, onSaveKeyTasks, o
             isEditing={isEditingKeyTasks}
             onEditingChange={setIsEditingKeyTasks}
             hideEditButton
+            translations={{
+              modified: t('detail.editor.modified'),
+              editBtn: t('detail.buttons.editBtn'),
+              cancel: t('detail.buttons.cancel'),
+              save: t('detail.buttons.save'),
+              resetToOriginal: t('detail.buttons.resetToOriginal'),
+              newItemPlaceholder: t('detail.editor.newItemPlaceholder'),
+              addItem: t('detail.buttons.addItem'),
+              noItems: t('detail.editor.noItems'),
+            }}
           />
         </CardContent>
       </Card>
@@ -1091,6 +1137,18 @@ function DetailTab({
             isEditing={isEditingImplementationDetails}
             onEditingChange={setIsEditingImplementationDetails}
             hideEditButton
+            translations={{
+              modified: t('detail.editor.modified'),
+              editBtn: t('detail.buttons.editBtn'),
+              cancel: t('detail.buttons.cancel'),
+              save: t('detail.buttons.save'),
+              resetToOriginal: t('detail.buttons.resetToOriginal'),
+              sectionTitlePlaceholder: t('detail.editor.sectionTitlePlaceholder'),
+              itemPlaceholder: t('detail.editor.itemPlaceholder'),
+              addItemBtn: t('detail.editor.addItemBtn'),
+              addSection: t('detail.buttons.addSection'),
+              noItems: t('detail.editor.noItems'),
+            }}
           />
         </CardContent>
       </Card>

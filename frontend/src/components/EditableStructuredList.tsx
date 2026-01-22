@@ -18,6 +18,20 @@ export interface StructuredItem {
   items: string[]
 }
 
+// Translation keys interface for type safety
+interface EditorTranslations {
+  modified?: string
+  editBtn?: string
+  cancel?: string
+  save?: string
+  resetToOriginal?: string
+  sectionTitlePlaceholder?: string
+  itemPlaceholder?: string
+  addItemBtn?: string
+  addSection?: string
+  noItems?: string
+}
+
 interface EditableStructuredListProps {
   sections: StructuredItem[]
   onSave: (sections: StructuredItem[]) => Promise<void>
@@ -30,6 +44,22 @@ interface EditableStructuredListProps {
   isEditing?: boolean
   onEditingChange?: (editing: boolean) => void
   hideEditButton?: boolean
+  // Translation props
+  translations?: EditorTranslations
+}
+
+// Default translations (Korean as fallback for backwards compatibility)
+const defaultTranslations: EditorTranslations = {
+  modified: '수정됨',
+  editBtn: '편집',
+  cancel: '취소',
+  save: '저장',
+  resetToOriginal: '원본으로',
+  sectionTitlePlaceholder: '섹션 제목...',
+  itemPlaceholder: '항목 내용...',
+  addItemBtn: '항목 추가',
+  addSection: '새 섹션 추가',
+  noItems: '항목이 없습니다.',
 }
 
 export function EditableStructuredList({
@@ -38,12 +68,16 @@ export function EditableStructuredList({
   onReset,
   isModified = false,
   title,
-  emptyMessage = '항목이 없습니다.',
+  emptyMessage,
   className = '',
   isEditing: externalIsEditing,
   onEditingChange,
   hideEditButton = false,
+  translations = {},
 }: EditableStructuredListProps) {
+  // Merge translations with defaults
+  const t = { ...defaultTranslations, ...translations }
+  const actualEmptyMessage = emptyMessage ?? t.noItems
   const [internalIsEditing, setInternalIsEditing] = useState(false)
 
   // Use external control if provided, otherwise use internal state
@@ -192,7 +226,7 @@ export function EditableStructuredList({
                   <span className="font-medium">{title}</span>
                   {isModified && (
                     <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">
-                      수정됨
+                      {t.modified}
                     </Badge>
                   )}
                 </div>
@@ -205,7 +239,7 @@ export function EditableStructuredList({
                   className="h-8 text-gray-500 hover:text-gray-700"
                 >
                   <Pencil className="h-4 w-4 mr-1" />
-                  편집
+                  {t.editBtn}
                 </Button>
               )}
             </div>
@@ -228,7 +262,7 @@ export function EditableStructuredList({
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">{emptyMessage}</p>
+            <p className="text-gray-500 text-sm">{actualEmptyMessage}</p>
           )}
         </div>
       </div>
@@ -251,7 +285,7 @@ export function EditableStructuredList({
               className="h-8 text-orange-600 hover:text-orange-700"
             >
               <RotateCcw className="h-4 w-4 mr-1" />
-              원본으로
+              {t.resetToOriginal}
             </Button>
           )}
           <Button
@@ -262,7 +296,7 @@ export function EditableStructuredList({
             className="h-8"
           >
             <X className="h-4 w-4 mr-1" />
-            취소
+            {t.cancel}
           </Button>
           <Button
             size="sm"
@@ -271,7 +305,7 @@ export function EditableStructuredList({
             className="h-8"
           >
             <Check className="h-4 w-4 mr-1" />
-            저장
+            {t.save}
           </Button>
         </div>
       </div>
@@ -312,7 +346,7 @@ export function EditableStructuredList({
               <Input
                 value={section.title}
                 onChange={(e) => updateSectionTitle(sectionIdx, e.target.value)}
-                placeholder="섹션 제목..."
+                placeholder={t.sectionTitlePlaceholder}
                 className="flex-1 font-semibold"
               />
 
@@ -350,7 +384,7 @@ export function EditableStructuredList({
                     <Input
                       value={item}
                       onChange={(e) => updateItem(sectionIdx, itemIdx, e.target.value)}
-                      placeholder="항목 내용..."
+                      placeholder={t.itemPlaceholder}
                       className="flex-1"
                     />
                     <Button
@@ -371,7 +405,7 @@ export function EditableStructuredList({
                   className="w-full mt-2 border-dashed border"
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  항목 추가
+                  {t.addItemBtn}
                 </Button>
               </div>
             )}
@@ -387,7 +421,7 @@ export function EditableStructuredList({
         className="w-full border-dashed"
       >
         <Plus className="h-4 w-4 mr-1" />
-        새 섹션 추가
+        {t.addSection}
       </Button>
     </div>
   )

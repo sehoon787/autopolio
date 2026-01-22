@@ -87,7 +87,25 @@
       "add": "Add",
       "cancel": "Cancel",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "resetToOriginal": "Reset to Original",
+      "addItem": "Add",
+      "addSection": "Add New Section"
+    },
+    "analyzeHelp": {
+      "description": "Analyzing the repository retrieves the latest data from GitHub to update all analysis results.",
+      "point1": "Re-analysis regenerates everything from the GitHub repository",
+      "point2": "Your manual edits are stored separately and preserved",
+      "point3": "Edited content will continue to be displayed after re-analysis"
+    },
+    "editor": {
+      "modified": "Modified",
+      "editBtn": "Edit",
+      "sectionTitlePlaceholder": "Section title...",
+      "itemPlaceholder": "Item content...",
+      "addItemBtn": "Add Item",
+      "newItemPlaceholder": "Add new item...",
+      "noItems": "No items."
     },
     "toast": {
       "saveSuccess": "Saved",
