@@ -47,13 +47,14 @@ import {
   Sparkles,
   Pencil,
   HelpCircle,
+  X,
 } from 'lucide-react'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  PopoverClose,
+} from '@/components/ui/popover'
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
@@ -279,23 +280,28 @@ export default function ProjectDetailPage() {
               <RefreshCw className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-spin' : ''}`} />
               {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
             </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="text-sm">{t('detail.analyzeHelp.description')}</p>
-                  <ul className="text-xs mt-2 space-y-1 text-muted-foreground">
-                    <li>• {t('detail.analyzeHelp.point1')}</li>
-                    <li>• {t('detail.analyzeHelp.point2')}</li>
-                    <li>• {t('detail.analyzeHelp.point3')}</li>
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" className="max-w-xs">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-sm font-medium">{t('detail.analyzeHelp.description')}</p>
+                  <PopoverClose asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-2">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </PopoverClose>
+                </div>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li>• {t('detail.analyzeHelp.point1')}</li>
+                  <li>• {t('detail.analyzeHelp.point2')}</li>
+                  <li>• {t('detail.analyzeHelp.point3')}</li>
+                </ul>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>

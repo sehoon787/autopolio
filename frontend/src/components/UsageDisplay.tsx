@@ -1,11 +1,5 @@
-import { Activity, Zap } from 'lucide-react'
+import { Activity, Zap, Clock } from 'lucide-react'
 import { useUsageStore } from '@/stores/usageStore'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
 interface UsageDisplayProps {
   compact?: boolean
@@ -21,45 +15,40 @@ export function UsageDisplay({ compact = true }: UsageDisplayProps) {
     stats.llmTokensUsed.gemini
 
   if (compact) {
+    // Always show detailed stats without requiring hover
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-2 py-1 rounded-md hover:bg-accent cursor-default">
-              <Activity className="h-3 w-3" />
-              <span>{stats.dailyApiCalls}</span>
-              {totalTokens > 0 && (
-                <>
-                  <span className="text-muted-foreground/50">|</span>
-                  <Zap className="h-3 w-3" />
-                  <span>{formatNumber(totalTokens)}</span>
-                </>
-              )}
+      <div className="px-3 py-2 text-xs text-muted-foreground space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Activity className="h-3 w-3" />
+            <span>API Today</span>
+          </div>
+          <span className="font-medium">{stats.dailyApiCalls}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Activity className="h-3 w-3 opacity-60" />
+            <span>Session</span>
+          </div>
+          <span className="font-medium">{stats.sessionApiCalls}</span>
+        </div>
+        {totalTokens > 0 && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Zap className="h-3 w-3" />
+              <span>Tokens</span>
             </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            <div className="space-y-1">
-              <p>API Calls Today: {stats.dailyApiCalls}</p>
-              <p>Session Calls: {stats.sessionApiCalls}</p>
-              {totalTokens > 0 && (
-                <>
-                  <p className="border-t pt-1 mt-1">Token Usage:</p>
-                  {stats.llmTokensUsed.openai > 0 && (
-                    <p>OpenAI: {formatNumber(stats.llmTokensUsed.openai)}</p>
-                  )}
-                  {stats.llmTokensUsed.anthropic > 0 && (
-                    <p>Anthropic: {formatNumber(stats.llmTokensUsed.anthropic)}</p>
-                  )}
-                  {stats.llmTokensUsed.gemini > 0 && (
-                    <p>Gemini: {formatNumber(stats.llmTokensUsed.gemini)}</p>
-                  )}
-                </>
-              )}
-              <p className="border-t pt-1 mt-1">Session: {stats.sessionDuration}m</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+            <span className="font-medium">{formatNumber(totalTokens)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3" />
+            <span>Duration</span>
+          </div>
+          <span className="font-medium">{stats.sessionDuration}m</span>
+        </div>
+      </div>
     )
   }
 

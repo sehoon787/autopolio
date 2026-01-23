@@ -63,12 +63,16 @@ export interface LLMProviderInfo {
 
 export const llmApi = {
   // Get LLM configuration and CLI status
-  getConfig: () =>
-    apiClient.get<LLMConfigResponse>('/llm/config'),
+  getConfig: (userId?: number) =>
+    apiClient.get<LLMConfigResponse>('/llm/config', {
+      params: userId ? { user_id: userId } : undefined,
+    }),
 
   // Update LLM configuration (API keys and provider)
-  updateConfig: (data: LLMConfigUpdate) =>
-    apiClient.put<LLMConfigResponse>('/llm/config', data),
+  updateConfig: (data: LLMConfigUpdate, userId?: number) =>
+    apiClient.put<LLMConfigResponse>('/llm/config', data, {
+      params: userId ? { user_id: userId } : undefined,
+    }),
 
   // Validate an API key for a provider
   validateKey: (provider: string, apiKey: string) =>

@@ -12,21 +12,7 @@
     "electron/**/*.js",
     "package.json"
   ],
-  "extraResources": [
-    {
-      "from": "../api",
-      "to": "api",
-      "filter": [
-        "**/*.py",
-        "!**/__pycache__/**",
-        "!**/*.pyc"
-      ]
-    },
-    {
-      "from": "../requirements.txt",
-      "to": "requirements.txt"
-    }
-  ],
+  "extraResources": [],
   "win": {
     "target": [
       {

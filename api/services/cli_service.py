@@ -128,13 +128,46 @@ class CLIService:
     async def _find_cli_in_path(self, cli_name: str) -> Optional[str]:
         """Find CLI in system PATH using which/where command."""
         if self.platform == 'win32':
+            # Try 'where' command first
             success, output = await self._run_command(['where', cli_name])
+            if success and output:
+                return output.split('\n')[0].strip()
+
+            # Also try with .cmd extension
+            success, output = await self._run_command(['where', f'{cli_name}.cmd'])
+            if success and output:
+                return output.split('\n')[0].strip()
+
+            # Try PowerShell Get-Command as fallback
+            success, output = await self._run_command([
+                'powershell', '-Command',
+                f"(Get-Command {cli_name} -ErrorAction SilentlyContinue).Source"
+            ])
+            if success and output:
+                return output.strip()
         else:
             success, output = await self._run_command(['which', cli_name])
+            if success and output:
+                return output.split('\n')[0].strip()
+
+        return None
+
+    async def _find_npm_global_path(self) -> Optional[str]:
+        """Find npm global packages path."""
+        if self.platform == 'win32':
+            success, output = await self._run_command(['npm', 'root', '-g'])
+        else:
+            success, output = await self._run_command(['npm', 'root', '-g'])
 
         if success and output:
-            # Return first path if multiple found
-            return output.split('\n')[0].strip()
+            # npm root -g returns node_modules path, we need parent/bin
+            npm_modules = output.strip()
+            if npm_modules:
+                parent = Path(npm_modules).parent
+                if self.platform == 'win32':
+                    return str(parent)  # Windows: scripts are in the same folder
+                else:
+                    return str(parent / 'bin')
         return None
 
     async def _get_cli_version(self, cli_path: str) -> Optional[str]:
@@ -169,7 +202,20 @@ class CLIService:
         # First, try to find in system PATH
         path = await self._find_cli_in_path('claude')
 
-        # If not found in PATH, check known locations
+        # If not found in PATH, check npm global path
+        if not path:
+            npm_global = await self._find_npm_global_path()
+            if npm_global:
+                if self.platform == 'win32':
+                    claude_cmd = os.path.join(npm_global, 'claude.cmd')
+                    if os.path.exists(claude_cmd):
+                        path = claude_cmd
+                else:
+                    claude_bin = os.path.join(npm_global, 'claude')
+                    if os.path.exists(claude_bin):
+                        path = claude_bin
+
+        # If still not found, check known locations
         if not path:
             paths = self.CLAUDE_PATHS.get(self.platform, self.CLAUDE_PATHS['linux'])
             for path_template in paths:
@@ -247,7 +293,20 @@ class CLIService:
         # First, try to find in system PATH
         path = await self._find_cli_in_path('gemini')
 
-        # If not found in PATH, check known locations
+        # If not found in PATH, check npm global path
+        if not path:
+            npm_global = await self._find_npm_global_path()
+            if npm_global:
+                if self.platform == 'win32':
+                    gemini_cmd = os.path.join(npm_global, 'gemini.cmd')
+                    if os.path.exists(gemini_cmd):
+                        path = gemini_cmd
+                else:
+                    gemini_bin = os.path.join(npm_global, 'gemini')
+                    if os.path.exists(gemini_bin):
+                        path = gemini_bin
+
+        # If still not found, check known locations
         if not path:
             paths = self.GEMINI_PATHS.get(self.platform, self.GEMINI_PATHS['linux'])
             for path_template in paths:

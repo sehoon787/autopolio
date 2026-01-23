@@ -22,12 +22,17 @@ apiClient.interceptors.request.use((config) => {
     config.baseURL = '/api' // Web: use Vite proxy
   }
 
-  // Add user_id to all requests
+  // Add user_id to all requests (only if valid)
   const userId = localStorage.getItem('user_id')
-  if (userId && config.params) {
-    config.params.user_id = userId
-  } else if (userId) {
-    config.params = { user_id: userId }
+  const parsedUserId = userId ? parseInt(userId, 10) : NaN
+
+  // Only add user_id if it's a valid positive integer
+  if (!isNaN(parsedUserId) && parsedUserId > 0) {
+    if (config.params) {
+      config.params.user_id = parsedUserId
+    } else {
+      config.params = { user_id: parsedUserId }
+    }
   }
 
   return config

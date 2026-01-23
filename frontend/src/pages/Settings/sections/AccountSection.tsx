@@ -20,7 +20,7 @@ export default function AccountSection() {
         <div className="grid gap-4">
           <div className="flex items-center justify-between">
             <Label>{t('user.name')}</Label>
-            <span className="text-sm">{user.name}</span>
+            <span className="text-sm">{user.name || 'User'}</span>
           </div>
           {user.email && (
             <div className="flex items-center justify-between">

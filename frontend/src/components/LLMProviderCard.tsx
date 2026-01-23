@@ -24,18 +24,20 @@ import type { LLMProvider } from '@/api/llm'
 
 interface LLMProviderCardProps {
   provider: LLMProvider
+  isSelected: boolean
   onSaveKey: (providerId: string, apiKey: string) => Promise<void>
   onValidateKey: (providerId: string, apiKey: string) => Promise<{ valid: boolean; error?: string | null }>
-  onSelectPrimary: (providerId: string) => Promise<void>
+  onSelect: (providerId: string) => void
   onModelChange: (providerId: string, model: string) => Promise<void>
   isUpdating: boolean
 }
 
 export function LLMProviderCard({
   provider,
+  isSelected,
   onSaveKey,
   onValidateKey,
-  onSelectPrimary,
+  onSelect,
   onModelChange,
   isUpdating,
 }: LLMProviderCardProps) {
@@ -89,34 +91,46 @@ export function LLMProviderCard({
     }
   }
 
-  const handleSelectPrimary = async () => {
-    await onSelectPrimary(provider.id)
-  }
-
   const handleModelChange = async (model: string) => {
     await onModelChange(provider.id, model)
+  }
+
+  const handleSelect = () => {
+    onSelect(provider.id)
   }
 
   return (
     <div
       className={cn(
-        'rounded-lg border p-4 space-y-4 transition-colors',
-        provider.is_primary && 'border-primary bg-primary/5'
+        'rounded-lg border p-4 space-y-4 transition-all',
+        isSelected && 'border-primary bg-primary/5 ring-1 ring-primary'
       )}
     >
-      {/* Header */}
+      {/* Header - Clickable for selection */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+        <div
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleSelect}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && handleSelect()}
+        >
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
             {getProviderIcon(provider.id, { size: 20, className: 'text-foreground' })}
+            {/* Selection checkmark */}
+            {isSelected && (
+              <span className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Check className="h-3 w-3" />
+              </span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-medium">{provider.name}</h4>
-              {provider.is_primary && (
+              {isSelected && (
                 <Badge variant="default" className="text-[10px] px-1.5 py-0">
                   <Star className="h-3 w-3 mr-1" />
-                  {t('settings:llm.primary')}
+                  {t('settings:llm.selected')}
                 </Badge>
               )}
             </div>
@@ -232,38 +246,25 @@ export function LLMProviderCard({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!apiKey.trim() || isSaving || isUpdating}
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
-            {t('settings:llm.save')}
-          </Button>
-          {provider.configured && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClear}
-              disabled={isSaving || isUpdating}
-            >
-              {t('settings:llm.clear')}
-            </Button>
-          )}
-        </div>
-        {!provider.is_primary && provider.configured && (
+      <div className="flex items-center gap-2 pt-2">
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={!apiKey.trim() || isSaving || isUpdating}
+        >
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : null}
+          {t('settings:llm.save')}
+        </Button>
+        {provider.configured && (
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSelectPrimary}
-            disabled={isUpdating}
+            onClick={handleClear}
+            disabled={isSaving || isUpdating}
           >
-            <Star className="h-4 w-4 mr-2" />
-            {t('settings:llm.selectPrimary')}
+            {t('settings:llm.clear')}
           </Button>
         )}
       </div>

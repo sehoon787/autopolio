@@ -67,11 +67,12 @@
     "tokenExpired": "GitHub 토큰이 만료되었거나 유효하지 않습니다. 다시 연동해주세요."
   },
   "cli": {
-    "title": "Claude Code CLI",
+    "title": "CLI 도구",
     "installed": "설치됨",
     "notInstalled": "설치 안됨",
     "outdated": "업데이트 필요",
     "checking": "확인 중...",
+    "selected": "선택됨",
     "version": "버전",
     "latestVersion": "최신 버전",
     "path": "경로",
@@ -104,6 +105,7 @@
     "clear": "삭제",
     "selectPrimary": "기본으로 설정",
     "primary": "기본",
+    "selected": "선택됨",
     "enterKey": "API 키를 입력하세요",
     "keyConfigured": "API 키 설정됨 (새 키 입력 시 업데이트)",
     "testConnection": "연결 테스트",

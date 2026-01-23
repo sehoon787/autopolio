@@ -58,14 +58,14 @@ LLM_PROVIDERS = [
 
 @router.get("/config", response_model=LLMConfigResponse)
 async def get_llm_config(
-    user_id: int = Query(...),
+    user_id: int = Query(None),  # Optional - can work without user
     db: AsyncSession = Depends(get_db)
 ):
-    """Get LLM configuration and CLI status for a user."""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    """Get LLM configuration and CLI status. User ID is optional for viewing providers."""
+    user = None
+    if user_id:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
 
     # Get CLI status
     cli_service = get_cli_service()
@@ -77,35 +77,39 @@ async def get_llm_config(
     for provider_info in LLM_PROVIDERS:
         configured = False
         selected_model = provider_info.default_model
-        if provider_info.id == "openai":
-            configured = user.openai_api_key_encrypted is not None
-            selected_model = user.openai_model or provider_info.default_model
-        elif provider_info.id == "anthropic":
-            configured = user.anthropic_api_key_encrypted is not None
-            selected_model = user.anthropic_model or provider_info.default_model
-        elif provider_info.id == "gemini":
-            configured = user.gemini_api_key_encrypted is not None
-            selected_model = user.gemini_model or provider_info.default_model
+        is_primary = provider_info.id == "openai"  # Default primary
+
+        if user:
+            if provider_info.id == "openai":
+                configured = user.openai_api_key_encrypted is not None
+                selected_model = user.openai_model or provider_info.default_model
+            elif provider_info.id == "anthropic":
+                configured = user.anthropic_api_key_encrypted is not None
+                selected_model = user.anthropic_model or provider_info.default_model
+            elif provider_info.id == "gemini":
+                configured = user.gemini_api_key_encrypted is not None
+                selected_model = user.gemini_model or provider_info.default_model
+            is_primary = user.preferred_llm == provider_info.id
 
         providers.append(LLMProvider(
             id=provider_info.id,
             name=provider_info.name,
             description=provider_info.description,
             configured=configured,
-            is_primary=user.preferred_llm == provider_info.id,
+            is_primary=is_primary,
             models=provider_info.models,
             default_model=provider_info.default_model,
             selected_model=selected_model,
         ))
 
     return LLMConfigResponse(
-        preferred_llm=user.preferred_llm or "openai",
-        openai_configured=user.openai_api_key_encrypted is not None,
-        anthropic_configured=user.anthropic_api_key_encrypted is not None,
-        gemini_configured=user.gemini_api_key_encrypted is not None,
-        openai_model=user.openai_model or "gpt-4-turbo-preview",
-        anthropic_model=user.anthropic_model or "claude-3-5-sonnet-20241022",
-        gemini_model=user.gemini_model or "gemini-2.0-flash",
+        preferred_llm=user.preferred_llm if user else "openai",
+        openai_configured=user.openai_api_key_encrypted is not None if user else False,
+        anthropic_configured=user.anthropic_api_key_encrypted is not None if user else False,
+        gemini_configured=user.gemini_api_key_encrypted is not None if user else False,
+        openai_model=user.openai_model if user else "gpt-4-turbo-preview",
+        anthropic_model=user.anthropic_model if user else "claude-3-5-sonnet-20241022",
+        gemini_model=user.gemini_model if user else "gemini-2.0-flash",
         claude_code_status=CLIStatus(**claude_status),
         gemini_cli_status=CLIStatus(**gemini_status),
         providers=providers,

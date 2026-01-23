@@ -67,11 +67,12 @@
     "tokenExpired": "GitHub token has expired or is invalid. Please reconnect."
   },
   "cli": {
-    "title": "Claude Code CLI",
+    "title": "CLI Tools",
     "installed": "Installed",
     "notInstalled": "Not Installed",
     "outdated": "Update Available",
     "checking": "Checking...",
+    "selected": "Selected",
     "version": "Version",
     "latestVersion": "Latest",
     "path": "Path",
@@ -104,6 +105,7 @@
     "clear": "Clear",
     "selectPrimary": "Set as Primary",
     "primary": "Primary",
+    "selected": "Selected",
     "enterKey": "Enter API key",
     "keyConfigured": "API key configured (enter new to update)",
     "testConnection": "Test Connection",

@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAppStore } from '@/stores/appStore'
+import { useUserStore } from '@/stores/userStore'
+import { usersApi } from '@/api/users'
 import Layout from '@/components/Layout'
 import Dashboard from '@/pages/Dashboard'
 import SetupPage from '@/pages/Setup'
@@ -23,11 +25,88 @@ import RepoSelectorPage from '@/pages/GitHub/RepoSelector'
 
 function App() {
   const initialize = useAppStore((state) => state.initialize)
+  const isElectronApp = useAppStore((state) => state.isElectronApp)
+  const { setUser } = useUserStore()
+  const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
     // Initialize app store (detect Electron, set backend URL, etc.)
     initialize()
   }, [initialize])
+
+  // Auto-create default user for desktop app
+  useEffect(() => {
+    const initUser = async () => {
+      if (!isElectronApp) {
+        setIsInitializing(false)
+        return
+      }
+
+      try {
+        // Clear any stale persisted data first
+        const storedUserId = localStorage.getItem('user_id')
+        const parsedUserId = storedUserId ? parseInt(storedUserId, 10) : NaN
+
+        // If stored user_id is invalid, clear it
+        if (storedUserId && (isNaN(parsedUserId) || parsedUserId <= 0)) {
+          console.log('[App] Invalid stored user_id, clearing:', storedUserId)
+          localStorage.removeItem('user_id')
+          localStorage.removeItem('user-storage') // Clear Zustand persisted state
+        }
+
+        // Re-read after potential cleanup
+        const validStoredUserId = localStorage.getItem('user_id')
+
+        if (validStoredUserId) {
+          try {
+            // Try to fetch existing user from backend
+            const response = await usersApi.getById(Number(validStoredUserId))
+            if (response.data && response.data.id) {
+              console.log('[App] Found existing user:', response.data.id, response.data.name)
+              setUser(response.data)
+              setIsInitializing(false)
+              return
+            }
+          } catch (fetchError) {
+            // User doesn't exist in backend, clear stale data
+            console.log('[App] Stored user not found in backend, creating new user')
+            localStorage.removeItem('user_id')
+          }
+        }
+
+        // Create default user for desktop app
+        console.log('[App] Creating default desktop user...')
+        const response = await usersApi.create({
+          name: 'Desktop User',
+          email: 'user@desktop.local',
+        })
+
+        if (response.data && response.data.id) {
+          setUser(response.data)
+          localStorage.setItem('user_id', String(response.data.id))
+          console.log('[App] Created default desktop user:', response.data.id, response.data.name)
+        }
+      } catch (error) {
+        console.error('[App] Failed to initialize user:', error)
+      } finally {
+        setIsInitializing(false)
+      }
+    }
+
+    initUser()
+  }, [isElectronApp, setUser])
+
+  // Show loading while initializing user in desktop mode
+  if (isInitializing && isElectronApp) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="text-muted-foreground">Initializing...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <ErrorBoundary>

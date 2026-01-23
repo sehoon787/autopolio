@@ -126,7 +126,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{t('dashboard:hello', { name: user.name })}</h1>
+          <h1 className="text-3xl font-bold">{t('dashboard:hello', { name: user.name || 'User' })}</h1>
           <p className="text-muted-foreground">{t('dashboard:manageAndGenerate')}</p>
         </div>
         <Link to="/generate">

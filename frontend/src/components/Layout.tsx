@@ -114,12 +114,12 @@ export default function Layout() {
                   ) : (
                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
                       <span className="text-muted-foreground font-medium">
-                        {user.name.charAt(0)}
+                        {user.name?.charAt(0) || 'U'}
                       </span>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.name}</p>
+                    <p className="text-sm font-medium truncate">{user.name || 'User'}</p>
                     {user.github_username && (
                       <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                         <Github className="h-3 w-3" />

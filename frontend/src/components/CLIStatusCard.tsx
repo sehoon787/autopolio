@@ -18,20 +18,47 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { ClaudeCodeIcon } from './icons/LLMIcons'
+import { ClaudeCodeIcon, GeminiIcon } from './icons/LLMIcons'
 import type { CLIStatus } from '@/api/llm'
+
+// CLI display configuration
+const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: string }> = {
+  claude_code: {
+    name: 'Claude Code CLI',
+    docsUrl: 'https://claude.ai/code',
+    changelogUrl: 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md',
+  },
+  gemini_cli: {
+    name: 'Gemini CLI',
+    docsUrl: 'https://ai.google.dev/gemini-cli',
+    changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
+  },
+}
 
 interface CLIStatusCardProps {
   status: CLIStatus | null
   isLoading: boolean
+  isSelected: boolean
   onRefresh: () => void
+  onSelect: () => void
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ status, isLoading, onRefresh }: CLIStatusCardProps) {
+export function CLIStatusCard({ status, isLoading, isSelected, onRefresh, onSelect }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
+
+  // Get CLI config based on tool type
+  const cliConfig = status?.tool ? CLI_CONFIG[status.tool] : CLI_CONFIG.claude_code
+
+  // Get the appropriate icon based on CLI type with brand colors
+  const getCliIcon = () => {
+    if (status?.tool === 'gemini_cli') {
+      return <GeminiIcon className="h-5 w-5" size={20} colored />
+    }
+    return <ClaudeCodeIcon className="h-5 w-5" size={20} colored />
+  }
 
   const getStatusType = (): StatusType => {
     if (isLoading || !status) return 'loading'
@@ -106,21 +133,46 @@ export function CLIStatusCard({ status, isLoading, onRefresh }: CLIStatusCardPro
   }
 
   return (
-    <div className="rounded-lg border p-4 space-y-4">
-      {/* Header */}
+    <div
+      className={cn(
+        'rounded-lg border p-4 space-y-4 transition-all',
+        isSelected && 'border-primary bg-primary/5 ring-1 ring-primary'
+      )}
+    >
+      {/* Header - Clickable for selection */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={onSelect}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+        >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <ClaudeCodeIcon className="h-5 w-5 text-primary" />
+            {getCliIcon()}
+            {/* Status indicator */}
             <span
               className={cn(
                 'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background',
                 getStatusColor()
               )}
             />
+            {/* Selection checkmark */}
+            {isSelected && (
+              <span className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Check className="h-3 w-3" />
+              </span>
+            )}
           </div>
           <div>
-            <h4 className="text-sm font-medium">Claude Code CLI</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium">{cliConfig.name}</h4>
+              {isSelected && (
+                <Badge variant="default" className="text-[10px] px-1.5 py-0">
+                  {t('settings:cli.selected')}
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {getStatusIcon()}
               <span>
@@ -228,7 +280,7 @@ export function CLIStatusCard({ status, isLoading, onRefresh }: CLIStatusCardPro
           variant="link"
           size="sm"
           className="h-auto p-0 text-xs text-muted-foreground"
-          onClick={() => window.open('https://claude.ai/code', '_blank')}
+          onClick={() => window.open(cliConfig.docsUrl, '_blank')}
         >
           {t('settings:cli.learnMore')}
           <ExternalLink className="ml-1 h-3 w-3" />
@@ -238,9 +290,7 @@ export function CLIStatusCard({ status, isLoading, onRefresh }: CLIStatusCardPro
           variant="link"
           size="sm"
           className="h-auto p-0 text-xs text-muted-foreground"
-          onClick={() =>
-            window.open('https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md', '_blank')
-          }
+          onClick={() => window.open(cliConfig.changelogUrl, '_blank')}
         >
           {t('settings:cli.viewChangelog')}
           <ExternalLink className="ml-1 h-3 w-3" />
