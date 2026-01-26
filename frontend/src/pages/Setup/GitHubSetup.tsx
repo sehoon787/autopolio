@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
@@ -13,10 +14,12 @@ import { Github, CheckCircle2, ArrowRight, AlertTriangle, RefreshCw } from 'luci
 export default function GitHubSetup() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation('github')
   const [searchParams] = useSearchParams()
   const { user, setUser } = useUserStore()
   const { isElectronApp } = useAppStore()
   const [tokenInvalid, setTokenInvalid] = useState(false)
+  const queryClient = useQueryClient()
 
   // Check if redirected from GitHub OAuth
   const userId = searchParams.get('user_id')
@@ -37,8 +40,8 @@ export default function GitHubSetup() {
       if (status.connected && !status.valid) {
         setTokenInvalid(true)
         toast({
-          title: 'GitHub 토큰 만료',
-          description: status.message || '다시 연동이 필요합니다.',
+          title: t('setup.toastTokenExpired'),
+          description: status.message || t('setup.toastTokenExpiredDesc'),
           variant: 'destructive',
         })
       } else if (status.connected && status.valid) {
@@ -68,13 +71,13 @@ export default function GitHubSetup() {
       setUser(response.data)
       setTokenInvalid(false)
       toast({
-        title: 'GitHub 연동 완료',
-        description: 'GitHub 계정이 성공적으로 연동되었습니다.',
+        title: t('setup.toastConnected'),
+        description: t('setup.toastConnectedDesc'),
       })
       // Clear URL params
       window.history.replaceState({}, '', window.location.pathname)
     })
-  }, [setUser, toast])
+  }, [setUser, toast, t])
 
   // Fetch updated user info after GitHub OAuth (URL params or localStorage)
   useEffect(() => {
@@ -123,8 +126,8 @@ export default function GitHubSetup() {
         // setWindowOpenHandler in main.ts will handle this via shell.openExternal
         window.open(response.data.auth_url, '_blank')
         toast({
-          title: 'GitHub 인증',
-          description: '브라우저에서 GitHub 인증을 완료해주세요. 완료 후 자동으로 돌아옵니다.',
+          title: t('setup.toastAuth'),
+          description: t('setup.toastAuthDesc'),
         })
       } else {
         // Web: redirect in same window
@@ -133,8 +136,8 @@ export default function GitHubSetup() {
     },
     onError: (error: Error) => {
       toast({
-        title: '오류',
-        description: error.message || 'GitHub 연동을 시작할 수 없습니다.',
+        title: t('setup.toastError'),
+        description: error.message || t('setup.toastConnectError'),
         variant: 'destructive',
       })
     },
@@ -146,15 +149,18 @@ export default function GitHubSetup() {
       if (user) {
         setUser({ ...user, github_username: null, github_avatar_url: null })
       }
+      setTokenInvalid(false)
+      // Invalidate github-status query to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['github-status'] })
       toast({
-        title: '연동 해제',
-        description: 'GitHub 연동이 해제되었습니다.',
+        title: t('setup.toastDisconnected'),
+        description: t('setup.toastDisconnectedDesc'),
       })
     },
     onError: (error: Error) => {
       toast({
-        title: '오류',
-        description: error.message || 'GitHub 연동 해제에 실패했습니다.',
+        title: t('setup.toastError'),
+        description: error.message || t('setup.toastDisconnectError'),
         variant: 'destructive',
       })
     },
@@ -165,9 +171,9 @@ export default function GitHubSetup() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">GitHub 연동</h1>
+        <h1 className="text-3xl font-bold mb-2">{t('setup.title')}</h1>
         <p className="text-gray-600">
-          GitHub를 연동하면 레포지토리 분석을 통해 프로젝트 정보를 자동으로 추출할 수 있습니다.
+          {t('setup.description')}
         </p>
       </div>
 
@@ -175,26 +181,26 @@ export default function GitHubSetup() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Github className="h-6 w-6" />
-            GitHub 계정
+            {t('setup.cardTitle')}
           </CardTitle>
           <CardDescription>
-            GitHub OAuth를 통해 안전하게 연동됩니다. 레포지토리 읽기 권한만 요청합니다.
+            {t('setup.cardDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {statusLoading ? (
             <div className="flex items-center justify-center p-8">
               <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-              <span className="ml-2 text-gray-500">연동 상태 확인 중...</span>
+              <span className="ml-2 text-gray-500">{t('setup.checkingStatus')}</span>
             </div>
           ) : isConnected && !tokenInvalid ? (
             <>
               <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg">
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
                 <div className="flex-1">
-                  <p className="font-medium text-green-900">연동 완료</p>
+                  <p className="font-medium text-green-900">{t('setup.connected')}</p>
                   <p className="text-sm text-green-700">
-                    @{user.github_username}으로 연동되었습니다.
+                    {t('setup.connectedAs', { username: user.github_username })}
                   </p>
                 </div>
                 {user.github_avatar_url && (
@@ -212,10 +218,10 @@ export default function GitHubSetup() {
                   onClick={() => disconnectMutation.mutate()}
                   disabled={disconnectMutation.isPending}
                 >
-                  연동 해제
+                  {t('setup.disconnect')}
                 </Button>
                 <Button onClick={() => navigate('/knowledge/projects')} className="flex-1">
-                  프로젝트 관리로 이동
+                  {t('setup.goToProjects')}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -225,12 +231,12 @@ export default function GitHubSetup() {
               <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <AlertTriangle className="h-8 w-8 text-amber-500" />
                 <div className="flex-1">
-                  <p className="font-medium text-amber-900">재연동 필요</p>
+                  <p className="font-medium text-amber-900">{t('setup.reconnectRequired')}</p>
                   <p className="text-sm text-amber-700">
-                    GitHub 토큰이 만료되었습니다. 다시 연동해주세요.
+                    {t('setup.tokenExpired')}
                   </p>
                   <p className="text-xs text-amber-600 mt-1">
-                    이전 연동: @{user.github_username}
+                    {t('setup.previousAccount', { username: user.github_username })}
                   </p>
                 </div>
                 {user.github_avatar_url && (
@@ -249,7 +255,7 @@ export default function GitHubSetup() {
                 disabled={connectMutation.isPending}
               >
                 <RefreshCw className="mr-2 h-5 w-5" />
-                {connectMutation.isPending ? '재연동 중...' : 'GitHub 다시 연동하기'}
+                {connectMutation.isPending ? t('setup.reconnecting') : t('setup.reconnect')}
               </Button>
 
               <div className="flex gap-4">
@@ -259,37 +265,37 @@ export default function GitHubSetup() {
                   disabled={disconnectMutation.isPending}
                   className="flex-1"
                 >
-                  연동 해제
+                  {t('setup.disconnect')}
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={() => navigate('/dashboard')}
                   className="flex-1"
                 >
-                  나중에 하기
+                  {t('setup.later')}
                 </Button>
               </div>
             </>
           ) : (
             <>
               <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <h4 className="font-medium">연동 시 제공되는 기능:</h4>
+                <h4 className="font-medium">{t('setup.features')}</h4>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    레포지토리 목록 조회
+                    {t('setup.featureRepoList')}
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    커밋 내역 분석
+                    {t('setup.featureCommitAnalysis')}
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    기술 스택 자동 탐지
+                    {t('setup.featureTechDetection')}
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    기여도 통계 계산
+                    {t('setup.featureContribution')}
                   </li>
                 </ul>
               </div>
@@ -301,7 +307,7 @@ export default function GitHubSetup() {
                 disabled={connectMutation.isPending}
               >
                 <Github className="mr-2 h-5 w-5" />
-                {connectMutation.isPending ? '연동 중...' : 'GitHub로 연동하기'}
+                {connectMutation.isPending ? t('setup.connecting') : t('setup.connect')}
               </Button>
 
               <Button
@@ -309,7 +315,7 @@ export default function GitHubSetup() {
                 className="w-full"
                 onClick={() => navigate('/dashboard')}
               >
-                나중에 하기
+                {t('setup.later')}
               </Button>
             </>
           )}

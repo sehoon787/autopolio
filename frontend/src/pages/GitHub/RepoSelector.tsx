@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -29,19 +29,60 @@ export default function RepoSelector() {
   const { t } = useTranslation('github')
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const { user } = useUserStore()
+  const { user, setUser } = useUserStore()
 
   // State
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
 
-  // Fetch all repos
-  const { data: reposData, isLoading, isError, refetch } = useQuery({
+  // Step 1: Check GitHub connection status FIRST
+  const {
+    data: statusData,
+    isLoading: statusLoading,
+    isError: statusError,
+  } = useQuery({
+    queryKey: ['github-status', user?.id],
+    queryFn: () => githubApi.getStatus(user!.id),
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 30000, // Cache for 30 seconds
+  })
+
+  const githubStatus = statusData?.data
+  const isConnected = githubStatus?.connected === true
+  const isValidToken = githubStatus?.valid === true
+  const canFetchRepos = isConnected && isValidToken
+
+  // Sync userStore with actual GitHub status
+  useEffect(() => {
+    if (githubStatus && user) {
+      const needsUpdate =
+        (githubStatus.connected && githubStatus.valid &&
+          (user.github_username !== githubStatus.github_username ||
+           user.github_avatar_url !== githubStatus.avatar_url)) ||
+        (!githubStatus.connected && user.github_username)
+
+      if (needsUpdate) {
+        setUser({
+          ...user,
+          github_username: githubStatus.connected && githubStatus.valid ? githubStatus.github_username : null,
+          github_avatar_url: githubStatus.connected && githubStatus.valid ? githubStatus.avatar_url : null,
+        })
+      }
+    }
+  }, [githubStatus, user, setUser])
+
+  // Step 2: Only fetch repos if GitHub is connected AND token is valid
+  const { data: reposData, isLoading: reposLoading, isError: reposError, refetch } = useQuery({
     queryKey: ['github-repos', user?.id],
     queryFn: () => githubApi.getRepos(user!.id, true),
-    enabled: !!user?.id,
+    enabled: !!user?.id && canFetchRepos,
+    retry: 1,
   })
+
+  const isLoading = statusLoading || (canFetchRepos && reposLoading)
+  const isError = reposError // Only show error for repos fetch, not status
 
   const repos = reposData?.data?.repos || []
   const totalRepos = reposData?.data?.total || 0
@@ -141,12 +182,54 @@ export default function RepoSelector() {
     setLanguageFilter('all')
   }
 
-  if (!user?.github_username) {
+  // Render: Loading state (checking GitHub status)
+  if (statusLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500">{t('checkingConnection')}</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Render: Status check failed (API error)
+  if (statusError) {
     return (
       <div className="max-w-4xl mx-auto">
         <Card>
           <CardContent className="py-12 text-center">
             <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">{t('connectionCheckFailed')}</h2>
+            <p className="text-gray-600 mb-4">
+              {t('connectionCheckFailedDesc')}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['github-status'] })}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {t('retry')}
+              </Button>
+              <Button onClick={() => navigate('/setup/github')}>
+                <Github className="mr-2 h-4 w-4" />
+                {t('goToSetup')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Render: Not connected
+  if (!isConnected) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Github className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">{t('connectionRequired')}</h2>
             <p className="text-gray-600 mb-4">
               {t('connectionRequiredDesc')}
@@ -161,6 +244,33 @@ export default function RepoSelector() {
     )
   }
 
+  // Render: Connected but token invalid/expired
+  if (isConnected && !isValidToken) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">{t('reconnectionRequired')}</h2>
+            <p className="text-gray-600 mb-4">
+              {githubStatus?.message || t('reconnectionRequiredDesc')}
+            </p>
+            {githubStatus?.github_username && (
+              <p className="text-sm text-gray-500 mb-4">
+                {t('previousConnection')}: @{githubStatus.github_username}
+              </p>
+            )}
+            <Button onClick={() => navigate('/setup/github')}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('reconnectGitHub')}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Render: Connected and valid - show repos
   return (
     <div className="space-y-6">
       {/* Header */}
