@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
+import { useAppStore } from '@/stores/appStore'
 import { usersApi } from '@/api/users'
 import { Wizard, WizardStep, WizardStepContent, useWizard } from '@/components/Wizard'
 import { User, Github, CheckCircle2, Sparkles } from 'lucide-react'
@@ -108,14 +109,27 @@ function GitHubConnectionStep() {
   const { toast } = useToast()
   useUserStore() // Keep store connection for potential future use
   useWizard() // Keep wizard context connection
+  const { isElectronApp } = useAppStore()
   const [isConnecting, setIsConnecting] = useState(false)
 
   const handleConnect = async () => {
     setIsConnecting(true)
     try {
       const { githubApi } = await import('@/api/github')
-      const response = await githubApi.connect('/setup/github')
-      window.location.href = response.data.auth_url
+      const response = await githubApi.connect('/setup/github', isElectronApp)
+      if (isElectronApp) {
+        // Electron: open OAuth in external browser
+        // After OAuth, backend will redirect to autopolio:// protocol
+        window.open(response.data.auth_url, '_blank')
+        toast({
+          title: 'GitHub 인증',
+          description: '브라우저에서 GitHub 인증을 완료해주세요.',
+        })
+        setIsConnecting(false)
+      } else {
+        // Web: redirect in same window
+        window.location.href = response.data.auth_url
+      }
     } catch (error) {
       toast({
         title: '오류',

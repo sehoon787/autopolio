@@ -186,8 +186,15 @@ JSON 배열 형식으로만 응답하세요:
 
 
 @router.get("/connect")
-async def github_connect(redirect_url: Optional[str] = None):
+async def github_connect(
+    redirect_url: Optional[str] = None,
+    frontend_origin: Optional[str] = None,
+    is_electron: bool = False
+):
     """Initiate GitHub OAuth flow."""
+    import json
+    import base64
+
     if not settings.github_client_id:
         raise HTTPException(
             status_code=500,
@@ -196,7 +203,14 @@ async def github_connect(redirect_url: Optional[str] = None):
 
     # Build authorization URL
     scope = "repo,user:email"
-    state = redirect_url or "/"  # Use state to pass redirect URL
+
+    # Encode origin, redirect_path, and electron flag in state
+    state_data = {
+        "path": redirect_url or "/",
+        "origin": frontend_origin,  # Can be None, will use settings.frontend_url as fallback
+        "is_electron": is_electron  # Flag to use custom protocol for callback
+    }
+    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
 
     auth_url = (
         f"https://github.com/login/oauth/authorize"
@@ -216,6 +230,9 @@ async def github_callback(
     db: AsyncSession = Depends(get_db)
 ):
     """Handle GitHub OAuth callback."""
+    import json
+    import base64
+
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(status_code=500, detail="GitHub OAuth not configured")
 
@@ -270,9 +287,32 @@ async def github_callback(
     await db.flush()
     await db.refresh(user)
 
-    # Redirect to frontend with user info
-    redirect_path = state or "/"
-    frontend_url = f"{settings.frontend_url}{redirect_path}?user_id={user.id}&github_connected=true"
+    # Parse state to get origin, redirect path, and electron flag
+    redirect_path = "/"
+    frontend_origin = settings.frontend_url  # Default fallback
+    is_electron = False
+
+    if state:
+        try:
+            # Try to decode as JSON (new format)
+            state_data = json.loads(base64.urlsafe_b64decode(state).decode())
+            redirect_path = state_data.get("path", "/")
+            if state_data.get("origin"):
+                frontend_origin = state_data["origin"]
+            is_electron = state_data.get("is_electron", False)
+        except Exception:
+            # Fallback: old format (plain redirect path)
+            redirect_path = state
+
+    # Build redirect URL
+    if is_electron:
+        # Electron: use custom protocol so browser opens Electron app
+        # Format: autopolio://oauth-callback?user_id=...&github_connected=...&path=...
+        from urllib.parse import quote
+        frontend_url = f"autopolio://oauth-callback?user_id={user.id}&github_connected=true&path={quote(redirect_path)}"
+    else:
+        # Web: redirect to frontend origin
+        frontend_url = f"{frontend_origin}{redirect_path}?user_id={user.id}&github_connected=true"
 
     return RedirectResponse(url=frontend_url)
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, protocol } from 'electron'
 import { spawn, ChildProcess, execFile, exec } from 'child_process'
 import path from 'path'
 import fs from 'fs'
@@ -9,6 +9,9 @@ import serve from 'electron-serve'
 
 const execFileAsync = promisify(execFile)
 const execAsync = promisify(exec)
+
+// Custom protocol for OAuth callback
+const PROTOCOL_NAME = 'autopolio'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -630,6 +633,90 @@ ipcMain.handle('refresh-cli-status', async () => {
     gemini: geminiCLICache,
   }
 })
+
+// Register custom protocol for OAuth callback (must be before app.whenReady)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL_NAME, process.execPath, [path.resolve(process.argv[1])])
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL_NAME)
+}
+
+// Handle protocol URL on Windows/Linux (second instance)
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    // Someone tried to run a second instance, focus our window and handle protocol
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+
+    // Handle protocol URL (Windows/Linux)
+    const protocolUrl = commandLine.find(arg => arg.startsWith(`${PROTOCOL_NAME}://`))
+    if (protocolUrl) {
+      handleProtocolUrl(protocolUrl)
+    }
+  })
+}
+
+// Handle protocol URL on macOS
+app.on('open-url', (_event, url) => {
+  if (url.startsWith(`${PROTOCOL_NAME}://`)) {
+    handleProtocolUrl(url)
+  }
+})
+
+/**
+ * Handle custom protocol URL (autopolio://oauth-callback?...)
+ */
+function handleProtocolUrl(url: string) {
+  console.log('[Protocol] Received URL:', url)
+
+  try {
+    const parsedUrl = new URL(url)
+
+    // Handle OAuth callback: autopolio://oauth-callback?user_id=...&github_connected=...
+    if (parsedUrl.hostname === 'oauth-callback' || parsedUrl.pathname.includes('oauth-callback')) {
+      const userId = parsedUrl.searchParams.get('user_id')
+      const githubConnected = parsedUrl.searchParams.get('github_connected')
+      const redirectPath = parsedUrl.searchParams.get('path') || '/setup/github'
+
+      console.log('[Protocol] OAuth callback:', { userId, githubConnected, redirectPath })
+
+      if (mainWindow && userId && githubConnected) {
+        // Focus the window
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+
+        // Navigate to the redirect path and inject OAuth data
+        const targetUrl = isDev
+          ? `http://localhost:5173${redirectPath}?user_id=${userId}&github_connected=${githubConnected}`
+          : `app://-${redirectPath}?user_id=${userId}&github_connected=${githubConnected}`
+
+        mainWindow.loadURL(targetUrl)
+
+        // Also dispatch event after navigation
+        setTimeout(() => {
+          mainWindow?.webContents.executeJavaScript(`
+            localStorage.setItem('oauth_callback_user_id', '${userId}');
+            localStorage.setItem('oauth_callback_github_connected', '${githubConnected}');
+            window.dispatchEvent(new CustomEvent('oauth-callback', {
+              detail: { userId: '${userId}', githubConnected: '${githubConnected}' }
+            }));
+            console.log('[OAuth] Callback received from protocol handler');
+          `)
+        }, 1000)
+      }
+    }
+  } catch (error) {
+    console.error('[Protocol] Error handling URL:', error)
+  }
+}
 
 // App lifecycle
 app.whenReady().then(async () => {

@@ -167,9 +167,13 @@ export const githubApi = {
       params: { user_id: userId }
     }),
 
-  connect: (redirectUrl?: string) =>
+  connect: (redirectUrl?: string, isElectron?: boolean) =>
     apiClient.get<{ auth_url: string }>('/github/connect', {
-      params: redirectUrl ? { redirect_url: redirectUrl } : {}
+      params: {
+        redirect_url: redirectUrl,
+        frontend_origin: window.location.origin,  // Pass current origin for dynamic redirect
+        is_electron: isElectron || false  // Use custom protocol for Electron OAuth callback
+      }
     }),
 
   disconnect: (userId: number) =>

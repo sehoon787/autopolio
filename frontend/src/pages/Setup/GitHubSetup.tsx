@@ -119,11 +119,12 @@ export default function GitHubSetup() {
   }, [handleOAuthSuccess])
 
   const connectMutation = useMutation({
-    mutationFn: () => githubApi.connect('/setup/github'),
+    mutationFn: () => githubApi.connect('/setup/github', isElectronApp),
     onSuccess: (response) => {
       if (isElectronApp) {
         // Electron: open OAuth in external browser
-        // setWindowOpenHandler in main.ts will handle this via shell.openExternal
+        // After OAuth, backend will redirect to autopolio:// protocol
+        // which will be handled by Electron's protocol handler
         window.open(response.data.auth_url, '_blank')
         toast({
           title: t('setup.toastAuth'),

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.mypy_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Data and results (mounted as volumes)
+data/
+result/
+
+# Environment files
+.env*
+
+# Misc
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
