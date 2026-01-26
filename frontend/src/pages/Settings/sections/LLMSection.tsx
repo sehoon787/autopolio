@@ -30,6 +30,8 @@ import {
   getClaudeCLIStatus,
   getGeminiCLIStatus,
   refreshCLIStatus as refreshCLIStatusElectron,
+  testCLI as testCLIElectron,
+  type CLIType,
 } from '@/lib/electron'
 
 // Default providers data (fallback when API fails)
@@ -147,18 +149,30 @@ export default function LLMSection() {
     },
   })
 
-  // Test CLI mutation
+  // Test CLI mutation - uses Electron IPC for direct CLI testing
   const testCLIMutation = useMutation({
     mutationFn: async (cliType: 'claude_code' | 'gemini_cli') => {
-      // Use backend API to test CLI
+      // Use Electron IPC for direct CLI testing (fixes the error)
+      if (isElectronApp) {
+        const result = await testCLIElectron(cliType as CLIType)
+        if (!result) {
+          throw new Error('Failed to test CLI - Electron API not available')
+        }
+        if (!result.success) {
+          throw new Error(result.error?.message || result.message || 'CLI test failed')
+        }
+        return result
+      }
+      // Fallback to backend API for web (if needed)
       const response = await llmApi.testCLI(cliType)
       return response.data
     },
     onSuccess: (data) => {
-      setTestResult({ type: 'success', message: data.message || 'CLI is working!' })
+      const message = data.message || 'CLI is working!'
+      setTestResult({ type: 'success', message })
       toast({
         title: t('llm.testSuccess', 'Test Successful'),
-        description: data.message,
+        description: message,
       })
     },
     onError: (error: Error) => {
