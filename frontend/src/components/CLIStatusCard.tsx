@@ -8,6 +8,8 @@ import {
   ExternalLink,
   Copy,
   FolderOpen,
+  Play,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,11 +43,13 @@ interface CLIStatusCardProps {
   isSelected: boolean
   onRefresh: () => void
   onSelect: () => void
+  onTest?: () => void
+  isTesting?: boolean
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ status, isLoading, isSelected, onRefresh, onSelect }: CLIStatusCardProps) {
+export function CLIStatusCard({ status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
 
@@ -186,6 +190,29 @@ export function CLIStatusCard({ status, isLoading, isSelected, onRefresh, onSele
         </div>
         <div className="flex items-center gap-2">
           {getStatusBadge()}
+          {/* Test Button */}
+          {onTest && status?.installed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onTest}
+                    disabled={isTesting || isLoading}
+                  >
+                    {isTesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('settings:cli.test', 'Test')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

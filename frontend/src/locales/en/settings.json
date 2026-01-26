@@ -84,7 +84,8 @@
     "copy": "Copy command",
     "copied": "Copied!",
     "learnMore": "Learn more",
-    "viewChangelog": "View Changelog"
+    "viewChangelog": "View Changelog",
+    "test": "Test"
   },
   "llm": {
     "title": "AI & CLI Configuration",
@@ -110,7 +111,19 @@
     "keyConfigured": "API key configured (enter new to update)",
     "testConnection": "Test Connection",
     "webModeNotice": "API key configuration is only available in the desktop app.",
-    "downloadDesktop": "Download Autopolio Desktop for full features."
+    "downloadDesktop": "Download Autopolio Desktop for full features.",
+    "currentSelection": "Current Selection",
+    "test": "Test",
+    "testSuccess": "Test Successful",
+    "testFailed": "Test Failed",
+    "cliTab": "CLI Tools",
+    "apiTab": "API Providers",
+    "cliDescription": "Use CLI tools for AI-powered code generation. Select one to use.",
+    "apiDescription": "Configure API keys and select a provider for AI features. Select one to use.",
+    "refresh": "Refresh",
+    "loadError": "Failed to load LLM settings from backend. Showing defaults.",
+    "desktopRequired": "Desktop App Required",
+    "desktopRequiredDescription": "CLI tools and API configuration are only available in the desktop app."
   },
   "user": {
     "title": "User Info",

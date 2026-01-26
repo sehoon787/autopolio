@@ -1,6 +1,8 @@
 """
 LLM Configuration Router - Manage API keys and CLI status.
 """
+import asyncio
+import sys
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,6 +18,8 @@ from api.schemas.llm import (
     APIKeyValidationResponse,
     LLMProvider,
     LLMProviderInfo,
+    CLITestResponse,
+    LLMTestResponse,
 )
 from api.services.cli_service import get_cli_service
 from api.services.encryption_service import EncryptionService
@@ -284,3 +288,200 @@ async def refresh_cli_status():
 async def get_providers():
     """List available LLM providers."""
     return LLM_PROVIDERS
+
+
+@router.post("/cli/test/{cli_type}", response_model=CLITestResponse)
+async def test_cli(cli_type: str):
+    """Test a CLI tool by running a simple command."""
+    if cli_type not in ["claude_code", "gemini_cli"]:
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    cli_service = get_cli_service()
+
+    try:
+        if cli_type == "claude_code":
+            status = await cli_service.detect_claude_code()
+            if not status.get("installed"):
+                return CLITestResponse(
+                    success=False,
+                    tool=cli_type,
+                    message="Claude Code CLI is not installed",
+                )
+            # Test by getting version
+            cli_path = status["path"]
+            # Windows .cmd/.bat files need shell execution
+            use_shell = sys.platform == "win32" and (cli_path.endswith('.cmd') or cli_path.endswith('.bat'))
+
+            if use_shell:
+                proc = await asyncio.create_subprocess_shell(
+                    f'"{cli_path}" --version',
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    cli_path, "--version",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            output = stdout.decode().strip() if stdout else stderr.decode().strip()
+            return CLITestResponse(
+                success=True,
+                tool=cli_type,
+                message=f"Claude Code CLI is working! Version: {status.get('version', 'unknown')}",
+                output=output,
+            )
+        else:  # gemini_cli
+            status = await cli_service.detect_gemini_cli()
+            if not status.get("installed"):
+                return CLITestResponse(
+                    success=False,
+                    tool=cli_type,
+                    message="Gemini CLI is not installed",
+                )
+            # Test by getting version
+            cli_path = status["path"]
+            # Windows .cmd/.bat files need shell execution
+            use_shell = sys.platform == "win32" and (cli_path.endswith('.cmd') or cli_path.endswith('.bat'))
+
+            if use_shell:
+                proc = await asyncio.create_subprocess_shell(
+                    f'"{cli_path}" --version',
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    cli_path, "--version",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            output = stdout.decode().strip() if stdout else stderr.decode().strip()
+            return CLITestResponse(
+                success=True,
+                tool=cli_type,
+                message=f"Gemini CLI is working! Version: {status.get('version', 'unknown')}",
+                output=output,
+            )
+    except asyncio.TimeoutError:
+        return CLITestResponse(
+            success=False,
+            tool=cli_type,
+            message="CLI test timed out",
+        )
+    except Exception as e:
+        return CLITestResponse(
+            success=False,
+            tool=cli_type,
+            message=f"CLI test failed: {str(e)}",
+        )
+
+
+@router.post("/test/{provider}", response_model=LLMTestResponse)
+async def test_provider(
+    provider: str,
+    user_id: int = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """Test an LLM provider by making a simple API call."""
+    if provider not in ["openai", "anthropic", "gemini"]:
+        raise HTTPException(status_code=400, detail="Invalid provider")
+
+    # Get user's API key
+    user = None
+    api_key = None
+    model = None
+
+    if user_id:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+    if user:
+        if provider == "openai":
+            if user.openai_api_key_encrypted:
+                api_key = encryption_service.decrypt(user.openai_api_key_encrypted)
+            model = user.openai_model or "gpt-4-turbo-preview"
+        elif provider == "anthropic":
+            if user.anthropic_api_key_encrypted:
+                api_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
+            model = user.anthropic_model or "claude-3-5-sonnet-20241022"
+        elif provider == "gemini":
+            if user.gemini_api_key_encrypted:
+                api_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
+            model = user.gemini_model or "gemini-2.0-flash"
+
+    # Fall back to environment variables
+    if not api_key:
+        import os
+        if provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            model = model or os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
+        elif provider == "anthropic":
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            model = model or os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+        elif provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY")
+            model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+    if not api_key:
+        return LLMTestResponse(
+            success=False,
+            provider=provider,
+            model=model or "unknown",
+            response=f"No API key configured for {provider}",
+        )
+
+    try:
+        test_prompt = "Say 'Hello, I am working!' in one sentence."
+
+        if provider == "openai":
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=api_key)
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": test_prompt}],
+                max_tokens=50,
+            )
+            return LLMTestResponse(
+                success=True,
+                provider=provider,
+                model=model,
+                response=response.choices[0].message.content,
+            )
+
+        elif provider == "anthropic":
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=api_key)
+            response = await client.messages.create(
+                model=model,
+                max_tokens=50,
+                messages=[{"role": "user", "content": test_prompt}]
+            )
+            return LLMTestResponse(
+                success=True,
+                provider=provider,
+                model=model,
+                response=response.content[0].text,
+            )
+
+        elif provider == "gemini":
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            gen_model = genai.GenerativeModel(model)
+            response = await gen_model.generate_content_async(test_prompt)
+            return LLMTestResponse(
+                success=True,
+                provider=provider,
+                model=model,
+                response=response.text,
+            )
+
+    except Exception as e:
+        return LLMTestResponse(
+            success=False,
+            provider=provider,
+            model=model or "unknown",
+            response=f"Test failed: {str(e)[:200]}",
+        )

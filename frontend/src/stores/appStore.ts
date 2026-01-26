@@ -4,6 +4,7 @@ import { isElectron, getBackendUrl, getPlatform, getAppVersion } from '@/lib/ele
 
 type CLIType = 'claude_code' | 'gemini_cli'
 type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
+type AIMode = 'cli' | 'api'  // CLI tools or API providers
 
 interface AppState {
   // App environment
@@ -16,11 +17,13 @@ interface AppState {
   isInitialized: boolean
 
   // User preferences (persisted)
+  aiMode: AIMode  // Which mode is active: CLI or API
   selectedCLI: CLIType
   selectedLLMProvider: LLMProviderType
 
   // Actions
   initialize: () => Promise<void>
+  setAIMode: (mode: AIMode) => void
   setSelectedCLI: (cli: CLIType) => void
   setSelectedLLMProvider: (provider: LLMProviderType) => void
 }
@@ -46,6 +49,7 @@ export const useAppStore = create<AppState>()(
       isInitialized: false,
 
       // User preferences (defaults)
+      aiMode: 'cli',  // Default to CLI mode
       selectedCLI: 'claude_code',
       selectedLLMProvider: 'openai',
 
@@ -79,20 +83,26 @@ export const useAppStore = create<AppState>()(
         })
       },
 
-      // Set selected CLI tool
-      setSelectedCLI: (cli) => {
-        set({ selectedCLI: cli })
+      // Set AI mode (CLI or API)
+      setAIMode: (mode) => {
+        set({ aiMode: mode })
       },
 
-      // Set selected LLM provider
+      // Set selected CLI tool (also switches to CLI mode)
+      setSelectedCLI: (cli) => {
+        set({ selectedCLI: cli, aiMode: 'cli' })
+      },
+
+      // Set selected LLM provider (also switches to API mode)
       setSelectedLLMProvider: (provider) => {
-        set({ selectedLLMProvider: provider })
+        set({ selectedLLMProvider: provider, aiMode: 'api' })
       },
     }),
     {
       name: 'autopolio-app-storage',
       // Only persist user preferences, not environment state
       partialize: (state) => ({
+        aiMode: state.aiMode,
         selectedCLI: state.selectedCLI,
         selectedLLMProvider: state.selectedLLMProvider,
       }),

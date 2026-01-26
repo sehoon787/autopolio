@@ -75,3 +75,19 @@ class LLMProviderInfo(BaseModel):
     default_model: str
     docs_url: str
     has_cli: bool = False  # Claude Code and Gemini CLI are supported
+
+
+class CLITestResponse(BaseModel):
+    """Response from CLI test."""
+    success: bool = Field(..., description="Whether the test was successful")
+    tool: str = Field(..., description="Tool that was tested")
+    message: str = Field(..., description="Test result message")
+    output: Optional[str] = Field(None, description="CLI output if any")
+
+
+class LLMTestResponse(BaseModel):
+    """Response from LLM provider test."""
+    success: bool = Field(..., description="Whether the test was successful")
+    provider: str = Field(..., description="Provider that was tested")
+    model: str = Field(..., description="Model that was used")
+    response: str = Field(..., description="LLM response")

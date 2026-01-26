@@ -84,7 +84,8 @@
     "copy": "명령어 복사",
     "copied": "복사됨!",
     "learnMore": "자세히 알아보기",
-    "viewChangelog": "변경 내역 보기"
+    "viewChangelog": "변경 내역 보기",
+    "test": "테스트"
   },
   "llm": {
     "title": "AI & CLI 설정",
@@ -110,7 +111,19 @@
     "keyConfigured": "API 키 설정됨 (새 키 입력 시 업데이트)",
     "testConnection": "연결 테스트",
     "webModeNotice": "API 키 설정은 데스크톱 앱에서만 가능합니다.",
-    "downloadDesktop": "전체 기능을 위해 Autopolio Desktop을 다운로드하세요."
+    "downloadDesktop": "전체 기능을 위해 Autopolio Desktop을 다운로드하세요.",
+    "currentSelection": "현재 선택",
+    "test": "테스트",
+    "testSuccess": "테스트 성공",
+    "testFailed": "테스트 실패",
+    "cliTab": "CLI 도구",
+    "apiTab": "API 제공자",
+    "cliDescription": "AI 기반 코드 생성을 위한 CLI 도구를 사용합니다. 하나를 선택하세요.",
+    "apiDescription": "API 키를 설정하고 AI 기능에 사용할 제공자를 선택합니다. 하나를 선택하세요.",
+    "refresh": "새로고침",
+    "loadError": "백엔드에서 LLM 설정을 불러오지 못했습니다. 기본값을 표시합니다.",
+    "desktopRequired": "데스크톱 앱 필요",
+    "desktopRequiredDescription": "CLI 도구와 API 설정은 데스크톱 앱에서만 사용 가능합니다."
   },
   "user": {
     "title": "사용자 정보",

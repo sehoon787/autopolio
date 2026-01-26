@@ -61,6 +61,20 @@ export interface LLMProviderInfo {
   has_cli: boolean
 }
 
+export interface CLITestResponse {
+  success: boolean
+  tool: string
+  message: string
+  output?: string
+}
+
+export interface LLMTestResponse {
+  success: boolean
+  provider: string
+  model: string
+  response: string
+}
+
 export const llmApi = {
   // Get LLM configuration and CLI status
   getConfig: (userId?: number) =>
@@ -93,4 +107,14 @@ export const llmApi = {
   // List available providers
   getProviders: () =>
     apiClient.get<LLMProviderInfo[]>('/llm/providers'),
+
+  // Test CLI tool
+  testCLI: (cliType: 'claude_code' | 'gemini_cli') =>
+    apiClient.post<CLITestResponse>(`/llm/cli/test/${cliType}`),
+
+  // Test LLM provider
+  testProvider: (providerId: string, userId?: number) =>
+    apiClient.post<LLMTestResponse>(`/llm/test/${providerId}`, null, {
+      params: userId ? { user_id: userId } : undefined,
+    }),
 }

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
+import { useAppStore } from '@/stores/appStore'
 import { githubApi } from '@/api/github'
 import { usersApi } from '@/api/users'
 import { Github, CheckCircle2, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react'
@@ -14,6 +15,7 @@ export default function GitHubSetup() {
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
   const { user, setUser } = useUserStore()
+  const { isElectronApp } = useAppStore()
   const [tokenInvalid, setTokenInvalid] = useState(false)
 
   // Check if redirected from GitHub OAuth
@@ -60,26 +62,74 @@ export default function GitHubSetup() {
     }
   }, [statusData, user, setUser, toast])
 
-  // Fetch updated user info after GitHub OAuth
-  useEffect(() => {
-    if (userId && githubConnected === 'true') {
-      usersApi.getById(parseInt(userId)).then((response) => {
-        setUser(response.data)
-        setTokenInvalid(false)
-        toast({
-          title: 'GitHub 연동 완료',
-          description: 'GitHub 계정이 성공적으로 연동되었습니다.',
-        })
-        // Clear URL params
-        window.history.replaceState({}, '', window.location.pathname)
+  // Handle OAuth callback completion
+  const handleOAuthSuccess = useCallback((oauthUserId: string) => {
+    usersApi.getById(parseInt(oauthUserId)).then((response) => {
+      setUser(response.data)
+      setTokenInvalid(false)
+      toast({
+        title: 'GitHub 연동 완료',
+        description: 'GitHub 계정이 성공적으로 연동되었습니다.',
       })
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname)
+    })
+  }, [setUser, toast])
+
+  // Fetch updated user info after GitHub OAuth (URL params or localStorage)
+  useEffect(() => {
+    // 1. Check URL parameters first
+    let oauthUserId = userId
+    let oauthConnected = githubConnected
+
+    // 2. Check localStorage (Electron OAuth callback)
+    if (!oauthUserId) {
+      oauthUserId = localStorage.getItem('oauth_callback_user_id')
+      oauthConnected = localStorage.getItem('oauth_callback_github_connected')
+
+      if (oauthUserId) {
+        // Clean up localStorage after reading
+        localStorage.removeItem('oauth_callback_user_id')
+        localStorage.removeItem('oauth_callback_github_connected')
+        localStorage.removeItem('oauth_callback_path')
+      }
     }
-  }, [userId, githubConnected, setUser, toast])
+
+    if (oauthUserId && oauthConnected === 'true') {
+      handleOAuthSuccess(oauthUserId)
+    }
+  }, [userId, githubConnected, handleOAuthSuccess])
+
+  // Listen for OAuth callback event (Electron)
+  useEffect(() => {
+    const handleOAuthCallback = (event: CustomEvent<{ userId: string; githubConnected: string }>) => {
+      const { userId: eventUserId, githubConnected: eventConnected } = event.detail
+      if (eventUserId && eventConnected === 'true') {
+        handleOAuthSuccess(eventUserId)
+      }
+    }
+
+    window.addEventListener('oauth-callback', handleOAuthCallback as EventListener)
+    return () => {
+      window.removeEventListener('oauth-callback', handleOAuthCallback as EventListener)
+    }
+  }, [handleOAuthSuccess])
 
   const connectMutation = useMutation({
     mutationFn: () => githubApi.connect('/setup/github'),
     onSuccess: (response) => {
-      window.location.href = response.data.auth_url
+      if (isElectronApp) {
+        // Electron: open OAuth in external browser
+        // setWindowOpenHandler in main.ts will handle this via shell.openExternal
+        window.open(response.data.auth_url, '_blank')
+        toast({
+          title: 'GitHub 인증',
+          description: '브라우저에서 GitHub 인증을 완료해주세요. 완료 후 자동으로 돌아옵니다.',
+        })
+      } else {
+        // Web: redirect in same window
+        window.location.href = response.data.auth_url
+      }
     },
     onError: (error: Error) => {
       toast({

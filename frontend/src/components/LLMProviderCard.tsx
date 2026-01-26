@@ -7,6 +7,7 @@ import {
   EyeOff,
   Loader2,
   Star,
+  Play,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,8 @@ interface LLMProviderCardProps {
   onValidateKey: (providerId: string, apiKey: string) => Promise<{ valid: boolean; error?: string | null }>
   onSelect: (providerId: string) => void
   onModelChange: (providerId: string, model: string) => Promise<void>
+  onTest?: () => void
+  isTesting?: boolean
   isUpdating: boolean
 }
 
@@ -39,6 +42,8 @@ export function LLMProviderCard({
   onValidateKey,
   onSelect,
   onModelChange,
+  onTest,
+  isTesting,
   isUpdating,
 }: LLMProviderCardProps) {
   const { t } = useTranslation(['settings'])
@@ -265,6 +270,22 @@ export function LLMProviderCard({
             disabled={isSaving || isUpdating}
           >
             {t('settings:llm.clear')}
+          </Button>
+        )}
+        {/* Test Button */}
+        {onTest && provider.configured && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onTest}
+            disabled={isTesting || isUpdating}
+          >
+            {isTesting ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Play className="h-4 w-4 mr-1" />
+            )}
+            {t('settings:llm.test', 'Test')}
           </Button>
         )}
       </div>

@@ -431,24 +431,47 @@ function createWindow() {
   })
 
   // Handle OAuth callback redirects
-  // When backend redirects to http://localhost:5173/..., intercept and load in app
+  // When backend redirects to http://localhost:5173/..., intercept and handle properly
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const parsedUrl = new URL(url)
+    try {
+      const parsedUrl = new URL(url)
 
-    // Check if this is an OAuth callback (redirected from backend to frontend)
-    if (parsedUrl.hostname === 'localhost' && parsedUrl.port === '5173') {
-      // In production mode, prevent navigation to localhost and load the path internally
-      if (!isDev) {
-        event.preventDefault()
-        // Extract the path and query string
-        const internalPath = parsedUrl.pathname + parsedUrl.search
-        console.log('[OAuth] Intercepting redirect, loading internally:', internalPath)
+      // Check if this is an OAuth callback (redirected from backend to frontend)
+      // Support multiple ports: 5173 (default), 5174 (fallback), 5199 (custom), etc.
+      const oauthPorts = ['5173', '5174', '5199', '3000', '5000']
+      if (parsedUrl.hostname === 'localhost' && oauthPorts.includes(parsedUrl.port)) {
+        event.preventDefault()  // Always prevent navigation to localhost:5173
 
-        // Load the app:// URL directly with the path
-        // electron-serve handles app:// protocol
-        mainWindow?.loadURL(`app://-${internalPath}`)
+        const userId = parsedUrl.searchParams.get('user_id')
+        const githubConnected = parsedUrl.searchParams.get('github_connected')
+        const targetPath = parsedUrl.pathname
+
+        console.log('[OAuth] Callback intercepted:', { userId, githubConnected, targetPath })
+
+        if (userId && githubConnected) {
+          // Save OAuth result to localStorage and dispatch event
+          mainWindow?.webContents.executeJavaScript(`
+            localStorage.setItem('oauth_callback_user_id', '${userId}');
+            localStorage.setItem('oauth_callback_github_connected', '${githubConnected}');
+            localStorage.setItem('oauth_callback_path', '${targetPath}');
+            console.log('[OAuth] Callback data saved to localStorage');
+            // Notify React components
+            window.dispatchEvent(new CustomEvent('oauth-callback', {
+              detail: { userId: '${userId}', githubConnected: '${githubConnected}' }
+            }));
+          `)
+        }
+
+        // Reload the app at the target path
+        if (isDev) {
+          mainWindow?.loadURL('http://localhost:5173' + targetPath + parsedUrl.search)
+        } else {
+          // Production: load via app:// protocol
+          mainWindow?.loadURL(`app://-${targetPath}${parsedUrl.search}`)
+        }
       }
-      // In dev mode, allow navigation to localhost:5173 (same origin)
+    } catch (error) {
+      console.error('[OAuth] Error handling navigation:', error)
     }
   })
 
@@ -475,9 +498,7 @@ async function waitForBackend(): Promise<boolean> {
 }
 
 function startPythonBackend(): Promise<void> {
-  return new Promise(async (resolve, reject) => {
-    // Always assume backend is running separately (via docker-compose or manually)
-    // This is safer than trying to spawn Python from Electron
+  return new Promise(async (resolve) => {
     console.log('Checking if backend is running...')
 
     // Quick check if backend is already running
@@ -489,28 +510,16 @@ function startPythonBackend(): Promise<void> {
         return
       }
     } catch {
-      console.log('Backend not detected, waiting...')
+      console.log('Backend not detected, attempting to start...')
     }
 
-    if (isDev) {
-      // In development, assume backend will be started separately
-      console.log('Development mode: Please start backend separately (python -m uvicorn api.main:app --reload --port 8000)')
-      resolve()
-      return
-    }
+    // Find the project root (where api/ folder is)
+    const projectRoot = isDev
+      ? path.resolve(__dirname, '../..')  // electron/main.ts -> frontend -> project root
+      : path.resolve(process.resourcesPath)
 
-    // Production: Try to start Python backend only if explicitly enabled
-    const shouldStartBackend = process.env.AUTO_START_BACKEND === 'true'
+    console.log(`Starting backend from: ${projectRoot}`)
 
-    if (!shouldStartBackend) {
-      console.log('Production mode: Backend should be running separately')
-      console.log('Start the backend with: python -m uvicorn api.main:app --port 8000')
-      // Still resolve to allow the UI to load - it will show connection errors if backend is not running
-      resolve()
-      return
-    }
-
-    // Only attempt to start backend if AUTO_START_BACKEND=true
     const pythonPath = process.platform === 'win32' ? 'python' : 'python3'
 
     pythonProcess = spawn(pythonPath, [
@@ -518,28 +527,40 @@ function startPythonBackend(): Promise<void> {
       'api.main:app',
       '--host', '127.0.0.1',
       '--port', String(BACKEND_PORT),
+      ...(isDev ? ['--reload'] : []),
     ], {
-      cwd: path.join(process.resourcesPath),
+      cwd: projectRoot,
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
       },
+      shell: true,  // Needed for Windows
     })
 
+    let started = false
+
     pythonProcess.stdout?.on('data', (data) => {
-      console.log(`Backend: ${data}`)
-      if (data.toString().includes('Uvicorn running')) {
+      const output = data.toString()
+      console.log(`Backend: ${output}`)
+      if (!started && output.includes('Uvicorn running')) {
+        started = true
         resolve()
       }
     })
 
     pythonProcess.stderr?.on('data', (data) => {
-      console.error(`Backend Error: ${data}`)
+      const output = data.toString()
+      console.error(`Backend: ${output}`)
+      // Uvicorn logs to stderr
+      if (!started && output.includes('Uvicorn running')) {
+        started = true
+        resolve()
+      }
     })
 
     pythonProcess.on('error', (error) => {
       console.error('Failed to start backend:', error)
-      // Don't reject - let the app continue and show connection errors
+      // Still resolve to allow the app to show error state
       resolve()
     })
 
@@ -548,16 +569,30 @@ function startPythonBackend(): Promise<void> {
       pythonProcess = null
     })
 
-    // Set a timeout for backend startup
+    // Timeout: resolve anyway after 15 seconds
     setTimeout(() => {
-      resolve() // Resolve anyway after timeout
-    }, 10000)
+      if (!started) {
+        console.log('Backend startup timed out, continuing anyway...')
+        resolve()
+      }
+    }, 15000)
   })
 }
 
 function stopPythonBackend() {
   if (pythonProcess) {
-    pythonProcess.kill()
+    console.log('Stopping backend...')
+
+    if (process.platform === 'win32') {
+      // Windows: taskkill to terminate process tree
+      spawn('taskkill', ['/pid', String(pythonProcess.pid), '/f', '/t'], {
+        shell: true,
+      })
+    } else {
+      // Unix: SIGTERM for graceful shutdown
+      pythonProcess.kill('SIGTERM')
+    }
+
     pythonProcess = null
   }
 }
