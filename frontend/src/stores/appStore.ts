@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { isElectron, getBackendUrl, getPlatform, getAppVersion } from '@/lib/electron'
+import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus } from '@/lib/electron'
 
 type CLIType = 'claude_code' | 'gemini_cli'
 type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
@@ -23,6 +23,7 @@ interface AppState {
   aiMode: AIMode  // Which mode is active: CLI or API
   selectedCLI: CLIType
   selectedLLMProvider: LLMProviderType
+  _defaultsApplied: boolean  // Whether auto-detection defaults have been applied
 
   // Actions
   initialize: () => Promise<void>
@@ -57,9 +58,10 @@ export const useAppStore = create<AppState>()(
       backendError: null,
 
       // User preferences (defaults)
-      aiMode: 'cli',  // Default to CLI mode
+      aiMode: initialIsElectron ? 'cli' : 'api',  // CLI for Electron, API for web
       selectedCLI: 'claude_code',
-      selectedLLMProvider: 'openai',
+      selectedLLMProvider: initialIsElectron ? 'openai' : 'gemini',
+      _defaultsApplied: false,
 
       // Initialize the app store (for async values)
       initialize: async () => {
@@ -82,6 +84,42 @@ export const useAppStore = create<AppState>()(
           appVersion,
           isInitialized: true,
         })
+
+        // Auto-detect installed CLI and set defaults (Electron only, first run)
+        if (isElectronApp && !get()._defaultsApplied) {
+          try {
+            const [claudeStatus, geminiStatus] = await Promise.all([
+              getClaudeCLIStatus(),
+              getGeminiCLIStatus(),
+            ])
+            const claudeInstalled = claudeStatus?.installed ?? false
+            const geminiInstalled = geminiStatus?.installed ?? false
+
+            const updates: Partial<AppState> = { _defaultsApplied: true }
+
+            if (claudeInstalled) {
+              updates.selectedCLI = 'claude_code'
+              updates.aiMode = 'cli'
+            } else if (geminiInstalled) {
+              updates.selectedCLI = 'gemini_cli'
+              updates.aiMode = 'cli'
+            } else {
+              // No CLI installed, fall back to API mode
+              updates.aiMode = 'api'
+            }
+
+            set(updates as AppState)
+            console.log('[AppStore] Auto-detected CLI defaults:', {
+              claudeInstalled,
+              geminiInstalled,
+              selectedCLI: updates.selectedCLI,
+              aiMode: updates.aiMode,
+            })
+          } catch (error) {
+            console.error('[AppStore] CLI auto-detection failed:', error)
+            set({ _defaultsApplied: true })
+          }
+        }
 
         console.log('[AppStore] Initialized:', {
           isElectronApp,
@@ -122,6 +160,7 @@ export const useAppStore = create<AppState>()(
         aiMode: state.aiMode,
         selectedCLI: state.selectedCLI,
         selectedLLMProvider: state.selectedLLMProvider,
+        _defaultsApplied: state._defaultsApplied,
       }),
     }
   )
