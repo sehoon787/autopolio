@@ -16,6 +16,9 @@ interface AppState {
   // Initialization state
   isInitialized: boolean
 
+  // Backend connection error state
+  backendError: string | null
+
   // User preferences (persisted)
   aiMode: AIMode  // Which mode is active: CLI or API
   selectedCLI: CLIType
@@ -26,6 +29,8 @@ interface AppState {
   setAIMode: (mode: AIMode) => void
   setSelectedCLI: (cli: CLIType) => void
   setSelectedLLMProvider: (provider: LLMProviderType) => void
+  setBackendError: (error: string) => void
+  clearBackendError: () => void
 }
 
 // Synchronously detect Electron at module load time
@@ -47,6 +52,9 @@ export const useAppStore = create<AppState>()(
       platform: initialIsElectron ? 'detecting...' : 'web',
       appVersion: initialIsElectron ? 'detecting...' : 'web',
       isInitialized: false,
+
+      // Backend error state
+      backendError: null,
 
       // User preferences (defaults)
       aiMode: 'cli',  // Default to CLI mode
@@ -96,6 +104,15 @@ export const useAppStore = create<AppState>()(
       // Set selected LLM provider (also switches to API mode)
       setSelectedLLMProvider: (provider) => {
         set({ selectedLLMProvider: provider, aiMode: 'api' })
+      },
+
+      // Backend error handling
+      setBackendError: (error) => {
+        set({ backendError: error })
+      },
+
+      clearBackendError: () => {
+        set({ backendError: null })
       },
     }),
     {

@@ -62,6 +62,18 @@ apiClient.interceptors.response.use(
     // Track API call even on error
     useUsageStore.getState().incrementApiCall()
 
+    // Handle connection refused error (backend crash/restart)
+    if (error.code === 'ERR_CONNECTION_REFUSED' || error.code === 'ECONNREFUSED') {
+      console.error('[API Client] Backend connection refused. Server may be restarting...')
+      // Set a flag in appStore to show user-friendly message
+      useAppStore.getState().setBackendError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+
+      // Auto-clear error after 5 seconds (backend may auto-restart)
+      setTimeout(() => {
+        useAppStore.getState().clearBackendError()
+      }, 5000)
+    }
+
     // Detect rate limiting
     const rateLimitInfo = detectRateLimit(error)
     if (rateLimitInfo.isRateLimited) {

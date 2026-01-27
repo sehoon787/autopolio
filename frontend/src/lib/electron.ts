@@ -124,8 +124,8 @@ declare global {
 export function isElectron(): boolean {
   const hasElectron = !!(window as Window & { electron?: unknown }).electron
   console.log('[isElectron] window.electron exists:', hasElectron)
-  if (hasElectron) {
-    console.log('[isElectron] window.electron keys:', Object.keys((window as Window & { electron: Record<string, unknown> }).electron))
+  if (hasElectron && window.electron) {
+    console.log('[isElectron] window.electron keys:', Object.keys(window.electron))
   }
   return hasElectron
 }

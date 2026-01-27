@@ -30,6 +30,13 @@ let pythonProcess: ChildProcess | null = null
 const BACKEND_PORT = 8000
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`
 
+// Backend restart tracking
+let backendRestartCount = 0
+const MAX_BACKEND_RESTARTS = 3
+
+// PID file for tracking backend process
+const getPidFilePath = () => path.join(app.getPath('userData'), 'backend.pid')
+
 // Main window reference
 let mainWindow: BrowserWindow | null = null
 
@@ -139,11 +146,145 @@ async function waitForBackend(): Promise<boolean> {
   return false
 }
 
+/**
+ * Save backend PID to file for tracking
+ */
+function savePidFile(pid: number): void {
+  try {
+    const pidFile = getPidFilePath()
+    fs.writeFileSync(pidFile, String(pid))
+    console.log(`[PID] Saved backend PID ${pid} to ${pidFile}`)
+  } catch (error) {
+    console.error('[PID] Failed to save PID file:', error)
+  }
+}
+
+/**
+ * Clean up PID file and optionally kill the tracked process
+ */
+function cleanupPidFile(): void {
+  try {
+    const pidFile = getPidFilePath()
+    if (fs.existsSync(pidFile)) {
+      const pid = fs.readFileSync(pidFile, 'utf8').trim()
+      console.log(`[PID] Found PID file with PID: ${pid}`)
+
+      // Try to kill the process if it exists
+      if (pid && process.platform === 'win32') {
+        spawn('taskkill', ['/pid', pid, '/f', '/t'], { shell: true })
+        console.log(`[PID] Sent kill signal to PID ${pid}`)
+      } else if (pid) {
+        try {
+          process.kill(parseInt(pid, 10), 'SIGTERM')
+        } catch {
+          // Process might not exist
+        }
+      }
+
+      fs.unlinkSync(pidFile)
+      console.log('[PID] Removed PID file')
+    }
+  } catch (error) {
+    console.error('[PID] Error cleaning up PID file:', error)
+  }
+}
+
+/**
+ * Kill any existing process using the backend port
+ */
+async function killExistingBackend(): Promise<void> {
+  console.log('[Cleanup] Checking for existing backend processes...')
+
+  // First, clean up via PID file
+  cleanupPidFile()
+
+  if (process.platform === 'win32') {
+    // Windows: Find and kill processes using port 8000
+    return new Promise((resolve) => {
+      const findProcess = spawn('cmd', ['/c', `netstat -ano | findstr :${BACKEND_PORT}`], { shell: true })
+      let output = ''
+
+      findProcess.stdout?.on('data', (data) => {
+        output += data.toString()
+      })
+
+      findProcess.on('close', () => {
+        // Parse output to extract PIDs
+        const lines = output.split('\n')
+        const pids = new Set<string>()
+
+        for (const line of lines) {
+          // Match LISTENING state PIDs (most reliable)
+          const listeningMatch = line.match(/LISTENING\s+(\d+)/)
+          if (listeningMatch) {
+            pids.add(listeningMatch[1])
+          }
+        }
+
+        if (pids.size > 0) {
+          console.log(`[Cleanup] Found ${pids.size} process(es) using port ${BACKEND_PORT}:`, Array.from(pids))
+
+          for (const pid of pids) {
+            console.log(`[Cleanup] Killing process ${pid}...`)
+            spawn('taskkill', ['/pid', pid, '/f', '/t'], { shell: true })
+          }
+
+          // Wait for processes to terminate
+          setTimeout(resolve, 2000)
+        } else {
+          console.log(`[Cleanup] No processes found using port ${BACKEND_PORT}`)
+          resolve()
+        }
+      })
+
+      findProcess.on('error', () => {
+        console.log('[Cleanup] Failed to check for existing processes')
+        resolve()
+      })
+    })
+  } else {
+    // Unix: Use lsof to find and kill processes
+    return new Promise((resolve) => {
+      const findProcess = spawn('lsof', ['-ti', `:${BACKEND_PORT}`], { shell: true })
+      let output = ''
+
+      findProcess.stdout?.on('data', (data) => {
+        output += data.toString()
+      })
+
+      findProcess.on('close', () => {
+        const pids = output.trim().split('\n').filter(pid => pid)
+
+        if (pids.length > 0) {
+          console.log(`[Cleanup] Found ${pids.length} process(es) using port ${BACKEND_PORT}`)
+
+          for (const pid of pids) {
+            try {
+              process.kill(parseInt(pid, 10), 'SIGTERM')
+            } catch {
+              // Process might not exist
+            }
+          }
+
+          setTimeout(resolve, 2000)
+        } else {
+          resolve()
+        }
+      })
+
+      findProcess.on('error', () => resolve())
+    })
+  }
+}
+
 function startPythonBackend(): Promise<void> {
   return new Promise(async (resolve) => {
     console.log('Checking if backend is running...')
 
-    // Quick check if backend is already running
+    // Kill any existing zombie processes first
+    await killExistingBackend()
+
+    // Quick check if backend is already running (after cleanup)
     try {
       const response = await fetch(`${BACKEND_URL}/health`)
       if (response.ok) {
@@ -169,7 +310,8 @@ function startPythonBackend(): Promise<void> {
       'api.main:app',
       '--host', '127.0.0.1',
       '--port', String(BACKEND_PORT),
-      ...(isDev ? ['--reload'] : []),
+      // In dev mode, limit --reload to only watch 'api' folder to reduce WatchFiles overhead
+      ...(isDev ? ['--reload', '--reload-dir', 'api'] : []),
     ], {
       cwd: projectRoot,
       env: {
@@ -179,6 +321,11 @@ function startPythonBackend(): Promise<void> {
       shell: true,  // Needed for Windows
     })
 
+    // Save PID for tracking
+    if (pythonProcess.pid) {
+      savePidFile(pythonProcess.pid)
+    }
+
     let started = false
 
     pythonProcess.stdout?.on('data', (data) => {
@@ -186,6 +333,7 @@ function startPythonBackend(): Promise<void> {
       console.log(`Backend: ${output}`)
       if (!started && output.includes('Uvicorn running')) {
         started = true
+        backendRestartCount = 0  // Reset restart counter on successful start
         resolve()
       }
     })
@@ -196,6 +344,7 @@ function startPythonBackend(): Promise<void> {
       // Uvicorn logs to stderr
       if (!started && output.includes('Uvicorn running')) {
         started = true
+        backendRestartCount = 0  // Reset restart counter on successful start
         resolve()
       }
     })
@@ -207,8 +356,21 @@ function startPythonBackend(): Promise<void> {
     })
 
     pythonProcess.on('close', (code) => {
-      console.log(`Backend exited with code ${code}`)
+      console.log(`[Backend] Exited with code ${code}`)
       pythonProcess = null
+
+      // Auto-restart on abnormal exit (code !== 0) - max 3 attempts
+      if (code !== 0 && code !== null && backendRestartCount < MAX_BACKEND_RESTARTS) {
+        backendRestartCount++
+        console.log(`[Backend] Abnormal exit detected. Restarting (attempt ${backendRestartCount}/${MAX_BACKEND_RESTARTS})...`)
+        setTimeout(() => {
+          startPythonBackend().catch((err) => {
+            console.error('[Backend] Restart failed:', err)
+          })
+        }, 2000)
+      } else if (code !== 0 && backendRestartCount >= MAX_BACKEND_RESTARTS) {
+        console.error(`[Backend] Max restart attempts (${MAX_BACKEND_RESTARTS}) reached. Backend will not be restarted.`)
+      }
     })
 
     // Timeout: resolve anyway after 15 seconds
@@ -237,6 +399,9 @@ function stopPythonBackend() {
 
     pythonProcess = null
   }
+
+  // Always clean up PID file
+  cleanupPidFile()
 }
 
 // ============================================================================
