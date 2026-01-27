@@ -42,6 +42,7 @@ import {
   Code,
   GitCommit,
   FileText,
+  FileDown,
   BarChart3,
   ClipboardList,
   Sparkles,
@@ -55,6 +56,7 @@ import {
   PopoverTrigger,
   PopoverClose,
 } from '@/components/ui/popover'
+import { ExportDialog } from '@/components/ExportDialog'
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
@@ -65,6 +67,7 @@ export default function ProjectDetailPage() {
   const { user } = useUserStore()
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [editFormData, setEditFormData] = useState<Partial<ProjectCreate>>({})
   const [techInput, setTechInput] = useState('')
   const [isOngoing, setIsOngoing] = useState(false)
@@ -270,6 +273,12 @@ export default function ProjectDetailPage() {
           <Pencil className="h-4 w-4 mr-2" />
           {t('detail.buttons.edit')}
         </Button>
+        {project.is_analyzed && (
+          <Button variant="outline" onClick={() => setIsExportDialogOpen(true)}>
+            <FileDown className="h-4 w-4 mr-2" />
+            {t('detail.buttons.export')}
+          </Button>
+        )}
         {project.git_url && (
           <div className="flex items-center gap-1">
             <Button
@@ -575,6 +584,14 @@ export default function ProjectDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={isExportDialogOpen}
+        onOpenChange={setIsExportDialogOpen}
+        projectId={projectId}
+        projectName={project.name}
+      />
 
       <ScrollToTop />
     </div>

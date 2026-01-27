@@ -246,3 +246,110 @@ export const reportsApi = {
   getPerformanceSummary: (projectId: number) =>
     apiClient.get<PerformanceSummaryData>(`/documents/reports/project/${projectId}/summary`),
 }
+
+// Export API types
+/**
+ * Export report types:
+ * - "detailed": 상세 - Full DETAILED_COMPLETION_REPORT style with project overview, tech stack, implementation details, timeline, achievements
+ * - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style with key info and top achievements
+ * - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style with key tasks and achievements
+ */
+export type ExportReportType = 'detailed' | 'final' | 'summary'
+
+export interface ExportPreviewResponse {
+  project_count: number
+  total_commits: number
+  has_key_tasks: boolean
+  has_achievements: boolean
+  preview: string
+  full_content: string
+}
+
+export interface ExportResponse {
+  success: boolean
+  file_path: string
+  filename: string
+  format: string
+  download_url: string
+  preview?: string
+}
+
+export interface SingleProjectExportPreviewResponse {
+  project_id: number
+  project_name: string
+  has_key_tasks: boolean
+  has_achievements: boolean
+  total_commits: number
+  preview: string
+  full_content: string
+}
+
+export const exportApi = {
+  /**
+   * Get preview data for export (all projects)
+   * @param userId User ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  getPreview: (userId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.get<ExportPreviewResponse>('/documents/export/preview', {
+      params: { user_id: userId, report_type: reportType }
+    }),
+
+  /**
+   * Export to Markdown file (all projects)
+   * @param userId User ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  exportToMarkdown: (userId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.post<ExportResponse>('/documents/export/markdown', null, {
+      params: { user_id: userId, report_type: reportType }
+    }),
+
+  /**
+   * Export to Word document (all projects)
+   * @param userId User ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  exportToDocx: (userId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.post<ExportResponse>('/documents/export/docx', null, {
+      params: { user_id: userId, report_type: reportType }
+    }),
+
+  /**
+   * Get download URL for exported file
+   */
+  getDownloadUrl: (filename: string) =>
+    `/api/documents/export/download/${filename}`,
+
+  // Single project export methods
+
+  /**
+   * Get preview data for single project export
+   * @param projectId Project ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  getSingleProjectPreview: (projectId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.get<SingleProjectExportPreviewResponse>(`/documents/export/project/${projectId}/preview`, {
+      params: { report_type: reportType }
+    }),
+
+  /**
+   * Export single project to Markdown file
+   * @param projectId Project ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  exportSingleProjectToMarkdown: (projectId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.post<ExportResponse>(`/documents/export/project/${projectId}/markdown`, null, {
+      params: { report_type: reportType }
+    }),
+
+  /**
+   * Export single project to Word document
+   * @param projectId Project ID
+   * @param reportType "detailed" | "final" | "summary"
+   */
+  exportSingleProjectToDocx: (projectId: number, reportType: ExportReportType = 'summary') =>
+    apiClient.post<ExportResponse>(`/documents/export/project/${projectId}/docx`, null, {
+      params: { report_type: reportType }
+    }),
+}

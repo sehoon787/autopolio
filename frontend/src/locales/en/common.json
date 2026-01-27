@@ -49,5 +49,30 @@
   "errorOccurred": "An error occurred.",
   "tryAgain": "Try again",
   "comingSoon": "Coming soon",
-  "beta": "Beta"
+  "beta": "Beta",
+  "export": {
+    "title": "Export Projects",
+    "titleSingleProject": "Export {{name}}",
+    "description": "Export analyzed projects to Markdown or Word document",
+    "descriptionSingleProject": "Export this project to Markdown or Word document",
+    "projectCount": "Analyzed Projects",
+    "totalCommits": "Total Commits",
+    "keyTasks": "Key Tasks",
+    "achievements": "Achievements",
+    "reportType": "Report Type",
+    "detailed": "Detailed",
+    "detailedDesc": "Full report with project overview, tech stack, implementation, timeline, achievements",
+    "final": "Final Summary",
+    "finalDesc": "Concise report with key info and top achievements",
+    "summary": "Summary",
+    "summaryDesc": "Report focused on key tasks and achievements",
+    "format": "Export Format",
+    "showPreview": "Show Preview",
+    "hidePreview": "Hide Preview",
+    "exportButton": "Export",
+    "exporting": "Exporting...",
+    "success": "Export completed",
+    "failed": "Export failed",
+    "error": "An error occurred during export"
+  }
 }

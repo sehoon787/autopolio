@@ -6,6 +6,7 @@
   "noProjects": "No projects registered",
   "noProjectsDesc": "Add projects to include in your portfolio.",
   "importRepos": "Import Repos",
+  "exportProjects": "Export",
   "listView": "List",
   "kanbanView": "Kanban",
   "analyzed": "Analyzed",
@@ -81,6 +82,7 @@
     },
     "buttons": {
       "edit": "Edit",
+      "export": "Export",
       "reanalyze": "Re-analyze",
       "analyzeRepo": "Analyze Repo",
       "editBtn": "Edit",

@@ -42,7 +42,8 @@ import {
 } from '@/components/KanbanBoard'
 import { formatDate } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
-import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase } from 'lucide-react'
+import { ExportDialog } from '@/components/ExportDialog'
+import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown } from 'lucide-react'
 
 // Extend Project to be a KanbanItem
 interface ProjectKanbanItem extends KanbanItem {
@@ -177,6 +178,7 @@ export default function ProjectsPage() {
   const [isLoadingRepoInfo, setIsLoadingRepoInfo] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
   const [isOngoing, setIsOngoing] = useState(false)
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -578,6 +580,13 @@ export default function ProjectsPage() {
               {t('importRepos')}
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            onClick={() => setIsExportDialogOpen(true)}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            {t('exportProjects')}
+          </Button>
           <div className="flex items-center border rounded-lg">
             <Button
               variant={viewMode === 'list' ? 'default' : 'ghost'}
@@ -1233,6 +1242,12 @@ export default function ProjectsPage() {
       </Dialog>
 
       <ScrollToTop />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={isExportDialogOpen}
+        onOpenChange={setIsExportDialogOpen}
+      />
     </div>
   )
 }

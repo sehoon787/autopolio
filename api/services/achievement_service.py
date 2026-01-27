@@ -441,3 +441,124 @@ class AchievementService:
             a["display_order"] = i
 
         return unique_achievements, stats
+
+    def categorize_achievements(
+        self,
+        achievements: List[Dict[str, Any]]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Categorize achievements by type for better organization.
+
+        Categories:
+        - 성능 향상 (Performance): Speed, response time, memory improvements
+        - 기능 확장 (Feature Expansion): New features, scalability
+        - 사용자 경험 개선 (UX): UI/UX, accessibility
+        - 생산성 향상 (Productivity): Automation, time savings
+        - 코드 품질 (Code Quality): Refactoring, test coverage
+        - 안정성 (Stability): Error reduction, availability
+        - 비용 절감 (Cost): Cost savings, resource optimization
+        - 기타 (Other): Other achievements
+        """
+        # Category keywords mapping
+        category_keywords = {
+            "성능 향상": [
+                "성능", "속도", "빠르", "향상", "개선", "최적화", "응답",
+                "performance", "speed", "fast", "improve", "optimize", "response"
+            ],
+            "기능 확장": [
+                "기능", "확장", "추가", "지원", "구현", "개발",
+                "feature", "extend", "add", "support", "implement", "develop"
+            ],
+            "사용자 경험 개선": [
+                "사용자", "UI", "UX", "인터페이스", "접근성", "편의",
+                "user", "interface", "accessibility", "experience"
+            ],
+            "생산성 향상": [
+                "생산성", "자동화", "효율", "시간", "단축",
+                "productivity", "automation", "efficient", "time", "reduce"
+            ],
+            "코드 품질": [
+                "코드", "품질", "리팩토링", "테스트", "커버리지", "모듈",
+                "code", "quality", "refactor", "test", "coverage", "module"
+            ],
+            "안정성": [
+                "안정", "오류", "에러", "버그", "가용성", "장애",
+                "stable", "error", "bug", "availability", "failure"
+            ],
+            "비용 절감": [
+                "비용", "절감", "절약", "감소", "인프라",
+                "cost", "save", "reduce", "infrastructure"
+            ],
+        }
+
+        categorized: Dict[str, List[Dict[str, Any]]] = {}
+
+        for achievement in achievements:
+            # Get text to match
+            text_to_match = (
+                f"{achievement.get('metric_name', '')} "
+                f"{achievement.get('metric_value', '')} "
+                f"{achievement.get('description', '')} "
+                f"{achievement.get('category', '')}"
+            ).lower()
+
+            # Find best matching category
+            matched_category = None
+            max_matches = 0
+
+            for category, keywords in category_keywords.items():
+                matches = sum(1 for kw in keywords if kw.lower() in text_to_match)
+                if matches > max_matches:
+                    max_matches = matches
+                    matched_category = category
+
+            # Use existing category if present, otherwise use matched or "기타"
+            if achievement.get("category"):
+                # Map common English categories to Korean
+                category_map = {
+                    "performance": "성능 향상",
+                    "efficiency": "생산성 향상",
+                    "reduction": "비용 절감",
+                    "accuracy": "성능 향상",
+                    "scale": "기능 확장",
+                    "cost": "비용 절감",
+                    "quality": "코드 품질",
+                    "delivery": "생산성 향상",
+                    "user": "사용자 경험 개선",
+                    "contribution": "코드 품질",
+                    "commit": "코드 품질",
+                }
+                existing_cat = achievement["category"].lower()
+                final_category = category_map.get(existing_cat, matched_category or "기타")
+            else:
+                final_category = matched_category or "기타"
+
+            # Add to categorized dict
+            if final_category not in categorized:
+                categorized[final_category] = []
+
+            categorized[final_category].append(achievement)
+
+        # Sort categories in preferred order
+        ordered_categories = [
+            "성능 향상",
+            "기능 확장",
+            "사용자 경험 개선",
+            "생산성 향상",
+            "코드 품질",
+            "안정성",
+            "비용 절감",
+            "기타"
+        ]
+
+        ordered_result: Dict[str, List[Dict[str, Any]]] = {}
+        for cat in ordered_categories:
+            if cat in categorized:
+                ordered_result[cat] = categorized[cat]
+
+        # Add any remaining categories
+        for cat in categorized:
+            if cat not in ordered_result:
+                ordered_result[cat] = categorized[cat]
+
+        return ordered_result

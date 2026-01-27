@@ -21,7 +21,7 @@ import {
   RefreshCw,
   ExternalLink
 } from 'lucide-react'
-import { llmApi, LLMProvider, StoredAPIKeysResponse } from '@/api/llm'
+import { llmApi, LLMProvider } from '@/api/llm'
 import { CLIStatusCard } from '@/components/CLIStatusCard'
 import { LLMProviderCard } from '@/components/LLMProviderCard'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'

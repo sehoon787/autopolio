@@ -49,5 +49,30 @@
   "errorOccurred": "오류가 발생했습니다.",
   "tryAgain": "다시 시도",
   "comingSoon": "준비 중",
-  "beta": "베타"
+  "beta": "베타",
+  "export": {
+    "title": "프로젝트 내보내기",
+    "titleSingleProject": "{{name}} 내보내기",
+    "description": "분석된 프로젝트를 Markdown 또는 Word 문서로 내보내기",
+    "descriptionSingleProject": "이 프로젝트를 Markdown 또는 Word 문서로 내보내기",
+    "projectCount": "분석된 프로젝트",
+    "totalCommits": "총 커밋 수",
+    "keyTasks": "주요 수행 업무",
+    "achievements": "성과",
+    "reportType": "보고서 유형",
+    "detailed": "상세",
+    "detailedDesc": "프로젝트 개요, 기술 스택, 구현 기능, 타임라인, 성과 포함",
+    "final": "상세 요약",
+    "finalDesc": "핵심 정보와 주요 성과 중심의 간결한 보고서",
+    "summary": "요약",
+    "summaryDesc": "주요 수행 업무와 성과 중심의 보고서",
+    "format": "내보내기 형식",
+    "showPreview": "미리보기 보기",
+    "hidePreview": "미리보기 숨기기",
+    "exportButton": "내보내기",
+    "exporting": "내보내는 중...",
+    "success": "내보내기 완료",
+    "failed": "내보내기 실패",
+    "error": "내보내기 중 오류가 발생했습니다"
+  }
 }

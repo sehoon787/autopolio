@@ -6,6 +6,7 @@
   "noProjects": "등록된 프로젝트가 없습니다",
   "noProjectsDesc": "포트폴리오에 포함할 프로젝트를 추가해주세요.",
   "importRepos": "레포 가져오기",
+  "exportProjects": "내보내기",
   "listView": "리스트",
   "kanbanView": "칸반",
   "analyzed": "분석됨",
@@ -81,6 +82,7 @@
     },
     "buttons": {
       "edit": "수정",
+      "export": "내보내기",
       "reanalyze": "재분석",
       "analyzeRepo": "레포 분석",
       "editBtn": "편집",
