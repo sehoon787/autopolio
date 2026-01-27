@@ -41,8 +41,11 @@ class Settings(BaseSettings):
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://localhost:5174",
+        "http://localhost:5199",  # Additional fallback port
         "http://localhost:3000",
-        "app://-",  # Electron app origin
+        "app://-",      # Electron app origin (electron-serve)
+        "app://.",      # Alternative Electron origin
+        "file://",      # File protocol
     ]
 
     class Config:

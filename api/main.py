@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import os
 
@@ -10,6 +11,26 @@ from api.routers import users, github, templates, pipeline, documents, llm
 from api.routers.knowledge import companies, projects, achievements
 
 settings = get_settings()
+
+
+class DebugCORSMiddleware(BaseHTTPMiddleware):
+    """Debug middleware to log CORS-related request information."""
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "no-origin")
+        method = request.method
+        path = str(request.url.path)
+
+        # Log preflight and regular requests
+        if settings.debug:
+            print(f"[CORS Debug] Origin: {origin}, Method: {method}, Path: {path}")
+
+        response = await call_next(request)
+
+        if settings.debug:
+            print(f"[CORS Debug] Response status: {response.status_code}")
+
+        return response
 
 
 @asynccontextmanager
@@ -32,14 +53,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Debug CORS middleware (must be added before CORSMiddleware)
+if settings.debug:
+    app.add_middleware(DebugCORSMiddleware)
+
+# CORS middleware - allow all origins in debug mode for easier development
+if settings.debug:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins in development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Static files for generated documents
 if os.path.exists(settings.result_dir):

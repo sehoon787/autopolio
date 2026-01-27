@@ -194,6 +194,13 @@ async def github_connect(
     """Initiate GitHub OAuth flow."""
     import json
     import base64
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"[GitHub Connect] Called with redirect_url={redirect_url}, frontend_origin={frontend_origin}, is_electron={is_electron}")
+    logger.info(f"[GitHub Connect] settings.github_client_id={settings.github_client_id}")
+    print(f"[GitHub Connect] Called with redirect_url={redirect_url}, frontend_origin={frontend_origin}, is_electron={is_electron}")
+    print(f"[GitHub Connect] settings.github_client_id={settings.github_client_id}")
 
     if not settings.github_client_id:
         raise HTTPException(
@@ -657,6 +664,7 @@ async def disconnect_github(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.github_token_encrypted = None
+    await db.commit()
 
     return {"message": "GitHub disconnected successfully"}
 
