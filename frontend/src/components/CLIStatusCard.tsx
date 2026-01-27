@@ -38,6 +38,7 @@ const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: 
 }
 
 interface CLIStatusCardProps {
+  cliType: 'claude_code' | 'gemini_cli'  // Explicit CLI type for loading state
   status: CLIStatus | null
   isLoading: boolean
   isSelected: boolean
@@ -49,16 +50,16 @@ interface CLIStatusCardProps {
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting }: CLIStatusCardProps) {
+export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
 
-  // Get CLI config based on tool type
-  const cliConfig = status?.tool ? CLI_CONFIG[status.tool] : CLI_CONFIG.claude_code
+  // Get CLI config based on explicit cliType prop (not status.tool) to handle loading state
+  const cliConfig = CLI_CONFIG[cliType]
 
   // Get the appropriate icon based on CLI type with brand colors
   const getCliIcon = () => {
-    if (status?.tool === 'gemini_cli') {
+    if (cliType === 'gemini_cli') {
       return <GeminiIcon className="h-5 w-5" size={20} colored />
     }
     return <ClaudeCodeIcon className="h-5 w-5" size={20} colored />

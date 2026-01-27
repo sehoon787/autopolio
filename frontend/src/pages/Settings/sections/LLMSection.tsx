@@ -428,6 +428,7 @@ export default function LLMSection() {
               <div className="space-y-3">
                 {/* Claude Code CLI */}
                 <CLIStatusCard
+                  cliType="claude_code"
                   status={claudeCLIStatus ?? null}
                   isLoading={isLoadingClaudeCLI || refreshCLIMutation.isPending}
                   isSelected={selectedCLI === 'claude_code'}
@@ -438,6 +439,7 @@ export default function LLMSection() {
                 />
                 {/* Gemini CLI */}
                 <CLIStatusCard
+                  cliType="gemini_cli"
                   status={geminiCLIStatus ?? null}
                   isLoading={isLoadingGeminiCLI || refreshCLIMutation.isPending}
                   isSelected={selectedCLI === 'gemini_cli'}
