@@ -61,12 +61,15 @@ class CLIService:
         ]
     }
 
-    # Installation commands per platform for Claude Code
+    # Installation commands per platform for Claude Code (native installer)
     INSTALL_COMMANDS = {
         'win32': 'irm https://claude.ai/install.ps1 | iex',
         'darwin': 'curl -fsSL https://claude.ai/install.sh | bash',
         'linux': 'curl -fsSL https://claude.ai/install.sh | bash',
     }
+
+    # Update command for Claude Code (same for all platforms)
+    CLAUDE_UPDATE_COMMAND = 'claude update'
 
     # Installation command for Gemini CLI (npm package)
     GEMINI_INSTALL_COMMAND = 'npm install -g @google/gemini-cli'
@@ -186,7 +189,7 @@ class CLIService:
     async def detect_claude_code(self) -> dict:
         """
         Detect Claude Code CLI installation status.
-        Returns dict with: installed, version, latest_version, is_outdated, path, install_command
+        Returns dict with: installed, version, latest_version, is_outdated, path, install_command, update_command
         """
         result = {
             "tool": "claude_code",
@@ -196,6 +199,7 @@ class CLIService:
             "is_outdated": False,
             "path": None,
             "install_command": self.INSTALL_COMMANDS.get(self.platform, self.INSTALL_COMMANDS['linux']),
+            "update_command": self.CLAUDE_UPDATE_COMMAND,
             "platform": self.platform,
         }
 
@@ -229,50 +233,13 @@ class CLIService:
             result["path"] = path
             result["version"] = await self._get_cli_version(path)
 
-        # Fetch latest version from npm registry
-        try:
-            result["latest_version"] = await self.get_latest_claude_version()
-            if result["version"] and result["latest_version"]:
-                result["is_outdated"] = self._compare_versions(
-                    result["version"],
-                    result["latest_version"]
-                )
-        except Exception:
-            result["latest_version"] = "unknown"
+        # Claude Code has moved to native installer - no longer on npm
+        # Users should run 'claude update' to check for updates
+        # We don't fetch latest version anymore as there's no public registry
+        result["latest_version"] = None
+        result["is_outdated"] = False
 
         return result
-
-    async def get_latest_claude_version(self) -> str:
-        """Fetch the latest version of Claude Code from npm registry."""
-        import time
-
-        # Check cache first
-        if (
-            self._cached_latest_version
-            and time.time() - self._cached_latest_version.get('timestamp', 0) < self._cache_duration_seconds
-        ):
-            return self._cached_latest_version['version']
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                'https://registry.npmjs.org/@anthropic-ai/claude-code/latest',
-                headers={'Accept': 'application/json'},
-                timeout=10.0
-            )
-            response.raise_for_status()
-            data = response.json()
-            version = data.get('version')
-
-            if version:
-                # Cache the result
-                import time
-                CLIService._cached_latest_version = {
-                    'version': version,
-                    'timestamp': time.time()
-                }
-                return version
-
-        raise ValueError("Could not fetch latest version from npm registry")
 
     async def detect_gemini_cli(self) -> dict:
         """

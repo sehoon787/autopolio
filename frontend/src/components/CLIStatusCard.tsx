@@ -129,9 +129,12 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
     }
   }
 
-  const copyInstallCommand = async () => {
-    if (status?.install_command) {
-      await navigator.clipboard.writeText(status.install_command)
+  const copyCommand = async () => {
+    const command = statusType === 'outdated' && status?.update_command
+      ? status.update_command
+      : status?.install_command
+    if (command) {
+      await navigator.clipboard.writeText(command)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -265,7 +268,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
         </div>
       )}
 
-      {/* Installation Command (when not installed or outdated) */}
+      {/* Installation/Update Command (when not installed or outdated) */}
       {status && (statusType === 'not-found' || statusType === 'outdated') && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
@@ -275,7 +278,9 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-muted p-2 rounded-md font-mono overflow-x-auto">
-              {status.install_command}
+              {statusType === 'outdated' && status.update_command
+                ? status.update_command
+                : status.install_command}
             </code>
             <TooltipProvider>
               <Tooltip>
@@ -284,7 +289,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 shrink-0"
-                    onClick={copyInstallCommand}
+                    onClick={copyCommand}
                   >
                     {copied ? (
                       <Check className="h-4 w-4 text-green-600" />

@@ -191,6 +191,7 @@ export class CLIToolManager {
       is_outdated: false,
       path: null,
       install_command: this.getInstallCommand(tool),
+      update_command: this.getUpdateCommand(tool),
       platform: process.platform,
     }
 
@@ -840,8 +841,25 @@ export class CLIToolManager {
   }
 
   private getInstallCommand(tool: CLIType): string {
+    // Claude Code has switched to native installer
+    if (tool === 'claude_code') {
+      if (isWindows) {
+        return 'irm https://claude.ai/install.ps1 | iex'
+      }
+      return 'curl -fsSL https://claude.ai/install.sh | bash'
+    }
+    // Gemini CLI still uses npm
     const config = this.getConfig(tool)
     return `npm install -g ${config.npmPackage}`
+  }
+
+  private getUpdateCommand(tool: CLIType): string | null {
+    // Claude Code uses its own update command
+    if (tool === 'claude_code') {
+      return 'claude update'
+    }
+    // Gemini CLI uses npm update (same as install)
+    return null
   }
 }
 

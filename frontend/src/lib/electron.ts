@@ -16,6 +16,7 @@ export interface CLIStatus {
   is_outdated: boolean
   path: string | null
   install_command: string
+  update_command: string | null
   platform: string
 }
 

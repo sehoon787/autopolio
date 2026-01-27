@@ -303,7 +303,17 @@ function startPythonBackend(): Promise<void> {
 
     console.log(`Starting backend from: ${projectRoot}`)
 
-    const pythonPath = process.platform === 'win32' ? 'python' : 'python3'
+    // Use virtual environment Python if it exists, otherwise fall back to system python
+    const venvPython = process.platform === 'win32'
+      ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+      : path.join(projectRoot, '.venv', 'bin', 'python')
+
+    const systemPython = process.platform === 'win32' ? 'python' : 'python3'
+
+    // Check if venv Python exists
+    const fs = await import('fs')
+    const pythonPath = fs.existsSync(venvPython) ? venvPython : systemPython
+    console.log(`Using Python: ${pythonPath}`)
 
     pythonProcess = spawn(pythonPath, [
       '-m', 'uvicorn',
@@ -430,6 +440,9 @@ ipcMain.handle('get-claude-cli-status', async () => {
     console.error('[IPC] get-claude-cli-status CRITICAL error:', error)
     console.error('[IPC] Error stack:', error instanceof Error ? error.stack : 'No stack')
     // Return a default "not installed" status on error with debug info
+    const installCommand = process.platform === 'win32'
+      ? 'irm https://claude.ai/install.ps1 | iex'
+      : 'curl -fsSL https://claude.ai/install.sh | bash'
     return {
       tool: 'claude_code',
       installed: false,
@@ -437,7 +450,8 @@ ipcMain.handle('get-claude-cli-status', async () => {
       latest_version: null,
       is_outdated: false,
       path: null,
-      install_command: 'npm install -g @anthropic-ai/claude-code',
+      install_command: installCommand,
+      update_command: 'claude update',
       platform: process.platform,
       _error: error instanceof Error ? error.message : String(error), // Debug field
     }
@@ -464,6 +478,7 @@ ipcMain.handle('get-gemini-cli-status', async () => {
       is_outdated: false,
       path: null,
       install_command: 'npm install -g @google/gemini-cli',
+      update_command: null,
       platform: process.platform,
       _error: error instanceof Error ? error.message : String(error), // Debug field
     }

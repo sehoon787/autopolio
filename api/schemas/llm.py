@@ -7,13 +7,14 @@ from typing import Optional, List
 
 class CLIStatus(BaseModel):
     """Status of a CLI tool installation."""
-    tool: str = Field(..., description="Tool identifier: 'claude_code'")
+    tool: str = Field(..., description="Tool identifier: 'claude_code' or 'gemini_cli'")
     installed: bool = Field(..., description="Whether the CLI is installed")
     version: Optional[str] = Field(None, description="Installed version")
     latest_version: Optional[str] = Field(None, description="Latest available version")
     is_outdated: bool = Field(False, description="Whether an update is available")
     path: Optional[str] = Field(None, description="Path to CLI executable")
     install_command: str = Field("", description="Platform-specific installation command")
+    update_command: Optional[str] = Field(None, description="Command to update the CLI (if different from install)")
     platform: Optional[str] = Field(None, description="Detected platform")
 
 
