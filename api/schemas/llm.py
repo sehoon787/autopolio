@@ -107,3 +107,4 @@ class LLMTestResponse(BaseModel):
     provider: str = Field(..., description="Provider that was tested")
     model: str = Field(..., description="Model that was used")
     response: str = Field(..., description="LLM response")
+    token_usage: int = Field(default=0, description="Total tokens used")

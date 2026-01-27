@@ -523,11 +523,13 @@ async def test_provider(
                 messages=[{"role": "user", "content": test_prompt}],
                 max_tokens=50,
             )
+            tokens = response.usage.total_tokens if response.usage else 0
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
                 response=response.choices[0].message.content,
+                token_usage=tokens,
             )
 
         elif provider == "anthropic":
@@ -538,11 +540,13 @@ async def test_provider(
                 max_tokens=50,
                 messages=[{"role": "user", "content": test_prompt}]
             )
+            tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
                 response=response.content[0].text,
+                token_usage=tokens,
             )
 
         elif provider == "gemini":
@@ -552,11 +556,18 @@ async def test_provider(
                 model=model,
                 contents=test_prompt,
             )
+            tokens = 0
+            if response.usage_metadata:
+                tokens = (
+                    getattr(response.usage_metadata, 'prompt_token_count', 0) +
+                    getattr(response.usage_metadata, 'candidates_token_count', 0)
+                )
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
                 response=response.text,
+                token_usage=tokens,
             )
 
     except Exception as e:

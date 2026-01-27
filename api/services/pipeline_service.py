@@ -111,6 +111,7 @@ class PipelineService:
 
             # Calculate generation time
             generation_time = time.time() - start_time
+            llm_provider = request.llm_provider or (user.preferred_llm if user else None)
 
             # Complete the job
             output_data = {
@@ -121,7 +122,8 @@ class PipelineService:
                 "file_size": document.file_size,
                 "generation_time_seconds": round(generation_time, 2),
                 "projects_processed": len(request.project_ids),
-                "llm_tokens_used": llm_tokens
+                "llm_tokens_used": llm_tokens,
+                "llm_provider": llm_provider
             }
 
             await self.task_service.complete_job(task_id, output_data)
@@ -381,7 +383,6 @@ class PipelineService:
         await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         results = {"summaries": [], "tokens_used": 0}
-        tokens_used = 0
 
         if request.skip_llm_summary:
             await self.task_service.complete_step(task_id, 5, results)
@@ -442,12 +443,13 @@ class PipelineService:
                 })
 
             await self.db.flush()
+            results["tokens_used"] = llm_service.total_tokens_used
 
         except Exception as e:
             results["error"] = str(e)
 
         await self.task_service.complete_step(task_id, 5, results)
-        return results, tokens_used
+        return results, results.get("tokens_used", 0)
 
     async def _step_template_mapping(
         self,

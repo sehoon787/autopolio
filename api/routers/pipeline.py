@@ -150,7 +150,9 @@ async def get_pipeline_result(
         "generation_time_seconds": output.get("generation_time_seconds", 0),
         "steps_completed": job.current_step,
         "projects_processed": output.get("projects_processed", 0),
-        "llm_tokens_used": output.get("llm_tokens_used")
+        "llm_tokens_used": output.get("llm_tokens_used"),
+        "token_usage": output.get("llm_tokens_used", 0),
+        "provider": output.get("llm_provider")
     }
 
 

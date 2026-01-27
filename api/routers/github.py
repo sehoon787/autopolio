@@ -156,7 +156,7 @@ JSON 배열 형식으로만 응답하세요:
 ["업무1", "업무2", "업무3"]
 """
 
-        response = await llm_service.provider.generate(
+        response, _tokens = await llm_service.provider.generate(
             prompt,
             system_prompt="당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요.",
             max_tokens=500,
@@ -676,7 +676,7 @@ async def test_llm():
 
     try:
         llm_service = LLMService()
-        response = await llm_service.provider.generate(
+        response, tokens = await llm_service.provider.generate(
             "Say 'Hello! LLM is working.' in one short sentence.",
             max_tokens=50,
             temperature=0.1
@@ -684,7 +684,8 @@ async def test_llm():
         return {
             "provider": llm_service.provider_name,
             "status": "success",
-            "response": response
+            "response": response,
+            "token_usage": tokens
         }
     except Exception as e:
         return {
@@ -851,7 +852,7 @@ README 내용 (일부):
 간단 설명: [간단 설명 내용]
 상세 설명: [상세 설명 내용]"""
 
-        response = await llm_service.provider.generate(
+        response, tokens = await llm_service.provider.generate(
             prompt,
             max_tokens=500,
             temperature=0.7
@@ -881,7 +882,9 @@ README 내용 (일부):
         return {
             "short_description": short_desc,
             "description": long_desc,
-            "technologies": technologies[:20]
+            "technologies": technologies[:20],
+            "token_usage": tokens,
+            "provider": llm_service.provider_name
         }
 
     except Exception as e:

@@ -1,7 +1,7 @@
 """
 LLM Service - Supports both OpenAI and Anthropic for text generation.
 """
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from abc import ABC, abstractmethod
 import json
 
@@ -20,7 +20,8 @@ class BaseLLMProvider(ABC):
         system_prompt: Optional[str] = None,
         max_tokens: int = 2000,
         temperature: float = 0.7
-    ) -> str:
+    ) -> Tuple[str, int]:
+        """Generate text. Returns (content, total_tokens)."""
         pass
 
 
@@ -37,7 +38,7 @@ class OpenAIProvider(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         max_tokens: int = 2000,
         temperature: float = 0.7
-    ) -> str:
+    ) -> Tuple[str, int]:
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=self.api_key)
@@ -54,7 +55,9 @@ class OpenAIProvider(BaseLLMProvider):
             temperature=temperature
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        total_tokens = response.usage.total_tokens if response.usage else 0
+        return content, total_tokens
 
 
 class AnthropicProvider(BaseLLMProvider):
@@ -70,7 +73,7 @@ class AnthropicProvider(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         max_tokens: int = 2000,
         temperature: float = 0.7
-    ) -> str:
+    ) -> Tuple[str, int]:
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=self.api_key)
@@ -86,7 +89,9 @@ class AnthropicProvider(BaseLLMProvider):
 
         response = await client.messages.create(**kwargs)
 
-        return response.content[0].text
+        content = response.content[0].text
+        total_tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+        return content, total_tokens
 
 
 class GeminiProvider(BaseLLMProvider):
@@ -102,7 +107,7 @@ class GeminiProvider(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         max_tokens: int = 2000,
         temperature: float = 0.7
-    ) -> str:
+    ) -> Tuple[str, int]:
         from google import genai
 
         client = genai.Client(api_key=self.api_key)
@@ -124,7 +129,14 @@ class GeminiProvider(BaseLLMProvider):
             config=config,
         )
 
-        return response.text
+        content = response.text
+        total_tokens = 0
+        if response.usage_metadata:
+            total_tokens = (
+                getattr(response.usage_metadata, 'prompt_token_count', 0) +
+                getattr(response.usage_metadata, 'candidates_token_count', 0)
+            )
+        return content, total_tokens
 
 
 class LLMService:
@@ -133,6 +145,7 @@ class LLMService:
     def __init__(self, provider: str = None):
         self.provider_name = provider or settings.llm_provider
         self.provider = self._create_provider()
+        self.total_tokens_used = 0
 
     def _create_provider(self) -> BaseLLMProvider:
         """Create the appropriate LLM provider."""
@@ -199,7 +212,8 @@ class LLMService:
     "role_description": "역할에 대한 상세 설명"
 }}"""
 
-        response = await self.provider.generate(prompt, system_prompt)
+        response, tokens = await self.provider.generate(prompt, system_prompt)
+        self.total_tokens_used += tokens
 
         # Parse JSON response
         try:
@@ -237,7 +251,9 @@ class LLMService:
 
 요약:"""
 
-        return await self.provider.generate(prompt, system_prompt, max_tokens=500)
+        content, tokens = await self.provider.generate(prompt, system_prompt, max_tokens=500)
+        self.total_tokens_used += tokens
+        return content
 
     async def generate_achievement_description(
         self,
@@ -254,7 +270,9 @@ class LLMService:
 
 설명:"""
 
-        return await self.provider.generate(prompt, max_tokens=200)
+        content, tokens = await self.provider.generate(prompt, max_tokens=200)
+        self.total_tokens_used += tokens
+        return content
 
     async def generate_skills_summary(
         self,
@@ -271,7 +289,9 @@ class LLMService:
 
 기술 요약 (2-3문장):"""
 
-        return await self.provider.generate(prompt, max_tokens=300)
+        content, tokens = await self.provider.generate(prompt, max_tokens=300)
+        self.total_tokens_used += tokens
+        return content
 
     async def optimize_for_template(
         self,
@@ -297,7 +317,9 @@ class LLMService:
 
 수정된 내용:"""
 
-        return await self.provider.generate(prompt, max_tokens=max_length // 2)
+        content, tokens = await self.provider.generate(prompt, max_tokens=max_length // 2)
+        self.total_tokens_used += tokens
+        return content
 
     async def generate_key_tasks(
         self,
@@ -352,12 +374,13 @@ class LLMService:
 ["업무1", "업무2", "업무3", ...]"""
 
         try:
-            response = await self.provider.generate(
+            response, tokens = await self.provider.generate(
                 prompt,
                 system_prompt,
                 max_tokens=1500,
                 temperature=0.3
             )
+            self.total_tokens_used += tokens
 
             # Parse JSON response
             json_str = response
@@ -446,12 +469,13 @@ class LLMService:
 반드시 JSON 배열 형식으로만 응답하세요."""
 
         try:
-            response = await self.provider.generate(
+            response, tokens = await self.provider.generate(
                 prompt,
                 system_prompt,
                 max_tokens=2000,
                 temperature=0.3
             )
+            self.total_tokens_used += tokens
 
             # Parse JSON response
             json_str = response
@@ -565,12 +589,13 @@ class LLMService:
 반드시 JSON 객체 형식으로만 응답하세요."""
 
         try:
-            response = await self.provider.generate(
+            response, tokens = await self.provider.generate(
                 prompt,
                 system_prompt,
                 max_tokens=2500,
                 temperature=0.3
             )
+            self.total_tokens_used += tokens
 
             # Parse JSON response
             json_str = response
