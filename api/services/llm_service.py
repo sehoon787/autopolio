@@ -90,7 +90,7 @@ class AnthropicProvider(BaseLLMProvider):
 
 
 class GeminiProvider(BaseLLMProvider):
-    """Google Gemini provider."""
+    """Google Gemini provider using the new google.genai SDK."""
 
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
         self.api_key = api_key
@@ -103,22 +103,25 @@ class GeminiProvider(BaseLLMProvider):
         max_tokens: int = 2000,
         temperature: float = 0.7
     ) -> str:
-        import google.generativeai as genai
+        from google import genai
 
-        genai.configure(api_key=self.api_key)
+        client = genai.Client(api_key=self.api_key)
 
-        # Combine system prompt with user prompt
-        full_prompt = prompt
+        # Build contents with system instruction if provided
+        contents = prompt
+        config = genai.types.GenerateContentConfig(
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        # Add system instruction if provided
         if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
+            config.system_instruction = system_prompt
 
-        model = genai.GenerativeModel(self.model)
-        response = await model.generate_content_async(
-            full_prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=max_tokens,
-                temperature=temperature,
-            )
+        response = await client.aio.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=config,
         )
 
         return response.text
