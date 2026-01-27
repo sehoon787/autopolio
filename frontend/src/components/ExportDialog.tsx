@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/components/ui/use-toast'
-import { exportApi, ExportReportType } from '@/api/documents'
+import { exportApi, ExportReportType, ExportPreviewResponse, SingleProjectExportPreviewResponse } from '@/api/documents'
+import type { AxiosResponse } from 'axios'
 import { useUserStore } from '@/stores/userStore'
 import {
   FileText,
@@ -46,7 +47,8 @@ export function ExportDialog({ open, onOpenChange, projectId, projectName }: Exp
   const isSingleProject = !!projectId
 
   // Get export preview - different API for single project vs all projects
-  const { data: previewData, isLoading: isLoadingPreview } = useQuery({
+  type PreviewResponse = AxiosResponse<ExportPreviewResponse | SingleProjectExportPreviewResponse>
+  const { data: previewData, isLoading: isLoadingPreview } = useQuery<PreviewResponse>({
     queryKey: isSingleProject
       ? ['export-preview-project', projectId, reportType]
       : ['export-preview', user?.id, reportType],
