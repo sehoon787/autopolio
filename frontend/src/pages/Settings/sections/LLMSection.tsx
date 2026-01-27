@@ -21,7 +21,7 @@ import {
   RefreshCw,
   ExternalLink
 } from 'lucide-react'
-import { llmApi, LLMProvider } from '@/api/llm'
+import { llmApi, LLMProvider, StoredAPIKeysResponse } from '@/api/llm'
 import { CLIStatusCard } from '@/components/CLIStatusCard'
 import { LLMProviderCard } from '@/components/LLMProviderCard'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
@@ -41,6 +41,8 @@ const DEFAULT_PROVIDERS: LLMProvider[] = [
     name: 'OpenAI',
     description: 'GPT-4 and GPT-3.5 models for text generation',
     configured: false,
+    env_configured: false,
+    user_configured: false,
     is_primary: true,
     models: ['gpt-4-turbo-preview', 'gpt-4', 'gpt-3.5-turbo'],
     default_model: 'gpt-4-turbo-preview',
@@ -51,6 +53,8 @@ const DEFAULT_PROVIDERS: LLMProvider[] = [
     name: 'Anthropic',
     description: 'Claude models for text generation',
     configured: false,
+    env_configured: false,
+    user_configured: false,
     is_primary: false,
     models: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
     default_model: 'claude-3-5-sonnet-20241022',
@@ -61,6 +65,8 @@ const DEFAULT_PROVIDERS: LLMProvider[] = [
     name: 'Google Gemini',
     description: 'Gemini models for text generation',
     configured: false,
+    env_configured: false,
+    user_configured: false,
     is_primary: false,
     models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
     default_model: 'gemini-2.0-flash',
@@ -82,7 +88,7 @@ export default function LLMSection() {
     setSelectedLLMProvider
   } = useAppStore()
   const queryClient = useQueryClient()
-  const { showCLIStatus, showAPIKeys, showDesktopDownloadNotice } = useFeatureFlags()
+  const { showCLIStatus } = useFeatureFlags()
 
   // Test states
   const [testingCLI, setTestingCLI] = useState<string | null>(null)
@@ -107,18 +113,49 @@ export default function LLMSection() {
   })
 
   // Fetch LLM config from backend (for API keys and provider settings)
+  // Always fetch for both Web and Electron to get provider status
   const { data: llmConfig, isLoading: isLoadingConfig, isError: isConfigError } = useQuery({
     queryKey: ['llmConfig', user?.id],
     queryFn: async () => {
       const response = await llmApi.getConfig(user?.id)
       return response.data
     },
-    enabled: showAPIKeys,
     retry: 1,
+  })
+
+  // Fetch stored API keys (Electron only) - to pre-populate input fields
+  const { data: storedKeys } = useQuery({
+    queryKey: ['storedKeys', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null
+      const response = await llmApi.getStoredKeys(user.id)
+      return response.data
+    },
+    enabled: isElectronApp && !!user?.id,
+    staleTime: 30 * 1000, // 30 seconds
+    retry: false,
   })
 
   // Use API data or fallback to defaults
   const providers = llmConfig?.providers ?? DEFAULT_PROVIDERS
+
+  // For Web mode: only show providers with env-configured API keys
+  const envConfiguredProviders = providers.filter(p => p.env_configured)
+
+  // Helper to get stored key for a provider
+  const getStoredKeyForProvider = (providerId: string): string | null => {
+    if (!storedKeys) return null
+    switch (providerId) {
+      case 'openai':
+        return storedKeys.openai_api_key
+      case 'anthropic':
+        return storedKeys.anthropic_api_key
+      case 'gemini':
+        return storedKeys.gemini_api_key
+      default:
+        return null
+    }
+  }
 
   // Update config mutation
   const updateConfigMutation = useMutation({
@@ -126,6 +163,7 @@ export default function LLMSection() {
       llmApi.updateConfig(data, user?.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llmConfig', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['storedKeys', user?.id] })
     },
   })
 
@@ -188,10 +226,15 @@ export default function LLMSection() {
     },
   })
 
-  // Test LLM Provider mutation
+  // Test LLM Provider with stored key mutation (for Current Selection card)
   const testProviderMutation = useMutation({
     mutationFn: async (providerId: string) => {
-      const response = await llmApi.testProvider(providerId)
+      // Electron mode: use_env=false (only user-configured keys)
+      // Web mode: use_env=true (fall back to .env keys)
+      const response = await llmApi.testProvider(providerId, {
+        userId: user?.id,
+        useEnv: !isElectronApp,
+      })
       return response.data
     },
     onSuccess: (data) => {
@@ -214,7 +257,36 @@ export default function LLMSection() {
     },
   })
 
+  // Test LLM Provider with specific API key (for direct testing without saving)
+  const handleTestKey = async (providerId: string, apiKey: string): Promise<{ success: boolean; response: string }> => {
+    try {
+      const response = await llmApi.testProvider(providerId, {
+        apiKey,
+        useEnv: false,  // Don't fall back to env, use the provided key
+      })
+      return {
+        success: response.data.success,
+        response: response.data.response,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        response: error instanceof Error ? error.message : 'Test failed',
+      }
+    }
+  }
+
   const handleSaveKey = async (providerId: string, apiKey: string) => {
+    if (!user?.id) {
+      console.error('Cannot save API key: No user loaded')
+      toast({
+        title: t('llm.testFailed', 'Error'),
+        description: 'User not initialized. Please restart the app.',
+        variant: 'destructive',
+      })
+      throw new Error('User not initialized')
+    }
+
     const updateData: Record<string, string> = {}
     if (providerId === 'openai') updateData.openai_api_key = apiKey
     if (providerId === 'anthropic') updateData.anthropic_api_key = apiKey
@@ -258,6 +330,14 @@ export default function LLMSection() {
   }
 
   const handleTestProvider = (providerId: string) => {
+    if (!user?.id && isElectronApp) {
+      toast({
+        title: t('llm.testFailed', 'Test Failed'),
+        description: 'User not initialized. Please restart the app.',
+        variant: 'destructive',
+      })
+      return
+    }
     setTestingProvider(providerId)
     setTestResult(null)
     testProviderMutation.mutate(providerId)
@@ -298,23 +378,6 @@ export default function LLMSection() {
         <p className="text-sm text-muted-foreground mt-1">{t('llm.description')}</p>
       </div>
 
-      {/* Web Mode Notice */}
-      {showDesktopDownloadNotice && (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            {t('llm.webModeNotice')}{' '}
-            <a
-              href="https://github.com/anthropics/autopolio/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline underline-offset-4 hover:text-primary"
-            >
-              {t('llm.downloadDesktop')}
-            </a>
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Current Selection Summary */}
       {isElectronApp && (
@@ -480,11 +543,13 @@ export default function LLMSection() {
                     key={provider.id}
                     provider={provider}
                     isSelected={selectedLLMProvider === provider.id}
+                    storedKey={getStoredKeyForProvider(provider.id)}
                     onSaveKey={handleSaveKey}
                     onValidateKey={handleValidateKey}
+                    onTestKey={handleTestKey}
                     onSelect={handleSelectProvider}
                     onModelChange={handleModelChange}
-                    onTest={() => handleTestProvider(provider.id)}
+                    onTestStored={() => handleTestProvider(provider.id)}
                     isTesting={testingProvider === provider.id}
                     isUpdating={updateConfigMutation.isPending}
                   />
@@ -495,27 +560,66 @@ export default function LLMSection() {
         </Tabs>
       )}
 
-      {/* Non-Electron fallback - just show desktop download notice */}
-      {!isElectronApp && showDesktopDownloadNotice && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-            <Terminal className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-medium mb-2">{t('llm.desktopRequired', 'Desktop App Required')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('llm.desktopRequiredDescription', 'CLI tools and API configuration are only available in the desktop app.')}
-            </p>
-            <Button asChild>
-              <a
-                href="https://github.com/anthropics/autopolio/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                {t('llm.downloadDesktop', 'Download Desktop App')}
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Web Mode - Show env-configured providers in read-only mode */}
+      {!isElectronApp && (
+        <div className="space-y-4">
+          {/* Info about web mode limitations */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              {t('llm.webModeInfo', 'In web mode, only LLM providers configured by the server administrator are available. Download the desktop app for full configuration options.')}
+            </AlertDescription>
+          </Alert>
+
+          {isLoadingConfig ? (
+            <>
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </>
+          ) : envConfiguredProviders.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {t('llm.availableProviders', 'Available LLM Providers (server-configured)')}
+              </p>
+              {envConfiguredProviders.map((provider) => (
+                <LLMProviderCard
+                  key={provider.id}
+                  provider={provider}
+                  isSelected={selectedLLMProvider === provider.id}
+                  onSaveKey={handleSaveKey}
+                  onValidateKey={handleValidateKey}
+                  onTestKey={handleTestKey}
+                  onSelect={handleSelectProvider}
+                  onModelChange={handleModelChange}
+                  onTestStored={() => handleTestProvider(provider.id)}
+                  isTesting={testingProvider === provider.id}
+                  isUpdating={updateConfigMutation.isPending}
+                  readOnly={true}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="font-medium mb-2">{t('llm.noProvidersConfigured', 'No LLM Providers Configured')}</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {t('llm.noProvidersDescription', 'The server administrator has not configured any LLM API keys. Please contact the administrator or use the desktop app.')}
+                </p>
+                <Button asChild variant="outline">
+                  <a
+                    href="https://github.com/anthropics/autopolio/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {t('llm.downloadDesktop', 'Download Desktop App')}
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   )

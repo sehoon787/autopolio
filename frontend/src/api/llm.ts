@@ -16,6 +16,8 @@ export interface LLMProvider {
   name: string
   description: string
   configured: boolean
+  env_configured: boolean  // Whether API key is set in server .env
+  user_configured: boolean // Whether API key is set by user
   is_primary: boolean
   models: string[]
   default_model: string
@@ -68,6 +70,17 @@ export interface CLITestResponse {
   output?: string
 }
 
+export interface LLMTestRequest {
+  api_key?: string
+  model?: string
+}
+
+export interface StoredAPIKeysResponse {
+  openai_api_key: string | null
+  anthropic_api_key: string | null
+  gemini_api_key: string | null
+}
+
 export interface LLMTestResponse {
   success: boolean
   provider: string
@@ -113,8 +126,28 @@ export const llmApi = {
     apiClient.post<CLITestResponse>(`/llm/cli/test/${cliType}`),
 
   // Test LLM provider
-  testProvider: (providerId: string, userId?: number) =>
-    apiClient.post<LLMTestResponse>(`/llm/test/${providerId}`, null, {
-      params: userId ? { user_id: userId } : undefined,
+  // api_key: directly test with this key (without saving)
+  // use_env: true for Web (use .env API keys), false for Electron (user-configured keys only)
+  testProvider: (providerId: string, options?: {
+    userId?: number
+    useEnv?: boolean
+    apiKey?: string
+    model?: string
+  }) => {
+    const { userId, useEnv = true, apiKey, model } = options || {}
+    const requestBody: LLMTestRequest | null = apiKey ? { api_key: apiKey, model } : null
+
+    return apiClient.post<LLMTestResponse>(`/llm/test/${providerId}`, requestBody, {
+      params: {
+        ...(userId ? { user_id: userId } : {}),
+        use_env: useEnv,
+      },
+    })
+  },
+
+  // Get stored (decrypted) API keys for the user (Electron/desktop only)
+  getStoredKeys: (userId: number) =>
+    apiClient.get<StoredAPIKeysResponse>('/llm/keys', {
+      params: { user_id: userId },
     }),
 }

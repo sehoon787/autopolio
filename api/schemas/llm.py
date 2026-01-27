@@ -22,7 +22,9 @@ class LLMProvider(BaseModel):
     id: str = Field(..., description="Provider identifier: 'openai', 'anthropic', 'gemini'")
     name: str = Field(..., description="Display name")
     description: str = Field("", description="Provider description")
-    configured: bool = Field(False, description="Whether API key is configured")
+    configured: bool = Field(False, description="Whether API key is configured (user or env)")
+    env_configured: bool = Field(False, description="Whether API key is set in server .env")
+    user_configured: bool = Field(False, description="Whether API key is set by user")
     is_primary: bool = Field(False, description="Whether this is the selected provider")
     models: List[str] = Field(default_factory=list, description="Available models")
     default_model: str = Field("", description="Default model for this provider")
@@ -83,6 +85,19 @@ class CLITestResponse(BaseModel):
     tool: str = Field(..., description="Tool that was tested")
     message: str = Field(..., description="Test result message")
     output: Optional[str] = Field(None, description="CLI output if any")
+
+
+class LLMTestRequest(BaseModel):
+    """Request to test an LLM provider with a specific API key."""
+    api_key: Optional[str] = Field(None, description="API key to test (if not provided, uses stored key)")
+    model: Optional[str] = Field(None, description="Model to use for testing")
+
+
+class StoredAPIKeysResponse(BaseModel):
+    """Response containing stored (decrypted) API keys for a user."""
+    openai_api_key: Optional[str] = Field(None, description="Stored OpenAI API key")
+    anthropic_api_key: Optional[str] = Field(None, description="Stored Anthropic API key")
+    gemini_api_key: Optional[str] = Field(None, description="Stored Gemini API key")
 
 
 class LLMTestResponse(BaseModel):

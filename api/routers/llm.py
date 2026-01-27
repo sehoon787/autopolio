@@ -19,13 +19,17 @@ from api.schemas.llm import (
     LLMProvider,
     LLMProviderInfo,
     CLITestResponse,
+    LLMTestRequest,
     LLMTestResponse,
+    StoredAPIKeysResponse,
 )
 from api.services.cli_service import get_cli_service
 from api.services.encryption_service import EncryptionService
+from api.config import get_settings
 
 router = APIRouter()
 encryption_service = EncryptionService()
+settings = get_settings()
 
 
 # Available LLM providers configuration
@@ -79,27 +83,42 @@ async def get_llm_config(
     # Build provider list with configuration status
     providers = []
     for provider_info in LLM_PROVIDERS:
-        configured = False
+        env_configured = False
+        user_configured = False
         selected_model = provider_info.default_model
         is_primary = provider_info.id == "openai"  # Default primary
 
+        # Check environment variable configuration (.env)
+        if provider_info.id == "openai":
+            env_configured = bool(settings.openai_api_key)
+        elif provider_info.id == "anthropic":
+            env_configured = bool(settings.anthropic_api_key)
+        elif provider_info.id == "gemini":
+            env_configured = bool(settings.gemini_api_key)
+
+        # Check user database configuration
         if user:
             if provider_info.id == "openai":
-                configured = user.openai_api_key_encrypted is not None
+                user_configured = user.openai_api_key_encrypted is not None
                 selected_model = user.openai_model or provider_info.default_model
             elif provider_info.id == "anthropic":
-                configured = user.anthropic_api_key_encrypted is not None
+                user_configured = user.anthropic_api_key_encrypted is not None
                 selected_model = user.anthropic_model or provider_info.default_model
             elif provider_info.id == "gemini":
-                configured = user.gemini_api_key_encrypted is not None
+                user_configured = user.gemini_api_key_encrypted is not None
                 selected_model = user.gemini_model or provider_info.default_model
             is_primary = user.preferred_llm == provider_info.id
+
+        # configured = either env or user configured
+        configured = env_configured or user_configured
 
         providers.append(LLMProvider(
             id=provider_info.id,
             name=provider_info.name,
             description=provider_info.description,
             configured=configured,
+            env_configured=env_configured,
+            user_configured=user_configured,
             is_primary=is_primary,
             models=provider_info.models,
             default_model=provider_info.default_model,
@@ -172,6 +191,47 @@ async def update_llm_config(
     return await get_llm_config(user_id=user_id, db=db)
 
 
+@router.get("/keys", response_model=StoredAPIKeysResponse)
+async def get_stored_keys(
+    user_id: int = Query(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get stored (decrypted) API keys for a user. Only for Electron/desktop apps."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Decrypt stored keys
+    openai_key = None
+    anthropic_key = None
+    gemini_key = None
+
+    if user.openai_api_key_encrypted:
+        try:
+            openai_key = encryption_service.decrypt(user.openai_api_key_encrypted)
+        except Exception:
+            pass
+
+    if user.anthropic_api_key_encrypted:
+        try:
+            anthropic_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
+        except Exception:
+            pass
+
+    if user.gemini_api_key_encrypted:
+        try:
+            gemini_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
+        except Exception:
+            pass
+
+    return StoredAPIKeysResponse(
+        openai_api_key=openai_key,
+        anthropic_api_key=anthropic_key,
+        gemini_api_key=gemini_key,
+    )
+
+
 @router.post("/validate/{provider}", response_model=APIKeyValidationResponse)
 async def validate_api_key(
     provider: str,
@@ -227,12 +287,12 @@ async def validate_api_key(
             )
 
         elif provider == "gemini":
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            # List models to validate
-            models = genai.list_models()
-            # Force evaluation
-            list(models)
+            from google import genai
+            client = genai.Client(api_key=api_key)
+            # List models to validate the API key
+            models = client.models.list()
+            # Force evaluation by accessing the result
+            _ = list(models)
 
         return APIKeyValidationResponse(
             valid=True,
@@ -382,54 +442,73 @@ async def test_cli(cli_type: str):
 @router.post("/test/{provider}", response_model=LLMTestResponse)
 async def test_provider(
     provider: str,
+    request: LLMTestRequest = None,
     user_id: int = Query(None),
+    use_env: bool = Query(True, description="Whether to fall back to .env API keys (False for Electron)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Test an LLM provider by making a simple API call."""
+    """Test an LLM provider by making a simple API call.
+
+    If api_key is provided in request body, it will be used directly.
+    Otherwise, falls back to stored user key or environment variables.
+    """
     if provider not in ["openai", "anthropic", "gemini"]:
         raise HTTPException(status_code=400, detail="Invalid provider")
 
-    # Get user's API key
-    user = None
+    # Default model based on provider
+    default_models = {
+        "openai": "gpt-4-turbo-preview",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "gemini": "gemini-2.0-flash",
+    }
+
+    # Priority 1: Use API key from request body (for direct testing without saving)
     api_key = None
     model = None
 
-    if user_id:
+    if request and request.api_key:
+        api_key = request.api_key.strip()
+        model = request.model or default_models.get(provider)
+
+    # Priority 2: Get user's stored API key from database
+    if not api_key and user_id:
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
-    if user:
-        if provider == "openai":
-            if user.openai_api_key_encrypted:
-                api_key = encryption_service.decrypt(user.openai_api_key_encrypted)
-            model = user.openai_model or "gpt-4-turbo-preview"
-        elif provider == "anthropic":
-            if user.anthropic_api_key_encrypted:
-                api_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
-            model = user.anthropic_model or "claude-3-5-sonnet-20241022"
-        elif provider == "gemini":
-            if user.gemini_api_key_encrypted:
-                api_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
-            model = user.gemini_model or "gemini-2.0-flash"
+        if user:
+            if provider == "openai":
+                if user.openai_api_key_encrypted:
+                    api_key = encryption_service.decrypt(user.openai_api_key_encrypted)
+                model = model or user.openai_model or default_models["openai"]
+            elif provider == "anthropic":
+                if user.anthropic_api_key_encrypted:
+                    api_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
+                model = model or user.anthropic_model or default_models["anthropic"]
+            elif provider == "gemini":
+                if user.gemini_api_key_encrypted:
+                    api_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
+                model = model or user.gemini_model or default_models["gemini"]
 
-    # Fall back to environment variables
-    if not api_key:
-        import os
+    # Priority 3: Fall back to settings (environment variables) only if use_env is True (Web mode)
+    if not api_key and use_env:
         if provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-            model = model or os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
+            api_key = settings.openai_api_key or None
+            model = model or settings.openai_model
         elif provider == "anthropic":
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            model = model or os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+            api_key = settings.anthropic_api_key or None
+            model = model or settings.anthropic_model
         elif provider == "gemini":
-            api_key = os.getenv("GEMINI_API_KEY")
-            model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            api_key = settings.gemini_api_key or None
+            model = model or settings.gemini_model
+
+    # Ensure model is set
+    model = model or default_models.get(provider, "unknown")
 
     if not api_key:
         return LLMTestResponse(
             success=False,
             provider=provider,
-            model=model or "unknown",
+            model=model,
             response=f"No API key configured for {provider}",
         )
 
@@ -467,10 +546,12 @@ async def test_provider(
             )
 
         elif provider == "gemini":
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            gen_model = genai.GenerativeModel(model)
-            response = await gen_model.generate_content_async(test_prompt)
+            from google import genai
+            client = genai.Client(api_key=api_key)
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=test_prompt,
+            )
             return LLMTestResponse(
                 success=True,
                 provider=provider,
