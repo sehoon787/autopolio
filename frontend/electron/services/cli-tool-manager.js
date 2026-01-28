@@ -11,7 +11,7 @@
  * - Improved Windows .cmd handling
  * - Detailed debug logging
  */
-import { exec, execFile } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
@@ -101,15 +101,24 @@ export class CLIToolManager {
             };
         }
         try {
-            // Run --version to verify the CLI works
-            const result = await this.executeCLI(status.path, ['--version']);
+            // Send a real prompt to test the CLI works end-to-end (like API provider test)
+            const testPrompt = "Say hello and confirm you are working.";
+            const args = ['-p', testPrompt, '--output-format', 'json'];
+            const CLI_TEST_TIMEOUT = 60_000; // 60s for LLM response
+            const result = await this.executeCLI(status.path, args, CLI_TEST_TIMEOUT);
+            const rawOutput = result.stdout.trim();
+            // Parse JSON output for content and tokens
+            const { content, tokens } = this.parseTestOutput(rawOutput, tool);
+            debugLog(`CLI test output: ${content.substring(0, 200)}`);
+            debugLog(`CLI test tokens: ${tokens}`);
             return {
                 success: true,
                 tool,
-                message: `${this.getConfig(tool).name} is working correctly`,
+                message: content || `${this.getConfig(tool).name} is working correctly`,
                 version: status.version || undefined,
                 path: status.path,
-                output: result.stdout.trim(),
+                output: content,
+                tokens,
             };
         }
         catch (error) {
@@ -122,6 +131,36 @@ export class CLIToolManager {
                 path: status.path,
                 error: this.classifyError(errorMessage),
             };
+        }
+    }
+    /**
+     * Parse JSON output from CLI test to extract content and token count.
+     */
+    parseTestOutput(raw, tool) {
+        try {
+            const data = JSON.parse(raw);
+            if (typeof data !== 'object' || data === null) {
+                return { content: raw, tokens: 0 };
+            }
+            if (tool === 'claude_code' && 'result' in data) {
+                const content = typeof data.result === 'string' ? data.result : String(data.result);
+                const usage = data.usage || {};
+                const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
+                return { content, tokens };
+            }
+            if ('response' in data) {
+                const content = typeof data.response === 'string' ? data.response : String(data.response);
+                const models = data.stats?.models || {};
+                let tokens = 0;
+                for (const modelData of Object.values(models)) {
+                    tokens += modelData.tokens?.total || 0;
+                }
+                return { content, tokens };
+            }
+            return { content: raw, tokens: 0 };
+        }
+        catch {
+            return { content: raw, tokens: 0 };
         }
     }
     /**
@@ -507,35 +546,46 @@ export class CLIToolManager {
     /**
      * Execute CLI command with proper handling for .cmd/.bat files
      */
-    async executeCLI(cliPath, args) {
+    async executeCLI(cliPath, args, timeout = COMMAND_TIMEOUT) {
         const augmentedEnv = getAugmentedEnv([path.dirname(cliPath)]);
-        const needsShell = isWindows &&
+        const isCmdFile = isWindows &&
             (cliPath.toLowerCase().endsWith('.cmd') || cliPath.toLowerCase().endsWith('.bat'));
         debugLog(`Executing CLI: ${cliPath} with args: ${args.join(' ')}`);
-        if (needsShell) {
-            // Windows .cmd/.bat: Use shell execution
-            // Quote the path if it contains spaces, args are passed as-is
-            const quotedPath = cliPath.includes(' ') ? `"${cliPath}"` : cliPath;
-            const fullCommand = `${quotedPath} ${args.join(' ')}`;
-            debugLog(`Windows shell command: ${fullCommand}`);
-            // Use exec with shell: true for proper .cmd execution
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await execAsync(fullCommand, {
-                timeout: COMMAND_TIMEOUT,
-                env: augmentedEnv,
-                shell: true,
-                encoding: 'utf8',
+        if (isCmdFile) {
+            // Windows .cmd/.bat: build a single shell command string with manually
+            // quoted args, then run via spawn(shell:true, stdio:['ignore',...]).
+            // - exec() hangs because CLI tools wait for stdin when no TTY is attached.
+            // - spawn(cliPath, argsArray, {shell:true}) joins args with spaces,
+            //   splitting space-containing prompts into separate words.
+            // - Using a pre-quoted command string + stdio:['ignore'] solves both.
+            const escapedArgs = args.map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+            const command = `"${cliPath}" ${escapedArgs}`;
+            debugLog(`Executing via spawn shell: ${command}`);
+            return new Promise((resolve, reject) => {
+                const child = spawn(command, {
+                    shell: true,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    timeout,
+                    env: augmentedEnv,
+                    windowsHide: true,
+                });
+                let stdout = '';
+                let stderr = '';
+                child.stdout.on('data', (data) => { stdout += data.toString(); });
+                child.stderr.on('data', (data) => { stderr += data.toString(); });
+                child.on('close', (code) => {
+                    if (code === 0)
+                        resolve({ stdout, stderr });
+                    else
+                        reject(new Error(`Command failed (exit ${code}): ${command}\n${stderr}`));
+                });
+                child.on('error', reject);
             });
-            debugLog(`Shell execution success, stdout length: ${result.stdout.length}`);
-            return result;
         }
-        else {
-            // Direct execution for native executables
-            return execFileAsync(cliPath, args, {
-                timeout: COMMAND_TIMEOUT,
-                env: augmentedEnv,
-            });
-        }
+        return execFileAsync(cliPath, args, {
+            timeout,
+            env: augmentedEnv,
+        });
     }
     /**
      * Validate CLI and get version
