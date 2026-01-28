@@ -40,6 +40,30 @@ const getPidFilePath = () => path.join(app.getPath('userData'), 'backend.pid')
 // Main window reference
 let mainWindow: BrowserWindow | null = null
 
+// Cached CLI status (prefetched at app start)
+let cachedCLIStatus: { claude: any | null; gemini: any | null } = { claude: null, gemini: null }
+
+/**
+ * Prefetch CLI status in background at app startup.
+ * Results are cached and served instantly by IPC handlers.
+ */
+async function prefetchCLIStatus(): Promise<void> {
+  try {
+    const manager = getCLIToolManager()
+    const [claude, gemini] = await Promise.all([
+      manager.detectCLI('claude_code').catch(() => null),
+      manager.detectCLI('gemini_cli').catch(() => null),
+    ])
+    cachedCLIStatus = { claude, gemini }
+    console.log('[Main] CLI status prefetched:', {
+      claude: claude?.installed ?? 'error',
+      gemini: gemini?.installed ?? 'error',
+    })
+  } catch (error) {
+    console.error('[Main] CLI status prefetch failed:', error)
+  }
+}
+
 // Determine if we're in development mode
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
@@ -431,9 +455,13 @@ ipcMain.handle('get-user-data-path', () => app.getPath('userData'))
 ipcMain.handle('get-claude-cli-status', async () => {
   console.log('[IPC] get-claude-cli-status called')
   try {
+    if (cachedCLIStatus.claude) {
+      console.log('[IPC] get-claude-cli-status returning cached result')
+      return cachedCLIStatus.claude
+    }
     const manager = getCLIToolManager()
-    console.log('[IPC] CLIToolManager instance obtained')
     const result = await manager.detectCLI('claude_code')
+    cachedCLIStatus.claude = result
     console.log('[IPC] get-claude-cli-status result:', JSON.stringify(result, null, 2))
     return result
   } catch (error) {
@@ -461,9 +489,13 @@ ipcMain.handle('get-claude-cli-status', async () => {
 ipcMain.handle('get-gemini-cli-status', async () => {
   console.log('[IPC] get-gemini-cli-status called')
   try {
+    if (cachedCLIStatus.gemini) {
+      console.log('[IPC] get-gemini-cli-status returning cached result')
+      return cachedCLIStatus.gemini
+    }
     const manager = getCLIToolManager()
-    console.log('[IPC] CLIToolManager instance obtained')
     const result = await manager.detectCLI('gemini_cli')
+    cachedCLIStatus.gemini = result
     console.log('[IPC] get-gemini-cli-status result:', JSON.stringify(result, null, 2))
     return result
   } catch (error) {
@@ -488,8 +520,13 @@ ipcMain.handle('get-gemini-cli-status', async () => {
 ipcMain.handle('refresh-cli-status', async () => {
   console.log('[IPC] refresh-cli-status called')
   try {
+    // Clear cache so fresh detection runs
+    cachedCLIStatus = { claude: null, gemini: null }
     const manager = getCLIToolManager()
     const result = await manager.refreshAll()
+    // Re-populate cache from fresh results
+    if (result.claude_code) cachedCLIStatus.claude = result.claude_code
+    if (result.gemini_cli) cachedCLIStatus.gemini = result.gemini_cli
     console.log('[IPC] refresh-cli-status result:', result)
     return result
   } catch (error) {
@@ -693,6 +730,9 @@ app.whenReady().then(async () => {
     console.log('[Main] Backend initialization complete')
     createWindow()
     console.log('[Main] Window created')
+
+    // Fire-and-forget: prefetch CLI status in background
+    prefetchCLIStatus()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

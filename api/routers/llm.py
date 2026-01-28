@@ -521,7 +521,7 @@ async def test_provider(
         )
 
     try:
-        test_prompt = "Say 'Hello, I am working!' in one sentence."
+        test_prompt = "Reply with only 'OK' and nothing else."
 
         if provider == "openai":
             from openai import AsyncOpenAI

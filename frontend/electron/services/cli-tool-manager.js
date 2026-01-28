@@ -102,7 +102,7 @@ export class CLIToolManager {
         }
         try {
             // Send a real prompt to test the CLI works end-to-end (like API provider test)
-            const testPrompt = "Say hello and confirm you are working.";
+            const testPrompt = "Reply with only 'OK' and nothing else.";
             const args = ['-p', testPrompt, '--output-format', 'json'];
             if (model) {
                 args.push('--model', model);
