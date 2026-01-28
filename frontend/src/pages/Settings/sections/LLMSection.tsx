@@ -307,14 +307,8 @@ export default function LLMSection() {
         token_usage: data.token_usage,
       })
 
-      // Track API test token usage
-      const providerKey = data.provider as keyof LLMUsage
-      if (['openai', 'anthropic', 'gemini'].includes(data.provider)) {
-        useUsageStore.getState().incrementLLMCallCount(providerKey)
-        if (data.token_usage && data.token_usage > 0) {
-          useUsageStore.getState().trackTokenUsage(providerKey, data.token_usage)
-        }
-      }
+      // Note: Usage tracking is handled automatically by the response interceptor in client.ts
+      // Do NOT manually increment here to avoid double-counting
 
       setTestResult({ type: 'success', message: data.response || 'LLM Provider is working!' })
       toast({

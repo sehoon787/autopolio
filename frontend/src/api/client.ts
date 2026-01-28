@@ -45,28 +45,18 @@ apiClient.interceptors.response.use(
     const explicitProvider = response.data?.provider
     const tokenUsage = response.data?.token_usage ?? response.data?.usage
 
-    if (explicitProvider) {
-      const store = useUsageStore.getState()
-      const providerKey = explicitProvider as 'openai' | 'anthropic' | 'gemini'
+    // Only track usage when token_usage is present (indicates actual LLM call, not validation/status checks)
+    if (tokenUsage !== undefined && tokenUsage !== null) {
+      const providerKey = explicitProvider
+        ? (explicitProvider as 'openai' | 'anthropic' | 'gemini')
+        : (detectProviderFromUrl(response.config.url) as 'openai' | 'anthropic' | 'gemini' | null)
 
-      console.debug('[Usage Tracking]', { url: response.config.url, provider: providerKey, tokenUsage })
-
-      // Always count the call
-      store.incrementLLMCallCount(providerKey)
-
-      // Track tokens if available
-      if (typeof tokenUsage === 'number' && tokenUsage > 0) {
-        store.trackTokenUsage(providerKey, tokenUsage)
-      } else if (typeof tokenUsage === 'object' && tokenUsage.total_tokens) {
-        store.trackTokenUsage(providerKey, tokenUsage.total_tokens)
-      }
-    } else if (tokenUsage !== undefined && tokenUsage !== null) {
-      // No explicit provider but has token_usage — use URL detection as fallback
-      const provider = detectProviderFromUrl(response.config.url)
-      if (provider) {
+      if (providerKey) {
         const store = useUsageStore.getState()
-        const providerKey = provider as 'openai' | 'anthropic' | 'gemini'
+        console.debug('[Usage Tracking]', { url: response.config.url, provider: providerKey, tokenUsage })
+
         store.incrementLLMCallCount(providerKey)
+
         if (typeof tokenUsage === 'number' && tokenUsage > 0) {
           store.trackTokenUsage(providerKey, tokenUsage)
         } else if (typeof tokenUsage === 'object' && tokenUsage.total_tokens) {
