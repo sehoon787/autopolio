@@ -78,7 +78,6 @@ function App() {
         console.log('[App] Creating default desktop user...')
         const response = await usersApi.create({
           name: 'Desktop User',
-          email: 'user@desktop.local',
         })
 
         if (response.data && response.data.id) {
