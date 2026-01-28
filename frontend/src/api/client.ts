@@ -41,27 +41,43 @@ apiClient.interceptors.request.use((config) => {
 // Response interceptor for usage tracking and rate limit detection
 apiClient.interceptors.response.use(
   (response) => {
-    // Track API call
-    useUsageStore.getState().incrementApiCall()
+    // Track usage based on provider in response (CLI/API agnostic)
+    const explicitProvider = response.data?.provider
+    const tokenUsage = response.data?.token_usage ?? response.data?.usage
 
-    // Track token usage if present in response
-    const tokenUsage = response.data?.token_usage || response.data?.usage
-    if (tokenUsage) {
-      const provider = response.data?.provider || detectProviderFromUrl(response.config.url)
-      if (provider && typeof tokenUsage === 'number') {
-        useUsageStore.getState().trackTokenUsage(provider as 'openai' | 'anthropic' | 'gemini', tokenUsage)
-      } else if (tokenUsage.total_tokens) {
-        const providerKey = provider || 'openai'
-        useUsageStore.getState().trackTokenUsage(providerKey as 'openai' | 'anthropic' | 'gemini', tokenUsage.total_tokens)
+    if (explicitProvider) {
+      const store = useUsageStore.getState()
+      const providerKey = explicitProvider as 'openai' | 'anthropic' | 'gemini'
+
+      console.debug('[Usage Tracking]', { url: response.config.url, provider: providerKey, tokenUsage })
+
+      // Always count the call
+      store.incrementLLMCallCount(providerKey)
+
+      // Track tokens if available
+      if (typeof tokenUsage === 'number' && tokenUsage > 0) {
+        store.trackTokenUsage(providerKey, tokenUsage)
+      } else if (typeof tokenUsage === 'object' && tokenUsage.total_tokens) {
+        store.trackTokenUsage(providerKey, tokenUsage.total_tokens)
+      }
+    } else if (tokenUsage !== undefined && tokenUsage !== null) {
+      // No explicit provider but has token_usage — use URL detection as fallback
+      const provider = detectProviderFromUrl(response.config.url)
+      if (provider) {
+        const store = useUsageStore.getState()
+        const providerKey = provider as 'openai' | 'anthropic' | 'gemini'
+        store.incrementLLMCallCount(providerKey)
+        if (typeof tokenUsage === 'number' && tokenUsage > 0) {
+          store.trackTokenUsage(providerKey, tokenUsage)
+        } else if (typeof tokenUsage === 'object' && tokenUsage.total_tokens) {
+          store.trackTokenUsage(providerKey, tokenUsage.total_tokens)
+        }
       }
     }
 
     return response
   },
   (error) => {
-    // Track API call even on error
-    useUsageStore.getState().incrementApiCall()
-
     // Handle connection refused error (backend crash/restart)
     if (error.code === 'ERR_CONNECTION_REFUSED' || error.code === 'ECONNREFUSED') {
       console.error('[API Client] Backend connection refused. Server may be restarting...')

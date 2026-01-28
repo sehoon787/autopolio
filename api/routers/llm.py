@@ -356,6 +356,8 @@ async def test_cli(cli_type: str):
     if cli_type not in ["claude_code", "gemini_cli"]:
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
+    provider_map = {"claude_code": "anthropic", "gemini_cli": "gemini"}
+    mapped_provider = provider_map[cli_type]
     cli_service = get_cli_service()
 
     try:
@@ -366,6 +368,7 @@ async def test_cli(cli_type: str):
                     success=False,
                     tool=cli_type,
                     message="Claude Code CLI is not installed",
+                    provider=mapped_provider,
                 )
             # Test by getting version
             cli_path = status["path"]
@@ -391,6 +394,7 @@ async def test_cli(cli_type: str):
                 tool=cli_type,
                 message=f"Claude Code CLI is working! Version: {status.get('version', 'unknown')}",
                 output=output,
+                provider=mapped_provider,
             )
         else:  # gemini_cli
             status = await cli_service.detect_gemini_cli()
@@ -399,6 +403,7 @@ async def test_cli(cli_type: str):
                     success=False,
                     tool=cli_type,
                     message="Gemini CLI is not installed",
+                    provider=mapped_provider,
                 )
             # Test by getting version
             cli_path = status["path"]
@@ -424,18 +429,21 @@ async def test_cli(cli_type: str):
                 tool=cli_type,
                 message=f"Gemini CLI is working! Version: {status.get('version', 'unknown')}",
                 output=output,
+                provider=mapped_provider,
             )
     except asyncio.TimeoutError:
         return CLITestResponse(
             success=False,
             tool=cli_type,
             message="CLI test timed out",
+            provider=mapped_provider,
         )
     except Exception as e:
         return CLITestResponse(
             success=False,
             tool=cli_type,
             message=f"CLI test failed: {str(e)}",
+            provider=mapped_provider,
         )
 
 

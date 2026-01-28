@@ -26,6 +26,7 @@ import { CLIStatusCard } from '@/components/CLIStatusCard'
 import { LLMProviderCard } from '@/components/LLMProviderCard'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import { useAppStore } from '@/stores/appStore'
+import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import {
   getClaudeCLIStatus,
   getGeminiCLIStatus,
@@ -205,15 +206,40 @@ export default function LLMSection() {
       const response = await llmApi.testCLI(cliType)
       return response.data
     },
-    onSuccess: (data) => {
+    onSuccess: (data, cliType) => {
       const message = data.message || 'CLI is working!'
+
+      // Map CLI type to provider for usage tracking
+      const providerMap: Record<string, keyof LLMUsage> = {
+        claude_code: 'claude_code_cli',
+        gemini_cli: 'gemini_cli',
+      }
+      const toolKey = String(data.tool || cliType)
+      const provider = providerMap[toolKey]
+      if (provider) {
+        useUsageStore.getState().incrementLLMCallCount(provider)
+        if (data.tokens && data.tokens > 0) {
+          useUsageStore.getState().trackTokenUsage(provider, data.tokens)
+        }
+      }
+
+      console.debug('[CLI Test Success]', {
+        tool: data.tool,
+        provider,
+        success: data.success,
+        message: data.message,
+        output: data.output,
+        tokens: data.tokens,
+      })
+
       setTestResult({ type: 'success', message })
       toast({
         title: t('llm.testSuccess', 'Test Successful'),
         description: message,
       })
     },
-    onError: (error: Error) => {
+    onError: (error: Error, cliType) => {
+      console.debug('[CLI Test Error]', { cliType, error: error.message })
       setTestResult({ type: 'error', message: error.message })
       toast({
         title: t('llm.testFailed', 'Test Failed'),

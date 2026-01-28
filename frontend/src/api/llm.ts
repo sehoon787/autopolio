@@ -69,6 +69,9 @@ export interface CLITestResponse {
   tool: string
   message: string
   output?: string
+  provider?: string
+  token_usage?: number
+  tokens?: number
 }
 
 export interface LLMTestRequest {

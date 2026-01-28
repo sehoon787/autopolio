@@ -744,6 +744,22 @@ portfolio/
   ```
 - 사용자가 별도로 요청하지 않아도 수정 완료 시 자동으로 수행
 
+### E2E 테스트 규칙 ⚠️ 필수
+- **프론트엔드/백엔드 테스트 시 반드시 Docker로 진행**
+- 브라우저 테스트 전에 Docker 재빌드 및 `docker-compose up -d` 실행
+- 로컬 dev 서버(vite dev, uvicorn)가 아닌 Docker 컨테이너에서 테스트
+- 테스트 절차:
+  ```bash
+  # 1. Docker 재빌드
+  docker-compose build
+
+  # 2. 컨테이너 시작
+  docker-compose up -d
+
+  # 3. 브라우저에서 테스트 진행
+  # http://localhost:5173 (또는 Docker 설정에 따른 포트)
+  ```
+
 ---
 
 ## 접속 정보

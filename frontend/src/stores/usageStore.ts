@@ -1,60 +1,38 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-interface LLMUsage {
+export interface LLMUsage {
   openai: number
   anthropic: number
   gemini: number
+  claude_code_cli: number
+  gemini_cli: number
 }
 
 interface UsageState {
-  // Daily API call tracking
-  dailyApiCalls: number
   lastResetDate: string
-
-  // LLM token usage
   llmTokensUsed: LLMUsage
+  llmCallCount: LLMUsage
 
-  // Session stats
-  sessionApiCalls: number
-  sessionStartTime: number
-
-  // Actions
-  incrementApiCall: () => void
   trackTokenUsage: (provider: keyof LLMUsage, tokens: number) => void
+  incrementLLMCallCount: (provider: keyof LLMUsage) => void
   resetDailyIfNeeded: () => void
-  getUsageStats: () => {
-    dailyApiCalls: number
-    sessionApiCalls: number
-    llmTokensUsed: LLMUsage
-    sessionDuration: number
-  }
+  getTokensForProvider: (provider: keyof LLMUsage) => number
+  getLLMCallCount: (provider: keyof LLMUsage) => number
 }
 
 function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+const emptyLLM: LLMUsage = { openai: 0, anthropic: 0, gemini: 0, claude_code_cli: 0, gemini_cli: 0 }
+
 export const useUsageStore = create<UsageState>()(
   persist(
     (set, get) => ({
-      dailyApiCalls: 0,
       lastResetDate: getTodayDateString(),
-      llmTokensUsed: {
-        openai: 0,
-        anthropic: 0,
-        gemini: 0,
-      },
-      sessionApiCalls: 0,
-      sessionStartTime: Date.now(),
-
-      incrementApiCall: () => {
-        get().resetDailyIfNeeded()
-        set((state) => ({
-          dailyApiCalls: state.dailyApiCalls + 1,
-          sessionApiCalls: state.sessionApiCalls + 1,
-        }))
-      },
+      llmTokensUsed: { ...emptyLLM },
+      llmCallCount: { ...emptyLLM },
 
       trackTokenUsage: (provider, tokens) => {
         get().resetDailyIfNeeded()
@@ -66,40 +44,61 @@ export const useUsageStore = create<UsageState>()(
         }))
       },
 
+      incrementLLMCallCount: (provider) => {
+        get().resetDailyIfNeeded()
+        set((state) => ({
+          llmCallCount: {
+            ...state.llmCallCount,
+            [provider]: state.llmCallCount[provider] + 1,
+          },
+        }))
+      },
+
       resetDailyIfNeeded: () => {
         const today = getTodayDateString()
         const { lastResetDate } = get()
 
         if (lastResetDate !== today) {
           set({
-            dailyApiCalls: 0,
             lastResetDate: today,
-            llmTokensUsed: {
-              openai: 0,
-              anthropic: 0,
-              gemini: 0,
-            },
+            llmTokensUsed: { ...emptyLLM },
+            llmCallCount: { ...emptyLLM },
           })
         }
       },
 
-      getUsageStats: () => {
+      getTokensForProvider: (provider) => {
         const state = get()
         state.resetDailyIfNeeded()
-        return {
-          dailyApiCalls: state.dailyApiCalls,
-          sessionApiCalls: state.sessionApiCalls,
-          llmTokensUsed: state.llmTokensUsed,
-          sessionDuration: Math.floor((Date.now() - state.sessionStartTime) / 1000 / 60), // minutes
-        }
+        return state.llmTokensUsed[provider] || 0
+      },
+
+      getLLMCallCount: (provider) => {
+        const state = get()
+        state.resetDailyIfNeeded()
+        return state.llmCallCount[provider] || 0
       },
     }),
     {
       name: 'usage-storage',
+      version: 4,
+      migrate: (persisted: unknown, version: number) => {
+        const state = (persisted || {}) as Record<string, unknown>
+        if (version < 4) {
+          const oldTokens = (state.llmTokensUsed || {}) as Record<string, number>
+          const oldCalls = (state.llmCallCount || {}) as Record<string, number>
+          return {
+            lastResetDate: (state.lastResetDate as string) || getTodayDateString(),
+            llmTokensUsed: { ...emptyLLM, ...oldTokens },
+            llmCallCount: { ...emptyLLM, ...oldCalls },
+          }
+        }
+        return state
+      },
       partialize: (state) => ({
-        dailyApiCalls: state.dailyApiCalls,
         lastResetDate: state.lastResetDate,
         llmTokensUsed: state.llmTokensUsed,
+        llmCallCount: state.llmCallCount,
       }),
     }
   )

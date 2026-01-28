@@ -86,6 +86,8 @@ class CLITestResponse(BaseModel):
     tool: str = Field(..., description="Tool that was tested")
     message: str = Field(..., description="Test result message")
     output: Optional[str] = Field(None, description="CLI output if any")
+    provider: Optional[str] = Field(None, description="Mapped provider for usage tracking")
+    token_usage: int = Field(default=0, description="Token usage (always 0 for CLI)")
 
 
 class LLMTestRequest(BaseModel):

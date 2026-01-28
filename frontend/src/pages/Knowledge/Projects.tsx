@@ -31,6 +31,10 @@ import {
 } from '@/components/ui/collapsible'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
+import { useAppStore } from '@/stores/appStore'
+import { useUsageStore } from '@/stores/usageStore'
+import { generateWithCLI } from '@/services/cliLLMService'
+import { isElectron } from '@/lib/electron'
 import { projectsApi, companiesApi, ProjectCreate, ProjectFilters, Project } from '@/api/knowledge'
 import { githubApi, GitHubRepo } from '@/api/github'
 import {
@@ -269,28 +273,85 @@ export default function ProjectsPage() {
     }
   }
 
-  // Handle AI description generation
+  // Handle AI description generation (API or CLI mode)
   const handleGenerateAI = async () => {
     if (!user?.id || !formData.git_url) {
       toast({ title: t('gitUrlRequired'), variant: 'destructive' })
       return
     }
 
+    const { aiMode, selectedCLI } = useAppStore.getState()
+    const useCli = aiMode === 'cli' && isElectron()
+
     setIsGeneratingAI(true)
     try {
-      const response = await githubApi.generateDescription(user.id, formData.git_url)
-      const data = response.data
+      if (useCli) {
+        // CLI mode: generate via CLI tool
+        const cli = selectedCLI as 'claude_code' | 'gemini_cli'
+        const prompt = (
+          `Analyze this GitHub repository and generate a project description for a resume/portfolio.\n` +
+          `Repository URL: ${formData.git_url}\n` +
+          `Project name: ${formData.name || 'Unknown'}\n\n` +
+          `Return JSON with: { "short_description": "...", "description": "...", "technologies": ["..."] }`
+        )
 
-      setFormData((prev) => ({
-        ...prev,
-        short_description: data.short_description || prev.short_description,
-        description: data.description || prev.description,
-        technologies: data.technologies?.length > 0
-          ? [...new Set([...(prev.technologies || []), ...data.technologies])]
-          : prev.technologies,
-      }))
+        const result = await generateWithCLI(prompt, cli)
 
-      toast({ title: t('aiGenerated') })
+        if (!result.success) {
+          // CLI failed — suggest API fallback
+          toast({
+            title: t('aiGenerateError'),
+            description: `CLI failed: ${result.error}. Try switching to API mode.`,
+            variant: 'destructive',
+          })
+          return
+        }
+
+        // Track CLI call and tokens
+        const providerKey = cli === 'claude_code' ? 'anthropic' : 'gemini'
+        useUsageStore.getState().incrementLLMCallCount(providerKey as 'openai' | 'anthropic' | 'gemini')
+        if (result.tokens && result.tokens > 0) {
+          useUsageStore.getState().trackTokenUsage(providerKey as 'openai' | 'anthropic' | 'gemini', result.tokens)
+        }
+
+        // Try to parse JSON from CLI output
+        let parsed: Record<string, unknown> = {}
+        try {
+          const jsonMatch = result.content.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0])
+          }
+        } catch {
+          // Use raw output as description
+          parsed = { description: result.content }
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          short_description: (parsed.short_description as string) || prev.short_description,
+          description: (parsed.description as string) || prev.description,
+          technologies: Array.isArray(parsed.technologies) && parsed.technologies.length > 0
+            ? [...new Set([...(prev.technologies || []), ...(parsed.technologies as string[])])]
+            : prev.technologies,
+        }))
+
+        toast({ title: t('aiGenerated') })
+      } else {
+        // API mode: existing HTTP API
+        const response = await githubApi.generateDescription(user.id, formData.git_url)
+        const data = response.data
+
+        setFormData((prev) => ({
+          ...prev,
+          short_description: data.short_description || prev.short_description,
+          description: data.description || prev.description,
+          technologies: data.technologies?.length > 0
+            ? [...new Set([...(prev.technologies || []), ...data.technologies])]
+            : prev.technologies,
+        }))
+
+        toast({ title: t('aiGenerated') })
+      }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.detail || t('aiGenerateFailed')
       toast({ title: t('aiGenerateError'), description: errorMessage, variant: 'destructive' })

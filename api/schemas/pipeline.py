@@ -34,6 +34,7 @@ class PipelineRunRequest(BaseModel):
     # LLM settings
     llm_provider: Optional[str] = None  # Override user preference
     summary_style: str = "professional"  # professional, casual, technical
+    cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli' for CLI execution
 
 
 class PipelineStatusResponse(BaseModel):
@@ -64,3 +65,5 @@ class PipelineResultResponse(BaseModel):
     steps_completed: int
     projects_processed: int
     llm_tokens_used: Optional[int] = None
+    llm_execution_mode: Optional[str] = None  # "cli" or "api"
+    llm_cli_type: Optional[str] = None  # "claude_code" or "gemini_cli"

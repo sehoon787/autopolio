@@ -35,6 +35,7 @@ export interface CLITestResult {
   version?: string
   path?: string
   output?: string
+  tokens?: number
   error?: CLIError
 }
 

@@ -26,6 +26,7 @@ from api.models.achievement import ProjectAchievement
 from api.services.task_service import TaskService
 from api.services.github_service import GitHubService
 from api.services.llm_service import LLMService
+from api.services.cli_llm_service import CLILLMService
 from api.services.document_service import DocumentService
 from api.services.encryption_service import EncryptionService
 from api.services.achievement_service import AchievementService
@@ -114,6 +115,7 @@ class PipelineService:
             llm_provider = request.llm_provider or (user.preferred_llm if user else None)
 
             # Complete the job
+            cli_mode = getattr(request, 'cli_mode', None)
             output_data = {
                 "document_id": document.id,
                 "document_name": document.document_name,
@@ -123,7 +125,9 @@ class PipelineService:
                 "generation_time_seconds": round(generation_time, 2),
                 "projects_processed": len(request.project_ids),
                 "llm_tokens_used": llm_tokens,
-                "llm_provider": llm_provider
+                "llm_provider": llm_provider,
+                "llm_execution_mode": "cli" if cli_mode else "api",
+                "llm_cli_type": cli_mode if cli_mode else None,
             }
 
             await self.task_service.complete_job(task_id, output_data)
@@ -389,9 +393,13 @@ class PipelineService:
             return results, 0
 
         try:
-            # Initialize LLM service
+            # Initialize LLM service (API or CLI)
             provider = request.llm_provider or user.preferred_llm
-            llm_service = LLMService(provider)
+            cli_mode = getattr(request, 'cli_mode', None)
+            if cli_mode:
+                llm_service = CLILLMService(cli_mode)
+            else:
+                llm_service = LLMService(provider)
 
             # Get projects
             projects_result = await self.db.execute(
