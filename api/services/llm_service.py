@@ -48,6 +48,8 @@ class OpenAIProvider(BaseLLMProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        print(f"[OpenAI] Request: model={self.model}, max_tokens={max_tokens}, temperature={temperature}", flush=True)
+
         response = await client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -57,6 +59,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         content = response.choices[0].message.content
         total_tokens = response.usage.total_tokens if response.usage else 0
+        print(f"[OpenAI] Response: tokens={total_tokens}, length={len(content or '')} chars", flush=True)
         return content, total_tokens
 
 
@@ -87,10 +90,15 @@ class AnthropicProvider(BaseLLMProvider):
         if system_prompt:
             kwargs["system"] = system_prompt
 
+        print(f"[Anthropic] Request: model={self.model}, max_tokens={max_tokens}", flush=True)
+
         response = await client.messages.create(**kwargs)
 
         content = response.content[0].text
         total_tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+        in_tokens = getattr(response.usage, 'input_tokens', 0)
+        out_tokens = getattr(response.usage, 'output_tokens', 0)
+        print(f"[Anthropic] Response: tokens={total_tokens} (in={in_tokens}, out={out_tokens}), length={len(content or '')} chars", flush=True)
         return content, total_tokens
 
 
@@ -123,6 +131,8 @@ class GeminiProvider(BaseLLMProvider):
         if system_prompt:
             config.system_instruction = system_prompt
 
+        print(f"[Gemini] Request: model={self.model}, max_tokens={max_tokens}, temperature={temperature}", flush=True)
+
         response = await client.aio.models.generate_content(
             model=self.model,
             contents=contents,
@@ -136,6 +146,7 @@ class GeminiProvider(BaseLLMProvider):
                 getattr(response.usage_metadata, 'prompt_token_count', 0) +
                 getattr(response.usage_metadata, 'candidates_token_count', 0)
             )
+        print(f"[Gemini] Response: tokens={total_tokens}, length={len(content or '')} chars", flush=True)
         return content, total_tokens
 
 

@@ -522,6 +522,7 @@ async def test_provider(
 
     try:
         test_prompt = "Reply with only 'OK' and nothing else."
+        print(f"[LLM Test] Provider={provider}, model={model}, prompt={test_prompt!r}", flush=True)
 
         if provider == "openai":
             from openai import AsyncOpenAI
@@ -532,11 +533,13 @@ async def test_provider(
                 max_tokens=50,
             )
             tokens = response.usage.total_tokens if response.usage else 0
+            output = response.choices[0].message.content
+            print(f"[LLM Test] OpenAI response: {output!r}, tokens={tokens}", flush=True)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
-                response=response.choices[0].message.content,
+                response=output,
                 token_usage=tokens,
             )
 
@@ -549,11 +552,15 @@ async def test_provider(
                 messages=[{"role": "user", "content": test_prompt}]
             )
             tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+            output = response.content[0].text
+            in_tokens = getattr(response.usage, 'input_tokens', 0)
+            out_tokens = getattr(response.usage, 'output_tokens', 0)
+            print(f"[LLM Test] Anthropic response: {output!r}, tokens={tokens} (in={in_tokens}, out={out_tokens})", flush=True)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
-                response=response.content[0].text,
+                response=output,
                 token_usage=tokens,
             )
 
@@ -570,15 +577,18 @@ async def test_provider(
                     getattr(response.usage_metadata, 'prompt_token_count', 0) +
                     getattr(response.usage_metadata, 'candidates_token_count', 0)
                 )
+            output = response.text
+            print(f"[LLM Test] Gemini response: {output!r}, tokens={tokens}", flush=True)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
                 model=model,
-                response=response.text,
+                response=output,
                 token_usage=tokens,
             )
 
     except Exception as e:
+        print(f"[LLM Test] {provider} test failed: {str(e)[:200]}", flush=True)
         return LLMTestResponse(
             success=False,
             provider=provider,

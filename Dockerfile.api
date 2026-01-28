@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Add uv to PATH
+# Add uv to PATH and disable Python output buffering
 ENV PATH="/root/.local/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 # Copy project files
 COPY pyproject.toml uv.lock README.md ./

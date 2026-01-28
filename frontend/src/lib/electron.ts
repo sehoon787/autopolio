@@ -94,6 +94,7 @@ interface ElectronAPI {
   getClaudeCLIStatus: () => Promise<CLIStatus>
   getGeminiCLIStatus: () => Promise<CLIStatus>
   refreshCLIStatus: () => Promise<{ claude_code: CLIStatus; gemini_cli: CLIStatus }>
+  refreshSingleCLIStatus: (tool: CLIType) => Promise<CLIStatus>
 
   // CLI Test API (NEW)
   testCLI: (tool: CLIType, model?: string) => Promise<CLITestResult>
@@ -220,6 +221,22 @@ export async function refreshCLIStatus(): Promise<{ claude_code: CLIStatus | nul
       return await window.electron.refreshCLIStatus()
     } catch (error) {
       console.error('[Electron] Failed to refresh CLI status:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Refresh a single CLI status (individual refresh)
+ * In Electron: refreshes only the specified CLI via IPC
+ * In Web: returns null
+ */
+export async function refreshSingleCLIStatus(tool: CLIType): Promise<CLIStatus | null> {
+  if (isElectron() && window.electron) {
+    try {
+      return await window.electron.refreshSingleCLIStatus(tool)
+    } catch (error) {
+      console.error(`[Electron] Failed to refresh ${tool} CLI status:`, error)
     }
   }
   return null

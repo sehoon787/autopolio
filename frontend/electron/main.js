@@ -199,7 +199,8 @@ async function killExistingBackend() {
     // First, clean up via PID file
     cleanupPidFile();
     if (process.platform === 'win32') {
-        // Windows: Find and kill processes using port 8000
+        // Windows: Find and kill only Python processes using port 8000
+        // (skip Docker, WSL, and other non-Python processes to avoid conflicts)
         return new Promise((resolve) => {
             const findProcess = spawn('cmd', ['/c', `netstat -ano | findstr :${BACKEND_PORT}`], { shell: true });
             let output = '';
@@ -207,29 +208,88 @@ async function killExistingBackend() {
                 output += data.toString();
             });
             findProcess.on('close', () => {
-                // Parse output to extract PIDs
                 const lines = output.split('\n');
                 const pids = new Set();
                 for (const line of lines) {
-                    // Match LISTENING state PIDs (most reliable)
                     const listeningMatch = line.match(/LISTENING\s+(\d+)/);
                     if (listeningMatch) {
                         pids.add(listeningMatch[1]);
                     }
                 }
-                if (pids.size > 0) {
-                    console.log(`[Cleanup] Found ${pids.size} process(es) using port ${BACKEND_PORT}:`, Array.from(pids));
-                    for (const pid of pids) {
-                        console.log(`[Cleanup] Killing process ${pid}...`);
-                        spawn('taskkill', ['/pid', pid, '/f', '/t'], { shell: true });
-                    }
-                    // Wait for processes to terminate
-                    setTimeout(resolve, 2000);
-                }
-                else {
+                if (pids.size === 0) {
                     console.log(`[Cleanup] No processes found using port ${BACKEND_PORT}`);
                     resolve();
+                    return;
                 }
+                console.log(`[Cleanup] Found ${pids.size} process(es) using port ${BACKEND_PORT}:`, Array.from(pids));
+                // Filter: only kill Python processes (not Docker, WSL, etc.)
+                const checkProcess = spawn('powershell', [
+                    '-Command',
+                    `Get-Process -Id ${Array.from(pids).join(',')} -ErrorAction SilentlyContinue | Select-Object Id,ProcessName | ConvertTo-Json`
+                ]);
+                let procOutput = '';
+                checkProcess.stdout?.on('data', (data) => {
+                    procOutput += data.toString();
+                });
+                checkProcess.on('close', () => {
+                    let pythonPids = [];
+                    try {
+                        const procs = JSON.parse(procOutput);
+                        const procList = Array.isArray(procs) ? procs : [procs];
+                        pythonPids = procList
+                            .filter((p) => p.ProcessName?.toLowerCase() === 'python')
+                            .map((p) => String(p.Id));
+                    }
+                    catch {
+                        // If parsing fails, fall back to killing all found PIDs
+                        console.log('[Cleanup] Could not identify process names, killing all');
+                        pythonPids = Array.from(pids);
+                    }
+                    if (pythonPids.length > 0) {
+                        console.log(`[Cleanup] Killing Python process(es):`, pythonPids);
+                        for (const pid of pythonPids) {
+                            spawn('taskkill', ['/pid', pid, '/f', '/t'], { shell: true });
+                        }
+                        // Wait until port is actually free (poll every 500ms, max 10s)
+                        const waitForPortFree = () => {
+                            let attempts = 0;
+                            const maxAttempts = 20;
+                            const check = () => {
+                                attempts++;
+                                const probe = spawn('cmd', ['/c', `netstat -ano | findstr ":${BACKEND_PORT}" | findstr "LISTENING"`], { shell: true });
+                                let probeOutput = '';
+                                probe.stdout?.on('data', (d) => { probeOutput += d.toString(); });
+                                probe.on('close', () => {
+                                    // Check if any Python process is still listening
+                                    const stillListening = probeOutput.trim().length > 0;
+                                    if (!stillListening || attempts >= maxAttempts) {
+                                        if (attempts >= maxAttempts) {
+                                            console.log(`[Cleanup] Port ${BACKEND_PORT} still in use after ${attempts} attempts, proceeding anyway`);
+                                        }
+                                        else {
+                                            console.log(`[Cleanup] Port ${BACKEND_PORT} freed after ${attempts} attempt(s)`);
+                                        }
+                                        resolve();
+                                    }
+                                    else {
+                                        setTimeout(check, 500);
+                                    }
+                                });
+                            };
+                            // Initial delay to let taskkill take effect
+                            setTimeout(check, 1000);
+                        };
+                        waitForPortFree();
+                    }
+                    else {
+                        console.log(`[Cleanup] No Python processes on port ${BACKEND_PORT} (Docker/other service may be using it)`);
+                        resolve();
+                    }
+                });
+                checkProcess.on('error', () => {
+                    console.log('[Cleanup] Failed to identify processes, skipping kill');
+                    resolve();
+                });
             });
             findProcess.on('error', () => {
                 console.log('[Cleanup] Failed to check for existing processes');
@@ -479,6 +539,26 @@ ipcMain.handle('refresh-cli-status', async () => {
     }
     catch (error) {
         console.error('[IPC] refresh-cli-status error:', error);
+        throw error;
+    }
+});
+ipcMain.handle('refresh-single-cli-status', async (_, tool) => {
+    console.log(`[IPC] refresh-single-cli-status called for ${tool}`);
+    try {
+        const manager = getCLIToolManager();
+        const result = await manager.detectCLI(tool);
+        // Update only the specific cache entry
+        if (tool === 'claude_code') {
+            cachedCLIStatus.claude = result;
+        }
+        else {
+            cachedCLIStatus.gemini = result;
+        }
+        console.log(`[IPC] refresh-single-cli-status result for ${tool}:`, JSON.stringify(result, null, 2));
+        return result;
+    }
+    catch (error) {
+        console.error(`[IPC] refresh-single-cli-status error for ${tool}:`, error);
         throw error;
     }
 });

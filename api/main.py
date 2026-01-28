@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+import logging
 import os
+
+# Configure logging: enable INFO level for api.* loggers
+# uvicorn overrides root logger config, so configure api logger with its own handler
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s", force=True)
 
 from api.config import get_settings
 from api.database import init_db, close_db

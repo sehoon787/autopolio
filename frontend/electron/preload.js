@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld('electron', {
   // Refresh all CLI statuses
   refreshCLIStatus: () => ipcRenderer.invoke('refresh-cli-status'),
 
+  // Refresh a single CLI status (individual refresh)
+  refreshSingleCLIStatus: (tool) => ipcRenderer.invoke('refresh-single-cli-status', tool),
+
   // ============================================================================
   // CLI Test API (NEW)
   // ============================================================================

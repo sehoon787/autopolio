@@ -104,12 +104,14 @@ export function LLMProviderCard({
   const handleTest = async () => {
     if (!apiKey.trim()) return
 
+    console.log('[LLM Card Test] handleTest called:', { providerId: provider.id, hasKey: !!apiKey.trim() })
     setStatus('validating')
     setResult({ type: 'info', message: t('settings:llm.validating', 'Validating...') })
 
     try {
       // Step 1: Validate
       const validationResult = await onValidateKey(provider.id, apiKey)
+      console.log('[LLM Card Test] Validation result:', validationResult)
       if (!validationResult.valid) {
         setResult({ type: 'error', message: validationResult.error || t('settings:llm.invalid') })
         setStatus('idle')
@@ -121,12 +123,14 @@ export function LLMProviderCard({
       setResult({ type: 'info', message: t('settings:llm.testing', 'Testing...') })
 
       const testResult = await onTestKey(provider.id, apiKey)
+      console.log('[LLM Card Test] Test result:', { success: testResult.success, response: testResult.response?.substring(0, 100) })
       if (testResult.success) {
         setResult({ type: 'success', message: testResult.response })
       } else {
         setResult({ type: 'error', message: testResult.response })
       }
     } catch (error) {
+      console.log('[LLM Card Test] Error:', error)
       setResult({ type: 'error', message: t('settings:llm.testFailed', 'Test failed') })
     } finally {
       setStatus('idle')

@@ -31,6 +31,7 @@ import {
   getClaudeCLIStatus,
   getGeminiCLIStatus,
   refreshCLIStatus as refreshCLIStatusElectron,
+  refreshSingleCLIStatus as refreshSingleCLIStatusElectron,
   testCLI as testCLIElectron,
   type CLIType,
 } from '@/lib/electron'
@@ -178,8 +179,33 @@ export default function LLMSection() {
       llmApi.validateKey(provider, apiKey),
   })
 
-  // Refresh CLI status (uses Electron IPC directly)
-  const refreshCLIMutation = useMutation({
+  // Refresh individual CLI status (uses Electron IPC directly)
+  const refreshClaudeCLIMutation = useMutation({
+    mutationFn: async () => {
+      if (isElectronApp) {
+        return refreshSingleCLIStatusElectron('claude_code')
+      }
+      return llmApi.refreshCLI()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claudeCLIStatus'] })
+    },
+  })
+
+  const refreshGeminiCLIMutation = useMutation({
+    mutationFn: async () => {
+      if (isElectronApp) {
+        return refreshSingleCLIStatusElectron('gemini_cli')
+      }
+      return llmApi.refreshCLI()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['geminiCLIStatus'] })
+    },
+  })
+
+  // Refresh all CLI statuses (for the global refresh button)
+  const refreshAllCLIMutation = useMutation({
     mutationFn: async () => {
       if (isElectronApp) {
         return refreshCLIStatusElectron()
@@ -197,6 +223,7 @@ export default function LLMSection() {
     mutationFn: async (cliType: 'claude_code' | 'gemini_cli') => {
       // Get selected model for this CLI type
       const model = cliType === 'claude_code' ? claudeCodeModel : geminiCLIModel
+      console.log('[LLM Test] Starting CLI test:', { cliType, model, isElectron: isElectronApp })
       // Use Electron IPC for direct CLI testing (fixes the error)
       if (isElectronApp) {
         const result = await testCLIElectron(cliType as CLIType, model)
@@ -229,7 +256,7 @@ export default function LLMSection() {
         }
       }
 
-      console.debug('[CLI Test Success]', {
+      console.log('[CLI Test Success]', {
         tool: data.tool,
         provider,
         success: data.success,
@@ -245,7 +272,7 @@ export default function LLMSection() {
       })
     },
     onError: (error: Error, cliType) => {
-      console.debug('[CLI Test Error]', { cliType, error: error.message })
+      console.log('[CLI Test Error]', { cliType, error: error.message })
       setTestResult({ type: 'error', message: error.message })
       toast({
         title: t('llm.testFailed', 'Test Failed'),
@@ -263,14 +290,16 @@ export default function LLMSection() {
     mutationFn: async (providerId: string) => {
       // Electron mode: use_env=false (only user-configured keys)
       // Web mode: use_env=true (fall back to .env keys)
+      console.log('[LLM Test] Starting provider test:', { providerId, userId: user?.id, useEnv: !isElectronApp, isElectron: isElectronApp })
       const response = await llmApi.testProvider(providerId, {
         userId: user?.id,
         useEnv: !isElectronApp,
       })
+      console.log('[LLM Test] Provider response:', response.data)
       return response.data
     },
     onSuccess: (data) => {
-      console.debug('[API Provider Test Success]', {
+      console.log('[API Provider Test Success]', {
         provider: data.provider,
         model: data.model,
         success: data.success,
@@ -294,7 +323,7 @@ export default function LLMSection() {
       })
     },
     onError: (error: Error) => {
-      console.debug('[API Provider Test Error]', {
+      console.log('[API Provider Test Error]', {
         provider: testingProvider,
         error: error.message,
       })
@@ -313,16 +342,19 @@ export default function LLMSection() {
 
   // Test LLM Provider with specific API key (for direct testing without saving)
   const handleTestKey = async (providerId: string, apiKey: string): Promise<{ success: boolean; response: string }> => {
+    console.log('[LLM Test] handleTestKey called:', { providerId, keyLength: apiKey?.length })
     try {
       const response = await llmApi.testProvider(providerId, {
         apiKey,
         useEnv: false,  // Don't fall back to env, use the provided key
       })
+      console.log('[LLM Test] handleTestKey response:', { success: response.data.success, response: response.data.response?.substring(0, 100) })
       return {
         success: response.data.success,
         response: response.data.response,
       }
     } catch (error) {
+      console.log('[LLM Test] handleTestKey error:', error)
       return {
         success: false,
         response: error instanceof Error ? error.message : 'Test failed',
@@ -373,18 +405,29 @@ export default function LLMSection() {
     await updateConfigMutation.mutateAsync(updateData)
   }
 
-  const handleRefreshCLI = () => {
-    refreshCLIMutation.mutate()
+  const handleRefreshAllCLI = () => {
+    refreshAllCLIMutation.mutate()
+  }
+
+  const handleRefreshClaudeCLI = () => {
+    refreshClaudeCLIMutation.mutate()
+  }
+
+  const handleRefreshGeminiCLI = () => {
+    refreshGeminiCLIMutation.mutate()
   }
 
   const handleTestCLI = (cliType: 'claude_code' | 'gemini_cli') => {
+    console.log('[LLM Test] handleTestCLI called:', { cliType, isElectron: isElectronApp })
     setTestingCLI(cliType)
     setTestResult(null)
     testCLIMutation.mutate(cliType)
   }
 
   const handleTestProvider = (providerId: string) => {
+    console.log('[LLM Test] handleTestProvider called:', { providerId, userId: user?.id, isElectron: isElectronApp })
     if (!user?.id && isElectronApp) {
+      console.log('[LLM Test] Blocked: user not initialized in Electron mode')
       toast({
         title: t('llm.testFailed', 'Test Failed'),
         description: 'User not initialized. Please restart the app.',
@@ -528,10 +571,10 @@ export default function LLMSection() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleRefreshCLI}
-                disabled={refreshCLIMutation.isPending}
+                onClick={handleRefreshAllCLI}
+                disabled={refreshAllCLIMutation.isPending}
               >
-                <RefreshCw className={`h-4 w-4 mr-1 ${refreshCLIMutation.isPending ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-1 ${refreshAllCLIMutation.isPending ? 'animate-spin' : ''}`} />
                 {t('llm.refresh', 'Refresh')}
               </Button>
             </div>
@@ -547,9 +590,9 @@ export default function LLMSection() {
                 <CLIStatusCard
                   cliType="claude_code"
                   status={claudeCLIStatus ?? null}
-                  isLoading={isLoadingClaudeCLI || refreshCLIMutation.isPending}
+                  isLoading={isLoadingClaudeCLI || refreshClaudeCLIMutation.isPending}
                   isSelected={selectedCLI === 'claude_code'}
-                  onRefresh={handleRefreshCLI}
+                  onRefresh={handleRefreshClaudeCLI}
                   onSelect={() => handleSelectCLI('claude_code')}
                   onTest={() => handleTestCLI('claude_code')}
                   isTesting={testingCLI === 'claude_code'}
@@ -561,9 +604,9 @@ export default function LLMSection() {
                 <CLIStatusCard
                   cliType="gemini_cli"
                   status={geminiCLIStatus ?? null}
-                  isLoading={isLoadingGeminiCLI || refreshCLIMutation.isPending}
+                  isLoading={isLoadingGeminiCLI || refreshGeminiCLIMutation.isPending}
                   isSelected={selectedCLI === 'gemini_cli'}
-                  onRefresh={handleRefreshCLI}
+                  onRefresh={handleRefreshGeminiCLI}
                   onSelect={() => handleSelectCLI('gemini_cli')}
                   onTest={() => handleTestCLI('gemini_cli')}
                   isTesting={testingCLI === 'gemini_cli'}

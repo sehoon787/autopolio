@@ -112,6 +112,7 @@ export class CLIToolManager {
             const rawOutput = result.stdout.trim();
             // Parse JSON output for content and tokens
             const { content, tokens } = this.parseTestOutput(rawOutput, tool);
+            console.log(`[CLI Test] ${tool} response: ${JSON.stringify(content).substring(0, 200)}, tokens=${tokens}`);
             debugLog(`CLI test output: ${content.substring(0, 200)}`);
             debugLog(`CLI test tokens: ${tokens}`);
             return {
