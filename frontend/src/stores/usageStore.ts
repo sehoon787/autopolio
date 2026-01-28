@@ -19,6 +19,7 @@ interface UsageState {
   resetDailyIfNeeded: () => void
   getTokensForProvider: (provider: keyof LLMUsage) => number
   getLLMCallCount: (provider: keyof LLMUsage) => number
+  resetProviderUsage: (provider: keyof LLMUsage) => void
 }
 
 function getTodayDateString(): string {
@@ -77,6 +78,13 @@ export const useUsageStore = create<UsageState>()(
         const state = get()
         state.resetDailyIfNeeded()
         return state.llmCallCount[provider] || 0
+      },
+
+      resetProviderUsage: (provider) => {
+        set((state) => ({
+          llmTokensUsed: { ...state.llmTokensUsed, [provider]: 0 },
+          llmCallCount: { ...state.llmCallCount, [provider]: 0 },
+        }))
       },
     }),
     {

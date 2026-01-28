@@ -23,6 +23,8 @@ import {
 import { cn } from '@/lib/utils'
 import { getProviderIcon } from './icons/LLMIcons'
 import type { LLMProvider } from '@/api/llm'
+import { useUsageStore } from '@/stores/usageStore'
+import type { LLMUsage } from '@/stores/usageStore'
 
 interface LLMProviderCardProps {
   provider: LLMProvider
@@ -178,6 +180,11 @@ export function LLMProviderCard({
     try {
       await onSaveKey(provider.id, '')
       setApiKey('')
+      // Reset usage counters for this provider
+      const providerKey = provider.id as keyof LLMUsage
+      if (['openai', 'anthropic', 'gemini'].includes(provider.id)) {
+        useUsageStore.getState().resetProviderUsage(providerKey)
+      }
       setResult({ type: 'success', message: t('settings:llm.cleared', 'API key cleared') })
     } catch (error) {
       setResult({ type: 'error', message: t('settings:llm.clearFailed', 'Failed to clear') })

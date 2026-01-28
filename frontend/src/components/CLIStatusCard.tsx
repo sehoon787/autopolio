@@ -19,6 +19,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { ClaudeCodeIcon, GeminiIcon } from './icons/LLMIcons'
 import type { CLIStatus } from '@/api/llm'
@@ -46,11 +53,14 @@ interface CLIStatusCardProps {
   onSelect: () => void
   onTest?: () => void
   isTesting?: boolean
+  models?: readonly string[]
+  selectedModel?: string
+  onModelChange?: (model: string) => void
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting }: CLIStatusCardProps) {
+export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
 
@@ -265,6 +275,35 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Model Selection (when installed) */}
+      {status?.installed && models && models.length > 0 && onModelChange && (
+        <div className="space-y-2">
+          <label className="text-xs text-muted-foreground">
+            {t('settings:cli.model', 'Model')}
+          </label>
+          <Select
+            value={selectedModel || models[0]}
+            onValueChange={onModelChange}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                  {model === models[0] && (
+                    <span className="ml-2 text-muted-foreground text-xs">
+                      ({t('settings:llm.default', 'default')})
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

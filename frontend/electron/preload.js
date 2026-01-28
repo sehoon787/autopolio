@@ -46,7 +46,7 @@ contextBridge.exposeInMainWorld('electron', {
   // ============================================================================
 
   // Test a CLI by running --version
-  testCLI: (tool) => ipcRenderer.invoke('cli:test', tool),
+  testCLI: (tool, model) => ipcRenderer.invoke('cli:test', tool, model),
 
   // ============================================================================
   // CLI Process Management APIs (NEW)

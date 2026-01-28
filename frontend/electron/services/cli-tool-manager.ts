@@ -122,8 +122,8 @@ export class CLIToolManager {
   /**
    * Test CLI by running a simple command
    */
-  async testCLI(tool: CLIType): Promise<CLITestResult> {
-    debugLog(`Testing ${tool}...`)
+  async testCLI(tool: CLIType, model?: string): Promise<CLITestResult> {
+    debugLog(`Testing ${tool}... model: ${model}`)
 
     // First, ensure we have the current status
     const status = await this.detectCLI(tool)
@@ -144,6 +144,9 @@ export class CLIToolManager {
       // Send a real prompt to test the CLI works end-to-end (like API provider test)
       const testPrompt = "Say hello and confirm you are working."
       const args = ['-p', testPrompt, '--output-format', 'json']
+      if (model) {
+        args.push('--model', model)
+      }
       const CLI_TEST_TIMEOUT = 60_000 // 60s for LLM response
 
       const result = await this.executeCLI(status.path, args, CLI_TEST_TIMEOUT)
@@ -195,10 +198,11 @@ export class CLIToolManager {
         const content = typeof data.result === 'string' ? data.result : String(data.result)
         const usage = data.usage || {}
         const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
+          + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0)
         return { content, tokens }
       }
 
-      if ('response' in data) {
+      if (tool === 'gemini_cli' && 'response' in data) {
         const content = typeof data.response === 'string' ? data.response : String(data.response)
         const models = data.stats?.models || {}
         let tokens = 0

@@ -21,7 +21,8 @@ interface CLIGenerateResult {
  */
 export async function generateWithCLI(
   prompt: string,
-  cli: CLIType = 'claude_code'
+  cli: CLIType = 'claude_code',
+  model?: string
 ): Promise<CLIGenerateResult> {
   if (!isElectron()) {
     return {
@@ -38,7 +39,7 @@ export async function generateWithCLI(
     const sessionId = await startCLI({
       tool: cli,
       cwd: process.cwd?.() || '.',
-      args: ['-p', prompt, '--output-format', 'json'],
+      args: ['-p', prompt, '--output-format', 'json', ...(model ? ['--model', model] : [])],
     })
 
     if (!sessionId) {
@@ -144,10 +145,11 @@ function extractContentAndTokens(
       const content = typeof data.result === 'string' ? data.result : String(data.result)
       const usage = data.usage || {}
       const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
+        + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0)
       return { content, tokens }
     }
 
-    if ('response' in data) {
+    if (cli === 'gemini_cli' && 'response' in data) {
       const content = typeof data.response === 'string' ? data.response : String(data.response)
       const models = data.stats?.models || {}
       let tokens = 0

@@ -25,7 +25,7 @@ import { llmApi, LLMProvider } from '@/api/llm'
 import { CLIStatusCard } from '@/components/CLIStatusCard'
 import { LLMProviderCard } from '@/components/LLMProviderCard'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, CLAUDE_CODE_MODELS, GEMINI_CLI_MODELS } from '@/stores/appStore'
 import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import {
   getClaudeCLIStatus,
@@ -84,9 +84,13 @@ export default function LLMSection() {
     aiMode,
     selectedCLI,
     selectedLLMProvider,
+    claudeCodeModel,
+    geminiCLIModel,
     setAIMode,
     setSelectedCLI,
-    setSelectedLLMProvider
+    setSelectedLLMProvider,
+    setClaudeCodeModel,
+    setGeminiCLIModel,
   } = useAppStore()
   const queryClient = useQueryClient()
   const { showCLIStatus } = useFeatureFlags()
@@ -191,9 +195,11 @@ export default function LLMSection() {
   // Test CLI mutation - uses Electron IPC for direct CLI testing
   const testCLIMutation = useMutation({
     mutationFn: async (cliType: 'claude_code' | 'gemini_cli') => {
+      // Get selected model for this CLI type
+      const model = cliType === 'claude_code' ? claudeCodeModel : geminiCLIModel
       // Use Electron IPC for direct CLI testing (fixes the error)
       if (isElectronApp) {
-        const result = await testCLIElectron(cliType as CLIType)
+        const result = await testCLIElectron(cliType as CLIType, model)
         if (!result) {
           throw new Error('Failed to test CLI - Electron API not available')
         }
@@ -264,6 +270,23 @@ export default function LLMSection() {
       return response.data
     },
     onSuccess: (data) => {
+      console.debug('[API Provider Test Success]', {
+        provider: data.provider,
+        model: data.model,
+        success: data.success,
+        response: data.response,
+        token_usage: data.token_usage,
+      })
+
+      // Track API test token usage
+      const providerKey = data.provider as keyof LLMUsage
+      if (['openai', 'anthropic', 'gemini'].includes(data.provider)) {
+        useUsageStore.getState().incrementLLMCallCount(providerKey)
+        if (data.token_usage && data.token_usage > 0) {
+          useUsageStore.getState().trackTokenUsage(providerKey, data.token_usage)
+        }
+      }
+
       setTestResult({ type: 'success', message: data.response || 'LLM Provider is working!' })
       toast({
         title: t('llm.testSuccess', 'Test Successful'),
@@ -271,6 +294,11 @@ export default function LLMSection() {
       })
     },
     onError: (error: Error) => {
+      console.debug('[API Provider Test Error]', {
+        provider: testingProvider,
+        error: error.message,
+      })
+
       setTestResult({ type: 'error', message: error.message })
       toast({
         title: t('llm.testFailed', 'Test Failed'),
@@ -525,6 +553,9 @@ export default function LLMSection() {
                   onSelect={() => handleSelectCLI('claude_code')}
                   onTest={() => handleTestCLI('claude_code')}
                   isTesting={testingCLI === 'claude_code'}
+                  models={CLAUDE_CODE_MODELS}
+                  selectedModel={claudeCodeModel}
+                  onModelChange={setClaudeCodeModel}
                 />
                 {/* Gemini CLI */}
                 <CLIStatusCard
@@ -536,6 +567,9 @@ export default function LLMSection() {
                   onSelect={() => handleSelectCLI('gemini_cli')}
                   onTest={() => handleTestCLI('gemini_cli')}
                   isTesting={testingCLI === 'gemini_cli'}
+                  models={GEMINI_CLI_MODELS}
+                  selectedModel={geminiCLIModel}
+                  onModelChange={setGeminiCLIModel}
                 />
               </div>
             )}

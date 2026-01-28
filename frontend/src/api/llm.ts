@@ -90,6 +90,7 @@ export interface LLMTestResponse {
   provider: string
   model: string
   response: string
+  token_usage?: number
 }
 
 export const llmApi = {

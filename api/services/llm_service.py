@@ -142,8 +142,9 @@ class GeminiProvider(BaseLLMProvider):
 class LLMService:
     """Service for LLM-based text generation."""
 
-    def __init__(self, provider: str = None):
+    def __init__(self, provider: str = None, model: str | None = None):
         self.provider_name = provider or settings.llm_provider
+        self.model_override = model
         self.provider = self._create_provider()
         self.total_tokens_used = 0
 
@@ -154,21 +155,21 @@ class LLMService:
                 raise ValueError("OpenAI API key not configured")
             return OpenAIProvider(
                 settings.openai_api_key,
-                settings.openai_model
+                self.model_override or settings.openai_model
             )
         elif self.provider_name == "anthropic":
             if not settings.anthropic_api_key:
                 raise ValueError("Anthropic API key not configured")
             return AnthropicProvider(
                 settings.anthropic_api_key,
-                settings.anthropic_model
+                self.model_override or settings.anthropic_model
             )
         elif self.provider_name == "gemini":
             if not settings.gemini_api_key:
                 raise ValueError("Gemini API key not configured")
             return GeminiProvider(
                 settings.gemini_api_key,
-                settings.gemini_model
+                self.model_override or settings.gemini_model
             )
         else:
             raise ValueError(f"Unknown LLM provider: {self.provider_name}")

@@ -308,10 +308,10 @@ export default function ProjectsPage() {
         }
 
         // Track CLI call and tokens
-        const providerKey = cli === 'claude_code' ? 'anthropic' : 'gemini'
-        useUsageStore.getState().incrementLLMCallCount(providerKey as 'openai' | 'anthropic' | 'gemini')
+        const providerKey = cli === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
+        useUsageStore.getState().incrementLLMCallCount(providerKey as 'claude_code_cli' | 'gemini_cli')
         if (result.tokens && result.tokens > 0) {
-          useUsageStore.getState().trackTokenUsage(providerKey as 'openai' | 'anthropic' | 'gemini', result.tokens)
+          useUsageStore.getState().trackTokenUsage(providerKey as 'claude_code_cli' | 'gemini_cli', result.tokens)
         }
 
         // Try to parse JSON from CLI output

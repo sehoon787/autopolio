@@ -16,12 +16,14 @@ CLI_TIMEOUT_SECONDS = 120
 class CLILLMService:
     """Service for generating LLM output via CLI tools."""
 
-    def __init__(self, cli_type: str = "claude_code"):
+    def __init__(self, cli_type: str = "claude_code", model: str | None = None):
         """
         Args:
             cli_type: 'claude_code' or 'gemini_cli'
+            model: Optional model name to pass via --model flag
         """
         self.cli_type = cli_type
+        self.model = model
         self.total_tokens_used = 0  # CLI doesn't track tokens
 
     async def generate_with_cli(self, prompt: str) -> Tuple[str, int]:
@@ -106,10 +108,10 @@ class CLILLMService:
 
     def _build_args(self, cli_path: str, prompt: str) -> list:
         """Build CLI command arguments."""
-        if self.cli_type == "claude_code":
-            return [cli_path, "-p", prompt, "--output-format", "json"]
-        # Gemini CLI
-        return [cli_path, "-p", prompt, "--output-format", "json"]
+        args = [cli_path, "-p", prompt, "--output-format", "json"]
+        if self.model:
+            args.extend(["--model", self.model])
+        return args
 
     def _parse_json_output(self, raw_output: str) -> Tuple[str, int]:
         """
@@ -132,15 +134,17 @@ class CLILLMService:
         content = ""
         token_count = 0
 
-        if "result" in data:
-            # Claude format
+        if self.cli_type == "claude_code" and "result" in data:
+            # Claude format (include cache tokens for accurate billing)
             content = data["result"] if isinstance(data["result"], str) else str(data["result"])
             usage = data.get("usage", {})
             token_count = (
                 usage.get("input_tokens", 0)
                 + usage.get("output_tokens", 0)
+                + usage.get("cache_creation_input_tokens", 0)
+                + usage.get("cache_read_input_tokens", 0)
             )
-        elif "response" in data:
+        elif self.cli_type == "gemini_cli" and "response" in data:
             # Gemini format
             content = data["response"] if isinstance(data["response"], str) else str(data["response"])
             stats = data.get("stats", {})

@@ -6,6 +6,18 @@ type CLIType = 'claude_code' | 'gemini_cli'
 type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
 type AIMode = 'cli' | 'api'  // CLI tools or API providers
 
+export const CLAUDE_CODE_MODELS = [
+  'claude-sonnet-4-20250514',
+  'claude-opus-4-20250514',
+  'claude-haiku-4-20250514',
+] as const
+
+export const GEMINI_CLI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+] as const
+
 interface AppState {
   // App environment
   isElectronApp: boolean
@@ -23,6 +35,8 @@ interface AppState {
   aiMode: AIMode  // Which mode is active: CLI or API
   selectedCLI: CLIType
   selectedLLMProvider: LLMProviderType
+  claudeCodeModel: string
+  geminiCLIModel: string
   _defaultsApplied: boolean  // Whether auto-detection defaults have been applied
 
   // Actions
@@ -30,6 +44,8 @@ interface AppState {
   setAIMode: (mode: AIMode) => void
   setSelectedCLI: (cli: CLIType) => void
   setSelectedLLMProvider: (provider: LLMProviderType) => void
+  setClaudeCodeModel: (model: string) => void
+  setGeminiCLIModel: (model: string) => void
   setBackendError: (error: string) => void
   clearBackendError: () => void
 }
@@ -61,6 +77,8 @@ export const useAppStore = create<AppState>()(
       aiMode: initialIsElectron ? 'cli' : 'api',  // CLI for Electron, API for web
       selectedCLI: 'claude_code',
       selectedLLMProvider: initialIsElectron ? 'openai' : 'gemini',
+      claudeCodeModel: CLAUDE_CODE_MODELS[0],
+      geminiCLIModel: GEMINI_CLI_MODELS[0],
       _defaultsApplied: false,
 
       // Initialize the app store (for async values)
@@ -144,6 +162,14 @@ export const useAppStore = create<AppState>()(
         set({ selectedLLMProvider: provider, aiMode: 'api' })
       },
 
+      setClaudeCodeModel: (model) => {
+        set({ claudeCodeModel: model })
+      },
+
+      setGeminiCLIModel: (model) => {
+        set({ geminiCLIModel: model })
+      },
+
       // Backend error handling
       setBackendError: (error) => {
         set({ backendError: error })
@@ -160,6 +186,8 @@ export const useAppStore = create<AppState>()(
         aiMode: state.aiMode,
         selectedCLI: state.selectedCLI,
         selectedLLMProvider: state.selectedLLMProvider,
+        claudeCodeModel: state.claudeCodeModel,
+        geminiCLIModel: state.geminiCLIModel,
         _defaultsApplied: state._defaultsApplied,
       }),
     }

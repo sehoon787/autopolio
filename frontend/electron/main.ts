@@ -502,10 +502,10 @@ ipcMain.handle('refresh-cli-status', async () => {
 // IPC Handlers - CLI Test (NEW)
 // ============================================================================
 
-ipcMain.handle('cli:test', async (_, tool: CLIType) => {
-  console.log(`[IPC] cli:test called for ${tool}`)
+ipcMain.handle('cli:test', async (_, tool: CLIType, model?: string) => {
+  console.log(`[IPC] cli:test called for ${tool}, model: ${model}`)
   const manager = getCLIToolManager()
-  return manager.testCLI(tool)
+  return manager.testCLI(tool, model)
 })
 
 // ============================================================================

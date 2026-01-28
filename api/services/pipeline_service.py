@@ -396,10 +396,19 @@ class PipelineService:
             # Initialize LLM service (API or CLI)
             provider = request.llm_provider or user.preferred_llm
             cli_mode = getattr(request, 'cli_mode', None)
+            cli_model = getattr(request, 'cli_model', None)
             if cli_mode:
-                llm_service = CLILLMService(cli_mode)
+                llm_service = CLILLMService(cli_mode, model=cli_model)
             else:
-                llm_service = LLMService(provider)
+                # Use user's selected model for the chosen provider
+                user_model = None
+                if provider == "openai":
+                    user_model = getattr(user, 'openai_model', None)
+                elif provider == "anthropic":
+                    user_model = getattr(user, 'anthropic_model', None)
+                elif provider == "gemini":
+                    user_model = getattr(user, 'gemini_model', None)
+                llm_service = LLMService(provider, model=user_model)
 
             # Get projects
             projects_result = await self.db.execute(

@@ -96,7 +96,7 @@ interface ElectronAPI {
   refreshCLIStatus: () => Promise<{ claude_code: CLIStatus; gemini_cli: CLIStatus }>
 
   // CLI Test API (NEW)
-  testCLI: (tool: CLIType) => Promise<CLITestResult>
+  testCLI: (tool: CLIType, model?: string) => Promise<CLITestResult>
 
   // CLI Process Management APIs (NEW)
   startCLI: (config: CLIStartConfig) => Promise<string>
@@ -234,10 +234,10 @@ export async function refreshCLIStatus(): Promise<{ claude_code: CLIStatus | nul
  * In Electron: runs the CLI via IPC
  * In Web: returns null
  */
-export async function testCLI(tool: CLIType): Promise<CLITestResult | null> {
+export async function testCLI(tool: CLIType, model?: string): Promise<CLITestResult | null> {
   if (isElectron() && window.electron) {
     try {
-      return await window.electron.testCLI(tool)
+      return await window.electron.testCLI(tool, model)
     } catch (error) {
       console.error('[Electron] Failed to test CLI:', error)
       return {
