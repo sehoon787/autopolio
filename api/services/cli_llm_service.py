@@ -6,11 +6,41 @@ Parses JSON output for token tracking when --output-format json is used.
 """
 import asyncio
 import json
+import os
+import subprocess
 import sys
 import shutil
+import traceback
 from typing import Tuple, Optional
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
-CLI_TIMEOUT_SECONDS = 120
+# Timeout for each CLI call (3 minutes per call)
+# Note: Analysis may make multiple LLM calls, so total time can be longer
+CLI_TIMEOUT_SECONDS = 180
+
+
+class CLILLMProvider:
+    """Provider wrapper for CLI LLM to match API LLMService interface."""
+
+    def __init__(self, cli_service: "CLILLMService"):
+        self.cli_service = cli_service
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        max_tokens: int = 1000,
+        temperature: float = 0.7
+    ) -> tuple[str, int]:
+        """Generate text using CLI, matching LLMService.provider.generate() interface."""
+        # CLI tools typically don't support separate system prompts,
+        # so we prepend it to the main prompt
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"[System] {system_prompt}\n\n{prompt}"
+
+        return await self.cli_service.generate_with_cli(full_prompt)
 
 
 class CLILLMService:
@@ -24,7 +54,10 @@ class CLILLMService:
         """
         self.cli_type = cli_type
         self.model = model
-        self.total_tokens_used = 0  # CLI doesn't track tokens
+        self.total_tokens_used = 0
+        # Provide a provider attribute to match LLMService interface
+        self.provider = CLILLMProvider(self)
+        self.provider_name = f"cli:{cli_type}"
 
     async def generate_with_cli(self, prompt: str) -> Tuple[str, int]:
         """
@@ -40,50 +73,74 @@ class CLILLMService:
                 f"{cli_name} CLI not found. Please install it first."
             )
 
-        args = self._build_args(cli_path, prompt)
+        args = self._build_args(cli_path)
+        cli_path_lower = cli_path.lower()
         use_shell = sys.platform == "win32" and (
-            cli_path.endswith(".cmd") or cli_path.endswith(".bat")
+            cli_path_lower.endswith(".cmd") or cli_path_lower.endswith(".bat")
         )
 
-        try:
+        # Encode prompt as UTF-8 bytes for stdin
+        prompt_bytes = prompt.encode("utf-8")
+
+        print(f"[CLI] Executing: {cli_path}", flush=True)
+        print(f"[CLI] Use shell: {use_shell}, prompt length: {len(prompt)} chars, {len(prompt_bytes)} bytes", flush=True)
+        if self.model:
+            print(f"[CLI] Model: {self.model}", flush=True)
+
+        def run_subprocess():
+            """Run CLI subprocess in a thread (Windows asyncio subprocess compatibility)."""
             if use_shell:
-                # Windows .cmd files need cmd.exe /c prefix with subprocess_exec
-                # to avoid double-quote conflicts from subprocess_shell
+                # Windows .cmd files need shell=True or cmd.exe /c prefix
                 exec_args = ["cmd.exe", "/c"] + args
-                proc = await asyncio.create_subprocess_exec(
-                    *exec_args,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+                print(f"[CLI] Command: cmd.exe /c {args[0]} -p - --output-format json" + (f" --model {self.model}" if self.model else ""))
             else:
-                proc = await asyncio.create_subprocess_exec(
-                    *args,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+                exec_args = args
+                print(f"[CLI] Command: {' '.join(args[:4])}..." + (f" --model {self.model}" if self.model else ""))
 
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=CLI_TIMEOUT_SECONDS
+            print(f"[CLI] Running with stdin pipe... (timeout: {CLI_TIMEOUT_SECONDS}s)", flush=True)
+            result = subprocess.run(
+                exec_args,
+                capture_output=True,
+                timeout=CLI_TIMEOUT_SECONDS,
+                input=prompt_bytes,  # Pass prompt via stdin
+                text=False,  # Get bytes, decode manually for better error handling
             )
+            return result
 
-            output = stdout.decode("utf-8", errors="replace").strip()
-            if not output and stderr:
-                error_text = stderr.decode("utf-8", errors="replace").strip()
-                raise RuntimeError(f"CLI error: {error_text[:500]}")
+        try:
+            # Run subprocess in thread pool to avoid blocking event loop
+            # and to work around Windows asyncio subprocess limitations
+            # Use get_running_loop() for compatibility with uvicorn's event loop
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                result = await loop.run_in_executor(executor, run_subprocess)
 
-            if proc.returncode != 0 and not output:
+            output = result.stdout.decode("utf-8", errors="replace").strip()
+            stderr_text = result.stderr.decode("utf-8", errors="replace").strip() if result.stderr else ""
+
+            print(f"[CLI] Return code: {result.returncode}")
+            print(f"[CLI] Output length: {len(output)}, stderr length: {len(stderr_text)}")
+
+            if not output and stderr_text:
+                raise RuntimeError(f"CLI error: {stderr_text[:500]}")
+
+            if result.returncode != 0 and not output:
                 raise RuntimeError(
-                    f"CLI exited with code {proc.returncode}"
+                    f"CLI exited with code {result.returncode}. Stderr: {stderr_text[:500]}"
                 )
 
             content, token_count = self._parse_json_output(output)
+            print(f"[CLI] Parsed content length: {len(content)}, tokens: {token_count}")
             self.total_tokens_used += token_count
             return content, token_count
 
-        except asyncio.TimeoutError:
+        except subprocess.TimeoutExpired:
             raise RuntimeError(
                 f"CLI timed out after {CLI_TIMEOUT_SECONDS}s"
             )
+        except Exception as e:
+            print(f"[CLI] Exception during execution: {type(e).__name__}: {e}")
+            raise
 
     async def generate_project_summary(
         self, project_data: dict, style: Optional[str] = None
@@ -101,14 +158,56 @@ class CLILLMService:
         }
 
     def _find_cli_path(self) -> Optional[str]:
-        """Find CLI executable path."""
-        if self.cli_type == "claude_code":
-            return shutil.which("claude")
-        return shutil.which("gemini")
+        """Find CLI executable path with Windows npm global support."""
+        exe_name = "claude" if self.cli_type == "claude_code" else "gemini"
 
-    def _build_args(self, cli_path: str, prompt: str) -> list:
-        """Build CLI command arguments."""
-        args = [cli_path, "-p", prompt, "--output-format", "json"]
+        # Windows: Prefer .cmd files for proper execution
+        if sys.platform == "win32":
+            # First try shutil.which for .cmd version
+            cmd_path = shutil.which(f"{exe_name}.cmd")
+            if cmd_path:
+                print(f"[CLI] Found {exe_name}.cmd via shutil.which: {cmd_path}")
+                return cmd_path
+
+            # Check npm global paths explicitly
+            home = Path.home()
+            npm_paths = [
+                home / "AppData" / "Roaming" / "npm" / f"{exe_name}.cmd",
+                home / "AppData" / "Local" / "npm" / f"{exe_name}.cmd",
+                Path(os.environ.get("APPDATA", "")) / "npm" / f"{exe_name}.cmd",
+            ]
+
+            for npm_path in npm_paths:
+                if npm_path.exists():
+                    print(f"[CLI] Found {exe_name} at npm global path: {npm_path}")
+                    return str(npm_path)
+
+            # Fallback: check if shutil.which returns extensionless and try .cmd
+            path = shutil.which(exe_name)
+            if path:
+                cmd_version = Path(path).with_suffix('.cmd')
+                if cmd_version.exists():
+                    print(f"[CLI] Found {exe_name}.cmd alongside: {cmd_version}")
+                    return str(cmd_version)
+                # Last resort: return the extensionless path
+                print(f"[CLI] Found {exe_name} via shutil.which (no .cmd): {path}")
+                return path
+
+        else:
+            # Non-Windows: use shutil.which directly
+            path = shutil.which(exe_name)
+            if path:
+                print(f"[CLI] Found {exe_name} via shutil.which: {path}")
+                return path
+
+        print(f"[CLI] {exe_name} not found in PATH or npm global paths")
+        return None
+
+    def _build_args(self, cli_path: str) -> list:
+        """Build CLI command arguments (prompt passed via stdin)."""
+        # Use -p without argument to read prompt from stdin
+        # This avoids command-line length limits on Windows (~8191 chars)
+        args = [cli_path, "-p", "-", "--output-format", "json"]
         if self.model:
             args.extend(["--model", self.model])
         return args
@@ -124,10 +223,13 @@ class CLILLMService:
         """
         try:
             data = json.loads(raw_output)
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[CLI] JSON parse failed: {e}")
+            print(f"[CLI] Raw output preview: {raw_output[:500]}..." if len(raw_output) > 500 else f"[CLI] Raw output: {raw_output}")
             return raw_output, 0
 
         if not isinstance(data, dict):
+            print(f"[CLI] Expected dict, got {type(data).__name__}")
             return raw_output, 0
 
         # Extract content

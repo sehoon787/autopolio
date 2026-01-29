@@ -1,7 +1,7 @@
 # Autopolio - 포트폴리오/이력서 자동화 플랫폼
 
 **생성일**: 2026-01-19
-**프로젝트 상태**: 완성 (v1.7)
+**프로젝트 상태**: 완성 (v1.8)
 **기반 프로젝트**: portfolio, aircok_backoffice
 
 ---
@@ -246,6 +246,7 @@ C:\Users\kimsehun\Desktop\proj\Autopolio\
 │       ├── cli_service.py    # v1.3 CLI 감지 서비스
 │       ├── document_service.py
 │       ├── pipeline_service.py
+│       ├── cli_llm_service.py  # v1.8 CLI LLM 실행 서비스
 │       ├── achievement_service.py  # v1.2 성과 자동 감지
 │       └── report_service.py       # v1.2 리포트 생성
 ├── frontend/                 # React 프론트엔드 + Electron
@@ -318,6 +319,8 @@ C:\Users\kimsehun\Desktop\proj\Autopolio\
 ├── start-dev.sh              # Linux/Mac 개발 스크립트
 ├── .env.example
 ├── .env
+├── test_cli.py               # v1.8 CLI LLM 서비스 테스트
+├── CHANGELOG.md              # v1.8 변경 이력 (신규)
 ├── .gitignore
 ├── README.md
 └── CLAUDE.md                 # 이 문서
@@ -654,6 +657,24 @@ portfolio/
   - `@google/gemini-cli` npm 패키지 버전 조회
 - 플랫폼별 설치 명령어 제공
 
+### CLILLMService (v1.8 개선)
+- **stdin 기반 프롬프트 전달**
+  - 커맨드라인 인수 대신 stdin으로 프롬프트 전달
+  - Windows 커맨드라인 길이 제한(~8191자) 우회
+  - 긴 프롬프트(2000~5000자) 안정적 처리
+- **CLILLMProvider 래퍼 클래스**
+  - LLMService 인터페이스와 호환
+  - `provider.generate()` 메서드 지원
+  - 시스템 프롬프트 프리펜드 처리
+- **Windows npm 전역 경로 탐색**
+  - `.cmd` 파일 우선 탐색
+  - `%APPDATA%\npm` 경로 직접 확인
+  - `shutil.which` 폴백
+- **향상된 로깅 및 에러 핸들링**
+  - 프롬프트 길이(문자/바이트) 로깅
+  - JSON 파싱 실패 시 상세 진단
+  - stderr 출력 포함한 에러 메시지
+
 ---
 
 ## 구현 완료 항목
@@ -771,6 +792,26 @@ portfolio/
 ---
 
 ## 버전 히스토리
+
+### v1.8 (2026-01-29)
+- **CLI 분석 기능 수정**
+  - 프롬프트를 커맨드라인 인수(`-p <prompt>`) 대신 stdin으로 전달
+  - Windows 커맨드라인 최대 길이(~8191자) 제한 우회
+  - 긴 프롬프트(분석 시 2000~5000자)가 잘리지 않고 정상 전달
+  - 특수문자, 한글, 따옴표 등 escape 처리 불필요
+- **CLILLMService 개선**
+  - `_build_args()`: `-p -` 형식으로 stdin 읽기 지시
+  - `subprocess.run()`: `input=prompt_bytes` 파라미터 추가
+  - `CLILLMProvider` 래퍼 클래스 추가 (LLMService 인터페이스 호환)
+  - Windows npm 전역 경로(`.cmd` 파일) 우선 탐색
+  - 타임아웃 120초 → 180초로 증가
+- **테스트 스위트 추가**
+  - `test_cli.py`: CLI LLM 서비스 테스트
+  - 4가지 테스트 케이스: 짧은 프롬프트, 긴 프롬프트(9000+자), 특수문자/한글, 실제 분석 프롬프트
+- **향상된 로깅**
+  - 프롬프트 길이(문자/바이트) 로깅
+  - CLI 실행 명령어 및 파라미터 로깅
+  - JSON 파싱 실패 시 raw output 미리보기
 
 ### v1.7 (2026-01-27)
 - **웹 LLM Provider 선택 기능**
@@ -933,5 +974,5 @@ portfolio/
 ---
 
 **작성자**: Claude Code (Opus 4.5)
-**문서 버전**: 1.7
-**최종 업데이트**: 2026-01-27 KST
+**문서 버전**: 1.8
+**최종 업데이트**: 2026-01-29 KST
