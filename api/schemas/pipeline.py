@@ -35,6 +35,7 @@ class PipelineRunRequest(BaseModel):
     llm_provider: Optional[str] = None  # Override user preference
     summary_style: str = "professional"  # professional, casual, technical
     cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli' for CLI execution
+    cli_model: Optional[str] = None  # Model name for CLI execution (e.g., 'claude-sonnet-4-20250514')
 
 
 class PipelineStatusResponse(BaseModel):

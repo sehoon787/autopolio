@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { usePipelineStore } from '@/stores/pipelineStore'
+import { useUsageStore, LLMUsage } from '@/stores/usageStore'
 import { pipelineApi } from '@/api/pipeline'
 import {
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   Github,
   Code,
   Cpu,
+  Trophy,
   Brain,
   FileText,
   File,
@@ -26,6 +28,7 @@ const stepIcons = [
   Github,    // GitHub Analysis
   Code,      // Code Extraction
   Cpu,       // Tech Detection
+  Trophy,    // Achievement Detection
   Brain,     // LLM Summarization
   FileText,  // Template Mapping
   File,      // Document Generation
@@ -34,6 +37,8 @@ const stepIcons = [
 export default function PipelinePage() {
   const navigate = useNavigate()
   const { currentTaskId, status, setStatus, reset } = usePipelineStore()
+  const { trackTokenUsage, incrementLLMCallCount } = useUsageStore()
+  const usageTrackedRef = useRef<string | null>(null) // Track which task's usage has been recorded
 
   const { data: statusData } = useQuery({
     queryKey: ['pipeline-status', currentTaskId],
@@ -53,6 +58,40 @@ export default function PipelinePage() {
       setStatus(statusData.data)
     }
   }, [statusData, setStatus])
+
+  // Track LLM usage when pipeline completes (only once per task)
+  useEffect(() => {
+    if (status?.status === 'completed' && status.result && currentTaskId) {
+      // Prevent double-counting: only track once per task
+      if (usageTrackedRef.current === currentTaskId) {
+        return
+      }
+      usageTrackedRef.current = currentTaskId
+
+      const result = status.result as Record<string, unknown>
+      const tokensUsed = result.llm_tokens_used as number | undefined
+      const executionMode = result.llm_execution_mode as string | undefined
+      const cliType = result.llm_cli_type as string | undefined
+      const llmProvider = result.llm_provider as string | undefined
+
+      if (tokensUsed && tokensUsed > 0) {
+        // Determine which provider to track
+        let provider: keyof LLMUsage | null = null
+        if (executionMode === 'cli' && cliType) {
+          provider = cliType === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
+        } else if (llmProvider) {
+          if (llmProvider === 'openai' || llmProvider === 'anthropic' || llmProvider === 'gemini') {
+            provider = llmProvider
+          }
+        }
+
+        if (provider) {
+          trackTokenUsage(provider, tokensUsed)
+          incrementLLMCallCount(provider)
+        }
+      }
+    }
+  }, [status?.status, status?.result, currentTaskId, trackTokenUsage, incrementLLMCallCount])
 
   useEffect(() => {
     if (!currentTaskId) {
@@ -134,7 +173,7 @@ export default function PipelinePage() {
       {/* Pipeline Steps */}
       <Card>
         <CardHeader>
-          <CardTitle>6단계 파이프라인</CardTitle>
+          <CardTitle>7단계 파이프라인</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

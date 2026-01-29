@@ -23,6 +23,9 @@ export interface PipelineRunRequest {
   include_tech_stack?: boolean
   llm_provider?: string
   summary_style?: string
+  // CLI mode settings
+  cli_mode?: 'claude_code' | 'gemini_cli'
+  cli_model?: string
 }
 
 export interface PipelineStatus {

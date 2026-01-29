@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { usePipelineStore } from '@/stores/pipelineStore'
+import { useAppStore } from '@/stores/appStore'
 import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
 import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
@@ -30,6 +31,7 @@ export default function GeneratePage() {
   const { toast } = useToast()
   const { user } = useUserStore()
   const { setTaskId, setRequest } = usePipelineStore()
+  const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
 
   const [selectedProjects, setSelectedProjects] = useState<number[]>([])
   const [templateId, setTemplateId] = useState<string>('')
@@ -94,6 +96,17 @@ export default function GeneratePage() {
       return
     }
 
+    // Build LLM/CLI settings based on appStore preferences
+    const llmSettings: Pick<PipelineRunRequest, 'llm_provider' | 'cli_mode' | 'cli_model'> = {}
+    if (aiMode === 'cli' && isElectronApp) {
+      // CLI mode (Electron only)
+      llmSettings.cli_mode = selectedCLI
+      llmSettings.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+    } else {
+      // API mode
+      llmSettings.llm_provider = selectedLLMProvider
+    }
+
     const request: PipelineRunRequest = {
       project_ids: selectedProjects,
       template_id: parseInt(templateId),
@@ -105,6 +118,7 @@ export default function GeneratePage() {
       include_achievements: options.includeAchievements,
       include_tech_stack: options.includeTechStack,
       summary_style: summaryStyle,
+      ...llmSettings,
     }
 
     setRequest(request)

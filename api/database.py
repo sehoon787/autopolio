@@ -14,7 +14,8 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False
+    expire_on_commit=False,
+    autoflush=False  # Disable autoflush to prevent SQLite lock issues
 )
 
 

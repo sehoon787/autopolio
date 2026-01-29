@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
+import { useAppStore } from '@/stores/appStore'
 import { projectsApi, companiesApi, type ProjectCreate } from '@/api/knowledge'
 import { githubApi, type EffectiveRepoAnalysis, type EditStatus } from '@/api/github'
 import { reportsApi, type DetailedReportData, type FinalReportData } from '@/api/documents'
@@ -65,6 +66,7 @@ export default function ProjectDetailPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
+  const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
@@ -149,7 +151,25 @@ export default function ProjectDetailPage() {
   })
 
   const analyzeMutation = useMutation({
-    mutationFn: () => githubApi.analyzeRepo(user!.id, project!.git_url!, project!.id),
+    mutationFn: () => {
+      // Build LLM/CLI options based on aiMode
+      const options: Parameters<typeof githubApi.analyzeRepo>[3] = {}
+
+      console.log('[Analyze] aiMode:', aiMode, 'isElectronApp:', isElectronApp, 'selectedCLI:', selectedCLI)
+
+      if (aiMode === 'cli' && isElectronApp) {
+        // CLI mode (Electron only)
+        options.cli_mode = selectedCLI
+        options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+        console.log('[Analyze] Using CLI mode:', options.cli_mode, 'model:', options.cli_model)
+      } else {
+        // API mode
+        options.provider = selectedLLMProvider
+        console.log('[Analyze] Using API mode, provider:', options.provider)
+      }
+
+      return githubApi.analyzeRepo(user!.id, project!.git_url!, project!.id, options)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
       queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })

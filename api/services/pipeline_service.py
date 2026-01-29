@@ -398,6 +398,7 @@ class PipelineService:
             cli_mode = getattr(request, 'cli_mode', None)
             cli_model = getattr(request, 'cli_model', None)
             if cli_mode:
+                print(f"[Pipeline] Using CLI mode: {cli_mode}, model: {cli_model}")
                 llm_service = CLILLMService(cli_mode, model=cli_model)
             else:
                 # Use user's selected model for the chosen provider
@@ -408,6 +409,7 @@ class PipelineService:
                     user_model = getattr(user, 'anthropic_model', None)
                 elif provider == "gemini":
                     user_model = getattr(user, 'gemini_model', None)
+                print(f"[Pipeline] Using API mode: provider={provider}, model={user_model}")
                 llm_service = LLMService(provider, model=user_model)
 
             # Get projects

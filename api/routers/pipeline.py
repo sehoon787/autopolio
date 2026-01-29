@@ -44,8 +44,12 @@ async def run_pipeline(
         user_id=user_id,
         job_type="pipeline",
         input_data=request.model_dump(),
-        total_steps=6
+        total_steps=7  # 7 steps: GitHub Analysis, Code Extraction, Tech Detection, Achievement Detection, LLM Summarization, Template Mapping, Document Generation
     )
+
+    # Commit immediately so the job is visible to status queries
+    await db.commit()
+    await db.refresh(job)
 
     # Start pipeline in background
     pipeline_service = PipelineService(db, user_id)
@@ -55,7 +59,6 @@ async def run_pipeline(
         request
     )
 
-    await db.refresh(job)
     return job
 
 
@@ -78,6 +81,7 @@ async def get_pipeline_status(
         "GitHub Analysis",
         "Code Extraction",
         "Tech Detection",
+        "Achievement Detection",
         "LLM Summarization",
         "Template Mapping",
         "Document Generation"
@@ -215,8 +219,35 @@ async def get_user_jobs(
     count_result = await db.execute(count_query)
     total = len(count_result.scalars().all())
 
+    # Convert jobs to dicts to avoid SQLAlchemy metadata attribute conflict (fixed)
+    jobs_list = [
+        {
+            "id": job.id,
+            "task_id": job.task_id,
+            "user_id": job.user_id,
+            "job_type": job.job_type,
+            "status": job.status,
+            "progress": job.progress,
+            "current_step": job.current_step,
+            "total_steps": job.total_steps,
+            "step_name": job.step_name,
+            "step_results": job.step_results,
+            "input_data": job.input_data,
+            "output_data": job.output_data,
+            "error_message": job.error_message,
+            "error_details": job.error_details,
+            "started_at": job.started_at,
+            "completed_at": job.completed_at,
+            "estimated_completion": job.estimated_completion,
+            "job_metadata": job.job_metadata,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at,
+        }
+        for job in jobs
+    ]
+
     return {
-        "jobs": jobs,
+        "jobs": jobs_list,
         "total": total,
         "page": skip // limit + 1,
         "page_size": limit

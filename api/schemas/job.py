@@ -27,7 +27,7 @@ class JobResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     estimated_completion: Optional[datetime] = None
-    metadata: Optional[Dict[str, Any]] = None
+    job_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 

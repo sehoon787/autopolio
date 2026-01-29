@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 import httpx
 
 from api.database import get_db
@@ -107,16 +107,30 @@ async def _auto_detect_achievements(
 
 async def _generate_key_tasks(
     project: Project,
-    repo_analysis: RepoAnalysis
-) -> list:
+    repo_analysis: RepoAnalysis,
+    llm_service=None,
+    cli_mode: str = None,
+    cli_model: str = None
+) -> Tuple[List[str], int]:
     """
     Generate key tasks using LLM based on project analysis.
-    Returns a list of key tasks.
+    Returns a tuple of (list of key tasks, token count).
+    Supports both API mode (LLMService) and CLI mode (CLILLMService).
     """
     from api.services.llm_service import LLMService
+    from api.services.cli_llm_service import CLILLMService
 
     try:
-        llm_service = LLMService()
+        if llm_service is None:
+            if cli_mode:
+                print(f"[KeyTasks] Using CLI mode: {cli_mode}, model: {cli_model}")
+                llm_service = CLILLMService(cli_mode, model=cli_model)
+            else:
+                llm_service = LLMService()
+
+        print(f"[KeyTasks] LLM service type: {type(llm_service).__name__}")
+        if hasattr(llm_service, 'provider_name'):
+            print(f"[KeyTasks] Provider name: {llm_service.provider_name}")
 
         # Build prompt with available information
         technologies = repo_analysis.detected_technologies or []
@@ -156,7 +170,9 @@ JSON 배열 형식으로만 응답하세요:
 ["업무1", "업무2", "업무3"]
 """
 
-        response, _tokens = await llm_service.provider.generate(
+        # Call LLM using unified provider.generate() interface
+        # Both LLMService and CLILLMService now support this interface
+        response, tokens = await llm_service.provider.generate(
             prompt,
             system_prompt="당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요.",
             max_tokens=500,
@@ -175,14 +191,16 @@ JSON 배열 형식으로만 응답하세요:
 
         # Validate that it's a list of strings
         if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-            return tasks[:5]  # Limit to 5 tasks
+            return tasks[:5], tokens  # Limit to 5 tasks
 
-        return []
+        return [], tokens
 
     except Exception as e:
         # Log error but don't fail the analysis
-        print(f"Failed to generate key tasks: {e}")
-        return []
+        import traceback
+        print(f"Failed to generate key tasks: {type(e).__name__}: {e}")
+        print(f"[KeyTasks] Traceback: {traceback.format_exc()}")
+        return [], 0
 
 
 @router.get("/connect")
@@ -427,177 +445,319 @@ async def get_repo_quick_info(
 async def analyze_repository(
     request: RepoAnalysisRequest,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    provider: Optional[str] = Query(None, description="LLM provider to use"),
+    cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_model: Optional[str] = Query(None, description="CLI model name"),
 ):
-    """Analyze a GitHub repository."""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    """Analyze a GitHub repository.
 
-    if not user or not user.github_token_encrypted:
-        raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다. 먼저 GitHub 연동을 해주세요.")
+    Uses separate sessions for each phase to prevent SQLite lock issues during long operations.
+    Does NOT use Depends(get_db) to avoid session lifecycle issues.
+    """
+    from api.services.llm_service import LLMService
+    from api.services.cli_llm_service import CLILLMService
+    from api.database import AsyncSessionLocal
 
-    try:
-        token = encryption.decrypt(user.github_token_encrypted)
-    except Exception:
-        raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다. 다시 연동해주세요.")
+    # ===== PHASE 1: Get user and project info =====
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
 
-    github_service = GitHubService(token)
+        if not user or not user.github_token_encrypted:
+            raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다. 먼저 GitHub 연동을 해주세요.")
 
-    try:
-        # Get or create project
-        if request.project_id:
+        try:
+            token = encryption.decrypt(user.github_token_encrypted)
+            github_username = user.github_username
+        except Exception:
+            raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다. 다시 연동해주세요.")
+
+        project_id = request.project_id
+        if project_id:
             proj_result = await db.execute(
-                select(Project).where(Project.id == request.project_id)
+                select(Project).where(Project.id == project_id)
             )
             project = proj_result.scalar_one_or_none()
             if not project:
                 raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
         else:
-            # Create new project from repo
-            repo_info = await github_service.get_repo_info(request.git_url)
-            project = Project(
-                user_id=user_id,
-                name=repo_info["name"],
-                description=repo_info.get("description"),
-                git_url=request.git_url,
-                project_type="personal"
-            )
-            db.add(project)
-            await db.flush()
+            # Need to create project, but first get repo info
+            project_id = None  # Will create after getting repo info
 
-        # Run analysis
+        await db.commit()
+    print(f"[Analyze] Phase 1 complete: user validated, project_id={project_id}")
+
+    # Initialize services (outside of DB session)
+    github_service = GitHubService(token)
+    total_tokens = 0
+    used_provider = None
+    llm_service = None
+    llm_init_error = None
+    try:
+        if cli_mode:
+            print(f"[Analyze] Using CLI mode: {cli_mode}, model: {cli_model}")
+            llm_service = CLILLMService(cli_mode, model=cli_model)
+            used_provider = f"cli:{cli_mode}"
+        elif provider:
+            print(f"[Analyze] Using API mode: {provider}")
+            llm_service = LLMService(provider)
+            used_provider = llm_service.provider_name
+        else:
+            # Try default provider from settings
+            print(f"[Analyze] Using default LLM provider from settings")
+            llm_service = LLMService()
+            used_provider = llm_service.provider_name
+    except ValueError as e:
+        # API key not configured - continue without LLM
+        llm_init_error = str(e)
+        print(f"[Analyze] LLM service not available: {e}")
+    except Exception as e:
+        llm_init_error = str(e)
+        print(f"[Analyze] Failed to initialize LLM service: {e}")
+
+    try:
+        # ===== PHASE 2: Create project if needed =====
+        if not project_id:
+            repo_info = await github_service.get_repo_info(request.git_url)
+            async with AsyncSessionLocal() as db:
+                project = Project(
+                    user_id=user_id,
+                    name=repo_info["name"],
+                    description=repo_info.get("description"),
+                    git_url=request.git_url,
+                    project_type="personal"
+                )
+                db.add(project)
+                await db.commit()
+                await db.refresh(project)
+                project_id = project.id
+            print(f"[Analyze] Phase 2 complete: created project_id={project_id}")
+
+        # ===== PHASE 3: Run GitHub analysis (long HTTP operation - no DB connection) =====
+        print(f"[Analyze] Starting analyze_repository for {request.git_url}...")
         analysis_result = await github_service.analyze_repository(
             request.git_url,
-            user.github_username
+            github_username
         )
+        print(f"[Analyze] Phase 3 complete: detected {len(analysis_result.get('detected_technologies', []))} technologies")
 
-        # Check for existing analysis
-        existing = await db.execute(
-            select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
-        )
-        repo_analysis = existing.scalar_one_or_none()
+        # ===== PHASE 4: Save analysis results =====
+        analysis_id = None
+        async with AsyncSessionLocal() as db:
+            # Re-fetch project
+            proj_result = await db.execute(select(Project).where(Project.id == project_id))
+            project = proj_result.scalar_one_or_none()
 
-        if repo_analysis:
-            # Update existing
-            for key, value in analysis_result.items():
-                setattr(repo_analysis, key, value)
-        else:
-            # Create new
-            repo_analysis = RepoAnalysis(
-                project_id=project.id,
-                git_url=request.git_url,
-                **analysis_result
+            # Check for existing analysis
+            existing = await db.execute(
+                select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
             )
-            db.add(repo_analysis)
+            repo_analysis = existing.scalar_one_or_none()
 
-        # Auto-detect role if not already set
-        if not project.role:
-            role_service = RoleService()
-            detected_role, _ = role_service.detect_role(
-                technologies=analysis_result.get('detected_technologies', []),
-                commit_messages=analysis_result.get('commit_messages', [])[:100],  # Limit to 100 messages
-            )
-            project.role = detected_role
-
-        # Mark project as analyzed
-        project.is_analyzed = 1
-        project.git_url = request.git_url
-
-        # Save detected technologies to project
-        detected_techs = analysis_result.get('detected_technologies', [])
-        if detected_techs:
-            # Clear existing technologies for this project
-            await db.execute(
-                ProjectTechnology.__table__.delete().where(
-                    ProjectTechnology.project_id == project.id
+            if repo_analysis:
+                for key, value in analysis_result.items():
+                    setattr(repo_analysis, key, value)
+            else:
+                repo_analysis = RepoAnalysis(
+                    project_id=project_id,
+                    git_url=request.git_url,
+                    **analysis_result
                 )
-            )
+                db.add(repo_analysis)
 
-            # Add detected technologies
-            for tech_name in detected_techs:
-                # Get or create technology
-                tech_result = await db.execute(
-                    select(Technology).where(Technology.name == tech_name)
+            # Auto-detect role if not already set
+            if not project.role:
+                role_service = RoleService()
+                detected_role, _ = role_service.detect_role(
+                    technologies=analysis_result.get('detected_technologies', []),
+                    commit_messages=analysis_result.get('commit_messages', [])[:100],
                 )
-                tech = tech_result.scalar_one_or_none()
+                project.role = detected_role
 
-                if not tech:
-                    tech = Technology(name=tech_name)
-                    db.add(tech)
-                    await db.flush()
+            # Mark project as analyzed
+            project.is_analyzed = 1
+            project.git_url = request.git_url
 
-                # Create project-technology association
-                project_tech = ProjectTechnology(
-                    project_id=project.id,
-                    technology_id=tech.id,
-                    is_primary=1 if tech_name == analysis_result.get('primary_language') else 0
+            # Save detected technologies
+            detected_techs = analysis_result.get('detected_technologies', [])
+            if detected_techs:
+                await db.execute(
+                    ProjectTechnology.__table__.delete().where(
+                        ProjectTechnology.project_id == project_id
+                    )
                 )
-                db.add(project_tech)
+                for tech_name in detected_techs:
+                    tech_result = await db.execute(
+                        select(Technology).where(Technology.name == tech_name)
+                    )
+                    tech = tech_result.scalar_one_or_none()
+                    if not tech:
+                        tech = Technology(name=tech_name)
+                        db.add(tech)
+                        await db.flush()
+                    project_tech = ProjectTechnology(
+                        project_id=project_id,
+                        technology_id=tech.id,
+                        is_primary=1 if tech_name == analysis_result.get('primary_language') else 0
+                    )
+                    db.add(project_tech)
 
-        await db.flush()
-        await db.refresh(repo_analysis)
+            await db.flush()
 
-        # Auto-detect achievements from analysis data
-        try:
-            await _auto_detect_achievements(db, project, repo_analysis)
-        except Exception as e:
-            # Log but don't fail the analysis
-            print(f"Failed to auto-detect achievements: {e}")
+            # Auto-detect achievements
+            try:
+                await _auto_detect_achievements(db, project, repo_analysis)
+            except Exception as e:
+                print(f"Failed to auto-detect achievements: {e}")
 
-        # Generate key tasks using LLM
-        try:
-            key_tasks = await _generate_key_tasks(project, repo_analysis)
-            if key_tasks:
-                repo_analysis.key_tasks = key_tasks
-                await db.flush()
-                await db.refresh(repo_analysis)
-        except Exception as e:
-            # Log but don't fail the analysis
-            print(f"Failed to generate key tasks: {e}")
+            await db.commit()
+            await db.refresh(repo_analysis)
+            analysis_id = repo_analysis.id
+        print(f"[Analyze] Phase 4 complete: analysis saved, id={analysis_id}")
 
-        # Extract technology versions from package files
+        # ===== PHASE 5: LLM operations (long operation - no DB connection during LLM calls) =====
+        if llm_service:
+            # First, read current state
+            async with AsyncSessionLocal() as db:
+                proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                project = proj_result.scalar_one_or_none()
+                analysis_result_db = await db.execute(
+                    select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
+                )
+                repo_analysis = analysis_result_db.scalar_one_or_none()
+
+                # Copy data we need for LLM calls
+                project_name = project.name
+                project_description = project.description
+                project_role = project.role
+                project_start_date = str(project.start_date) if project.start_date else None
+                project_end_date = str(project.end_date) if project.end_date else None
+                commit_messages_summary = repo_analysis.commit_messages_summary
+                detected_technologies = repo_analysis.detected_technologies
+                commit_categories = repo_analysis.commit_categories
+                total_commits = repo_analysis.total_commits
+                lines_added = repo_analysis.lines_added
+                lines_deleted = repo_analysis.lines_deleted
+                files_changed = repo_analysis.files_changed
+
+            # Generate key tasks using LLM (outside DB session)
+            key_tasks = None
+            try:
+                print(f"[Analyze] Generating key tasks with {type(llm_service).__name__}")
+                # Create minimal project/analysis objects for _generate_key_tasks
+                class MinimalProject:
+                    def __init__(self):
+                        self.name = project_name
+                        self.description = project_description
+                        self.role = project_role
+                class MinimalAnalysis:
+                    def __init__(self):
+                        self.detected_technologies = detected_technologies
+                        self.commit_messages_summary = commit_messages_summary
+                        self.commit_categories = commit_categories
+
+                key_tasks, tokens = await _generate_key_tasks(
+                    MinimalProject(), MinimalAnalysis(), llm_service
+                )
+                total_tokens += tokens
+            except Exception as e:
+                import traceback
+                print(f"[Analyze] Failed to generate key tasks: {type(e).__name__}: {e}")
+                print(f"[Analyze] Traceback: {traceback.format_exc()}")
+
+            # Generate detailed content (outside DB session)
+            detailed_content = None
+            try:
+                project_data = {
+                    "name": project_name,
+                    "description": project_description,
+                    "role": project_role,
+                    "start_date": project_start_date,
+                    "end_date": project_end_date,
+                }
+                detailed_content, content_tokens = await github_service.generate_detailed_content(
+                    project_data=project_data,
+                    analysis_data={
+                        "commit_messages_summary": commit_messages_summary,
+                        "detected_technologies": detected_technologies,
+                        "commit_categories": commit_categories,
+                        "total_commits": total_commits,
+                        "lines_added": lines_added,
+                        "lines_deleted": lines_deleted,
+                        "files_changed": files_changed,
+                    },
+                    llm_service=llm_service
+                )
+                total_tokens += content_tokens
+            except Exception as e:
+                print(f"Failed to generate detailed content: {e}")
+
+            # Save LLM results (new session)
+            async with AsyncSessionLocal() as db:
+                analysis_result_db = await db.execute(
+                    select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
+                )
+                repo_analysis = analysis_result_db.scalar_one_or_none()
+
+                if key_tasks:
+                    repo_analysis.key_tasks = key_tasks
+                if detailed_content:
+                    if detailed_content.get("implementation_details"):
+                        repo_analysis.implementation_details = detailed_content["implementation_details"]
+                    if detailed_content.get("development_timeline"):
+                        repo_analysis.development_timeline = detailed_content["development_timeline"]
+                    if detailed_content.get("detailed_achievements"):
+                        repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+
+                await db.commit()
+            print(f"[Analyze] Phase 5 complete: LLM content saved")
+
+        # ===== PHASE 6: Extract tech versions =====
         try:
             tech_versions = await github_service.extract_tech_versions(request.git_url)
             if tech_versions:
-                repo_analysis.tech_stack_versions = tech_versions
+                async with AsyncSessionLocal() as db:
+                    analysis_result_db = await db.execute(
+                        select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
+                    )
+                    repo_analysis = analysis_result_db.scalar_one_or_none()
+                    repo_analysis.tech_stack_versions = tech_versions
+                    await db.commit()
         except Exception as e:
             print(f"Failed to extract tech versions: {e}")
 
-        # Generate LLM-based detailed content (implementation_details, timeline, achievements)
-        try:
-            project_data = {
-                "name": project.name,
-                "description": project.description,
-                "role": project.role,
-                "start_date": str(project.start_date) if project.start_date else None,
-                "end_date": str(project.end_date) if project.end_date else None,
-            }
-            detailed_content = await github_service.generate_detailed_content(
-                project_data=project_data,
-                analysis_data={
-                    "commit_messages_summary": repo_analysis.commit_messages_summary,
-                    "detected_technologies": repo_analysis.detected_technologies,
-                    "commit_categories": repo_analysis.commit_categories,
-                    "total_commits": repo_analysis.total_commits,
-                    "lines_added": repo_analysis.lines_added,
-                    "lines_deleted": repo_analysis.lines_deleted,
-                    "files_changed": repo_analysis.files_changed,
-                }
+        # ===== Final: Build and return response =====
+        async with AsyncSessionLocal() as db:
+            analysis_result_db = await db.execute(
+                select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
             )
-            if detailed_content:
-                if detailed_content.get("implementation_details"):
-                    repo_analysis.implementation_details = detailed_content["implementation_details"]
-                if detailed_content.get("development_timeline"):
-                    repo_analysis.development_timeline = detailed_content["development_timeline"]
-                if detailed_content.get("detailed_achievements"):
-                    repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
-        except Exception as e:
-            print(f"Failed to generate detailed content: {e}")
+            repo_analysis = analysis_result_db.scalar_one_or_none()
 
-        await db.flush()
-        await db.refresh(repo_analysis)
-
-        return repo_analysis
+            response = RepoAnalysisResponse(
+                id=repo_analysis.id,
+                project_id=repo_analysis.project_id,
+                git_url=repo_analysis.git_url,
+                total_commits=repo_analysis.total_commits,
+                user_commits=repo_analysis.user_commits,
+                lines_added=repo_analysis.lines_added,
+                lines_deleted=repo_analysis.lines_deleted,
+                files_changed=repo_analysis.files_changed,
+                languages=repo_analysis.languages or {},
+                primary_language=repo_analysis.primary_language,
+                detected_technologies=repo_analysis.detected_technologies or [],
+                commit_messages_summary=repo_analysis.commit_messages_summary,
+                commit_categories=repo_analysis.commit_categories,
+                architecture_patterns=repo_analysis.architecture_patterns,
+                key_tasks=repo_analysis.key_tasks,
+                implementation_details=repo_analysis.implementation_details,
+                development_timeline=repo_analysis.development_timeline,
+                tech_stack_versions=repo_analysis.tech_stack_versions,
+                detailed_achievements=repo_analysis.detailed_achievements,
+                analyzed_at=repo_analysis.analyzed_at,
+                provider=used_provider,
+                token_usage=total_tokens if total_tokens > 0 else None
+            )
+            return response
 
     except GitHubTimeoutError as e:
         raise HTTPException(status_code=504, detail=e.message)
@@ -690,6 +850,41 @@ async def test_llm():
     except Exception as e:
         return {
             "provider": settings.llm_provider,
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@router.get("/test-cli")
+async def test_cli(
+    cli_mode: str = Query("claude_code", description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_model: Optional[str] = Query(None, description="CLI model name"),
+):
+    """Test CLI LLM provider connection."""
+    from api.services.cli_llm_service import CLILLMService
+
+    print(f"[TestCLI] Starting test with cli_mode={cli_mode}, cli_model={cli_model}", flush=True)
+    try:
+        cli_service = CLILLMService(cli_mode, model=cli_model)
+        print(f"[TestCLI] Created CLILLMService", flush=True)
+        response, tokens = await cli_service.provider.generate(
+            "Say 'Hello! CLI is working.' in one short sentence.",
+            max_tokens=50,
+            temperature=0.1
+        )
+        print(f"[TestCLI] Got response, tokens={tokens}", flush=True)
+        return {
+            "provider": cli_service.provider_name,
+            "status": "success",
+            "response": response,
+            "token_usage": tokens
+        }
+    except Exception as e:
+        import traceback
+        print(f"[TestCLI] Error: {type(e).__name__}: {e}", flush=True)
+        print(f"[TestCLI] Traceback: {traceback.format_exc()}", flush=True)
+        return {
+            "provider": f"cli:{cli_mode}",
             "status": "error",
             "error": str(e)
         }
@@ -1007,7 +1202,13 @@ async def analyze_batch(
     user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Analyze multiple projects in batch (synchronous)."""
+    """Analyze multiple projects in batch (synchronous).
+
+    Supports both API mode (LLMService) and CLI mode (CLILLMService) for LLM operations.
+    """
+    from api.services.cli_llm_service import CLILLMService
+    from api.services.llm_service import LLMService
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -1024,6 +1225,27 @@ async def analyze_batch(
     results: list[BatchAnalysisResult] = []
     completed = 0
     failed = 0
+
+    # Create LLM service based on request parameters
+    llm_service = None
+    used_provider = None
+    llm_init_error = None
+    try:
+        if request.cli_mode:
+            print(f"[AnalyzeBatch] Using CLI mode: {request.cli_mode}, model: {request.cli_model}")
+            llm_service = CLILLMService(request.cli_mode, model=request.cli_model)
+            used_provider = f"cli:{request.cli_mode}"
+        elif request.llm_provider:
+            print(f"[AnalyzeBatch] Using API mode: {request.llm_provider}")
+            llm_service = LLMService(request.llm_provider)
+            used_provider = request.llm_provider
+    except ValueError as e:
+        # API key not configured - continue without LLM
+        llm_init_error = str(e)
+        print(f"[AnalyzeBatch] LLM service not available: {e}")
+    except Exception as e:
+        llm_init_error = str(e)
+        print(f"[AnalyzeBatch] Failed to initialize LLM service: {e}")
 
     for project_id in request.project_ids:
         try:
@@ -1125,11 +1347,53 @@ async def analyze_batch(
 
             await db.flush()
 
+            # Generate LLM-based content if LLM service is available
+            if llm_service:
+                try:
+                    # Generate key tasks
+                    print(f"[AnalyzeBatch] Generating key tasks for {project.name}")
+                    key_tasks, tokens = await _generate_key_tasks(project, repo_analysis, llm_service)
+                    if key_tasks:
+                        repo_analysis.key_tasks = key_tasks
+                        await db.flush()
+
+                    # Generate detailed content
+                    project_data = {
+                        "name": project.name,
+                        "description": project.description,
+                        "role": project.role,
+                        "start_date": str(project.start_date) if project.start_date else None,
+                        "end_date": str(project.end_date) if project.end_date else None,
+                    }
+                    detailed_content, content_tokens = await github_service.generate_detailed_content(
+                        project_data=project_data,
+                        analysis_data={
+                            "commit_messages_summary": repo_analysis.commit_messages_summary,
+                            "detected_technologies": repo_analysis.detected_technologies,
+                            "commit_categories": repo_analysis.commit_categories,
+                            "total_commits": repo_analysis.total_commits,
+                            "lines_added": repo_analysis.lines_added,
+                            "lines_deleted": repo_analysis.lines_deleted,
+                            "files_changed": repo_analysis.files_changed,
+                        },
+                        llm_service=llm_service
+                    )
+                    if detailed_content:
+                        if detailed_content.get("implementation_details"):
+                            repo_analysis.implementation_details = detailed_content["implementation_details"]
+                        if detailed_content.get("development_timeline"):
+                            repo_analysis.development_timeline = detailed_content["development_timeline"]
+                        if detailed_content.get("detailed_achievements"):
+                            repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+                        await db.flush()
+                except Exception as e:
+                    print(f"[AnalyzeBatch] Failed to generate LLM content for {project.name}: {e}")
+
             results.append(BatchAnalysisResult(
                 project_id=project.id,
                 project_name=project.name,
                 success=True,
-                message="분석 완료",
+                message="분석 완료" + (f" (LLM: {used_provider})" if used_provider else ""),
                 detected_technologies=analysis_result.get('detected_technologies', [])[:10],
                 detected_role=detected_role
             ))

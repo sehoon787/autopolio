@@ -353,12 +353,35 @@ async def get_providers():
 @router.post("/cli/test/{cli_type}", response_model=CLITestResponse)
 async def test_cli(cli_type: str):
     """Test a CLI tool by running a simple command."""
+    import subprocess
+    from concurrent.futures import ThreadPoolExecutor
+
     if cli_type not in ["claude_code", "gemini_cli"]:
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
     provider_map = {"claude_code": "anthropic", "gemini_cli": "gemini"}
     mapped_provider = provider_map[cli_type]
     cli_service = get_cli_service()
+
+    def run_cli_version(cli_path: str) -> tuple:
+        """Run CLI --version in a thread (Windows asyncio subprocess compatibility)."""
+        cli_path_lower = cli_path.lower()
+        use_shell = sys.platform == "win32" and (
+            cli_path_lower.endswith('.cmd') or cli_path_lower.endswith('.bat')
+        )
+
+        if use_shell:
+            args = ["cmd.exe", "/c", cli_path, "--version"]
+        else:
+            args = [cli_path, "--version"]
+
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            timeout=10,
+            text=True,
+        )
+        return result.stdout.strip() or result.stderr.strip(), result.returncode
 
     try:
         if cli_type == "claude_code":
@@ -370,25 +393,13 @@ async def test_cli(cli_type: str):
                     message="Claude Code CLI is not installed",
                     provider=mapped_provider,
                 )
-            # Test by getting version
             cli_path = status["path"]
-            # Windows .cmd/.bat files need shell execution
-            use_shell = sys.platform == "win32" and (cli_path.endswith('.cmd') or cli_path.endswith('.bat'))
 
-            if use_shell:
-                proc = await asyncio.create_subprocess_shell(
-                    f'"{cli_path}" --version',
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-            else:
-                proc = await asyncio.create_subprocess_exec(
-                    cli_path, "--version",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
-            output = stdout.decode().strip() if stdout else stderr.decode().strip()
+            # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                output, returncode = await loop.run_in_executor(executor, run_cli_version, cli_path)
+
             return CLITestResponse(
                 success=True,
                 tool=cli_type,
@@ -405,25 +416,13 @@ async def test_cli(cli_type: str):
                     message="Gemini CLI is not installed",
                     provider=mapped_provider,
                 )
-            # Test by getting version
             cli_path = status["path"]
-            # Windows .cmd/.bat files need shell execution
-            use_shell = sys.platform == "win32" and (cli_path.endswith('.cmd') or cli_path.endswith('.bat'))
 
-            if use_shell:
-                proc = await asyncio.create_subprocess_shell(
-                    f'"{cli_path}" --version',
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-            else:
-                proc = await asyncio.create_subprocess_exec(
-                    cli_path, "--version",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
-            output = stdout.decode().strip() if stdout else stderr.decode().strip()
+            # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                output, returncode = await loop.run_in_executor(executor, run_cli_version, cli_path)
+
             return CLITestResponse(
                 success=True,
                 tool=cli_type,
@@ -431,7 +430,7 @@ async def test_cli(cli_type: str):
                 output=output,
                 provider=mapped_provider,
             )
-    except asyncio.TimeoutError:
+    except subprocess.TimeoutExpired:
         return CLITestResponse(
             success=False,
             tool=cli_type,
@@ -439,10 +438,13 @@ async def test_cli(cli_type: str):
             provider=mapped_provider,
         )
     except Exception as e:
+        import traceback
+        print(f"[CLI Test] Exception: {type(e).__name__}: {e}")
+        print(f"[CLI Test] Traceback: {traceback.format_exc()}")
         return CLITestResponse(
             success=False,
             tool=cli_type,
-            message=f"CLI test failed: {str(e)}",
+            message=f"CLI test failed: {type(e).__name__}: {str(e)}",
             provider=mapped_provider,
         )
 

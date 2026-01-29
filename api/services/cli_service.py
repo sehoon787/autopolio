@@ -5,8 +5,10 @@ import asyncio
 import platform
 import os
 import re
+import subprocess
 from typing import Optional
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import httpx
 
 from api.config import get_settings
@@ -93,35 +95,40 @@ class CLIService:
         return result
 
     async def _run_command(self, cmd: list[str], timeout: int = 5) -> tuple[bool, str]:
-        """Run a command and return (success, output)."""
-        try:
-            # On Windows, .cmd and .bat files need to be run through shell
+        """Run a command and return (success, output).
+
+        Uses subprocess.run with ThreadPoolExecutor for Windows asyncio compatibility.
+        """
+        def run_sync():
+            # On Windows, .cmd and .bat files need to be run through cmd.exe
             use_shell = False
             if self.platform == 'win32' and len(cmd) > 0:
                 first_cmd = cmd[0].lower()
                 use_shell = first_cmd.endswith('.cmd') or first_cmd.endswith('.bat')
 
             if use_shell:
-                # Use shell=True for Windows batch/cmd files
-                process = await asyncio.create_subprocess_shell(
-                    ' '.join(f'"{c}"' if ' ' in c else c for c in cmd),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+                # Use cmd.exe /c prefix for Windows batch/cmd files
+                exec_cmd = ["cmd.exe", "/c"] + cmd
             else:
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
+                exec_cmd = cmd
+
+            result = subprocess.run(
+                exec_cmd,
+                capture_output=True,
+                timeout=timeout,
+                text=True,
             )
-            if process.returncode == 0:
-                return True, stdout.decode('utf-8', errors='ignore').strip()
-            return False, stderr.decode('utf-8', errors='ignore').strip()
-        except asyncio.TimeoutError:
+            return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+        try:
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                returncode, stdout, stderr = await loop.run_in_executor(executor, run_sync)
+
+            if returncode == 0:
+                return True, stdout
+            return False, stderr
+        except subprocess.TimeoutExpired:
             return False, "Command timed out"
         except FileNotFoundError:
             return False, "Command not found"
@@ -131,23 +138,41 @@ class CLIService:
     async def _find_cli_in_path(self, cli_name: str) -> Optional[str]:
         """Find CLI in system PATH using which/where command."""
         if self.platform == 'win32':
-            # Try 'where' command first
-            success, output = await self._run_command(['where', cli_name])
-            if success and output:
-                return output.split('\n')[0].strip()
-
-            # Also try with .cmd extension
+            # On Windows, prefer .cmd files for proper execution
+            # Try with .cmd extension FIRST
             success, output = await self._run_command(['where', f'{cli_name}.cmd'])
             if success and output:
                 return output.split('\n')[0].strip()
 
+            # Then try without extension (may return shell script)
+            success, output = await self._run_command(['where', cli_name])
+            if success and output:
+                path = output.split('\n')[0].strip()
+                # Check if a .cmd version exists alongside
+                cmd_path = path + '.cmd'
+                if os.path.exists(cmd_path):
+                    return cmd_path
+                return path
+
             # Try PowerShell Get-Command as fallback
+            success, output = await self._run_command([
+                'powershell', '-Command',
+                f"(Get-Command {cli_name}.cmd -ErrorAction SilentlyContinue).Source"
+            ])
+            if success and output:
+                return output.strip()
+
+            # Final fallback without extension
             success, output = await self._run_command([
                 'powershell', '-Command',
                 f"(Get-Command {cli_name} -ErrorAction SilentlyContinue).Source"
             ])
             if success and output:
-                return output.strip()
+                path = output.strip()
+                cmd_path = path + '.cmd'
+                if os.path.exists(cmd_path):
+                    return cmd_path
+                return path
         else:
             success, output = await self._run_command(['which', cli_name])
             if success and output:

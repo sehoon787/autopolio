@@ -416,8 +416,23 @@ export default function ProjectsPage() {
 
   // Batch analysis mutation
   const batchAnalyzeMutation = useMutation({
-    mutationFn: (projectIds: number[]) =>
-      githubApi.analyzeBatch(user!.id, projectIds),
+    mutationFn: (projectIds: number[]) => {
+      // Get LLM settings from app store
+      const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, selectedLLMProvider } = useAppStore.getState()
+      const useCli = aiMode === 'cli' && isElectron()
+
+      const options: Parameters<typeof githubApi.analyzeBatch>[2] = {}
+      if (useCli) {
+        options.cli_mode = selectedCLI as 'claude_code' | 'gemini_cli'
+        options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+        console.log('[BatchAnalysis] Using CLI mode:', options.cli_mode, 'model:', options.cli_model)
+      } else if (selectedLLMProvider) {
+        options.llm_provider = selectedLLMProvider
+        console.log('[BatchAnalysis] Using API mode:', options.llm_provider)
+      }
+
+      return githubApi.analyzeBatch(user!.id, projectIds, options)
+    },
     onMutate: (projectIds) => {
       setBatchProgress({ current: 0, total: projectIds.length })
     },

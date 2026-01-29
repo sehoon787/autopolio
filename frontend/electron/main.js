@@ -6,6 +6,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import serve from 'electron-serve';
 console.log('[Main] Core Electron modules loaded');
@@ -464,6 +465,37 @@ ipcMain.handle('get-claude-cli-status', async () => {
             console.log('[IPC] get-claude-cli-status returning cached result');
             return cachedCLIStatus.claude;
         }
+        // Direct file existence check for Windows npm global
+        const claudePath = path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd');
+        const fileExists = fs.existsSync(claudePath);
+        console.log(`[IPC] Direct check: path=${claudePath}, exists=${fileExists}`);
+        // If file exists directly, create status without complex detection
+        if (fileExists) {
+            console.log('[IPC] Using direct file detection for Claude CLI');
+            const status = {
+                tool: 'claude_code',
+                installed: true,
+                version: null,
+                latest_version: null,
+                is_outdated: false,
+                path: claudePath,
+                install_command: 'npm install -g @anthropic-ai/claude-code',
+                update_command: 'claude update',
+                platform: process.platform,
+            };
+            // Try to get version
+            try {
+                const { execSync } = await import('child_process');
+                const versionOutput = execSync('claude --version', { encoding: 'utf8', timeout: 5000 }).trim();
+                status.version = versionOutput.split(' ')[0] || versionOutput;
+                console.log(`[IPC] Claude version: ${status.version}`);
+            }
+            catch (e) {
+                console.log(`[IPC] Could not get version: ${e instanceof Error ? e.message : e}`);
+            }
+            cachedCLIStatus.claude = status;
+            return status;
+        }
         const manager = getCLIToolManager();
         const result = await manager.detectCLI('claude_code');
         cachedCLIStatus.claude = result;
@@ -497,6 +529,37 @@ ipcMain.handle('get-gemini-cli-status', async () => {
         if (cachedCLIStatus.gemini) {
             console.log('[IPC] get-gemini-cli-status returning cached result');
             return cachedCLIStatus.gemini;
+        }
+        // Direct file existence check for Windows npm global
+        const geminiPath = path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'gemini.cmd');
+        const fileExists = fs.existsSync(geminiPath);
+        console.log(`[IPC] Direct check: path=${geminiPath}, exists=${fileExists}`);
+        // If file exists directly, create status without complex detection
+        if (fileExists) {
+            console.log('[IPC] Using direct file detection for Gemini CLI');
+            const status = {
+                tool: 'gemini_cli',
+                installed: true,
+                version: null,
+                latest_version: null,
+                is_outdated: false,
+                path: geminiPath,
+                install_command: 'npm install -g @google/gemini-cli',
+                update_command: null,
+                platform: process.platform,
+            };
+            // Try to get version
+            try {
+                const { execSync } = await import('child_process');
+                const versionOutput = execSync('gemini --version', { encoding: 'utf8', timeout: 5000 }).trim();
+                status.version = versionOutput.split(' ')[0] || versionOutput;
+                console.log(`[IPC] Gemini version: ${status.version}`);
+            }
+            catch (e) {
+                console.log(`[IPC] Could not get version: ${e instanceof Error ? e.message : e}`);
+            }
+            cachedCLIStatus.gemini = status;
+            return status;
         }
         const manager = getCLIToolManager();
         const result = await manager.detectCLI('gemini_cli');
@@ -546,7 +609,8 @@ ipcMain.handle('refresh-single-cli-status', async (_, tool) => {
     console.log(`[IPC] refresh-single-cli-status called for ${tool}`);
     try {
         const manager = getCLIToolManager();
-        const result = await manager.detectCLI(tool);
+        // Use refreshCLI instead of detectCLI to bypass cache
+        const result = await manager.refreshCLI(tool);
         // Update only the specific cache entry
         if (tool === 'claude_code') {
             cachedCLIStatus.claude = result;

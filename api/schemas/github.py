@@ -74,6 +74,9 @@ class RepoAnalysisResponse(BaseModel):
     tech_stack_versions: Optional[Dict[str, List[str]]] = None  # {Frontend: [...], Backend: [...]}
     detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None  # {category: [{title, description}]}
     analyzed_at: datetime
+    # LLM usage tracking (v1.8)
+    provider: Optional[str] = None
+    token_usage: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -113,6 +116,10 @@ class ImportReposResponse(BaseModel):
 class BatchAnalysisRequest(BaseModel):
     """Request to analyze multiple projects."""
     project_ids: List[int]
+    # LLM settings (v1.8)
+    llm_provider: Optional[str] = None  # 'openai', 'anthropic', 'gemini'
+    cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli'
+    cli_model: Optional[str] = None  # Model name for CLI
 
 
 class BatchAnalysisResult(BaseModel):

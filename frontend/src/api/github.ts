@@ -1,4 +1,4 @@
-import apiClient from './client'
+import apiClient, { ANALYSIS_TIMEOUT } from './client'
 
 export interface GitHubRepo {
   id: number
@@ -54,6 +54,9 @@ export interface RepoAnalysis {
   tech_stack_versions: Record<string, string[]> | null
   detailed_achievements: Record<string, DetailedAchievementItem[]> | null
   analyzed_at: string
+  // LLM usage tracking (v1.8)
+  provider?: string | null
+  token_usage?: number | null
 }
 
 export interface RepoQuickInfo {
@@ -184,11 +187,28 @@ export const githubApi = {
       params: { user_id: userId, fetch_all: fetchAll }
     }),
 
-  analyzeRepo: (userId: number, gitUrl: string, projectId?: number) =>
+  analyzeRepo: (
+    userId: number,
+    gitUrl: string,
+    projectId?: number,
+    options?: {
+      provider?: string
+      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_model?: string
+    }
+  ) =>
     apiClient.post<RepoAnalysis>('/github/analyze', {
       git_url: gitUrl,
       project_id: projectId
-    }, { params: { user_id: userId } }),
+    }, {
+      timeout: ANALYSIS_TIMEOUT,  // Extended timeout for CLI/LLM analysis
+      params: {
+        user_id: userId,
+        provider: options?.provider,
+        cli_mode: options?.cli_mode,
+        cli_model: options?.cli_model
+      }
+    }),
 
   getAnalysis: (projectId: number) =>
     apiClient.get<RepoAnalysis>(`/github/analysis/${projectId}`),
@@ -240,10 +260,24 @@ export const githubApi = {
       auto_analyze: autoAnalyze
     }, { params: { user_id: userId } }),
 
-  analyzeBatch: (userId: number, projectIds: number[]) =>
+  analyzeBatch: (
+    userId: number,
+    projectIds: number[],
+    options?: {
+      llm_provider?: string
+      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_model?: string
+    }
+  ) =>
     apiClient.post<BatchAnalysisResponse>('/github/analyze-batch', {
-      project_ids: projectIds
-    }, { params: { user_id: userId } }),
+      project_ids: projectIds,
+      llm_provider: options?.llm_provider,
+      cli_mode: options?.cli_mode,
+      cli_model: options?.cli_model
+    }, {
+      timeout: ANALYSIS_TIMEOUT * projectIds.length,  // Extended timeout based on project count
+      params: { user_id: userId }
+    }),
 
   // Inline editing APIs
   getEffectiveAnalysis: (projectId: number) =>

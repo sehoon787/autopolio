@@ -4,8 +4,15 @@ import { useUsageStore } from '@/stores/usageStore'
 import { useRateLimitStore } from '@/stores/rateLimitStore'
 import { detectRateLimit } from '@/lib/rateLimitDetector'
 
+// Default timeout for most API calls (30 seconds)
+const DEFAULT_TIMEOUT = 30000
+
+// Extended timeout for long-running operations like CLI/LLM analysis (5 minutes)
+export const ANALYSIS_TIMEOUT = 300000
+
 const apiClient = axios.create({
   baseURL: '/api',
+  timeout: DEFAULT_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,6 +45,21 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Map provider string to usage store key
+function mapProviderToUsageKey(provider: string): keyof import('@/stores/usageStore').LLMUsage | null {
+  // Handle CLI providers (e.g., "cli:claude_code", "cli:gemini_cli")
+  if (provider.startsWith('cli:')) {
+    const cliType = provider.replace('cli:', '')
+    if (cliType === 'claude_code') return 'claude_code_cli'
+    if (cliType === 'gemini_cli') return 'gemini_cli'
+  }
+  // Handle API providers
+  if (provider === 'openai') return 'openai'
+  if (provider === 'anthropic') return 'anthropic'
+  if (provider === 'gemini') return 'gemini'
+  return null
+}
+
 // Response interceptor for usage tracking and rate limit detection
 apiClient.interceptors.response.use(
   (response) => {
@@ -47,9 +69,15 @@ apiClient.interceptors.response.use(
 
     // Only track usage when token_usage is present (indicates actual LLM call, not validation/status checks)
     if (tokenUsage !== undefined && tokenUsage !== null) {
-      const providerKey = explicitProvider
-        ? (explicitProvider as 'openai' | 'anthropic' | 'gemini')
-        : (detectProviderFromUrl(response.config.url) as 'openai' | 'anthropic' | 'gemini' | null)
+      let providerKey: keyof import('@/stores/usageStore').LLMUsage | null = null
+
+      if (explicitProvider) {
+        providerKey = mapProviderToUsageKey(explicitProvider)
+      }
+      if (!providerKey) {
+        const urlProvider = detectProviderFromUrl(response.config.url)
+        providerKey = urlProvider ? mapProviderToUsageKey(urlProvider) : null
+      }
 
       if (providerKey) {
         const store = useUsageStore.getState()
@@ -68,6 +96,13 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
+    // Handle timeout error (ECONNABORTED is Axios timeout code)
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      console.error('[API Client] Request timeout:', error.config?.url)
+      // Enhance error message for better user feedback
+      error.message = '요청 시간이 초과되었습니다. CLI/LLM 분석이 오래 걸릴 수 있으니 잠시 후 다시 시도해주세요.'
+    }
+
     // Handle connection refused error (backend crash/restart)
     if (error.code === 'ERR_CONNECTION_REFUSED' || error.code === 'ECONNREFUSED') {
       console.error('[API Client] Backend connection refused. Server may be restarting...')
