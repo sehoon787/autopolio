@@ -9,7 +9,7 @@ class ProjectAchievement(Base):
     __tablename__ = "project_achievements"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
 
     # Achievement details
     metric_name = Column(String(200), nullable=False)  # e.g., "Performance Improvement"

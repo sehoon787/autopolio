@@ -9,7 +9,7 @@ class RepoAnalysis(Base):
     __tablename__ = "repo_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True, index=True)
 
     # Repository info
     git_url = Column(String(500), nullable=False)

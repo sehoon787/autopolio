@@ -2,8 +2,11 @@
 LLM Configuration Router - Manage API keys and CLI status.
 """
 import asyncio
+import logging
 import sys
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -439,8 +442,7 @@ async def test_cli(cli_type: str):
         )
     except Exception as e:
         import traceback
-        print(f"[CLI Test] Exception: {type(e).__name__}: {e}")
-        print(f"[CLI Test] Traceback: {traceback.format_exc()}")
+        logger.exception("CLI test failed for %s: %s", cli_type, e)
         return CLITestResponse(
             success=False,
             tool=cli_type,
@@ -524,7 +526,7 @@ async def test_provider(
 
     try:
         test_prompt = "Reply with only 'OK' and nothing else."
-        print(f"[LLM Test] Provider={provider}, model={model}, prompt={test_prompt!r}", flush=True)
+        logger.info("LLM test: provider=%s, model=%s", provider, model)
 
         if provider == "openai":
             from openai import AsyncOpenAI
@@ -536,7 +538,7 @@ async def test_provider(
             )
             tokens = response.usage.total_tokens if response.usage else 0
             output = response.choices[0].message.content
-            print(f"[LLM Test] OpenAI response: {output!r}, tokens={tokens}", flush=True)
+            logger.info("OpenAI test success: tokens=%d", tokens)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
@@ -557,7 +559,7 @@ async def test_provider(
             output = response.content[0].text
             in_tokens = getattr(response.usage, 'input_tokens', 0)
             out_tokens = getattr(response.usage, 'output_tokens', 0)
-            print(f"[LLM Test] Anthropic response: {output!r}, tokens={tokens} (in={in_tokens}, out={out_tokens})", flush=True)
+            logger.info("Anthropic test success: tokens=%d (in=%d, out=%d)", tokens, in_tokens, out_tokens)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
@@ -580,7 +582,7 @@ async def test_provider(
                     getattr(response.usage_metadata, 'candidates_token_count', 0)
                 )
             output = response.text
-            print(f"[LLM Test] Gemini response: {output!r}, tokens={tokens}", flush=True)
+            logger.info("Gemini test success: tokens=%d", tokens)
             return LLMTestResponse(
                 success=True,
                 provider=provider,
@@ -590,7 +592,7 @@ async def test_provider(
             )
 
     except Exception as e:
-        print(f"[LLM Test] {provider} test failed: {str(e)[:200]}", flush=True)
+        logger.warning("LLM test failed for %s: %s", provider, str(e)[:200])
         return LLMTestResponse(
             success=False,
             provider=provider,

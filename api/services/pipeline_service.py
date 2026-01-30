@@ -9,12 +9,15 @@ Pipeline Steps:
 5. Template Mapping - Map data to template
 6. Document Generation - Create final document
 """
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import time
+
+logger = logging.getLogger(__name__)
 
 from api.models.user import User
 from api.models.project import Project, ProjectTechnology
@@ -398,7 +401,7 @@ class PipelineService:
             cli_mode = getattr(request, 'cli_mode', None)
             cli_model = getattr(request, 'cli_model', None)
             if cli_mode:
-                print(f"[Pipeline] Using CLI mode: {cli_mode}, model: {cli_model}")
+                logger.info("Using CLI mode: %s, model: %s", cli_mode, cli_model)
                 llm_service = CLILLMService(cli_mode, model=cli_model)
             else:
                 # Use user's selected model for the chosen provider
@@ -409,7 +412,7 @@ class PipelineService:
                     user_model = getattr(user, 'anthropic_model', None)
                 elif provider == "gemini":
                     user_model = getattr(user, 'gemini_model', None)
-                print(f"[Pipeline] Using API mode: provider={provider}, model={user_model}")
+                logger.info("Using API mode: provider=%s, model=%s", provider, user_model)
                 llm_service = LLMService(provider, model=user_model)
 
             # Get projects

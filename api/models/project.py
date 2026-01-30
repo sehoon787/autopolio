@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Date, JSON
+from sqlalchemy import Column, Index, Integer, String, DateTime, Text, ForeignKey, Date, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
@@ -24,13 +24,18 @@ class ProjectTechnology(Base):
     __tablename__ = "project_technologies"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    technology_id = Column(Integer, ForeignKey("technologies.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    technology_id = Column(Integer, ForeignKey("technologies.id"), nullable=False, index=True)
     is_primary = Column(Integer, default=0)  # Main tech vs supporting
 
     # Relationships
     project = relationship("Project", back_populates="technologies")
     technology = relationship("Technology", back_populates="projects")
+
+    # Composite index for efficient lookup
+    __table_args__ = (
+        Index('ix_project_technologies_project_tech', 'project_id', 'technology_id'),
+    )
 
 
 class Project(Base):
@@ -38,8 +43,8 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
 
     # Basic info
     name = Column(String(200), nullable=False)
@@ -57,7 +62,7 @@ class Project(Base):
 
     # Git integration
     git_url = Column(String(500))
-    is_analyzed = Column(Integer, default=0)
+    is_analyzed = Column(Integer, default=0, index=True)
 
     # Project type and status
     project_type = Column(String(50))  # personal, company, open-source

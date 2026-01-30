@@ -6,14 +6,16 @@ Parses JSON output for token tracking when --output-format json is used.
 """
 import asyncio
 import json
+import logging
 import os
 import subprocess
 import sys
 import shutil
-import traceback
 from typing import Tuple, Optional
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 # Timeout for each CLI call (3 minutes per call)
 # Note: Analysis may make multiple LLM calls, so total time can be longer
@@ -82,22 +84,22 @@ class CLILLMService:
         # Encode prompt as UTF-8 bytes for stdin
         prompt_bytes = prompt.encode("utf-8")
 
-        print(f"[CLI] Executing: {cli_path}", flush=True)
-        print(f"[CLI] Use shell: {use_shell}, prompt length: {len(prompt)} chars, {len(prompt_bytes)} bytes", flush=True)
+        logger.info("Executing CLI: %s", cli_path)
+        logger.debug("Use shell: %s, prompt length: %d chars, %d bytes", use_shell, len(prompt), len(prompt_bytes))
         if self.model:
-            print(f"[CLI] Model: {self.model}", flush=True)
+            logger.debug("Model: %s", self.model)
 
         def run_subprocess():
             """Run CLI subprocess in a thread (Windows asyncio subprocess compatibility)."""
             if use_shell:
                 # Windows .cmd files need shell=True or cmd.exe /c prefix
                 exec_args = ["cmd.exe", "/c"] + args
-                print(f"[CLI] Command: cmd.exe /c {args[0]} -p - --output-format json" + (f" --model {self.model}" if self.model else ""))
+                logger.debug("Command: cmd.exe /c %s -p - --output-format json%s", args[0], f" --model {self.model}" if self.model else "")
             else:
                 exec_args = args
-                print(f"[CLI] Command: {' '.join(args[:4])}..." + (f" --model {self.model}" if self.model else ""))
+                logger.debug("Command: %s...%s", ' '.join(args[:4]), f" --model {self.model}" if self.model else "")
 
-            print(f"[CLI] Running with stdin pipe... (timeout: {CLI_TIMEOUT_SECONDS}s)", flush=True)
+            logger.debug("Running with stdin pipe (timeout: %ds)", CLI_TIMEOUT_SECONDS)
             result = subprocess.run(
                 exec_args,
                 capture_output=True,
@@ -118,8 +120,8 @@ class CLILLMService:
             output = result.stdout.decode("utf-8", errors="replace").strip()
             stderr_text = result.stderr.decode("utf-8", errors="replace").strip() if result.stderr else ""
 
-            print(f"[CLI] Return code: {result.returncode}")
-            print(f"[CLI] Output length: {len(output)}, stderr length: {len(stderr_text)}")
+            logger.debug("Return code: %d", result.returncode)
+            logger.debug("Output length: %d, stderr length: %d", len(output), len(stderr_text))
 
             if not output and stderr_text:
                 raise RuntimeError(f"CLI error: {stderr_text[:500]}")
@@ -130,7 +132,7 @@ class CLILLMService:
                 )
 
             content, token_count = self._parse_json_output(output)
-            print(f"[CLI] Parsed content length: {len(content)}, tokens: {token_count}")
+            logger.debug("Parsed content length: %d, tokens: %d", len(content), token_count)
             self.total_tokens_used += token_count
             return content, token_count
 
@@ -139,7 +141,7 @@ class CLILLMService:
                 f"CLI timed out after {CLI_TIMEOUT_SECONDS}s"
             )
         except Exception as e:
-            print(f"[CLI] Exception during execution: {type(e).__name__}: {e}")
+            logger.error("Exception during execution: %s: %s", type(e).__name__, e)
             raise
 
     async def generate_project_summary(
@@ -166,7 +168,7 @@ class CLILLMService:
             # First try shutil.which for .cmd version
             cmd_path = shutil.which(f"{exe_name}.cmd")
             if cmd_path:
-                print(f"[CLI] Found {exe_name}.cmd via shutil.which: {cmd_path}")
+                logger.debug("Found %s.cmd via shutil.which: %s", exe_name, cmd_path)
                 return cmd_path
 
             # Check npm global paths explicitly
@@ -179,7 +181,7 @@ class CLILLMService:
 
             for npm_path in npm_paths:
                 if npm_path.exists():
-                    print(f"[CLI] Found {exe_name} at npm global path: {npm_path}")
+                    logger.debug("Found %s at npm global path: %s", exe_name, npm_path)
                     return str(npm_path)
 
             # Fallback: check if shutil.which returns extensionless and try .cmd
@@ -187,20 +189,20 @@ class CLILLMService:
             if path:
                 cmd_version = Path(path).with_suffix('.cmd')
                 if cmd_version.exists():
-                    print(f"[CLI] Found {exe_name}.cmd alongside: {cmd_version}")
+                    logger.debug("Found %s.cmd alongside: %s", exe_name, cmd_version)
                     return str(cmd_version)
                 # Last resort: return the extensionless path
-                print(f"[CLI] Found {exe_name} via shutil.which (no .cmd): {path}")
+                logger.debug("Found %s via shutil.which (no .cmd): %s", exe_name, path)
                 return path
 
         else:
             # Non-Windows: use shutil.which directly
             path = shutil.which(exe_name)
             if path:
-                print(f"[CLI] Found {exe_name} via shutil.which: {path}")
+                logger.debug("Found %s via shutil.which: %s", exe_name, path)
                 return path
 
-        print(f"[CLI] {exe_name} not found in PATH or npm global paths")
+        logger.warning("%s not found in PATH or npm global paths", exe_name)
         return None
 
     def _build_args(self, cli_path: str) -> list:
@@ -224,12 +226,12 @@ class CLILLMService:
         try:
             data = json.loads(raw_output)
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"[CLI] JSON parse failed: {e}")
-            print(f"[CLI] Raw output preview: {raw_output[:500]}..." if len(raw_output) > 500 else f"[CLI] Raw output: {raw_output}")
+            logger.debug("JSON parse failed: %s", e)
+            logger.debug("Raw output preview: %s...", raw_output[:500] if len(raw_output) > 500 else raw_output)
             return raw_output, 0
 
         if not isinstance(data, dict):
-            print(f"[CLI] Expected dict, got {type(data).__name__}")
+            logger.debug("Expected dict, got %s", type(data).__name__)
             return raw_output, 0
 
         # Extract content

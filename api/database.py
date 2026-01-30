@@ -65,6 +65,30 @@ async def init_db():
         if 'gemini_model' not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN gemini_model VARCHAR(100) DEFAULT 'gemini-2.0-flash'"))
 
+        # Create indexes for foreign keys if they don't exist (v1.9)
+        # SQLite automatically creates indexes for PRIMARY KEY but not for FOREIGN KEY
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_projects_user_id ON projects (user_id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_projects_company_id ON projects (company_id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_projects_is_analyzed ON projects (is_analyzed)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_repo_analyses_project_id ON repo_analyses (project_id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_project_achievements_project_id ON project_achievements (project_id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_project_technologies_project_id ON project_technologies (project_id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_project_technologies_technology_id ON project_technologies (technology_id)
+        """))
+
 
 async def close_db():
     """Close database connection."""
