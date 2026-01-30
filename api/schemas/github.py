@@ -196,3 +196,95 @@ class EffectiveAnalysisResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============ Extended Analysis Schemas (v1.10) ============
+
+class DetailedCommit(BaseModel):
+    """Detailed commit information with Conventional Commit parsing."""
+    sha: str
+    short_sha: str
+    message: str
+    full_message: Optional[str] = None
+    author: str
+    author_email: Optional[str] = None
+    date: datetime
+    commit_type: str  # feat, fix, refactor, docs, test, chore, perf, style, other
+    type_label: str  # Human-readable label
+    scope: Optional[str] = None
+    description: str
+    is_breaking: bool = False
+    files_changed: int = 0
+    lines_added: int = 0
+    lines_deleted: int = 0
+    work_areas: List[str] = []  # ["frontend", "backend", "tests", ...]
+
+
+class ContributorSummary(BaseModel):
+    """Summary info for a single contributor."""
+    username: str
+    avatar_url: Optional[str] = None
+    contributions: int = 0
+    html_url: Optional[str] = None
+
+
+class ContributorAnalysisResponse(BaseModel):
+    """Full contributor analysis response."""
+    username: str
+    email: Optional[str] = None
+    is_primary: bool = False
+    total_commits: int = 0
+    first_commit_date: Optional[datetime] = None
+    last_commit_date: Optional[datetime] = None
+    lines_added: int = 0
+    lines_deleted: int = 0
+    file_extensions: Dict[str, int] = {}  # {".py": 45, ".ts": 30}
+    work_areas: List[str] = []  # ["frontend", "backend", "tests"]
+    detected_technologies: List[str] = []
+    detailed_commits: List[DetailedCommit] = []
+    commit_types: Dict[str, int] = {}  # {"feat": 40, "fix": 30}
+
+    class Config:
+        from_attributes = True
+
+
+class FileCountByType(BaseModel):
+    """File counts by type."""
+    code: int = 0
+    test: int = 0
+    docs: int = 0
+    config: int = 0
+
+
+class CodeQualityMetrics(BaseModel):
+    """Code quality metrics for a repository."""
+    total_files: int = 0
+    total_lines: int = 0  # Estimated
+    avg_file_size: float = 0
+    max_file_size: int = 0
+    test_file_ratio: float = 0  # Percentage of test files
+    doc_file_ratio: float = 0  # Percentage of doc files
+    code_file_ratio: float = 0  # Percentage of code files
+    config_file_count: int = 0
+    language_distribution: Dict[str, float] = {}  # {".py": 45.5, ".ts": 30.2}
+    file_count_by_type: FileCountByType = FileCountByType()
+
+
+class ContributorsListResponse(BaseModel):
+    """List of all contributors in a repository."""
+    contributors: List[ContributorSummary]
+    total: int
+
+
+class ExtendedRepoAnalysisResponse(RepoAnalysisResponse):
+    """Extended analysis response with contributor and quality metrics."""
+    # Repository-level technologies (separate from user-detected)
+    repo_technologies: List[str] = []
+    # All contributors summary
+    all_contributors: List[ContributorSummary] = []
+    # Code quality metrics
+    code_quality_metrics: Optional[CodeQualityMetrics] = None
+    # Contributor analyses
+    contributors: List[ContributorAnalysisResponse] = []
+    # Primary contributor (logged-in user)
+    primary_contributor: Optional[ContributorAnalysisResponse] = None

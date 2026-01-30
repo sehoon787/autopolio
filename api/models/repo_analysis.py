@@ -15,6 +15,14 @@ class RepoAnalysis(Base):
     git_url = Column(String(500), nullable=False)
     default_branch = Column(String(100), default="main")
 
+    # Repository-level technologies (separate from user-detected)
+    # Format: ["React", "FastAPI", "PostgreSQL", ...]
+    repo_technologies = Column(JSON)
+
+    # All contributors summary (JSON)
+    # Format: [{"username": "...", "commits": 100, "avatar_url": "..."}, ...]
+    all_contributors = Column(JSON)
+
     # Commit statistics
     total_commits = Column(Integer, default=0)
     user_commits = Column(Integer, default=0)  # Commits by the user
@@ -68,3 +76,8 @@ class RepoAnalysis(Base):
     # Relationships
     project = relationship("Project", back_populates="repo_analysis")
     user_edits = relationship("RepoAnalysisEdits", back_populates="repo_analysis", uselist=False)
+    contributors = relationship(
+        "ContributorAnalysis",
+        back_populates="repo_analysis",
+        cascade="all, delete-orphan"
+    )

@@ -20,7 +20,10 @@ from api.schemas.github import (
     GitHubRepoListResponse, GitHubRepoInfo,
     ImportReposRequest, ImportReposResponse, ImportRepoResult,
     BatchAnalysisRequest, BatchAnalysisResponse, BatchAnalysisResult,
-    AnalysisContentUpdate, EffectiveAnalysisResponse, EditStatus
+    AnalysisContentUpdate, EffectiveAnalysisResponse, EditStatus,
+    # Extended analysis schemas (v1.10)
+    ContributorAnalysisResponse, ContributorsListResponse, ContributorSummary,
+    CodeQualityMetrics, DetailedCommit, ExtendedRepoAnalysisResponse
 )
 from api.services.github_service import (
     GitHubService,
@@ -34,6 +37,7 @@ from api.services.encryption_service import EncryptionService
 from api.services.role_service import RoleService
 from api.services.achievement_service import AchievementService
 from api.models.achievement import ProjectAchievement
+from api.models.contributor_analysis import ContributorAnalysis
 
 router = APIRouter()
 settings = get_settings()
@@ -1619,3 +1623,295 @@ async def reset_analysis_field(
         "field": field,
         "message": f"{field} content has been reset to original."
     }
+
+
+# ============ Extended Analysis Endpoints (v1.10) ============
+
+@router.get("/contributors/{project_id}", response_model=ContributorsListResponse)
+async def get_contributors(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all contributors for a project's repository."""
+    # Get user and project
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.github_token_encrypted:
+        raise HTTPException(status_code=400, detail="GitHub not connected")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = proj_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.git_url:
+        raise HTTPException(status_code=400, detail="Project has no GitHub URL")
+
+    token = encryption.decrypt(user.github_token_encrypted)
+    github_service = GitHubService(token)
+
+    try:
+        contributors = await github_service.get_all_contributors(project.git_url)
+        return ContributorsListResponse(
+            contributors=[ContributorSummary(**c) for c in contributors],
+            total=len(contributors)
+        )
+    except GitHubServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch contributors: {str(e)}")
+
+
+@router.get("/contributor-analysis/{project_id}", response_model=ContributorAnalysisResponse)
+async def get_contributor_analysis(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    username: Optional[str] = Query(
+        None,
+        description="Username to analyze (defaults to logged-in user)",
+        max_length=39,
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$"
+    ),
+    refresh: bool = Query(False, description="Force refresh analysis"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed contributor analysis for a project.
+
+    If username is not provided, analyzes the logged-in user's contributions.
+    """
+    # Get user and project
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.github_token_encrypted:
+        raise HTTPException(status_code=400, detail="GitHub not connected")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = proj_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.git_url:
+        raise HTTPException(status_code=400, detail="Project has no GitHub URL")
+
+    # Get repo analysis
+    analysis_result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    repo_analysis = analysis_result.scalar_one_or_none()
+
+    if not repo_analysis:
+        raise HTTPException(status_code=404, detail="Repository analysis not found. Run analysis first.")
+
+    # Determine target username
+    target_username = username or user.github_username
+    if not target_username:
+        raise HTTPException(status_code=400, detail="No username specified and user has no GitHub username")
+
+    # Check for cached analysis
+    if not refresh:
+        cached_result = await db.execute(
+            select(ContributorAnalysis).where(
+                ContributorAnalysis.repo_analysis_id == repo_analysis.id,
+                ContributorAnalysis.username == target_username
+            )
+        )
+        cached = cached_result.scalar_one_or_none()
+        if cached:
+            return ContributorAnalysisResponse(
+                username=cached.username,
+                email=cached.email,
+                is_primary=cached.is_primary,
+                total_commits=cached.total_commits,
+                first_commit_date=cached.first_commit_date,
+                last_commit_date=cached.last_commit_date,
+                lines_added=cached.lines_added,
+                lines_deleted=cached.lines_deleted,
+                file_extensions=cached.file_extensions or {},
+                work_areas=cached.work_areas or [],
+                detected_technologies=cached.detected_technologies or [],
+                detailed_commits=[DetailedCommit(**c) for c in (cached.detailed_commits or [])],
+                commit_types=cached.commit_types or {},
+            )
+
+    # Run fresh analysis
+    token = encryption.decrypt(user.github_token_encrypted)
+    github_service = GitHubService(token)
+
+    try:
+        analysis = await github_service.analyze_contributor(
+            project.git_url,
+            target_username,
+            commit_limit=100
+        )
+
+        # Save to database
+        existing = await db.execute(
+            select(ContributorAnalysis).where(
+                ContributorAnalysis.repo_analysis_id == repo_analysis.id,
+                ContributorAnalysis.username == target_username
+            )
+        )
+        contributor = existing.scalar_one_or_none()
+
+        is_primary = target_username == user.github_username
+
+        if contributor:
+            # Update existing
+            contributor.total_commits = analysis["total_commits"]
+            contributor.first_commit_date = analysis["first_commit_date"]
+            contributor.last_commit_date = analysis["last_commit_date"]
+            contributor.lines_added = analysis["lines_added"]
+            contributor.lines_deleted = analysis["lines_deleted"]
+            contributor.file_extensions = analysis["file_extensions"]
+            contributor.work_areas = analysis["work_areas"]
+            contributor.detected_technologies = analysis["detected_technologies"]
+            contributor.detailed_commits = analysis["detailed_commits"]
+            contributor.commit_types = analysis["commit_types"]
+            contributor.is_primary = is_primary
+        else:
+            # Create new
+            contributor = ContributorAnalysis(
+                repo_analysis_id=repo_analysis.id,
+                username=target_username,
+                is_primary=is_primary,
+                total_commits=analysis["total_commits"],
+                first_commit_date=analysis["first_commit_date"],
+                last_commit_date=analysis["last_commit_date"],
+                lines_added=analysis["lines_added"],
+                lines_deleted=analysis["lines_deleted"],
+                file_extensions=analysis["file_extensions"],
+                work_areas=analysis["work_areas"],
+                detected_technologies=analysis["detected_technologies"],
+                detailed_commits=analysis["detailed_commits"],
+                commit_types=analysis["commit_types"],
+            )
+            db.add(contributor)
+
+        await db.commit()
+
+        return ContributorAnalysisResponse(
+            username=target_username,
+            is_primary=is_primary,
+            total_commits=analysis["total_commits"],
+            first_commit_date=analysis["first_commit_date"],
+            last_commit_date=analysis["last_commit_date"],
+            lines_added=analysis["lines_added"],
+            lines_deleted=analysis["lines_deleted"],
+            file_extensions=analysis["file_extensions"],
+            work_areas=analysis["work_areas"],
+            detected_technologies=analysis["detected_technologies"],
+            detailed_commits=[DetailedCommit(**c) for c in analysis["detailed_commits"]],
+            commit_types=analysis["commit_types"],
+        )
+
+    except GitHubServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.exception("Failed to analyze contributor: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze contributor: {str(e)}")
+
+
+@router.get("/code-quality/{project_id}", response_model=CodeQualityMetrics)
+async def get_code_quality(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get code quality metrics for a project's repository."""
+    # Get user and project
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.github_token_encrypted:
+        raise HTTPException(status_code=400, detail="GitHub not connected")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = proj_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.git_url:
+        raise HTTPException(status_code=400, detail="Project has no GitHub URL")
+
+    token = encryption.decrypt(user.github_token_encrypted)
+    github_service = GitHubService(token)
+
+    try:
+        metrics = await github_service.analyze_code_quality(project.git_url)
+
+        # Update repo analysis with metrics if exists
+        analysis_result = await db.execute(
+            select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+        )
+        repo_analysis = analysis_result.scalar_one_or_none()
+
+        if repo_analysis:
+            repo_analysis.code_quality_metrics = metrics
+            await db.commit()
+
+        return CodeQualityMetrics(**metrics)
+
+    except GitHubServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.exception("Failed to analyze code quality: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze code quality: {str(e)}")
+
+
+@router.get("/detailed-commits/{project_id}")
+async def get_detailed_commits(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    author: Optional[str] = Query(
+        None,
+        description="Filter by author username",
+        max_length=39,
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$"
+    ),
+    limit: int = Query(50, description="Maximum commits to return", le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed commit history with Conventional Commit parsing."""
+    # Get user and project
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.github_token_encrypted:
+        raise HTTPException(status_code=400, detail="GitHub not connected")
+
+    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = proj_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.git_url:
+        raise HTTPException(status_code=400, detail="Project has no GitHub URL")
+
+    token = encryption.decrypt(user.github_token_encrypted)
+    github_service = GitHubService(token)
+
+    try:
+        commits = await github_service.get_detailed_commits(
+            project.git_url,
+            author=author,
+            limit=limit
+        )
+
+        return {
+            "commits": commits,
+            "total": len(commits),
+            "author": author,
+        }
+
+    except GitHubServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.exception("Failed to get detailed commits: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to get detailed commits: {str(e)}")

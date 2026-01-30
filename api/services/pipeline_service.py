@@ -1,14 +1,21 @@
 """
-Pipeline Service - Orchestrates the 6-step document generation pipeline.
+Pipeline Service - Orchestrates the 7-step document generation pipeline.
 
 Pipeline Steps:
 1. GitHub Analysis - Analyze commits and code
 2. Code Extraction - Extract patterns and architecture
 3. Tech Detection - Auto-detect technologies
-4. LLM Summarization - Generate AI summaries
-5. Template Mapping - Map data to template
-6. Document Generation - Create final document
+4. Achievement Detection - Auto-detect achievements
+5. LLM Summarization - Generate AI summaries
+6. Template Mapping - Map data to template
+7. Document Generation - Create final document
+
+Performance Optimizations (v1.9):
+- Parallel GitHub analysis for multiple projects
+- Parallel LLM summarization for multiple projects
+- Concurrency limits to respect API rate limits
 """
+import asyncio
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
@@ -18,6 +25,10 @@ from sqlalchemy.orm import selectinload
 import time
 
 logger = logging.getLogger(__name__)
+
+# Concurrency limits for parallel operations
+MAX_CONCURRENT_GITHUB_ANALYSIS = 3  # GitHub API rate limit consideration
+MAX_CONCURRENT_LLM_SUMMARY = 2  # LLM API rate limit consideration
 
 from api.models.user import User
 from api.models.project import Project, ProjectTechnology
@@ -144,13 +155,46 @@ class PipelineService:
             )
             raise
 
+    async def _analyze_single_project(
+        self,
+        semaphore: asyncio.Semaphore,
+        github_service: GitHubService,
+        project: Project,
+        username: str
+    ) -> Dict[str, Any]:
+        """Analyze a single project with semaphore for rate limiting."""
+        async with semaphore:
+            try:
+                analysis = await github_service.analyze_repository(
+                    project.git_url,
+                    username
+                )
+                return {
+                    "project_id": project.id,
+                    "project": project,
+                    "analysis": analysis,
+                    "success": True
+                }
+            except Exception as e:
+                logger.warning("Failed to analyze project %s: %s", project.id, e)
+                return {
+                    "project_id": project.id,
+                    "project": project,
+                    "analysis": None,
+                    "success": False,
+                    "error": str(e)
+                }
+
     async def _step_github_analysis(
         self,
         task_id: str,
         request: PipelineRunRequest,
         user: User
     ) -> Dict[str, Any]:
-        """Step 1: Analyze GitHub repositories."""
+        """Step 1: Analyze GitHub repositories.
+
+        Performance: Uses parallel analysis for multiple projects.
+        """
         await self.task_service.start_step(task_id, 1, self.STEP_NAMES[0])
 
         results = {"analyses": [], "skipped": []}
@@ -171,18 +215,36 @@ class PipelineService:
                 token = self.encryption.decrypt(user.github_token_encrypted)
                 github_service = GitHubService(token)
 
+                # Filter projects that need analysis
+                projects_to_analyze = []
                 for project in projects:
-                    try:
-                        # Check if already analyzed and not forcing regeneration
-                        if project.is_analyzed and not request.regenerate_summaries:
-                            results["skipped"].append(project.id)
+                    if project.is_analyzed and not request.regenerate_summaries:
+                        results["skipped"].append(project.id)
+                    else:
+                        projects_to_analyze.append(project)
+
+                if projects_to_analyze:
+                    # Parallel analysis with semaphore
+                    semaphore = asyncio.Semaphore(MAX_CONCURRENT_GITHUB_ANALYSIS)
+                    tasks = [
+                        self._analyze_single_project(
+                            semaphore, github_service, project, user.github_username
+                        )
+                        for project in projects_to_analyze
+                    ]
+
+                    analysis_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                    # Process results
+                    for result in analysis_results:
+                        if isinstance(result, Exception):
+                            continue
+                        if not result.get("success"):
+                            results["skipped"].append(result["project_id"])
                             continue
 
-                        # Analyze repository
-                        analysis = await github_service.analyze_repository(
-                            project.git_url,
-                            user.github_username
-                        )
+                        project = result["project"]
+                        analysis = result["analysis"]
 
                         # Save analysis
                         existing = await self.db.execute(
@@ -206,9 +268,6 @@ class PipelineService:
                             "project_id": project.id,
                             "analysis": analysis
                         })
-
-                    except Exception as e:
-                        results["skipped"].append(project.id)
 
                 await self.db.flush()
 
@@ -379,6 +438,55 @@ class PipelineService:
         await self.task_service.complete_step(task_id, 4, results)
         return results
 
+    async def _generate_single_summary(
+        self,
+        semaphore: asyncio.Semaphore,
+        llm_service,
+        project: Project,
+        summary_style: str
+    ) -> Dict[str, Any]:
+        """Generate summary for a single project with semaphore for rate limiting."""
+        async with semaphore:
+            try:
+                # Prepare project data
+                project_data = {
+                    "name": project.name,
+                    "description": project.description,
+                    "role": project.role,
+                    "team_size": project.team_size,
+                    "contribution_percent": project.contribution_percent,
+                    "technologies": [pt.technology.name for pt in project.technologies],
+                    "start_date": str(project.start_date) if project.start_date else None,
+                    "end_date": str(project.end_date) if project.end_date else None,
+                }
+
+                # Add repo analysis data if available
+                if project.repo_analysis:
+                    project_data["total_commits"] = project.repo_analysis.total_commits
+                    project_data["commit_summary"] = project.repo_analysis.commit_messages_summary
+
+                # Generate summary
+                summary_result = await llm_service.generate_project_summary(
+                    project_data,
+                    summary_style
+                )
+
+                return {
+                    "project_id": project.id,
+                    "project": project,
+                    "summary": summary_result,
+                    "success": True
+                }
+            except Exception as e:
+                logger.warning("Failed to generate summary for project %s: %s", project.id, e)
+                return {
+                    "project_id": project.id,
+                    "project": project,
+                    "summary": None,
+                    "success": False,
+                    "error": str(e)
+                }
+
     async def _step_llm_summarization(
         self,
         task_id: str,
@@ -386,7 +494,10 @@ class PipelineService:
         user: User,
         tech_results: Dict[str, Any]
     ) -> tuple[Dict[str, Any], int]:
-        """Step 5: Generate LLM-based summaries."""
+        """Step 5: Generate LLM-based summaries.
+
+        Performance: Uses parallel summarization for multiple projects.
+        """
         await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         results = {"summaries": [], "tokens_used": 0}
@@ -427,42 +538,43 @@ class PipelineService:
             )
             projects = projects_result.scalars().all()
 
-            for project in projects:
-                # Skip if already has summary and not regenerating
-                if project.ai_summary and not request.regenerate_summaries:
-                    continue
+            # Filter projects that need summarization
+            projects_to_summarize = [
+                p for p in projects
+                if not p.ai_summary or request.regenerate_summaries
+            ]
 
-                # Prepare project data
-                project_data = {
-                    "name": project.name,
-                    "description": project.description,
-                    "role": project.role,
-                    "team_size": project.team_size,
-                    "contribution_percent": project.contribution_percent,
-                    "technologies": [pt.technology.name for pt in project.technologies],
-                    "start_date": str(project.start_date) if project.start_date else None,
-                    "end_date": str(project.end_date) if project.end_date else None,
-                }
+            if projects_to_summarize:
+                # Parallel summarization with semaphore
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
+                tasks = [
+                    self._generate_single_summary(
+                        semaphore, llm_service, project, request.summary_style
+                    )
+                    for project in projects_to_summarize
+                ]
 
-                # Add repo analysis data if available
-                if project.repo_analysis:
-                    project_data["total_commits"] = project.repo_analysis.total_commits
-                    project_data["commit_summary"] = project.repo_analysis.commit_messages_summary
+                summary_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                # Generate summary
-                summary_result = await llm_service.generate_project_summary(
-                    project_data,
-                    request.summary_style
-                )
+                # Process results
+                for result in summary_results:
+                    if isinstance(result, Exception):
+                        logger.warning("Summary generation exception: %s", result)
+                        continue
+                    if not result.get("success"):
+                        continue
 
-                # Update project
-                project.ai_summary = summary_result.get("summary", "")
-                project.ai_key_features = summary_result.get("key_features", [])
+                    project = result["project"]
+                    summary = result["summary"]
 
-                results["summaries"].append({
-                    "project_id": project.id,
-                    "summary": summary_result
-                })
+                    # Update project
+                    project.ai_summary = summary.get("summary", "")
+                    project.ai_key_features = summary.get("key_features", [])
+
+                    results["summaries"].append({
+                        "project_id": project.id,
+                        "summary": summary
+                    })
 
             await self.db.flush()
             results["tokens_used"] = llm_service.total_tokens_used
