@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
+import { SelectableTile } from '@/components/ui/selectable-tile'
 import {
   Select,
   SelectContent,
@@ -20,6 +21,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { usePipelineStore } from '@/stores/pipelineStore'
 import { useAppStore } from '@/stores/appStore'
+import { useSelection } from '@/hooks/useSelection'
 import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
 import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
@@ -32,8 +34,8 @@ export default function GeneratePage() {
   const { user } = useUserStore()
   const { setTaskId, setRequest } = usePipelineStore()
   const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
+  const selection = useSelection<number>()
 
-  const [selectedProjects, setSelectedProjects] = useState<number[]>([])
   const [templateId, setTemplateId] = useState<string>('')
   const [outputFormat, setOutputFormat] = useState<string>('docx')
   const [documentName, setDocumentName] = useState<string>('')
@@ -70,24 +72,8 @@ export default function GeneratePage() {
   const projects = projectsData?.data?.projects || []
   const templates = templatesData?.data?.templates || []
 
-  const handleProjectToggle = (projectId: number) => {
-    setSelectedProjects((prev) =>
-      prev.includes(projectId)
-        ? prev.filter((id) => id !== projectId)
-        : [...prev, projectId]
-    )
-  }
-
-  const handleSelectAll = () => {
-    if (selectedProjects.length === projects.length) {
-      setSelectedProjects([])
-    } else {
-      setSelectedProjects(projects.map((p) => p.id))
-    }
-  }
-
   const handleSubmit = () => {
-    if (selectedProjects.length === 0) {
+    if (selection.selectedCount === 0) {
       toast({ title: t('generate:projectSelection'), description: t('generate:selectProjectError'), variant: 'destructive' })
       return
     }
@@ -108,7 +94,7 @@ export default function GeneratePage() {
     }
 
     const request: PipelineRunRequest = {
-      project_ids: selectedProjects,
+      project_ids: selection.getSelectedArray(),
       template_id: parseInt(templateId),
       output_format: outputFormat,
       document_name: documentName || undefined,
@@ -141,8 +127,8 @@ export default function GeneratePage() {
                 <CardTitle>{t('generate:projectSelection')}</CardTitle>
                 <CardDescription>{t('generate:selectProjectsToInclude')}</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                {selectedProjects.length === projects.length ? t('generate:deselectAll') : t('generate:selectAll')}
+              <Button variant="outline" size="sm" onClick={() => selection.toggleAll(projects.map(p => p.id))}>
+                {selection.selectedCount === projects.length ? t('generate:deselectAll') : t('generate:selectAll')}
               </Button>
             </div>
           </CardHeader>
@@ -155,19 +141,13 @@ export default function GeneratePage() {
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {projects.map((project) => (
-                  <div
+                  <SelectableTile
                     key={project.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedProjects.includes(project.id)
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:bg-accent'
-                    }`}
-                    onClick={() => handleProjectToggle(project.id)}
+                    id={project.id}
+                    selected={selection.isSelected(project.id)}
+                    onSelectChange={() => selection.toggle(project.id)}
+                    className="p-3"
                   >
-                    <Checkbox
-                      checked={selectedProjects.includes(project.id)}
-                      onCheckedChange={() => handleProjectToggle(project.id)}
-                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{project.name}</span>
@@ -190,12 +170,12 @@ export default function GeneratePage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </SelectableTile>
                 ))}
               </div>
             )}
             <p className="text-sm text-muted-foreground mt-4">
-              {t('generate:projectsSelected', { count: selectedProjects.length })}
+              {t('generate:projectsSelected', { count: selection.selectedCount })}
             </p>
           </CardContent>
         </Card>
@@ -305,7 +285,7 @@ export default function GeneratePage() {
             className="w-full"
             size="lg"
             onClick={handleSubmit}
-            disabled={runPipelineMutation.isPending || selectedProjects.length === 0 || !templateId}
+            disabled={runPipelineMutation.isPending || selection.selectedCount === 0 || !templateId}
           >
             <Play className="h-4 w-4 mr-2" />
             {runPipelineMutation.isPending ? t('generate:generating') : t('generate:startGeneration')}

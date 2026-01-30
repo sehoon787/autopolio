@@ -5,11 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { SelectableTile } from '@/components/ui/selectable-tile'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
+import { useSelection } from '@/hooks/useSelection'
 import { githubApi, GitHubRepo } from '@/api/github'
 import {
   Github,
@@ -30,9 +31,9 @@ export default function RepoSelector() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user, setUser } = useUserStore()
+  const selection = useSelection<string>()
 
   // State
-  const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
 
@@ -125,7 +126,7 @@ export default function RepoSelector() {
         })
 
         // Clear selection
-        setSelectedRepos(new Set())
+        selection.deselectAll()
 
         // Invalidate projects query
         queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -147,26 +148,8 @@ export default function RepoSelector() {
   })
 
   // Handlers
-  const toggleRepo = (cloneUrl: string) => {
-    const newSelected = new Set(selectedRepos)
-    if (newSelected.has(cloneUrl)) {
-      newSelected.delete(cloneUrl)
-    } else {
-      newSelected.add(cloneUrl)
-    }
-    setSelectedRepos(newSelected)
-  }
-
-  const toggleAll = () => {
-    if (selectedRepos.size === filteredRepos.length) {
-      setSelectedRepos(new Set())
-    } else {
-      setSelectedRepos(new Set(filteredRepos.map((r) => r.clone_url)))
-    }
-  }
-
   const handleImport = () => {
-    if (selectedRepos.size === 0) {
+    if (selection.selectedCount === 0) {
       toast({
         title: t('selectionRequired'),
         description: t('selectionRequiredDesc'),
@@ -174,7 +157,7 @@ export default function RepoSelector() {
       })
       return
     }
-    importMutation.mutate(Array.from(selectedRepos))
+    importMutation.mutate(selection.getSelectedArray())
   }
 
   const clearFilters = () => {
@@ -292,12 +275,12 @@ export default function RepoSelector() {
           </Button>
           <Button
             onClick={handleImport}
-            disabled={selectedRepos.size === 0 || importMutation.isPending}
+            disabled={selection.selectedCount === 0 || importMutation.isPending}
           >
             <Download className="mr-2 h-4 w-4" />
             {importMutation.isPending
               ? t('importing')
-              : t('importSelected', { count: selectedRepos.size })
+              : t('importSelected', { count: selection.selectedCount })
             }
           </Button>
         </div>
@@ -348,15 +331,15 @@ export default function RepoSelector() {
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
           <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
-          {selectedRepos.size > 0 && (
+          {selection.selectedCount > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />
-              {t('selectedCount', { count: selectedRepos.size })}
+              {t('selectedCount', { count: selection.selectedCount })}
             </Badge>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={toggleAll}>
-          {selectedRepos.size === filteredRepos.length ? t('deselectAll') : t('selectAll')}
+        <Button variant="ghost" size="sm" onClick={() => selection.toggleAll(filteredRepos.map(r => r.clone_url))}>
+          {selection.selectedCount === filteredRepos.length ? t('deselectAll') : t('selectAll')}
         </Button>
       </div>
 
@@ -393,25 +376,25 @@ export default function RepoSelector() {
             <RepoCard
               key={repo.id}
               repo={repo}
-              selected={selectedRepos.has(repo.clone_url)}
-              onToggle={() => toggleRepo(repo.clone_url)}
+              selected={selection.isSelected(repo.clone_url)}
+              onToggle={() => selection.toggle(repo.clone_url)}
             />
           ))}
         </div>
       )}
 
       {/* Action Footer */}
-      {selectedRepos.size > 0 && (
+      {selection.selectedCount > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
           <Card className="shadow-lg border-2">
             <CardContent className="py-3 px-6 flex items-center gap-4">
               <span className="text-sm font-medium">
-                {t('reposSelected', { count: selectedRepos.size })}
+                {t('reposSelected', { count: selection.selectedCount })}
               </span>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setSelectedRepos(new Set())}
+                onClick={() => selection.deselectAll()}
               >
                 {t('cancelSelection')}
               </Button>
@@ -452,53 +435,43 @@ function RepoCard({ repo, selected, onToggle }: RepoCardProps) {
   }
 
   return (
-    <Card
-      className={`cursor-pointer transition-colors hover:bg-gray-50 ${
-        selected ? 'ring-2 ring-primary bg-primary/5' : ''
-      }`}
-      onClick={onToggle}
+    <SelectableTile
+      id={repo.clone_url}
+      selected={selected}
+      onSelectChange={onToggle}
     >
       <CardContent className="py-4">
-        <div className="flex items-start gap-4">
-          <Checkbox
-            checked={selected}
-            onCheckedChange={onToggle}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-1"
-          />
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold truncate">{repo.name}</h3>
-              {repo.language && (
-                <Badge variant="outline" className="text-xs">
-                  {repo.language}
-                </Badge>
-              )}
-            </div>
-
-            {repo.description && (
-              <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                {repo.description}
-              </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold truncate">{repo.name}</h3>
+            {repo.language && (
+              <Badge variant="outline" className="text-xs">
+                {repo.language}
+              </Badge>
             )}
+          </div>
 
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <Star className="h-3 w-3" />
-                {repo.stargazers_count}
-              </span>
-              <span className="flex items-center gap-1">
-                <GitFork className="h-3 w-3" />
-                {repo.forks_count}
-              </span>
-              <span>
-                {t('updated')} {formatDate(repo.updated_at)}
-              </span>
-            </div>
+          {repo.description && (
+            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+              {repo.description}
+            </p>
+          )}
+
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <Star className="h-3 w-3" />
+              {repo.stargazers_count}
+            </span>
+            <span className="flex items-center gap-1">
+              <GitFork className="h-3 w-3" />
+              {repo.forks_count}
+            </span>
+            <span>
+              {t('updated')} {formatDate(repo.updated_at)}
+            </span>
           </div>
         </div>
       </CardContent>
-    </Card>
+    </SelectableTile>
   )
 }

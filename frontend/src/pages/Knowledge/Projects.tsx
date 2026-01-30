@@ -10,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
 import { Progress } from '@/components/ui/progress'
-import { Checkbox } from '@/components/ui/checkbox'
+import { SelectableTile } from '@/components/ui/selectable-tile'
+import { SelectionActionBar } from '@/components/ui/selection-action-bar'
+import { useSelection } from '@/hooks/useSelection'
 import {
   Dialog,
   DialogContent,
@@ -171,7 +173,7 @@ export default function ProjectsPage() {
     sort_by: 'is_analyzed,created_at',
     sort_order: 'asc,desc'
   })
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const selection = useSelection<number>()
   const [searchInput, setSearchInput] = useState('')
   const [formData, setFormData] = useState<ProjectCreate>({
     name: '',
@@ -216,7 +218,7 @@ export default function ProjectsPage() {
       sort_order: 'asc,desc'
     })
     setSearchInput('')
-    setSelectedIds(new Set())
+    selection.deselectAll()
   }
 
   const handleSearch = () => {
@@ -416,7 +418,7 @@ export default function ProjectsPage() {
     onSuccess: (response) => {
       const { deleted_count, not_found_ids } = response.data
       queryClient.refetchQueries({ queryKey: ['projects'] })
-      setSelectedIds(new Set())
+      selection.deselectAll()
       toast({
         title: t('batchDeleteComplete'),
         description: t('batchDeleteResult', { count: deleted_count }),
@@ -438,7 +440,7 @@ export default function ProjectsPage() {
 
   // Handle batch delete for selected projects
   const handleSelectedBatchDelete = () => {
-    if (selectedIds.size === 0) {
+    if (selection.selectedCount === 0) {
       toast({
         title: t('noDeleteTarget'),
         description: t('noSelectedProjects'),
@@ -451,7 +453,7 @@ export default function ProjectsPage() {
 
   // Confirm batch delete
   const confirmBatchDelete = () => {
-    batchDeleteMutation.mutate(Array.from(selectedIds))
+    batchDeleteMutation.mutate(selection.getSelectedArray())
     setIsBatchDeleteDialogOpen(false)
   }
 
@@ -509,7 +511,7 @@ export default function ProjectsPage() {
     onSuccess: (response) => {
       const { completed, failed, results } = response.data
       setBatchProgress(null)
-      setSelectedIds(new Set()) // Clear selections after batch analysis
+      selection.deselectAll() // Clear selections after batch analysis
 
       toast({
         title: t('batchAnalysisComplete'),
@@ -608,28 +610,9 @@ export default function ProjectsPage() {
   const projects = projectsData?.data?.projects || []
   const companies = companiesData?.data || []
 
-  // Selection handlers (must be after projects is defined)
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(projects.map(p => p.id)))
-    } else {
-      setSelectedIds(new Set())
-    }
-  }
-
-  const handleSelectOne = (id: number, checked: boolean) => {
-    const newSet = new Set(selectedIds)
-    if (checked) {
-      newSet.add(id)
-    } else {
-      newSet.delete(id)
-    }
-    setSelectedIds(newSet)
-  }
-
   // Get selected projects that can be analyzed (have git_url and not analyzed)
   const selectedAnalyzableProjects = projects.filter(
-    p => selectedIds.has(p.id) && p.git_url && !p.is_analyzed
+    p => selection.isSelected(p.id) && p.git_url && !p.is_analyzed
   )
 
   // Kanban data preparation
@@ -971,75 +954,66 @@ export default function ProjectsPage() {
         /* List View */
         <div className="space-y-4">
           {/* Selection Action Bar */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Checkbox
-                id="select-all"
-                checked={selectedIds.size === projects.length && projects.length > 0}
-                onCheckedChange={(checked) => handleSelectAll(checked === true)}
-              />
-              <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                {t('selectAll')}
-              </label>
-              {selectedIds.size > 0 && (
-                <span className="text-sm text-gray-500">
-                  ({t('selectedCount', { count: selectedIds.size })})
-                </span>
+          <SelectionActionBar
+            totalCount={projects.length}
+            selectedCount={selection.selectedCount}
+            onSelectAllChange={(selectAll) => {
+              if (selectAll) {
+                selection.selectAll(projects.map(p => p.id))
+              } else {
+                selection.deselectAll()
+              }
+            }}
+            selectAllLabel={t('selectAll')}
+            selectedCountLabel={`(${selection.selectedCount} ${tc('selected')})`}
+          >
+            <Button
+              onClick={handleSelectedBatchAnalyze}
+              disabled={batchAnalyzeMutation.isPending || selectedAnalyzableProjects.length === 0}
+              size="sm"
+            >
+              {batchAnalyzeMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
               )}
-            </div>
-            {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleSelectedBatchAnalyze}
-                  disabled={batchAnalyzeMutation.isPending || selectedAnalyzableProjects.length === 0}
-                  size="sm"
-                >
-                  {batchAnalyzeMutation.isPending ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4 mr-2" />
-                  )}
-                  {t('analyze')} ({selectedAnalyzableProjects.length})
-                </Button>
-                <Button
-                  onClick={handleSelectedBatchDelete}
-                  disabled={batchDeleteMutation.isPending}
-                  size="sm"
-                  variant="destructive"
-                >
-                  {batchDeleteMutation.isPending ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4 mr-2" />
-                  )}
-                  {tc('delete')} ({selectedIds.size})
-                </Button>
-              </div>
-            )}
-          </div>
+              {t('analyze')} ({selectedAnalyzableProjects.length})
+            </Button>
+            <Button
+              onClick={handleSelectedBatchDelete}
+              disabled={batchDeleteMutation.isPending}
+              size="sm"
+              variant="destructive"
+            >
+              {batchDeleteMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              {tc('delete')} ({selection.selectedCount})
+            </Button>
+          </SelectionActionBar>
 
           {/* Project List */}
           <div className="grid gap-4">
             {projects.map((project) => (
-              <Card
+              <SelectableTile
                 key={project.id}
-                className={`hover:shadow-md transition-shadow ${
-                  selectedIds.has(project.id) ? 'ring-2 ring-primary bg-primary/5' : ''
-                }`}
+                id={project.id}
+                selected={selection.isSelected(project.id)}
+                onSelectChange={() => selection.toggle(project.id)}
+                className="hover:shadow-md"
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
-                    {/* Checkbox */}
-                    <div className="pt-1">
-                      <Checkbox
-                        checked={selectedIds.has(project.id)}
-                        onCheckedChange={(checked) => handleSelectOne(project.id, checked === true)}
-                      />
-                    </div>
                     {/* Content */}
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <Link to={`/knowledge/projects/${project.id}`} className="hover:underline">
+                        <Link
+                          to={`/knowledge/projects/${project.id}`}
+                          className="hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <h3 className="text-xl font-semibold">{project.name}</h3>
                         </Link>
                         {project.is_analyzed ? (
@@ -1076,6 +1050,7 @@ export default function ProjectsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 text-sm text-primary mt-3 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Github className="h-4 w-4" />
                           GitHub
@@ -1084,7 +1059,7 @@ export default function ProjectsPage() {
                       )}
                     </div>
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <Link to={`/knowledge/projects/${project.id}`}>
                         <Button variant="ghost" size="icon">
                           <Pencil className="h-4 w-4" />
@@ -1100,7 +1075,7 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </SelectableTile>
             ))}
           </div>
         </div>
@@ -1425,7 +1400,7 @@ export default function ProjectsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('deleteDialog.batchDescription', { count: selectedIds.size })}
+              {t('deleteDialog.batchDescription', { count: selection.selectedCount })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1434,7 +1409,7 @@ export default function ProjectsPage() {
               onClick={confirmBatchDelete}
               className="bg-red-600 hover:bg-red-700"
             >
-              {t('deleteDialog.confirmBatch', { count: selectedIds.size })}
+              {t('deleteDialog.confirmBatch', { count: selection.selectedCount })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
