@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface SelectableTileProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'id'> {
@@ -36,6 +37,19 @@ export const SelectableTile = React.forwardRef<HTMLDivElement, SelectableTilePro
     },
     ref
   ) => {
+    const prevSelectedRef = useRef(selected)
+    const [isFlashing, setIsFlashing] = useState(false)
+
+    // Trigger flash animation when selected changes from false to true
+    useEffect(() => {
+      if (selected && !prevSelectedRef.current) {
+        setIsFlashing(true)
+        const timer = setTimeout(() => setIsFlashing(false), 5300)
+        return () => clearTimeout(timer)
+      }
+      prevSelectedRef.current = selected
+    }, [selected])
+
     const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (disabled) return
       onSelectChange(id, !selected)
@@ -62,15 +76,26 @@ export const SelectableTile = React.forwardRef<HTMLDivElement, SelectableTilePro
         onKeyDown={handleKeyDown}
         className={cn(
           // Base styles
-          'rounded-lg border bg-card text-card-foreground shadow-sm',
-          'cursor-pointer transition-all duration-200',
+          'relative rounded-lg border bg-card text-card-foreground',
+          'cursor-pointer transition-all duration-200 ease-out',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           // Selection states
           selected
-            ? 'ring-2 ring-primary bg-primary/5 border-primary/50'
-            : 'hover:bg-accent/50',
+            ? [
+                // Selected: strong visual feedback with theme colors
+                'border-primary/40 border-l-4 border-l-primary',
+                'bg-primary/10 dark:bg-primary/15',
+                'shadow-md shadow-primary/10',
+                // Flash animation on select
+                isFlashing && 'animate-selection-flash',
+              ]
+            : [
+                // Unselected: clean hover effect
+                'border-border shadow-sm',
+                'hover:border-primary/30 hover:bg-accent/30 hover:shadow-md hover:-translate-y-0.5',
+              ],
           // Disabled state
-          disabled && 'opacity-50 cursor-not-allowed',
+          disabled && 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-sm hover:bg-card',
           className
         )}
         {...props}
