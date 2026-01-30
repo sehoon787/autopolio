@@ -262,6 +262,7 @@ export default function CompaniesPage() {
                   id="start_date"
                   type="date"
                   value={formData.start_date || ''}
+                  max={formData.end_date || undefined}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 />
               </div>
@@ -271,6 +272,7 @@ export default function CompaniesPage() {
                   id="end_date"
                   type="date"
                   value={formData.end_date || ''}
+                  min={formData.start_date || undefined}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   disabled={formData.is_current}
                 />

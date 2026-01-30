@@ -472,6 +472,7 @@ export default function ProjectDetailPage() {
                   id="edit-start_date"
                   type="date"
                   value={editFormData.start_date || ''}
+                  max={editFormData.end_date || undefined}
                   onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
                 />
               </div>
@@ -481,6 +482,7 @@ export default function ProjectDetailPage() {
                   id="edit-end_date"
                   type="date"
                   value={editFormData.end_date || ''}
+                  min={editFormData.start_date || undefined}
                   onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
                   disabled={isOngoing}
                   className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
