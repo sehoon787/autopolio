@@ -15,6 +15,9 @@ import ProjectDetailPage from '@/pages/Knowledge/ProjectDetail'
 import CompanyTimelinePage from '@/pages/Knowledge/CompanyTimeline'
 import TemplatesPage from '@/pages/Templates'
 import TemplateEditor from '@/pages/Templates/Editor'
+import PlatformsPage from '@/pages/Platforms'
+import PlatformExportPage from '@/pages/Platforms/Export'
+import PlatformPreviewPage from '@/pages/Platforms/Preview'
 import GeneratePage from '@/pages/Generate'
 import PipelinePage from '@/pages/Generate/Pipeline'
 import DocumentsPage from '@/pages/Documents'
@@ -34,14 +37,9 @@ function App() {
     initialize()
   }, [initialize])
 
-  // Auto-create default user for desktop app
+  // Auto-create/validate user for both web and desktop app
   useEffect(() => {
     const initUser = async () => {
-      if (!isElectronApp) {
-        setIsInitializing(false)
-        return
-      }
-
       try {
         // Clear any stale persisted data first
         const storedUserId = localStorage.getItem('user_id')
@@ -69,9 +67,17 @@ function App() {
             }
           } catch (fetchError) {
             // User doesn't exist in backend, clear stale data
-            console.log('[App] Stored user not found in backend, creating new user')
+            console.log('[App] Stored user not found in backend, clearing stale data')
             localStorage.removeItem('user_id')
+            localStorage.removeItem('user-storage') // Clear Zustand persisted state
+            setUser(null)
           }
+        }
+
+        // For web mode without stored user, just finish initialization
+        if (!isElectronApp) {
+          setIsInitializing(false)
+          return
         }
 
         // Create default user for desktop app
@@ -123,6 +129,9 @@ function App() {
           <Route path="knowledge/companies/timeline" element={<CompanyTimelinePage />} />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="templates/:templateId/edit" element={<TemplateEditor />} />
+          <Route path="platforms" element={<PlatformsPage />} />
+          <Route path="platforms/:templateId/export" element={<PlatformExportPage />} />
+          <Route path="platforms/:templateId/preview" element={<PlatformPreviewPage />} />
           <Route path="generate" element={<GeneratePage />} />
           <Route path="generate/pipeline" element={<PipelinePage />} />
           <Route path="documents" element={<DocumentsPage />} />

@@ -2,8 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// Use relative paths for Electron (file:// protocol), absolute for web
+const isElectronBuild = process.env.ELECTRON_BUILD === 'true'
+
 export default defineConfig({
-  base: './',  // Electron file:// protocol requires relative paths
+  base: isElectronBuild ? './' : '/',
   plugins: [react()],
   resolve: {
     alias: {
