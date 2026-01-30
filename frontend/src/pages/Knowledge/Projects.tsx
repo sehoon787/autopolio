@@ -19,6 +19,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -183,6 +193,8 @@ export default function ProjectsPage() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
   const [isOngoing, setIsOngoing] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
+  const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false)
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -397,6 +409,64 @@ export default function ProjectsPage() {
       toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
     },
   })
+
+  // Batch delete mutation
+  const batchDeleteMutation = useMutation({
+    mutationFn: (projectIds: number[]) => projectsApi.deleteBatch(projectIds),
+    onSuccess: (response) => {
+      const { deleted_count, not_found_ids } = response.data
+      queryClient.refetchQueries({ queryKey: ['projects'] })
+      setSelectedIds(new Set())
+      toast({
+        title: t('batchDeleteComplete'),
+        description: t('batchDeleteResult', { count: deleted_count }),
+        variant: not_found_ids.length > 0 ? 'destructive' : 'default',
+      })
+    },
+    onError: (error: any) => {
+      // Handle FastAPI validation error response which can be an array
+      let errorMessage = t('batchDeleteFailed')
+      const detail = error?.response?.data?.detail
+      if (typeof detail === 'string') {
+        errorMessage = detail
+      } else if (Array.isArray(detail) && detail[0]?.msg) {
+        errorMessage = detail[0].msg
+      }
+      toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
+    },
+  })
+
+  // Handle batch delete for selected projects
+  const handleSelectedBatchDelete = () => {
+    if (selectedIds.size === 0) {
+      toast({
+        title: t('noDeleteTarget'),
+        description: t('noSelectedProjects'),
+        variant: 'destructive',
+      })
+      return
+    }
+    setIsBatchDeleteDialogOpen(true)
+  }
+
+  // Confirm batch delete
+  const confirmBatchDelete = () => {
+    batchDeleteMutation.mutate(Array.from(selectedIds))
+    setIsBatchDeleteDialogOpen(false)
+  }
+
+  // Handle single project delete
+  const handleSingleDelete = (project: Project) => {
+    setDeleteTarget({ id: project.id, name: project.name })
+  }
+
+  // Confirm single delete
+  const confirmSingleDelete = () => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id)
+      setDeleteTarget(null)
+    }
+  }
 
   // Kanban status update mutation
   const updateStatusMutation = useMutation({
@@ -929,15 +999,20 @@ export default function ProjectsPage() {
                   ) : (
                     <Play className="h-4 w-4 mr-2" />
                   )}
-                  {t('analyzeSelected', { count: selectedAnalyzableProjects.length })}
+                  {t('analyze')} ({selectedAnalyzableProjects.length})
                 </Button>
                 <Button
-                  variant="ghost"
+                  onClick={handleSelectedBatchDelete}
+                  disabled={batchDeleteMutation.isPending}
                   size="sm"
-                  onClick={() => setSelectedIds(new Set())}
+                  variant="destructive"
                 >
-                  <X className="h-4 w-4 mr-1" />
-                  {t('clearSelection')}
+                  {batchDeleteMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  {tc('delete')} ({selectedIds.size})
                 </Button>
               </div>
             )}
@@ -948,7 +1023,9 @@ export default function ProjectsPage() {
             {projects.map((project) => (
               <Card
                 key={project.id}
-                className={`hover:shadow-md transition-shadow ${selectedIds.has(project.id) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                className={`hover:shadow-md transition-shadow ${
+                  selectedIds.has(project.id) ? 'ring-2 ring-primary bg-primary/5' : ''
+                }`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
@@ -1016,11 +1093,7 @@ export default function ProjectsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm(t('deleteConfirm'))) {
-                            deleteMutation.mutate(project.id)
-                          }
-                        }}
+                        onClick={() => handleSingleDelete(project)}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -1324,6 +1397,48 @@ export default function ProjectsPage() {
         open={isExportDialogOpen}
         onOpenChange={setIsExportDialogOpen}
       />
+
+      {/* Single Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deleteDialog.singleDescription', { name: deleteTarget?.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tc('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSingleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {t('deleteDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Batch Delete Confirmation Dialog */}
+      <AlertDialog open={isBatchDeleteDialogOpen} onOpenChange={setIsBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deleteDialog.batchDescription', { count: selectedIds.size })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tc('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBatchDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {t('deleteDialog.confirmBatch', { count: selectedIds.size })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

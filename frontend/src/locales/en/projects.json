@@ -1,5 +1,6 @@
 {
   "title": "Project Management",
+  "analyze": "Analyze",
   "subtitle": "Manage projects to include in your portfolio.",
   "addProject": "Add Project",
   "addFirstProject": "Add First Project",
@@ -17,8 +18,6 @@
   "filterApplied": "filters applied",
   "selectAll": "Select All",
   "selectedCount": "{{count}} selected",
-  "analyzeSelected": "Analyze Selected ({{count}})",
-  "clearSelection": "Clear Selection",
   "batchAnalysis": "Batch Analysis ({{count}})",
   "analyzing": "Analyzing ({{current}}/{{total}})",
   "batchAnalysisInProgress": "Batch analysis in progress...",
@@ -47,6 +46,19 @@
   "addFailed": "Failed to add project.",
   "projectDeleted": "Project deleted.",
   "deleteFailed": "Failed to delete.",
+  "batchDeleteComplete": "Batch Delete Complete",
+  "batchDeleteResult": "{{count}} projects have been deleted.",
+  "batchDeleteFailed": "Batch delete failed.",
+  "batchDeleteConfirm": "Are you sure you want to delete {{count}} projects?",
+  "noDeleteTarget": "No Delete Target",
+  "noSelectedProjects": "No projects selected.",
+  "deleteDialog": {
+    "title": "Delete Project",
+    "singleDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "batchDescription": "Are you sure you want to delete {{count}} selected projects? This action cannot be undone.",
+    "confirm": "Delete",
+    "confirmBatch": "Delete {{count}}"
+  },
   "projectTypes": {
     "company": "Company",
     "personal": "Personal",

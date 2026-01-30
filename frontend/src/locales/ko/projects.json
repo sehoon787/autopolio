@@ -1,5 +1,6 @@
 {
   "title": "프로젝트 관리",
+  "analyze": "분석",
   "subtitle": "포트폴리오에 포함될 프로젝트를 관리합니다.",
   "addProject": "프로젝트 추가",
   "addFirstProject": "첫 프로젝트 추가",
@@ -17,8 +18,6 @@
   "filterApplied": "필터 적용됨",
   "selectAll": "전체 선택",
   "selectedCount": "{{count}}개 선택됨",
-  "analyzeSelected": "선택 분석 ({{count}})",
-  "clearSelection": "선택 해제",
   "batchAnalysis": "일괄 분석 ({{count}})",
   "analyzing": "분석 중 ({{current}}/{{total}})",
   "batchAnalysisInProgress": "일괄 분석 진행 중...",
@@ -47,6 +46,19 @@
   "addFailed": "프로젝트 추가에 실패했습니다.",
   "projectDeleted": "프로젝트가 삭제되었습니다.",
   "deleteFailed": "삭제에 실패했습니다.",
+  "batchDeleteComplete": "선택 삭제 완료",
+  "batchDeleteResult": "{{count}}개의 프로젝트가 삭제되었습니다.",
+  "batchDeleteFailed": "선택 삭제에 실패했습니다.",
+  "batchDeleteConfirm": "정말 {{count}}개의 프로젝트를 삭제하시겠습니까?",
+  "noDeleteTarget": "삭제 대상 없음",
+  "noSelectedProjects": "선택된 프로젝트가 없습니다.",
+  "deleteDialog": {
+    "title": "프로젝트 삭제",
+    "singleDescription": "\"{{name}}\" 프로젝트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "batchDescription": "선택한 {{count}}개의 프로젝트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "confirm": "삭제",
+    "confirmBatch": "{{count}}개 삭제"
+  },
   "projectTypes": {
     "company": "회사",
     "personal": "개인",

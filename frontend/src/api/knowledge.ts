@@ -173,6 +173,12 @@ export interface ProjectFilters {
   limit?: number
 }
 
+export interface BatchDeleteResponse {
+  deleted_count: number
+  deleted_ids: number[]
+  not_found_ids: number[]
+}
+
 export const projectsApi = {
   getAll: (userId: number, params?: ProjectFilters) =>
     apiClient.get<ProjectListResponse>('/knowledge/projects', {
@@ -190,6 +196,18 @@ export const projectsApi = {
 
   delete: (id: number) =>
     apiClient.delete(`/knowledge/projects/${id}`),
+
+  deleteBatch: (projectIds: number[]) =>
+    apiClient.delete<BatchDeleteResponse>('/knowledge/projects', {
+      params: { project_ids: projectIds },
+      paramsSerializer: (params) => {
+        const searchParams = new URLSearchParams()
+        params.project_ids.forEach((id: number) => {
+          searchParams.append('project_ids', String(id))
+        })
+        return searchParams.toString()
+      }
+    }),
 
   getTechnologies: (category?: string) =>
     apiClient.get<Technology[]>('/knowledge/projects/technologies/list', {
