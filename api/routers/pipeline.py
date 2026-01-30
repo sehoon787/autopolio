@@ -91,8 +91,12 @@ async def get_pipeline_status(
         step_key = f"step_{i}"
         step_data = step_results.get(step_key, {})
 
+        # Determine step status - prioritize explicit status from step_results
         step_status = "pending"
-        if i < job.current_step:
+        if step_data.get("status") == "skipped":
+            # Step was explicitly marked as skipped
+            step_status = "skipped"
+        elif i < job.current_step:
             step_status = "completed"
         elif i == job.current_step:
             step_status = "running" if job.status == "running" else job.status
@@ -104,9 +108,10 @@ async def get_pipeline_status(
             "step_name": step_name,
             "status": step_status,
             "started_at": step_data.get("started_at"),
-            "completed_at": step_data.get("completed_at"),
+            "completed_at": step_data.get("completed_at") or step_data.get("skipped_at"),
             "result": step_data.get("result"),
-            "error": step_data.get("error")
+            "error": step_data.get("error"),
+            "skip_reason": step_data.get("reason") if step_status == "skipped" else None
         })
 
     return {

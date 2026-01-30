@@ -27,7 +27,8 @@ export default function DocumentsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => documentsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      // Use exact queryKey match to ensure list updates
+      queryClient.invalidateQueries({ queryKey: ['documents', user?.id] })
       toast({ title: t('documentDeleted') })
     },
     onError: () => toast({ title: tc('error'), description: t('deleteError'), variant: 'destructive' }),
@@ -36,7 +37,7 @@ export default function DocumentsPage() {
   const archiveMutation = useMutation({
     mutationFn: (id: number) => documentsApi.archive(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['documents', user?.id] })
       toast({ title: t('documentArchived') })
     },
   })

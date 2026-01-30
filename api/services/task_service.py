@@ -148,6 +148,45 @@ class TaskService:
             await self.db.refresh(job)
         return job
 
+    async def skip_step(
+        self,
+        task_id: str,
+        step_number: int,
+        step_name: str,
+        reason: str = "already_completed",
+        result: Optional[Dict[str, Any]] = None
+    ) -> Optional[Job]:
+        """Mark a step as skipped.
+
+        Args:
+            task_id: The task ID
+            step_number: The step number to skip
+            step_name: The name of the step
+            reason: Why the step was skipped (e.g., 'already_analyzed', 'no_data')
+            result: Optional result data to store
+        """
+        job = await self.get_job(task_id)
+        if job:
+            step_results = job.step_results or {}
+            step_key = f"step_{step_number}"
+
+            step_results[step_key] = {
+                "name": step_name,
+                "status": "skipped",
+                "reason": reason,
+                "skipped_at": datetime.utcnow().isoformat()
+            }
+            if result:
+                step_results[step_key]["result"] = result
+
+            job.step_results = step_results
+            job.current_step = step_number + 1
+            job.progress = int(step_number / job.total_steps * 100)
+
+            await self.db.flush()
+            await self.db.refresh(job)
+        return job
+
     async def complete_job(
         self,
         task_id: str,

@@ -195,83 +195,100 @@ class PipelineService:
 
         Performance: Uses parallel analysis for multiple projects.
         """
-        await self.task_service.start_step(task_id, 1, self.STEP_NAMES[0])
-
         results = {"analyses": [], "skipped": []}
 
         if request.skip_github_analysis:
+            # All projects skipped by user request
             results["skipped"] = request.project_ids
-        else:
-            # Get projects with git URLs
-            projects_result = await self.db.execute(
-                select(Project)
-                .where(Project.id.in_(request.project_ids))
-                .where(Project.git_url.isnot(None))
+            await self.task_service.skip_step(
+                task_id, 1, self.STEP_NAMES[0],
+                reason="user_skipped",
+                result=results
             )
-            projects = projects_result.scalars().all()
+            return results
 
-            # Check if user has GitHub connected
-            if user.github_token_encrypted:
-                token = self.encryption.decrypt(user.github_token_encrypted)
-                github_service = GitHubService(token)
+        await self.task_service.start_step(task_id, 1, self.STEP_NAMES[0])
 
-                # Filter projects that need analysis
-                projects_to_analyze = []
-                for project in projects:
-                    if project.is_analyzed and not request.regenerate_summaries:
-                        results["skipped"].append(project.id)
+        # Get projects with git URLs
+        projects_result = await self.db.execute(
+            select(Project)
+            .where(Project.id.in_(request.project_ids))
+            .where(Project.git_url.isnot(None))
+        )
+        projects = projects_result.scalars().all()
+
+        # Check if user has GitHub connected
+        if user.github_token_encrypted:
+            token = self.encryption.decrypt(user.github_token_encrypted)
+            github_service = GitHubService(token)
+
+            # Filter projects that need analysis
+            projects_to_analyze = []
+            for project in projects:
+                if project.is_analyzed and not request.regenerate_summaries:
+                    results["skipped"].append(project.id)
+                else:
+                    projects_to_analyze.append(project)
+
+            if projects_to_analyze:
+                # Parallel analysis with semaphore
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_GITHUB_ANALYSIS)
+                tasks = [
+                    self._analyze_single_project(
+                        semaphore, github_service, project, user.github_username
+                    )
+                    for project in projects_to_analyze
+                ]
+
+                analysis_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                # Process results
+                for result in analysis_results:
+                    if isinstance(result, Exception):
+                        continue
+                    if not result.get("success"):
+                        results["skipped"].append(result["project_id"])
+                        continue
+
+                    project = result["project"]
+                    analysis = result["analysis"]
+
+                    # Save analysis
+                    existing = await self.db.execute(
+                        select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
+                    )
+                    repo_analysis = existing.scalar_one_or_none()
+
+                    if repo_analysis:
+                        for key, value in analysis.items():
+                            setattr(repo_analysis, key, value)
                     else:
-                        projects_to_analyze.append(project)
-
-                if projects_to_analyze:
-                    # Parallel analysis with semaphore
-                    semaphore = asyncio.Semaphore(MAX_CONCURRENT_GITHUB_ANALYSIS)
-                    tasks = [
-                        self._analyze_single_project(
-                            semaphore, github_service, project, user.github_username
+                        repo_analysis = RepoAnalysis(
+                            project_id=project.id,
+                            git_url=project.git_url,
+                            **analysis
                         )
-                        for project in projects_to_analyze
-                    ]
+                        self.db.add(repo_analysis)
 
-                    analysis_results = await asyncio.gather(*tasks, return_exceptions=True)
+                    project.is_analyzed = 1
+                    results["analyses"].append({
+                        "project_id": project.id,
+                        "analysis": analysis
+                    })
 
-                    # Process results
-                    for result in analysis_results:
-                        if isinstance(result, Exception):
-                            continue
-                        if not result.get("success"):
-                            results["skipped"].append(result["project_id"])
-                            continue
+            await self.db.flush()
 
-                        project = result["project"]
-                        analysis = result["analysis"]
+        # Check if all projects were skipped (already analyzed)
+        if len(results["skipped"]) == len(request.project_ids) and not results["analyses"]:
+            # All projects were already analyzed - mark step as skipped
+            await self.task_service.skip_step(
+                task_id, 1, self.STEP_NAMES[0],
+                reason="all_projects_analyzed",
+                result=results
+            )
+        else:
+            await self.task_service.complete_step(task_id, 1, results)
 
-                        # Save analysis
-                        existing = await self.db.execute(
-                            select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
-                        )
-                        repo_analysis = existing.scalar_one_or_none()
-
-                        if repo_analysis:
-                            for key, value in analysis.items():
-                                setattr(repo_analysis, key, value)
-                        else:
-                            repo_analysis = RepoAnalysis(
-                                project_id=project.id,
-                                git_url=project.git_url,
-                                **analysis
-                            )
-                            self.db.add(repo_analysis)
-
-                        project.is_analyzed = 1
-                        results["analyses"].append({
-                            "project_id": project.id,
-                            "analysis": analysis
-                        })
-
-                await self.db.flush()
-
-        await self.task_service.complete_step(task_id, 1, results)
         return results
 
     async def _step_code_extraction(
@@ -498,13 +515,17 @@ class PipelineService:
 
         Performance: Uses parallel summarization for multiple projects.
         """
-        await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
-
         results = {"summaries": [], "tokens_used": 0}
 
         if request.skip_llm_summary:
-            await self.task_service.complete_step(task_id, 5, results)
+            await self.task_service.skip_step(
+                task_id, 5, self.STEP_NAMES[4],
+                reason="user_skipped",
+                result=results
+            )
             return results, 0
+
+        await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         try:
             # Initialize LLM service (API or CLI)
@@ -544,37 +565,46 @@ class PipelineService:
                 if not p.ai_summary or request.regenerate_summaries
             ]
 
-            if projects_to_summarize:
-                # Parallel summarization with semaphore
-                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
-                tasks = [
-                    self._generate_single_summary(
-                        semaphore, llm_service, project, request.summary_style
-                    )
-                    for project in projects_to_summarize
-                ]
+            # Check if all projects already have summaries
+            if not projects_to_summarize:
+                results["skipped_projects"] = [p.id for p in projects]
+                await self.task_service.skip_step(
+                    task_id, 5, self.STEP_NAMES[4],
+                    reason="all_projects_have_summaries",
+                    result=results
+                )
+                return results, 0
 
-                summary_results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Parallel summarization with semaphore
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
+            tasks = [
+                self._generate_single_summary(
+                    semaphore, llm_service, project, request.summary_style
+                )
+                for project in projects_to_summarize
+            ]
 
-                # Process results
-                for result in summary_results:
-                    if isinstance(result, Exception):
-                        logger.warning("Summary generation exception: %s", result)
-                        continue
-                    if not result.get("success"):
-                        continue
+            summary_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    project = result["project"]
-                    summary = result["summary"]
+            # Process results
+            for result in summary_results:
+                if isinstance(result, Exception):
+                    logger.warning("Summary generation exception: %s", result)
+                    continue
+                if not result.get("success"):
+                    continue
 
-                    # Update project
-                    project.ai_summary = summary.get("summary", "")
-                    project.ai_key_features = summary.get("key_features", [])
+                project = result["project"]
+                summary = result["summary"]
 
-                    results["summaries"].append({
-                        "project_id": project.id,
-                        "summary": summary
-                    })
+                # Update project
+                project.ai_summary = summary.get("summary", "")
+                project.ai_key_features = summary.get("key_features", [])
+
+                results["summaries"].append({
+                    "project_id": project.id,
+                    "summary": summary
+                })
 
             await self.db.flush()
             results["tokens_used"] = llm_service.total_tokens_used

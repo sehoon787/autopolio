@@ -1,4 +1,4 @@
-import apiClient from './client'
+import apiClient, { ANALYSIS_TIMEOUT } from './client'
 
 export interface PipelineStep {
   step_number: number
@@ -8,6 +8,7 @@ export interface PipelineStep {
   completed_at: string | null
   result: Record<string, unknown> | null
   error: string | null
+  skip_reason: string | null
 }
 
 export interface PipelineRunRequest {
@@ -79,15 +80,25 @@ export interface Job {
   updated_at: string
 }
 
+// Longer timeout for pipeline operations (60 seconds for status polling)
+const PIPELINE_STATUS_TIMEOUT = 60000
+
 export const pipelineApi = {
   run: (userId: number, data: PipelineRunRequest) =>
-    apiClient.post<Job>('/pipeline/run', data, { params: { user_id: userId } }),
+    apiClient.post<Job>('/pipeline/run', data, {
+      params: { user_id: userId },
+      timeout: ANALYSIS_TIMEOUT, // 5 minutes for pipeline execution
+    }),
 
   getStatus: (taskId: string) =>
-    apiClient.get<PipelineStatus>(`/pipeline/tasks/${taskId}`),
+    apiClient.get<PipelineStatus>(`/pipeline/tasks/${taskId}`, {
+      timeout: PIPELINE_STATUS_TIMEOUT, // 60 seconds for status polling
+    }),
 
   getResult: (taskId: string) =>
-    apiClient.get<PipelineResult>(`/pipeline/tasks/${taskId}/result`),
+    apiClient.get<PipelineResult>(`/pipeline/tasks/${taskId}/result`, {
+      timeout: PIPELINE_STATUS_TIMEOUT,
+    }),
 
   cancel: (taskId: string) =>
     apiClient.post(`/pipeline/tasks/${taskId}/cancel`),

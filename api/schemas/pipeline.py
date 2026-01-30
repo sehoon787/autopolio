@@ -12,6 +12,7 @@ class PipelineStep(BaseModel):
     completed_at: Optional[datetime] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    skip_reason: Optional[str] = None  # Reason for skipping (e.g., 'all_projects_analyzed')
 
 
 class PipelineRunRequest(BaseModel):
