@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,8 @@ from typing import Optional, Tuple, List, Dict, Any
 import httpx
 
 from api.database import get_db
+
+logger = logging.getLogger(__name__)
 from api.config import get_settings
 from api.models.user import User
 from api.models.project import Project, Technology, ProjectTechnology
@@ -123,14 +126,14 @@ async def _generate_key_tasks(
     try:
         if llm_service is None:
             if cli_mode:
-                print(f"[KeyTasks] Using CLI mode: {cli_mode}, model: {cli_model}")
+                logger.info("[KeyTasks] Using CLI mode: %s, model: %s", cli_mode, cli_model)
                 llm_service = CLILLMService(cli_mode, model=cli_model)
             else:
                 llm_service = LLMService()
 
-        print(f"[KeyTasks] LLM service type: {type(llm_service).__name__}")
+        logger.debug("[KeyTasks] LLM service type: %s", type(llm_service).__name__)
         if hasattr(llm_service, 'provider_name'):
-            print(f"[KeyTasks] Provider name: {llm_service.provider_name}")
+            logger.debug("[KeyTasks] Provider name: %s", llm_service.provider_name)
 
         # Build prompt with available information
         technologies = repo_analysis.detected_technologies or []
@@ -198,8 +201,8 @@ JSON 배열 형식으로만 응답하세요:
     except Exception as e:
         # Log error but don't fail the analysis
         import traceback
-        print(f"Failed to generate key tasks: {type(e).__name__}: {e}")
-        print(f"[KeyTasks] Traceback: {traceback.format_exc()}")
+        logger.warning("Failed to generate key tasks: %s: %s", type(e).__name__, e)
+        logger.debug("[KeyTasks] Traceback: %s", traceback.format_exc())
         return [], 0
 
 
@@ -214,11 +217,8 @@ async def github_connect(
     import base64
     import logging
 
-    logger = logging.getLogger(__name__)
-    logger.info(f"[GitHub Connect] Called with redirect_url={redirect_url}, frontend_origin={frontend_origin}, is_electron={is_electron}")
-    logger.info(f"[GitHub Connect] settings.github_client_id={settings.github_client_id}")
-    print(f"[GitHub Connect] Called with redirect_url={redirect_url}, frontend_origin={frontend_origin}, is_electron={is_electron}")
-    print(f"[GitHub Connect] settings.github_client_id={settings.github_client_id}")
+    logger.info("[GitHub Connect] Called with redirect_url=%s, frontend_origin=%s, is_electron=%s", redirect_url, frontend_origin, is_electron)
+    logger.debug("[GitHub Connect] settings.github_client_id=%s", settings.github_client_id)
 
     if not settings.github_client_id:
         raise HTTPException(
@@ -375,7 +375,7 @@ async def get_github_status(
                 "github_username": user.github_username,
                 "avatar_url": user.github_avatar_url,
                 "valid": False,
-                "message": "GitHub 토큰이 만료되었거나 유효하지 않습니다. 다시 연동해주세요."
+                "message": "GitHub token has expired or is invalid. Please reconnect."
             }
 
     return {
@@ -464,13 +464,13 @@ async def analyze_repository(
         user = result.scalar_one_or_none()
 
         if not user or not user.github_token_encrypted:
-            raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다. 먼저 GitHub 연동을 해주세요.")
+            raise HTTPException(status_code=400, detail="GitHub is not connected. Please connect GitHub first.")
 
         try:
             token = encryption.decrypt(user.github_token_encrypted)
             github_username = user.github_username
         except Exception:
-            raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다. 다시 연동해주세요.")
+            raise HTTPException(status_code=400, detail="GitHub token is corrupted. Please reconnect.")
 
         project_id = request.project_id
         if project_id:
@@ -479,13 +479,13 @@ async def analyze_repository(
             )
             project = proj_result.scalar_one_or_none()
             if not project:
-                raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+                raise HTTPException(status_code=404, detail="Project not found")
         else:
             # Need to create project, but first get repo info
             project_id = None  # Will create after getting repo info
 
         await db.commit()
-    print(f"[Analyze] Phase 1 complete: user validated, project_id={project_id}")
+    logger.info("[Analyze] Phase 1 complete: user validated, project_id=%s", project_id)
 
     # Initialize services (outside of DB session)
     github_service = GitHubService(token)
@@ -495,25 +495,25 @@ async def analyze_repository(
     llm_init_error = None
     try:
         if cli_mode:
-            print(f"[Analyze] Using CLI mode: {cli_mode}, model: {cli_model}")
+            logger.info("[Analyze] Using CLI mode: %s, model: %s", cli_mode, cli_model)
             llm_service = CLILLMService(cli_mode, model=cli_model)
             used_provider = f"cli:{cli_mode}"
         elif provider:
-            print(f"[Analyze] Using API mode: {provider}")
+            logger.info("[Analyze] Using API mode: %s", provider)
             llm_service = LLMService(provider)
             used_provider = llm_service.provider_name
         else:
             # Try default provider from settings
-            print(f"[Analyze] Using default LLM provider from settings")
+            logger.info("[Analyze] Using default LLM provider from settings")
             llm_service = LLMService()
             used_provider = llm_service.provider_name
     except ValueError as e:
         # API key not configured - continue without LLM
         llm_init_error = str(e)
-        print(f"[Analyze] LLM service not available: {e}")
+        logger.warning("[Analyze] LLM service not available: %s", e)
     except Exception as e:
         llm_init_error = str(e)
-        print(f"[Analyze] Failed to initialize LLM service: {e}")
+        logger.warning("[Analyze] Failed to initialize LLM service: %s", e)
 
     try:
         # ===== PHASE 2: Create project if needed =====
@@ -531,15 +531,15 @@ async def analyze_repository(
                 await db.commit()
                 await db.refresh(project)
                 project_id = project.id
-            print(f"[Analyze] Phase 2 complete: created project_id={project_id}")
+            logger.info("[Analyze] Phase 2 complete: created project_id=%s", project_id)
 
         # ===== PHASE 3: Run GitHub analysis (long HTTP operation - no DB connection) =====
-        print(f"[Analyze] Starting analyze_repository for {request.git_url}...")
+        logger.info("[Analyze] Starting analyze_repository for %s", request.git_url)
         analysis_result = await github_service.analyze_repository(
             request.git_url,
             github_username
         )
-        print(f"[Analyze] Phase 3 complete: detected {len(analysis_result.get('detected_technologies', []))} technologies")
+        logger.info("[Analyze] Phase 3 complete: detected %d technologies", len(analysis_result.get('detected_technologies', [])))
 
         # ===== PHASE 4: Save analysis results =====
         analysis_id = None
@@ -608,12 +608,12 @@ async def analyze_repository(
             try:
                 await _auto_detect_achievements(db, project, repo_analysis)
             except Exception as e:
-                print(f"Failed to auto-detect achievements: {e}")
+                logger.warning("Failed to auto-detect achievements: %s", e)
 
             await db.commit()
             await db.refresh(repo_analysis)
             analysis_id = repo_analysis.id
-        print(f"[Analyze] Phase 4 complete: analysis saved, id={analysis_id}")
+        logger.info("[Analyze] Phase 4 complete: analysis saved, id=%s", analysis_id)
 
         # ===== PHASE 5: LLM operations (long operation - no DB connection during LLM calls) =====
         if llm_service:
@@ -643,7 +643,7 @@ async def analyze_repository(
             # Generate key tasks using LLM (outside DB session)
             key_tasks = None
             try:
-                print(f"[Analyze] Generating key tasks with {type(llm_service).__name__}")
+                logger.info("[Analyze] Generating key tasks with %s", type(llm_service).__name__)
                 # Create minimal project/analysis objects for _generate_key_tasks
                 class MinimalProject:
                     def __init__(self):
@@ -662,8 +662,8 @@ async def analyze_repository(
                 total_tokens += tokens
             except Exception as e:
                 import traceback
-                print(f"[Analyze] Failed to generate key tasks: {type(e).__name__}: {e}")
-                print(f"[Analyze] Traceback: {traceback.format_exc()}")
+                logger.warning("[Analyze] Failed to generate key tasks: %s: %s", type(e).__name__, e)
+                logger.debug("[Analyze] Traceback: %s", traceback.format_exc())
 
             # Generate detailed content (outside DB session)
             detailed_content = None
@@ -690,7 +690,7 @@ async def analyze_repository(
                 )
                 total_tokens += content_tokens
             except Exception as e:
-                print(f"Failed to generate detailed content: {e}")
+                logger.warning("Failed to generate detailed content: %s", e)
 
             # Save LLM results (new session)
             async with AsyncSessionLocal() as db:
@@ -710,7 +710,7 @@ async def analyze_repository(
                         repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
 
                 await db.commit()
-            print(f"[Analyze] Phase 5 complete: LLM content saved")
+            logger.info("[Analyze] Phase 5 complete: LLM content saved")
 
         # ===== PHASE 6: Extract tech versions =====
         try:
@@ -724,7 +724,7 @@ async def analyze_repository(
                     repo_analysis.tech_stack_versions = tech_versions
                     await db.commit()
         except Exception as e:
-            print(f"Failed to extract tech versions: {e}")
+            logger.warning("Failed to extract tech versions: %s", e)
 
         # ===== Final: Build and return response =====
         async with AsyncSessionLocal() as db:
@@ -764,15 +764,15 @@ async def analyze_repository(
     except GitHubRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
     except GitHubNotFoundError as e:
-        raise HTTPException(status_code=404, detail=f"레포지토리를 찾을 수 없습니다: {request.git_url}")
+        raise HTTPException(status_code=404, detail=f"Repository not found: {request.git_url}")
     except GitHubAuthError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except GitHubServiceError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"잘못된 GitHub URL입니다: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid GitHub URL: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 @router.get("/analysis/{project_id}", response_model=RepoAnalysisResponse)
@@ -863,16 +863,16 @@ async def test_cli(
     """Test CLI LLM provider connection."""
     from api.services.cli_llm_service import CLILLMService
 
-    print(f"[TestCLI] Starting test with cli_mode={cli_mode}, cli_model={cli_model}", flush=True)
+    logger.info("[TestCLI] Starting test with cli_mode=%s, cli_model=%s", cli_mode, cli_model)
     try:
         cli_service = CLILLMService(cli_mode, model=cli_model)
-        print(f"[TestCLI] Created CLILLMService", flush=True)
+        logger.debug("[TestCLI] Created CLILLMService")
         response, tokens = await cli_service.provider.generate(
             "Say 'Hello! CLI is working.' in one short sentence.",
             max_tokens=50,
             temperature=0.1
         )
-        print(f"[TestCLI] Got response, tokens={tokens}", flush=True)
+        logger.debug("[TestCLI] Got response, tokens=%d", tokens)
         return {
             "provider": cli_service.provider_name,
             "status": "success",
@@ -881,8 +881,8 @@ async def test_cli(
         }
     except Exception as e:
         import traceback
-        print(f"[TestCLI] Error: {type(e).__name__}: {e}", flush=True)
-        print(f"[TestCLI] Traceback: {traceback.format_exc()}", flush=True)
+        logger.error("[TestCLI] Error: %s: %s", type(e).__name__, e)
+        logger.debug("[TestCLI] Traceback: %s", traceback.format_exc())
         return {
             "provider": f"cli:{cli_mode}",
             "status": "error",
@@ -901,12 +901,12 @@ async def detect_technologies(
     user = result.scalar_one_or_none()
 
     if not user or not user.github_token_encrypted:
-        raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다.")
+        raise HTTPException(status_code=400, detail="GitHub is not connected")
 
     try:
         token = encryption.decrypt(user.github_token_encrypted)
     except Exception:
-        raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다. 다시 연동해주세요.")
+        raise HTTPException(status_code=400, detail="GitHub token is corrupted. Please reconnect.")
 
     github_service = GitHubService(token)
 
@@ -918,15 +918,15 @@ async def detect_technologies(
     except GitHubRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
     except GitHubNotFoundError as e:
-        raise HTTPException(status_code=404, detail=f"레포지토리를 찾을 수 없습니다: {git_url}")
+        raise HTTPException(status_code=404, detail=f"Repository not found: {git_url}")
     except GitHubAuthError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except GitHubServiceError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"잘못된 GitHub URL입니다: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid GitHub URL: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"기술 스택 감지 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Technology detection failed: {str(e)}")
 
 
 @router.get("/file-tree")
@@ -1097,12 +1097,12 @@ async def import_repos_as_projects(
     user = result.scalar_one_or_none()
 
     if not user or not user.github_token_encrypted:
-        raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다.")
+        raise HTTPException(status_code=400, detail="GitHub is not connected")
 
     try:
         token = encryption.decrypt(user.github_token_encrypted)
     except Exception:
-        raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다.")
+        raise HTTPException(status_code=400, detail="GitHub token is corrupted")
 
     github_service = GitHubService(token)
     results: list[ImportRepoResult] = []
@@ -1123,7 +1123,7 @@ async def import_repos_as_projects(
                     repo_url=repo_url,
                     project_name="",
                     success=False,
-                    message="이미 등록된 레포지토리입니다."
+                    message="Repository already registered."
                 ))
                 failed += 1
                 continue
@@ -1158,7 +1158,7 @@ async def import_repos_as_projects(
                 project_id=project.id,
                 project_name=project.name,
                 success=True,
-                message="프로젝트로 등록되었습니다."
+                message="Registered as project."
             ))
             imported += 1
 
@@ -1167,7 +1167,7 @@ async def import_repos_as_projects(
                 repo_url=repo_url,
                 project_name="",
                 success=False,
-                message="레포지토리를 찾을 수 없습니다."
+                message="Repository not found."
             ))
             failed += 1
         except GitHubServiceError as e:
@@ -1183,7 +1183,7 @@ async def import_repos_as_projects(
                 repo_url=repo_url,
                 project_name="",
                 success=False,
-                message=f"오류: {str(e)}"
+                message=f"Error: {str(e)}"
             ))
             failed += 1
 
@@ -1213,12 +1213,12 @@ async def analyze_batch(
     user = result.scalar_one_or_none()
 
     if not user or not user.github_token_encrypted:
-        raise HTTPException(status_code=400, detail="GitHub이 연결되지 않았습니다.")
+        raise HTTPException(status_code=400, detail="GitHub is not connected")
 
     try:
         token = encryption.decrypt(user.github_token_encrypted)
     except Exception:
-        raise HTTPException(status_code=400, detail="GitHub 토큰이 손상되었습니다.")
+        raise HTTPException(status_code=400, detail="GitHub token is corrupted")
 
     github_service = GitHubService(token)
     role_service = RoleService()
@@ -1232,20 +1232,20 @@ async def analyze_batch(
     llm_init_error = None
     try:
         if request.cli_mode:
-            print(f"[AnalyzeBatch] Using CLI mode: {request.cli_mode}, model: {request.cli_model}")
+            logger.info("[AnalyzeBatch] Using CLI mode: %s, model: %s", request.cli_mode, request.cli_model)
             llm_service = CLILLMService(request.cli_mode, model=request.cli_model)
             used_provider = f"cli:{request.cli_mode}"
         elif request.llm_provider:
-            print(f"[AnalyzeBatch] Using API mode: {request.llm_provider}")
+            logger.info("[AnalyzeBatch] Using API mode: %s", request.llm_provider)
             llm_service = LLMService(request.llm_provider)
             used_provider = request.llm_provider
     except ValueError as e:
         # API key not configured - continue without LLM
         llm_init_error = str(e)
-        print(f"[AnalyzeBatch] LLM service not available: {e}")
+        logger.warning("[AnalyzeBatch] LLM service not available: %s", e)
     except Exception as e:
         llm_init_error = str(e)
-        print(f"[AnalyzeBatch] Failed to initialize LLM service: {e}")
+        logger.warning("[AnalyzeBatch] Failed to initialize LLM service: %s", e)
 
     for project_id in request.project_ids:
         try:
@@ -1263,7 +1263,7 @@ async def analyze_batch(
                     project_id=project_id,
                     project_name="Unknown",
                     success=False,
-                    message="프로젝트를 찾을 수 없습니다."
+                    message="Project not found."
                 ))
                 failed += 1
                 continue
@@ -1273,7 +1273,7 @@ async def analyze_batch(
                     project_id=project_id,
                     project_name=project.name,
                     success=False,
-                    message="GitHub URL이 없습니다."
+                    message="GitHub URL not set."
                 ))
                 failed += 1
                 continue
@@ -1351,7 +1351,7 @@ async def analyze_batch(
             if llm_service:
                 try:
                     # Generate key tasks
-                    print(f"[AnalyzeBatch] Generating key tasks for {project.name}")
+                    logger.info("[AnalyzeBatch] Generating key tasks for %s", project.name)
                     key_tasks, tokens = await _generate_key_tasks(project, repo_analysis, llm_service)
                     if key_tasks:
                         repo_analysis.key_tasks = key_tasks
@@ -1387,13 +1387,13 @@ async def analyze_batch(
                             repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
                         await db.flush()
                 except Exception as e:
-                    print(f"[AnalyzeBatch] Failed to generate LLM content for {project.name}: {e}")
+                    logger.warning("[AnalyzeBatch] Failed to generate LLM content for %s: %s", project.name, e)
 
             results.append(BatchAnalysisResult(
                 project_id=project.id,
                 project_name=project.name,
                 success=True,
-                message="분석 완료" + (f" (LLM: {used_provider})" if used_provider else ""),
+                message="Analysis complete" + (f" (LLM: {used_provider})" if used_provider else ""),
                 detected_technologies=analysis_result.get('detected_technologies', [])[:10],
                 detected_role=detected_role
             ))
@@ -1404,7 +1404,7 @@ async def analyze_batch(
                 project_id=project_id,
                 project_name=project.name if project else "Unknown",
                 success=False,
-                message="GitHub API 응답 시간 초과"
+                message="GitHub API timeout"
             ))
             failed += 1
         except GitHubRateLimitError:
@@ -1412,7 +1412,7 @@ async def analyze_batch(
                 project_id=project_id,
                 project_name=project.name if project else "Unknown",
                 success=False,
-                message="GitHub API 요청 한도 초과"
+                message="GitHub API rate limit exceeded"
             ))
             failed += 1
             # Stop processing on rate limit
@@ -1430,7 +1430,7 @@ async def analyze_batch(
                 project_id=project_id,
                 project_name=project.name if project else "Unknown",
                 success=False,
-                message=f"분석 오류: {str(e)}"
+                message=f"Analysis error: {str(e)}"
             ))
             failed += 1
 
@@ -1560,7 +1560,7 @@ async def update_analysis_content(
     return {
         "success": True,
         "field": update.field,
-        "message": f"{update.field} 내용이 저장되었습니다."
+        "message": f"{update.field} content has been saved."
     }
 
 
@@ -1598,7 +1598,7 @@ async def reset_analysis_field(
         return {
             "success": True,
             "field": field,
-            "message": "수정된 내용이 없습니다."
+            "message": "No modifications exist."
         }
 
     # Reset the specific field
@@ -1617,5 +1617,5 @@ async def reset_analysis_field(
     return {
         "success": True,
         "field": field,
-        "message": f"{field} 내용이 원본으로 복원되었습니다."
+        "message": f"{field} content has been reset to original."
     }
