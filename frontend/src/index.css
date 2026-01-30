@@ -18,6 +18,7 @@
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 41 83% 53%; /* Blue -> Orange (complementary) */
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
@@ -43,6 +44,7 @@
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 37 91% 60%; /* Blue -> Orange (complementary) */
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -62,6 +64,7 @@
   [data-theme="ocean"] {
     --primary: 192 91% 36%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 12 91% 55%; /* Teal -> Coral */
     --ring: 192 91% 36%;
   }
 
@@ -69,6 +72,7 @@
   .dark[data-theme="ocean"] {
     --primary: 192 91% 50%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 12 91% 60%;
     --ring: 192 76% 48%;
   }
 
@@ -76,6 +80,7 @@
   [data-theme="forest"] {
     --primary: 142 76% 36%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 322 76% 55%; /* Green -> Magenta */
     --ring: 142 76% 36%;
   }
 
@@ -83,6 +88,7 @@
   .dark[data-theme="forest"] {
     --primary: 142 76% 50%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 322 76% 60%;
     --ring: 142 76% 48%;
   }
 
@@ -90,6 +96,7 @@
   [data-theme="dusk"] {
     --primary: 272 76% 53%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 92 76% 50%; /* Purple -> Yellow-Green */
     --ring: 272 76% 53%;
   }
 
@@ -97,6 +104,7 @@
   .dark[data-theme="dusk"] {
     --primary: 272 76% 60%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 92 76% 55%;
     --ring: 272 76% 55%;
   }
 
@@ -104,6 +112,7 @@
   [data-theme="lime"] {
     --primary: 84 81% 44%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 264 81% 55%; /* Lime -> Purple */
     --ring: 84 81% 44%;
   }
 
@@ -111,6 +120,7 @@
   .dark[data-theme="lime"] {
     --primary: 84 81% 54%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 264 81% 60%;
     --ring: 84 81% 50%;
   }
 
@@ -118,6 +128,7 @@
   [data-theme="retro"] {
     --primary: 25 95% 53%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 205 95% 50%; /* Orange -> Blue */
     --ring: 25 95% 53%;
   }
 
@@ -125,6 +136,7 @@
   .dark[data-theme="retro"] {
     --primary: 25 95% 60%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 205 95% 55%;
     --ring: 25 95% 55%;
   }
 
@@ -132,6 +144,7 @@
   [data-theme="neo"] {
     --primary: 330 81% 60%;
     --primary-foreground: 210 40% 98%;
+    --primary-flash: 150 81% 45%; /* Pink -> Teal */
     --ring: 330 81% 60%;
   }
 
@@ -139,6 +152,7 @@
   .dark[data-theme="neo"] {
     --primary: 330 81% 65%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-flash: 150 81% 50%;
     --ring: 330 81% 60%;
   }
 }
@@ -210,4 +224,34 @@ html {
 
 .dark .hover\:bg-gray-100:hover {
   background-color: hsl(217.2 32.6% 18%);
+}
+
+/* Date input styling for better visibility */
+input[type="date"] {
+  position: relative;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  margin-right: -4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: hsl(var(--accent));
+}
+
+/* Dark mode: invert the calendar icon color */
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: hsl(var(--accent));
 }
