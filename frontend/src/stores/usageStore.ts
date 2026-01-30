@@ -69,15 +69,13 @@ export const useUsageStore = create<UsageState>()(
       },
 
       getTokensForProvider: (provider) => {
-        const state = get()
-        state.resetDailyIfNeeded()
-        return state.llmTokensUsed[provider] || 0
+        // Pure getter - do not call resetDailyIfNeeded here to avoid state update during render
+        return get().llmTokensUsed[provider] || 0
       },
 
       getLLMCallCount: (provider) => {
-        const state = get()
-        state.resetDailyIfNeeded()
-        return state.llmCallCount[provider] || 0
+        // Pure getter - do not call resetDailyIfNeeded here to avoid state update during render
+        return get().llmCallCount[provider] || 0
       },
 
       resetProviderUsage: (provider) => {

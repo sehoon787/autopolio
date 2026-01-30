@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Zap, Hash } from 'lucide-react'
 import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import { useAppStore } from '@/stores/appStore'
@@ -23,8 +24,13 @@ const providerLabels: Record<string, string> = {
 }
 
 export function UsageDisplay({ compact = true }: UsageDisplayProps) {
-  const { getTokensForProvider, getLLMCallCount } = useUsageStore()
+  const { getTokensForProvider, getLLMCallCount, resetDailyIfNeeded } = useUsageStore()
   const { aiMode, selectedLLMProvider, selectedCLI } = useAppStore()
+
+  // Reset daily counters on mount (must be in useEffect, not during render)
+  useEffect(() => {
+    resetDailyIfNeeded()
+  }, [])
 
   const isCliMode = aiMode === 'cli'
 
