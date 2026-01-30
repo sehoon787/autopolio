@@ -164,6 +164,89 @@ export interface AnalysisUpdateResponse {
   message: string
 }
 
+// ============ Extended Analysis Types (v1.10) ============
+
+export interface DetailedCommit {
+  sha: string
+  short_sha: string
+  message: string
+  full_message?: string
+  author: string
+  author_email?: string
+  date: string
+  commit_type: string  // feat, fix, refactor, docs, test, chore, perf, style, other
+  type_label: string  // Human-readable label
+  scope?: string
+  description: string
+  is_breaking: boolean
+  files_changed: number
+  lines_added: number
+  lines_deleted: number
+  work_areas: string[]  // ["frontend", "backend", "tests", ...]
+}
+
+export interface ContributorSummary {
+  username: string
+  avatar_url?: string
+  contributions: number
+  html_url?: string
+}
+
+export interface ContributorAnalysis {
+  username: string
+  email?: string
+  is_primary: boolean
+  total_commits: number
+  first_commit_date?: string
+  last_commit_date?: string
+  lines_added: number
+  lines_deleted: number
+  file_extensions: Record<string, number>  // {".py": 45, ".ts": 30}
+  work_areas: string[]  // ["frontend", "backend", "tests"]
+  detected_technologies: string[]
+  detailed_commits: DetailedCommit[]
+  commit_types: Record<string, number>  // {"feat": 40, "fix": 30}
+}
+
+export interface FileCountByType {
+  code: number
+  test: number
+  docs: number
+  config: number
+}
+
+export interface CodeQualityMetrics {
+  total_files: number
+  total_lines: number  // Estimated
+  avg_file_size: number
+  max_file_size: number
+  test_file_ratio: number  // Percentage of test files
+  doc_file_ratio: number  // Percentage of doc files
+  code_file_ratio: number  // Percentage of code files
+  config_file_count: number
+  language_distribution: Record<string, number>  // {".py": 45.5, ".ts": 30.2}
+  file_count_by_type: FileCountByType
+}
+
+export interface ContributorsListResponse {
+  contributors: ContributorSummary[]
+  total: number
+}
+
+export interface DetailedCommitsResponse {
+  commits: DetailedCommit[]
+  total: number
+  author?: string
+}
+
+export interface ExtendedRepoAnalysis extends RepoAnalysis {
+  repo_technologies: string[]
+  all_contributors: ContributorSummary[]
+  code_quality_metrics?: CodeQualityMetrics
+  contributors: ContributorAnalysis[]
+  primary_contributor?: ContributorAnalysis
+}
+
 export const githubApi = {
   getStatus: (userId: number) =>
     apiClient.get<GitHubStatus>('/github/status', {
@@ -288,4 +371,48 @@ export const githubApi = {
 
   resetAnalysisField: (projectId: number, field: string) =>
     apiClient.post<AnalysisUpdateResponse>(`/github/analysis/${projectId}/reset/${field}`),
+
+  // Extended analysis APIs (v1.10)
+  getContributors: (projectId: number, userId: number) =>
+    apiClient.get<ContributorsListResponse>(`/github/contributors/${projectId}`, {
+      params: { user_id: userId }
+    }),
+
+  getContributorAnalysis: (
+    projectId: number,
+    userId: number,
+    options?: {
+      username?: string
+      refresh?: boolean
+    }
+  ) =>
+    apiClient.get<ContributorAnalysis>(`/github/contributor-analysis/${projectId}`, {
+      params: {
+        user_id: userId,
+        username: options?.username,
+        refresh: options?.refresh || false
+      },
+      timeout: ANALYSIS_TIMEOUT  // Extended timeout for fresh analysis
+    }),
+
+  getCodeQuality: (projectId: number, userId: number) =>
+    apiClient.get<CodeQualityMetrics>(`/github/code-quality/${projectId}`, {
+      params: { user_id: userId }
+    }),
+
+  getDetailedCommits: (
+    projectId: number,
+    userId: number,
+    options?: {
+      author?: string
+      limit?: number
+    }
+  ) =>
+    apiClient.get<DetailedCommitsResponse>(`/github/detailed-commits/${projectId}`, {
+      params: {
+        user_id: userId,
+        author: options?.author,
+        limit: options?.limit || 50
+      }
+    }),
 }
