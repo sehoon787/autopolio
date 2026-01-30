@@ -3,6 +3,17 @@
   "loading": "Loading...",
   "error": "Error",
   "success": "Success",
+  "errors": {
+    "timeout": "Request timed out. CLI/LLM analysis may take a while, please try again later.",
+    "connectionRefused": "Unable to connect to server. Please try again later.",
+    "networkError": "A network error occurred.",
+    "serverError": "A server error occurred.",
+    "unauthorized": "Authentication required.",
+    "forbidden": "Access denied.",
+    "notFound": "The requested resource was not found.",
+    "rateLimited": "Too many requests. Please try again later.",
+    "unknown": "An unknown error occurred."
+  },
   "save": "Save",
   "cancel": "Cancel",
   "delete": "Delete",

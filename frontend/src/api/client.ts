@@ -3,6 +3,7 @@ import { useAppStore } from '@/stores/appStore'
 import { useUsageStore } from '@/stores/usageStore'
 import { useRateLimitStore } from '@/stores/rateLimitStore'
 import { detectRateLimit } from '@/lib/rateLimitDetector'
+import i18n from '@/lib/i18n'
 
 // Default timeout for most API calls (30 seconds)
 const DEFAULT_TIMEOUT = 30000
@@ -99,15 +100,15 @@ apiClient.interceptors.response.use(
     // Handle timeout error (ECONNABORTED is Axios timeout code)
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       console.error('[API Client] Request timeout:', error.config?.url)
-      // Enhance error message for better user feedback
-      error.message = '요청 시간이 초과되었습니다. CLI/LLM 분석이 오래 걸릴 수 있으니 잠시 후 다시 시도해주세요.'
+      // Enhance error message for better user feedback (i18n)
+      error.message = i18n.t('errors.timeout', { ns: 'common' })
     }
 
     // Handle connection refused error (backend crash/restart)
     if (error.code === 'ERR_CONNECTION_REFUSED' || error.code === 'ECONNREFUSED') {
       console.error('[API Client] Backend connection refused. Server may be restarting...')
-      // Set a flag in appStore to show user-friendly message
-      useAppStore.getState().setBackendError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      // Set a flag in appStore to show user-friendly message (i18n)
+      useAppStore.getState().setBackendError(i18n.t('errors.connectionRefused', { ns: 'common' }))
 
       // Auto-clear error after 5 seconds (backend may auto-restart)
       setTimeout(() => {

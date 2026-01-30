@@ -375,7 +375,7 @@ export default function ProjectsPage() {
   const createMutation = useMutation({
     mutationFn: (data: ProjectCreate) => projectsApi.create(user!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.refetchQueries({ queryKey: ['projects'] })
       setIsDialogOpen(false)
       resetForm()
       toast({ title: t('projectAdded') })
@@ -389,7 +389,7 @@ export default function ProjectsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => projectsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.refetchQueries({ queryKey: ['projects'] })
       toast({ title: t('projectDeleted') })
     },
     onError: (error: any) => {
@@ -403,7 +403,7 @@ export default function ProjectsPage() {
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       projectsApi.update(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.refetchQueries({ queryKey: ['projects'] })
     },
     onError: () => {
       toast({
@@ -453,7 +453,7 @@ export default function ProjectsPage() {
           console.warn(`[Batch Analysis] ${r.project_name}: ${r.message}`)
         })
 
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.refetchQueries({ queryKey: ['projects'] })
     },
     onError: (error: any) => {
       setBatchProgress(null)

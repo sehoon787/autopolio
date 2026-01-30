@@ -55,3 +55,4 @@ logs/
 
 # Playwright MCP
 .playwright-mcp/
+/REFACTORING.md
