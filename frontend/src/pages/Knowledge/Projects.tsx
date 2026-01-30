@@ -197,6 +197,10 @@ export default function ProjectsPage() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
   const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<ProjectCreate>>({})
+  const [editTechInput, setEditTechInput] = useState('')
+  const [editIsOngoing, setEditIsOngoing] = useState(false)
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -412,6 +416,20 @@ export default function ProjectsPage() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<ProjectCreate> }) =>
+      projectsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['projects'] })
+      setEditingProject(null)
+      toast({ title: t('projectUpdated') })
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || t('updateFailed')
+      toast({ title: tc('error'), description: errorMessage, variant: 'destructive' })
+    },
+  })
+
   // Batch delete mutation
   const batchDeleteMutation = useMutation({
     mutationFn: (projectIds: number[]) => projectsApi.deleteBatch(projectIds),
@@ -460,6 +478,67 @@ export default function ProjectsPage() {
   // Handle single project delete
   const handleSingleDelete = (project: Project) => {
     setDeleteTarget({ id: project.id, name: project.name })
+  }
+
+  // Handle opening edit modal
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project)
+    setEditFormData({
+      name: project.name,
+      short_description: project.short_description || '',
+      description: project.description || '',
+      start_date: project.start_date || '',
+      end_date: project.end_date || '',
+      team_size: project.team_size ?? undefined,
+      role: project.role || '',
+      contribution_percent: project.contribution_percent ?? undefined,
+      git_url: project.git_url || '',
+      project_type: project.project_type || 'company',
+      company_id: project.company_id ?? undefined,
+      technologies: project.technologies?.map(t => t.name) || [],
+    })
+    setEditIsOngoing(!project.end_date)
+    setEditTechInput('')
+  }
+
+  // Handle edit form submission
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingProject) return
+
+    const cleanedData: Partial<ProjectCreate> = {
+      name: editFormData.name,
+      short_description: editFormData.short_description || undefined,
+      description: editFormData.description || undefined,
+      start_date: editFormData.start_date || undefined,
+      end_date: editFormData.end_date || undefined,
+      team_size: editFormData.team_size,
+      role: editFormData.role || undefined,
+      contribution_percent: editFormData.contribution_percent,
+      git_url: editFormData.git_url || undefined,
+      project_type: editFormData.project_type || undefined,
+      company_id: editFormData.company_id,
+      technologies: editFormData.technologies,
+    }
+    updateMutation.mutate({ id: editingProject.id, data: cleanedData })
+  }
+
+  // Add/remove tech for edit form
+  const addEditTechnology = () => {
+    if (editTechInput.trim() && !editFormData.technologies?.includes(editTechInput.trim())) {
+      setEditFormData({
+        ...editFormData,
+        technologies: [...(editFormData.technologies || []), editTechInput.trim()],
+      })
+      setEditTechInput('')
+    }
+  }
+
+  const removeEditTechnology = (tech: string) => {
+    setEditFormData({
+      ...editFormData,
+      technologies: editFormData.technologies?.filter((t) => t !== tech),
+    })
   }
 
   // Confirm single delete
@@ -1045,26 +1124,30 @@ export default function ProjectsPage() {
                         </div>
                       )}
                       {project.git_url && (
-                        <a
-                          href={project.git_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-sm text-primary mt-3 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Github className="h-4 w-4" />
-                          GitHub
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <div className="mt-3">
+                          <a
+                            href={project.git_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-sm text-primary rounded-md hover:bg-primary/5 hover:underline transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Github className="h-4 w-4" />
+                            <span>GitHub</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
                       )}
                     </div>
                     {/* Actions */}
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Link to={`/knowledge/projects/${project.id}`}>
-                        <Button variant="ghost" size="icon">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditProject(project)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1222,6 +1305,7 @@ export default function ProjectsPage() {
                   id="start_date"
                   type="date"
                   value={formData.start_date || ''}
+                  max={formData.end_date || undefined}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 />
               </div>
@@ -1231,6 +1315,7 @@ export default function ProjectsPage() {
                   id="end_date"
                   type="date"
                   value={formData.end_date || ''}
+                  min={formData.start_date || undefined}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   disabled={isOngoing}
                   className={isOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
@@ -1366,6 +1451,207 @@ export default function ProjectsPage() {
       </Dialog>
 
       <ScrollToTop />
+
+      {/* Edit Project Dialog */}
+      <Dialog open={!!editingProject} onOpenChange={(open) => !open && setEditingProject(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('editDialog.title')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit_name">{t('dialog.projectName')} *</Label>
+              <Input
+                id="edit_name"
+                value={editFormData.name || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                placeholder={t('dialog.projectNamePlaceholder')}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_short_description">{t('dialog.shortDesc')}</Label>
+              <Input
+                id="edit_short_description"
+                value={editFormData.short_description || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, short_description: e.target.value })}
+                placeholder={t('dialog.shortDescPlaceholder')}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('dialog.projectType')}</Label>
+                <Select
+                  value={editFormData.project_type || 'company'}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, project_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="company">{t('projectTypes.companyProject')}</SelectItem>
+                    <SelectItem value="personal">{t('projectTypes.personalProject')}</SelectItem>
+                    <SelectItem value="open-source">{t('projectTypes.openSource')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('dialog.company')}</Label>
+                <Select
+                  value={editFormData.company_id?.toString() || ''}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, company_id: v ? parseInt(v) : undefined })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('dialog.selectOptional')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_start_date">{t('dialog.startDate')}</Label>
+                <Input
+                  id="edit_start_date"
+                  type="date"
+                  value={editFormData.start_date || ''}
+                  max={editFormData.end_date || undefined}
+                  onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_end_date">{t('dialog.endDate')}</Label>
+                <Input
+                  id="edit_end_date"
+                  type="date"
+                  value={editFormData.end_date || ''}
+                  min={editFormData.start_date || undefined}
+                  onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                  disabled={editIsOngoing}
+                  className={editIsOngoing ? 'bg-gray-100 cursor-not-allowed' : ''}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit_is_ongoing"
+                checked={editIsOngoing}
+                onChange={(e) => {
+                  setEditIsOngoing(e.target.checked)
+                  if (e.target.checked) {
+                    setEditFormData({ ...editFormData, end_date: '' })
+                  }
+                }}
+              />
+              <Label htmlFor="edit_is_ongoing" className="cursor-pointer">{t('dialog.ongoingProject')}</Label>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_role">{t('dialog.role')}</Label>
+                <Input
+                  id="edit_role"
+                  value={editFormData.role || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                  placeholder={t('dialog.rolePlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_team_size">{t('dialog.teamSize')}</Label>
+                <Input
+                  id="edit_team_size"
+                  type="number"
+                  value={editFormData.team_size || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, team_size: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="5"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_contribution_percent">{t('dialog.contribution')}</Label>
+                <Input
+                  id="edit_contribution_percent"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editFormData.contribution_percent || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, contribution_percent: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="70"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_git_url">{t('dialog.githubUrl')}</Label>
+              <Input
+                id="edit_git_url"
+                value={editFormData.git_url || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, git_url: e.target.value })}
+                placeholder="https://github.com/username/repo"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('dialog.techStack')}</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={editTechInput}
+                  onChange={(e) => setEditTechInput(e.target.value)}
+                  placeholder={t('dialog.techInputPlaceholder')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addEditTechnology()
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={addEditTechnology}>
+                  {tc('add')}
+                </Button>
+              </div>
+              {editFormData.technologies && editFormData.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {editFormData.technologies.map((tech) => (
+                    <TechBadge
+                      key={tech}
+                      tech={tech}
+                      className="cursor-pointer hover:opacity-80"
+                      onClick={() => removeEditTechnology(tech)}
+                    />
+                  ))}
+                  <span className="text-xs text-gray-500 self-center ml-1">({t('dialog.clickToRemove')})</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_description">{t('dialog.description')}</Label>
+              <Textarea
+                id="edit_description"
+                value={editFormData.description || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingProject(null)}>
+                {tc('cancel')}
+              </Button>
+              <Link to={`/knowledge/projects/${editingProject?.id}`}>
+                <Button type="button" variant="secondary">
+                  {t('editDialog.viewDetail')}
+                </Button>
+              </Link>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {tc('save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Export Dialog */}
       <ExportDialog

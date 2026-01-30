@@ -46,6 +46,8 @@
   "addFailed": "프로젝트 추가에 실패했습니다.",
   "projectDeleted": "프로젝트가 삭제되었습니다.",
   "deleteFailed": "삭제에 실패했습니다.",
+  "projectUpdated": "프로젝트가 수정되었습니다.",
+  "updateFailed": "수정에 실패했습니다.",
   "batchDeleteComplete": "선택 삭제 완료",
   "batchDeleteResult": "{{count}}개의 프로젝트가 삭제되었습니다.",
   "batchDeleteFailed": "선택 삭제에 실패했습니다.",
@@ -243,6 +245,10 @@
       "architecturePatterns": "탐지된 아키텍처 패턴",
       "commitMessagesSummary": "커밋 메시지 요약"
     }
+  },
+  "editDialog": {
+    "title": "프로젝트 수정",
+    "viewDetail": "상세 보기"
   },
   "dialog": {
     "title": "새 프로젝트 추가",

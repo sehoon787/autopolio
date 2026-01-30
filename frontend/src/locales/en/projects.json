@@ -46,6 +46,8 @@
   "addFailed": "Failed to add project.",
   "projectDeleted": "Project deleted.",
   "deleteFailed": "Failed to delete.",
+  "projectUpdated": "Project updated.",
+  "updateFailed": "Failed to update project.",
   "batchDeleteComplete": "Batch Delete Complete",
   "batchDeleteResult": "{{count}} projects have been deleted.",
   "batchDeleteFailed": "Batch delete failed.",
@@ -243,6 +245,10 @@
       "architecturePatterns": "Detected Architecture Patterns",
       "commitMessagesSummary": "Commit Messages Summary"
     }
+  },
+  "editDialog": {
+    "title": "Edit Project",
+    "viewDetail": "View Detail"
   },
   "dialog": {
     "title": "Add New Project",
