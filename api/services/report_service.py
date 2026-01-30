@@ -8,74 +8,22 @@ Based on portfolio project's report styles:
 
 from typing import List, Dict, Any, Optional
 from datetime import date
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.models.user import User
-from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
-from api.models.achievement import ProjectAchievement
+from api.models.company import Company
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
+from api.services.report_base import ReportBaseService
 
 
-class ReportService:
+class ReportService(ReportBaseService):
     """Service for generating various report formats"""
 
     def __init__(self, db: AsyncSession):
-        self.db = db
-
-    async def _get_user_data(self, user_id: int) -> Dict[str, Any]:
-        """Get all user data for report generation"""
-        # Get user
-        user_result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = user_result.scalar_one_or_none()
-        if not user:
-            raise ValueError(f"User {user_id} not found")
-
-        # Get companies
-        companies_result = await self.db.execute(
-            select(Company)
-            .where(Company.user_id == user_id)
-            .order_by(Company.start_date.desc())
-        )
-        companies = companies_result.scalars().all()
-
-        # Get projects with technologies and achievements
-        projects_result = await self.db.execute(
-            select(Project)
-            .where(Project.user_id == user_id)
-            .options(
-                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                selectinload(Project.achievements)
-            )
-            .order_by(Project.start_date.desc())
-        )
-        projects = projects_result.scalars().all()
-
-        return {
-            "user": user,
-            "companies": companies,
-            "projects": projects
-        }
-
-    def _format_date(self, d: Optional[date]) -> str:
-        """Format date as YYYY.MM"""
-        if not d:
-            return "?"
-        return d.strftime("%Y.%m")
-
-    def _format_date_range(self, start: Optional[date], end: Optional[date], is_current: bool = False) -> str:
-        """Format date range"""
-        start_str = self._format_date(start)
-        if is_current or end is None:
-            end_str = "진행중"
-        else:
-            end_str = self._format_date(end)
-        return f"{start_str} ~ {end_str}"
+        super().__init__(db)
 
     async def generate_projects_md(self, user_id: int) -> str:
         """
