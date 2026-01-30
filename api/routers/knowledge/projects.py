@@ -394,6 +394,39 @@ async def delete_project(project_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
 
     await db.delete(project)
+    await db.commit()
+
+
+@router.delete("", status_code=status.HTTP_200_OK)
+async def delete_projects_batch(
+    project_ids: List[int] = Query(..., description="List of project IDs to delete"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete multiple projects at once."""
+    if not project_ids:
+        raise HTTPException(status_code=400, detail="No project IDs provided")
+
+    # Get all projects to delete
+    result = await db.execute(
+        select(Project).where(Project.id.in_(project_ids))
+    )
+    projects = result.scalars().all()
+
+    if not projects:
+        raise HTTPException(status_code=404, detail="No projects found with the provided IDs")
+
+    deleted_ids = []
+    for project in projects:
+        await db.delete(project)
+        deleted_ids.append(project.id)
+
+    await db.commit()
+
+    return {
+        "deleted_count": len(deleted_ids),
+        "deleted_ids": deleted_ids,
+        "not_found_ids": list(set(project_ids) - set(deleted_ids))
+    }
 
 
 # Technology endpoints
