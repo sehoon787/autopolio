@@ -1,11 +1,17 @@
 """
 GitHub Service - Handles GitHub API interactions and repository analysis.
 """
+import base64
+import logging
 from typing import Dict, List, Any, Optional, Tuple
 import httpx
 import re
 from datetime import datetime, timezone
 from collections import Counter
+
+from api.services.technology_detection_service import TechnologyDetectionService
+
+logger = logging.getLogger(__name__)
 
 
 def parse_iso_datetime(date_str: Optional[str]) -> Optional[datetime]:
@@ -331,77 +337,91 @@ class GitHubService:
         """Detect technologies used in the repository."""
         owner, repo = self._parse_repo_url(git_url)
         technologies = set()
+        tech_service = TechnologyDetectionService()
 
-        # Check for common config files
-        files_to_check = [
-            # JavaScript / TypeScript
-            ("package.json", self._parse_package_json),
-            ("tsconfig.json", lambda x: ["TypeScript"]),
-            ("tailwind.config.js", lambda x: ["Tailwind CSS"]),
-            ("tailwind.config.ts", lambda x: ["Tailwind CSS", "TypeScript"]),
-            ("vite.config.js", lambda x: ["Vite"]),
-            ("vite.config.ts", lambda x: ["Vite", "TypeScript"]),
-            ("next.config.js", lambda x: ["Next.js"]),
-            ("next.config.mjs", lambda x: ["Next.js"]),
-            ("next.config.ts", lambda x: ["Next.js", "TypeScript"]),
-            ("nuxt.config.js", lambda x: ["Nuxt.js"]),
-            ("nuxt.config.ts", lambda x: ["Nuxt.js", "TypeScript"]),
-            ("svelte.config.js", lambda x: ["Svelte"]),
-            ("astro.config.mjs", lambda x: ["Astro"]),
-            (".eslintrc", lambda x: ["ESLint"]),
-            (".eslintrc.js", lambda x: ["ESLint"]),
-            (".eslintrc.json", lambda x: ["ESLint"]),
-            ("eslint.config.js", lambda x: ["ESLint"]),
-            (".prettierrc", lambda x: ["Prettier"]),
-            (".prettierrc.js", lambda x: ["Prettier"]),
-            ("prettier.config.js", lambda x: ["Prettier"]),
-            ("jest.config.js", lambda x: ["Jest"]),
-            ("jest.config.ts", lambda x: ["Jest", "TypeScript"]),
-            ("vitest.config.ts", lambda x: ["Vitest", "TypeScript"]),
-            ("playwright.config.ts", lambda x: ["Playwright", "TypeScript"]),
-            ("cypress.config.js", lambda x: ["Cypress"]),
-            ("cypress.config.ts", lambda x: ["Cypress", "TypeScript"]),
-            # Python
-            ("requirements.txt", self._parse_requirements),
-            ("Pipfile", lambda x: ["Python", "Pipenv"]),
-            ("pyproject.toml", self._parse_pyproject_toml),
-            ("setup.py", lambda x: ["Python", "setuptools"]),
-            # Java / Kotlin
-            ("pom.xml", self._parse_pom_xml),
-            ("build.gradle", self._parse_build_gradle),
-            ("build.gradle.kts", self._parse_build_gradle),
-            # Flutter / Dart
-            ("pubspec.yaml", self._parse_pubspec_yaml),
-            # Other Languages
-            ("Cargo.toml", lambda x: ["Rust", "Cargo"]),
-            ("go.mod", lambda x: ["Go"]),
-            ("Gemfile", lambda x: ["Ruby", "Bundler"]),
-            ("composer.json", self._parse_composer_json),
-            ("Package.swift", lambda x: ["Swift", "SwiftPM"]),
-            # DevOps / Infrastructure
-            ("Dockerfile", lambda x: ["Docker"]),
-            ("docker-compose.yml", lambda x: ["Docker", "Docker Compose"]),
-            ("docker-compose.yaml", lambda x: ["Docker", "Docker Compose"]),
-            (".github/workflows", lambda x: ["GitHub Actions"]),
-            ("Jenkinsfile", lambda x: ["Jenkins"]),
-            (".gitlab-ci.yml", lambda x: ["GitLab CI"]),
-            ("terraform", lambda x: ["Terraform"]),
-            ("kubernetes", lambda x: ["Kubernetes"]),
-            ("k8s", lambda x: ["Kubernetes"]),
-            ("nginx.conf", lambda x: ["Nginx"]),
+        # Files that need parsing (use TechnologyDetectionService)
+        parsed_files = [
+            "package.json",
+            "requirements.txt",
+            "pyproject.toml",
+            "composer.json",
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "pubspec.yaml",
         ]
 
-        for filename, parser in files_to_check:
+        # Files that indicate a technology by their presence
+        presence_indicators = {
+            "tsconfig.json": ["TypeScript"],
+            "tailwind.config.js": ["Tailwind CSS"],
+            "tailwind.config.ts": ["Tailwind CSS", "TypeScript"],
+            "vite.config.js": ["Vite"],
+            "vite.config.ts": ["Vite", "TypeScript"],
+            "next.config.js": ["Next.js"],
+            "next.config.mjs": ["Next.js"],
+            "next.config.ts": ["Next.js", "TypeScript"],
+            "nuxt.config.js": ["Nuxt.js"],
+            "nuxt.config.ts": ["Nuxt.js", "TypeScript"],
+            "svelte.config.js": ["Svelte"],
+            "astro.config.mjs": ["Astro"],
+            ".eslintrc": ["ESLint"],
+            ".eslintrc.js": ["ESLint"],
+            ".eslintrc.json": ["ESLint"],
+            "eslint.config.js": ["ESLint"],
+            ".prettierrc": ["Prettier"],
+            ".prettierrc.js": ["Prettier"],
+            "prettier.config.js": ["Prettier"],
+            "jest.config.js": ["Jest"],
+            "jest.config.ts": ["Jest", "TypeScript"],
+            "vitest.config.ts": ["Vitest", "TypeScript"],
+            "playwright.config.ts": ["Playwright", "TypeScript"],
+            "cypress.config.js": ["Cypress"],
+            "cypress.config.ts": ["Cypress", "TypeScript"],
+            "Pipfile": ["Python", "Pipenv"],
+            "setup.py": ["Python", "setuptools"],
+            "Cargo.toml": ["Rust", "Cargo"],
+            "go.mod": ["Go"],
+            "Gemfile": ["Ruby", "Bundler"],
+            "Package.swift": ["Swift", "SwiftPM"],
+            "Dockerfile": ["Docker"],
+            "docker-compose.yml": ["Docker", "Docker Compose"],
+            "docker-compose.yaml": ["Docker", "Docker Compose"],
+            ".github/workflows": ["GitHub Actions"],
+            "Jenkinsfile": ["Jenkins"],
+            ".gitlab-ci.yml": ["GitLab CI"],
+            "terraform": ["Terraform"],
+            "kubernetes": ["Kubernetes"],
+            "k8s": ["Kubernetes"],
+            "nginx.conf": ["Nginx"],
+        }
+
+        # Check files that need parsing
+        for filename in parsed_files:
             try:
                 content = await self._request(
                     "GET",
                     f"/repos/{owner}/{repo}/contents/{filename}"
                 )
                 if isinstance(content, dict) and "content" in content:
-                    import base64
                     decoded = base64.b64decode(content["content"]).decode("utf-8")
-                    detected = parser(decoded)
-                    technologies.update(detected)
+                    parser = tech_service.get_parser_for_file(filename)
+                    if parser:
+                        detected = parser(decoded)
+                        technologies.update(detected)
+            except httpx.HTTPStatusError:
+                continue
+            except Exception:
+                continue
+
+        # Check presence-based indicators
+        for filename, techs in presence_indicators.items():
+            try:
+                await self._request(
+                    "GET",
+                    f"/repos/{owner}/{repo}/contents/{filename}"
+                )
+                technologies.update(techs)
             except httpx.HTTPStatusError:
                 continue
             except Exception:
@@ -416,479 +436,6 @@ class GitHubService:
             pass
 
         return list(technologies)
-
-    def _parse_package_json(self, content: str) -> List[str]:
-        """Parse package.json for technologies."""
-        import json
-        techs = ["Node.js", "npm"]
-
-        try:
-            data = json.loads(content)
-            deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
-
-            tech_mapping = {
-                # Frameworks
-                "react": "React",
-                "vue": "Vue.js",
-                "@angular/core": "Angular",
-                "next": "Next.js",
-                "nuxt": "Nuxt.js",
-                "svelte": "Svelte",
-                "solid-js": "Solid.js",
-                "express": "Express.js",
-                "fastify": "Fastify",
-                "koa": "Koa",
-                "nest": "NestJS",
-                "hono": "Hono",
-                # Language & Build
-                "typescript": "TypeScript",
-                "vite": "Vite",
-                "webpack": "Webpack",
-                "esbuild": "esbuild",
-                "rollup": "Rollup",
-                "parcel": "Parcel",
-                "turbopack": "Turbopack",
-                # State Management
-                "redux": "Redux",
-                "@reduxjs/toolkit": "Redux Toolkit",
-                "zustand": "Zustand",
-                "mobx": "MobX",
-                "recoil": "Recoil",
-                "jotai": "Jotai",
-                "@tanstack/react-query": "TanStack Query",
-                "react-query": "React Query",
-                "swr": "SWR",
-                # Routing
-                "react-router": "React Router",
-                "react-router-dom": "React Router",
-                # Forms & Validation
-                "react-hook-form": "React Hook Form",
-                "formik": "Formik",
-                "zod": "Zod",
-                "yup": "Yup",
-                "joi": "Joi",
-                # HTTP & API
-                "axios": "Axios",
-                "graphql": "GraphQL",
-                "@apollo/client": "Apollo Client",
-                "urql": "URQL",
-                "trpc": "tRPC",
-                # UI Libraries
-                "@mui/material": "Material UI",
-                "@material-ui": "Material UI",
-                "antd": "Ant Design",
-                "@chakra-ui": "Chakra UI",
-                "@radix-ui": "Radix UI",
-                "@headlessui": "Headless UI",
-                "tailwindcss": "Tailwind CSS",
-                "styled-components": "Styled Components",
-                "@emotion": "Emotion",
-                "sass": "Sass",
-                # Canvas & Graphics
-                "fabric": "Fabric.js",
-                "three": "Three.js",
-                "d3": "D3.js",
-                "chart.js": "Chart.js",
-                "recharts": "Recharts",
-                "echarts": "ECharts",
-                "konva": "Konva",
-                "pixi": "PixiJS",
-                # Testing
-                "jest": "Jest",
-                "vitest": "Vitest",
-                "playwright": "Playwright",
-                "cypress": "Cypress",
-                "@testing-library": "Testing Library",
-                "mocha": "Mocha",
-                # Database & ORM
-                "prisma": "Prisma",
-                "typeorm": "TypeORM",
-                "sequelize": "Sequelize",
-                "mongoose": "Mongoose",
-                "drizzle-orm": "Drizzle ORM",
-                # Utilities
-                "lodash": "Lodash",
-                "dayjs": "Day.js",
-                "moment": "Moment.js",
-                "date-fns": "date-fns",
-                "uuid": "UUID",
-                # Real-time & Backend Services
-                "socket.io": "Socket.io",
-                "firebase": "Firebase",
-                "@supabase/supabase-js": "Supabase",
-                "pusher": "Pusher",
-                # Code Quality
-                "eslint": "ESLint",
-                "prettier": "Prettier",
-                "husky": "Husky",
-                # Documentation
-                "storybook": "Storybook",
-                "docusaurus": "Docusaurus",
-            }
-
-            for dep, tech in tech_mapping.items():
-                if any(dep in d.lower() for d in deps.keys()):
-                    techs.append(tech)
-
-        except json.JSONDecodeError:
-            pass
-
-        return techs
-
-    def _parse_requirements(self, content: str) -> List[str]:
-        """Parse requirements.txt for technologies."""
-        techs = ["Python"]
-
-        tech_mapping = {
-            # Web Frameworks
-            "django": "Django",
-            "djangorestframework": "Django REST Framework",
-            "flask": "Flask",
-            "fastapi": "FastAPI",
-            "starlette": "Starlette",
-            "tornado": "Tornado",
-            "bottle": "Bottle",
-            "sanic": "Sanic",
-            # ASGI/WSGI Servers
-            "uvicorn": "Uvicorn",
-            "gunicorn": "Gunicorn",
-            "hypercorn": "Hypercorn",
-            # Database & ORM
-            "sqlalchemy": "SQLAlchemy",
-            "alembic": "Alembic",
-            "tortoise-orm": "Tortoise ORM",
-            "peewee": "Peewee",
-            "psycopg2": "PostgreSQL",
-            "psycopg": "PostgreSQL",
-            "asyncpg": "PostgreSQL",
-            "pymysql": "MySQL",
-            "mysql-connector": "MySQL",
-            "motor": "MongoDB",
-            "pymongo": "MongoDB",
-            "aiosqlite": "SQLite",
-            "redis": "Redis",
-            "aioredis": "Redis",
-            # Data Science & ML
-            "pandas": "Pandas",
-            "numpy": "NumPy",
-            "scipy": "SciPy",
-            "scikit-learn": "scikit-learn",
-            "sklearn": "scikit-learn",
-            "matplotlib": "Matplotlib",
-            "seaborn": "Seaborn",
-            "plotly": "Plotly",
-            "tensorflow": "TensorFlow",
-            "keras": "Keras",
-            "torch": "PyTorch",
-            "pytorch": "PyTorch",
-            "transformers": "Hugging Face Transformers",
-            "langchain": "LangChain",
-            "openai": "OpenAI",
-            "anthropic": "Anthropic",
-            # Document Processing
-            "openpyxl": "openpyxl",
-            "xlrd": "xlrd",
-            "xlsxwriter": "XlsxWriter",
-            "python-docx": "python-docx",
-            "reportlab": "ReportLab",
-            "pypdf2": "PyPDF2",
-            "pypdf": "pypdf",
-            "python-pptx": "python-pptx",
-            "pdfplumber": "pdfplumber",
-            # Async & HTTP
-            "aiohttp": "aiohttp",
-            "httpx": "httpx",
-            "requests": "Requests",
-            "urllib3": "urllib3",
-            # Authentication & Security
-            "pyjwt": "PyJWT",
-            "python-jose": "python-jose",
-            "passlib": "Passlib",
-            "bcrypt": "bcrypt",
-            "cryptography": "Cryptography",
-            # Testing
-            "pytest": "pytest",
-            "pytest-asyncio": "pytest-asyncio",
-            "coverage": "Coverage",
-            "tox": "Tox",
-            "unittest": "unittest",
-            "hypothesis": "Hypothesis",
-            # Task Queue
-            "celery": "Celery",
-            "rq": "RQ",
-            "dramatiq": "Dramatiq",
-            # Configuration
-            "python-dotenv": "python-dotenv",
-            "pydantic": "Pydantic",
-            "pydantic-settings": "Pydantic Settings",
-            "pyyaml": "PyYAML",
-            "toml": "TOML",
-            # CLI
-            "click": "Click",
-            "typer": "Typer",
-            "argparse": "argparse",
-            # Web Scraping
-            "beautifulsoup4": "BeautifulSoup",
-            "bs4": "BeautifulSoup",
-            "scrapy": "Scrapy",
-            "selenium": "Selenium",
-            "playwright": "Playwright",
-            # Image Processing
-            "pillow": "Pillow",
-            "opencv-python": "OpenCV",
-            "cv2": "OpenCV",
-            # AWS & Cloud
-            "boto3": "AWS SDK",
-            "google-cloud": "Google Cloud",
-            "azure": "Azure SDK",
-        }
-
-        for line in content.lower().split("\n"):
-            for dep, tech in tech_mapping.items():
-                if dep in line:
-                    techs.append(tech)
-
-        return techs
-
-    def _parse_pyproject_toml(self, content: str) -> List[str]:
-        """Parse pyproject.toml for Python technologies."""
-        techs = ["Python"]
-
-        # Check for build system
-        if "poetry" in content.lower():
-            techs.append("Poetry")
-        if "setuptools" in content.lower():
-            techs.append("setuptools")
-        if "flit" in content.lower():
-            techs.append("Flit")
-        if "hatch" in content.lower():
-            techs.append("Hatch")
-
-        tech_mapping = {
-            # Web Frameworks
-            "django": "Django",
-            "flask": "Flask",
-            "fastapi": "FastAPI",
-            "starlette": "Starlette",
-            # Database
-            "sqlalchemy": "SQLAlchemy",
-            "alembic": "Alembic",
-            "psycopg": "PostgreSQL",
-            "asyncpg": "PostgreSQL",
-            # Data Science
-            "pandas": "Pandas",
-            "numpy": "NumPy",
-            "scipy": "SciPy",
-            "scikit-learn": "scikit-learn",
-            "tensorflow": "TensorFlow",
-            "torch": "PyTorch",
-            # Testing
-            "pytest": "pytest",
-            "coverage": "Coverage",
-            # Others
-            "pydantic": "Pydantic",
-            "httpx": "httpx",
-            "aiohttp": "aiohttp",
-            "celery": "Celery",
-            "redis": "Redis",
-        }
-
-        content_lower = content.lower()
-        for dep, tech in tech_mapping.items():
-            if dep in content_lower:
-                techs.append(tech)
-
-        return techs
-
-    def _parse_composer_json(self, content: str) -> List[str]:
-        """Parse composer.json for PHP technologies."""
-        import json
-        techs = ["PHP", "Composer"]
-
-        try:
-            data = json.loads(content)
-            deps = {**data.get("require", {}), **data.get("require-dev", {})}
-
-            tech_mapping = {
-                "laravel/framework": "Laravel",
-                "symfony/": "Symfony",
-                "slim/slim": "Slim",
-                "codeigniter": "CodeIgniter",
-                "yiisoft": "Yii",
-                "cakephp": "CakePHP",
-                "doctrine/orm": "Doctrine ORM",
-                "eloquent": "Eloquent",
-                "phpunit": "PHPUnit",
-                "pestphp": "Pest",
-                "guzzlehttp": "Guzzle",
-                "monolog": "Monolog",
-                "twig": "Twig",
-                "blade": "Blade",
-                "livewire": "Livewire",
-                "inertiajs": "Inertia.js",
-                "filament": "Filament",
-            }
-
-            for dep, tech in tech_mapping.items():
-                if any(dep in d.lower() for d in deps.keys()):
-                    techs.append(tech)
-
-        except json.JSONDecodeError:
-            pass
-
-        return techs
-
-    def _parse_pom_xml(self, content: str) -> List[str]:
-        """Parse pom.xml for Java/Spring technologies."""
-        techs = ["Java", "Maven"]
-
-        tech_mapping = {
-            # Spring Framework
-            "spring-boot": "Spring Boot",
-            "spring-boot-starter-web": "Spring Web",
-            "spring-boot-starter-data-jpa": "Spring Data JPA",
-            "spring-boot-starter-security": "Spring Security",
-            "spring-boot-starter-test": "Spring Test",
-            "spring-boot-starter-actuator": "Spring Actuator",
-            "spring-boot-starter-validation": "Spring Validation",
-            "spring-cloud": "Spring Cloud",
-            "spring-kafka": "Spring Kafka",
-            "spring-boot-starter-webflux": "Spring WebFlux",
-            # ORM & Database
-            "hibernate": "Hibernate",
-            "mybatis": "MyBatis",
-            "postgresql": "PostgreSQL",
-            "mysql-connector": "MySQL",
-            "h2": "H2 Database",
-            "flyway": "Flyway",
-            "liquibase": "Liquibase",
-            # Utilities
-            "lombok": "Lombok",
-            "mapstruct": "MapStruct",
-            "jackson": "Jackson",
-            "gson": "Gson",
-            # Testing
-            "junit": "JUnit",
-            "mockito": "Mockito",
-            "testcontainers": "Testcontainers",
-            # API Documentation
-            "springdoc": "SpringDoc OpenAPI",
-            "swagger": "Swagger",
-            # Messaging
-            "kafka": "Kafka",
-            "rabbitmq": "RabbitMQ",
-            # Security
-            "oauth2": "OAuth2",
-            "jwt": "JWT",
-        }
-
-        content_lower = content.lower()
-        for dep, tech in tech_mapping.items():
-            if dep in content_lower:
-                techs.append(tech)
-
-        return techs
-
-    def _parse_build_gradle(self, content: str) -> List[str]:
-        """Parse build.gradle for Java/Kotlin technologies."""
-        techs = ["Gradle"]
-
-        # Check for Kotlin
-        if "kotlin" in content.lower():
-            techs.append("Kotlin")
-        else:
-            techs.append("Java")
-
-        tech_mapping = {
-            # Spring Framework
-            "spring-boot": "Spring Boot",
-            "spring-boot-starter-web": "Spring Web",
-            "spring-data-jpa": "Spring Data JPA",
-            "spring-security": "Spring Security",
-            # ORM & Database
-            "hibernate": "Hibernate",
-            "mybatis": "MyBatis",
-            "postgresql": "PostgreSQL",
-            "mysql": "MySQL",
-            "h2": "H2 Database",
-            "flyway": "Flyway",
-            "liquibase": "Liquibase",
-            "exposed": "Exposed (Kotlin)",
-            # Utilities
-            "lombok": "Lombok",
-            "mapstruct": "MapStruct",
-            "jackson": "Jackson",
-            # Testing
-            "junit": "JUnit",
-            "mockito": "Mockito",
-            "kotest": "Kotest",
-            "mockk": "MockK",
-            # Kotlin specific
-            "ktor": "Ktor",
-            "kotlinx-coroutines": "Kotlin Coroutines",
-            "kotlinx-serialization": "Kotlin Serialization",
-        }
-
-        content_lower = content.lower()
-        for dep, tech in tech_mapping.items():
-            if dep in content_lower:
-                techs.append(tech)
-
-        return techs
-
-    def _parse_pubspec_yaml(self, content: str) -> List[str]:
-        """Parse pubspec.yaml for Flutter/Dart technologies."""
-        techs = ["Dart", "Flutter"]
-
-        tech_mapping = {
-            # State Management
-            "provider": "Provider",
-            "riverpod": "Riverpod",
-            "flutter_bloc": "Bloc",
-            "bloc": "Bloc",
-            "getx": "GetX",
-            "get:": "GetX",
-            "mobx": "MobX",
-            # Firebase
-            "firebase_core": "Firebase",
-            "firebase_auth": "Firebase Auth",
-            "cloud_firestore": "Cloud Firestore",
-            "firebase_storage": "Firebase Storage",
-            "firebase_messaging": "Firebase Messaging",
-            # Networking
-            "dio": "Dio",
-            "http:": "HTTP",
-            "retrofit": "Retrofit",
-            "chopper": "Chopper",
-            # Local Storage
-            "shared_preferences": "Shared Preferences",
-            "hive": "Hive",
-            "sqflite": "SQFlite",
-            "isar": "Isar",
-            "drift": "Drift",
-            # UI
-            "flutter_hooks": "Flutter Hooks",
-            "cached_network_image": "Cached Network Image",
-            "flutter_svg": "Flutter SVG",
-            # Navigation
-            "go_router": "Go Router",
-            "auto_route": "Auto Route",
-            # Testing
-            "flutter_test": "Flutter Test",
-            "mockito": "Mockito",
-            "bloc_test": "Bloc Test",
-            # Code Generation
-            "freezed": "Freezed",
-            "json_serializable": "JSON Serializable",
-            "build_runner": "Build Runner",
-        }
-
-        content_lower = content.lower()
-        for dep, tech in tech_mapping.items():
-            if dep in content_lower:
-                techs.append(tech)
-
-        return techs
 
     async def get_contributors_count(self, git_url: str) -> int:
         """Get the number of contributors for a repository."""
@@ -1314,19 +861,19 @@ class GitHubService:
 
         # Check if LLM is configured
         if not settings.llm_provider and llm_service is None:
-            print("[generate_detailed_content] No LLM provider configured")
+            logger.warning("No LLM provider configured")
             return {}, 0
 
         try:
             if llm_service is None:
                 llm_service = LLMService(settings.llm_provider)
             llm = llm_service
-            print(f"[generate_detailed_content] Using LLM service: {type(llm).__name__}")
+            logger.info("Using LLM service: %s", type(llm).__name__)
             if hasattr(llm, 'provider_name'):
-                print(f"[generate_detailed_content] Provider name: {llm.provider_name}")
+                logger.debug("Provider name: %s", llm.provider_name)
         except ValueError as e:
             # LLM not configured
-            print(f"[generate_detailed_content] LLM init failed: {e}")
+            logger.error("LLM init failed: %s", e)
             return {}, 0
 
         result = {}
@@ -1375,9 +922,7 @@ JSON만 반환하세요."""
 
             result["implementation_details"] = json.loads(json_str.strip())
         except Exception as e:
-            import traceback
-            print(f"Failed to generate implementation_details: {type(e).__name__}: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("Failed to generate implementation_details: %s: %s", type(e).__name__, e)
             result["implementation_details"] = []
 
         # 2. Generate development timeline
@@ -1422,9 +967,7 @@ JSON만 반환하세요."""
 
             result["development_timeline"] = json.loads(json_str.strip())
         except Exception as e:
-            import traceback
-            print(f"Failed to generate development_timeline: {type(e).__name__}: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("Failed to generate development_timeline: %s: %s", type(e).__name__, e)
             result["development_timeline"] = []
 
         # 3. Generate detailed achievements
@@ -1474,9 +1017,7 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
 
             result["detailed_achievements"] = json.loads(json_str.strip())
         except Exception as e:
-            import traceback
-            print(f"Failed to generate detailed_achievements: {type(e).__name__}: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("Failed to generate detailed_achievements: %s: %s", type(e).__name__, e)
             result["detailed_achievements"] = {}
 
         return result, total_tokens
