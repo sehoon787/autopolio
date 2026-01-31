@@ -17,7 +17,13 @@ env/
 # Database
 *.db
 *.sqlite
-data/
+
+# Data directory (except platform templates)
+data/*
+!data/platform_templates/
+data/platform_templates/*
+!data/platform_templates/logos/
+!data/platform_templates/*.html
 
 # Generated documents
 result/

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}} - 이력서 | 사람인</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        :root {
+            --sri-primary: #0066cc;
+            --sri-primary-dark: #004d99;
+            --sri-primary-light: #e6f0ff;
+            --sri-coral: #ff5656;
+            --sri-text-dark: #151822;
+            --sri-text: #373f57;
+            --sri-text-secondary: #5c667b;
+            --sri-text-tertiary: #96a0b5;
+            --sri-bg: #f4f6fa;
+            --sri-bg-light: #f8fafc;
+            --sri-border: #d7dce5;
+            --sri-border-light: #eaedf4;
+            --sri-white: #ffffff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--sri-text);
+            background: var(--sri-bg);
+            -webkit-font-smoothing: antialiased;
+        }
+        .blind { position: absolute; clip: rect(0,0,0,0); width: 1px; height: 1px; margin: -1px; overflow: hidden; }
+
+        /* 메인 컨테이너 */
+        .resume_print_area {
+            max-width: 900px;
+            margin: 24px auto;
+            background: var(--sri-white);
+            box-shadow: 0 2px 12px rgba(21, 24, 34, 0.08);
+            border-radius: 8px;
+        }
+        .print_wrap { padding: 40px 48px; }
+
+        /* 기본 정보 섹션 */
+        .resume_basic { position: relative; margin-bottom: 32px; }
+        .resume_view { position: relative; padding-right: 140px; min-height: 120px; }
+        .resume_top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .user_name {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--sri-text-dark);
+            letter-spacing: -0.5px;
+        }
+        .user_state {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            background: var(--sri-primary);
+            color: var(--sri-white);
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .user_desc {
+            color: var(--sri-text-secondary);
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .user_info {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            color: var(--sri-text-secondary);
+            font-size: 14px;
+        }
+        .user_info li { display: flex; align-items: center; gap: 6px; }
+        .user_info li::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background: var(--sri-text-tertiary);
+            border-radius: 50%;
+        }
+        .user_info li:first-child::before { display: none; }
+        .picture_box {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 120px;
+            height: 150px;
+        }
+        .picture {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--sri-bg);
+            border: 1px solid var(--sri-border-light);
+        }
+        .picture img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .no_picture {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sri-text-tertiary);
+            font-size: 12px;
+        }
+
+        /* 대시보드 */
+        .resume_dashboard {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--sri-border-light);
+        }
+        .resume_dashboard .item {
+            padding: 16px;
+            background: var(--sri-bg-light);
+            border-radius: 8px;
+            border: 1px solid var(--sri-border-light);
+        }
+        .resume_dashboard .tit {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--sri-text-secondary);
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .resume_dashboard .tit::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+        .resume_dashboard .tit.career::before { content: '💼'; background: none; font-size: 12px; }
+        .resume_dashboard .tit.education::before { content: '🎓'; background: none; font-size: 12px; }
+        .resume_dashboard .tit.payment::before { content: '💰'; background: none; font-size: 12px; }
+        .resume_dashboard .tit.file::before { content: '📁'; background: none; font-size: 12px; }
+        .resume_dashboard .txt { font-size: 13px; line-height: 1.5; }
+        .resume_dashboard .txt_top { display: block; }
+        .resume_dashboard .txt_bottom {
+            display: block;
+            color: var(--sri-text-tertiary);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        .resume_dashboard .emph {
+            font-weight: 600;
+            color: var(--sri-text-dark);
+        }
+        .resume_dashboard .badge_state {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--sri-primary-light);
+            color: var(--sri-primary);
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 6px;
+        }
+
+        /* 스킬 섹션 */
+        .resume_skill {
+            margin-bottom: 32px;
+            padding: 24px;
+            background: var(--sri-bg-light);
+            border-radius: 8px;
+            border: 1px solid var(--sri-border-light);
+        }
+        .resume_skill .tit {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--sri-text-dark);
+            margin-bottom: 16px;
+        }
+        .skill_box {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .skill_item {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            background: var(--sri-white);
+            border: 1px solid var(--sri-border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--sri-text);
+            font-weight: 500;
+        }
+
+        /* 파트 공통 */
+        .resume_part { margin-bottom: 8px; }
+        .part {
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--sri-border-light);
+        }
+        .part:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .box_tit {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .box_tit .tit {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--sri-text-dark);
+        }
+        .box_tit .txt {
+            font-size: 14px;
+            color: var(--sri-primary);
+            font-weight: 600;
+        }
+
+        /* 경력 리스트 */
+        .box_list {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--sri-border-light);
+        }
+        .box_list:first-child { padding-top: 0; }
+        .box_list:last-child { border-bottom: none; padding-bottom: 0; }
+        .box_list .tit {
+            display: flex;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .box_list .company_name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--sri-text-dark);
+        }
+        .box_list .job_team_name {
+            font-size: 14px;
+            color: var(--sri-text-secondary);
+        }
+        .box_list .date {
+            display: block;
+            font-size: 13px;
+            color: var(--sri-text-tertiary);
+            margin-bottom: 12px;
+        }
+        .box_list .date .work {
+            color: var(--sri-primary);
+            font-weight: 500;
+        }
+        .box_list .date .period {
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid var(--sri-border);
+        }
+        .box_list .desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--sri-text);
+            white-space: pre-wrap;
+        }
+        .box_list .faculty {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+        .box_list .faculty dt {
+            color: var(--sri-text-tertiary);
+            min-width: 60px;
+        }
+        .box_list .faculty dd { color: var(--sri-text); }
+
+        /* 자격증/어학 */
+        .part_cert .cert_list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        .part_cert .cert_item {
+            padding: 16px;
+            background: var(--sri-bg-light);
+            border-radius: 8px;
+        }
+        .part_cert .cert_name {
+            font-weight: 600;
+            color: var(--sri-text-dark);
+            margin-bottom: 4px;
+        }
+        .part_cert .cert_info {
+            font-size: 13px;
+            color: var(--sri-text-secondary);
+        }
+
+        /* 학력 */
+        .edu_item {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--sri-border-light);
+        }
+        .edu_item:last-child { border-bottom: none; }
+        .edu_name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--sri-text-dark);
+            margin-bottom: 4px;
+        }
+        .edu_major { color: var(--sri-text-secondary); margin-bottom: 4px; }
+        .edu_date { font-size: 13px; color: var(--sri-text-tertiary); }
+        .edu_status {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--sri-bg);
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        /* 자기소개서 */
+        .part_letter .letter_content {
+            font-size: 14px;
+            line-height: 1.9;
+            color: var(--sri-text);
+            white-space: pre-wrap;
+        }
+
+        /* 플랫폼 헤더 */
+        .platform_header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, var(--sri-primary) 0%, var(--sri-primary-dark) 100%);
+            border-radius: 8px 8px 0 0;
+        }
+        .platform_logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .platform_logo svg {
+            width: 36px;
+            height: 36px;
+        }
+        .platform_logo_text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+        .platform_badge {
+            padding: 6px 14px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+        }
+
+        /* 프린트 스타일 */
+        @media print {
+            body { background: white; }
+            .resume_print_area { box-shadow: none; margin: 0; }
+            .print_wrap { padding: 20px; }
+            .platform_header { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="resume_print_area" class="resume_print_area">
+        <!-- 플랫폼 헤더 -->
+        <div class="platform_header">
+            <div class="platform_logo">
+                {{{platform_logo_svg}}}
+                <span class="platform_logo_text">사람인</span>
+            </div>
+            <span class="platform_badge">이력서</span>
+        </div>
+
+        <div class="print_wrap">
+            <h2 class="blind">이력서</h2>
+
+            <!-- 기본 정보 -->
+            <section class="resume_basic">
+                <div class="resume_view">
+                    <div class="resume_top">
+                        <h1 class="user_name">{{#name}}{{name}}{{/name}}{{^name}}홍길동{{/name}}</h1>
+                        <div class="user_state">{{#status}}{{status}}{{/status}}{{^status}}경력{{/status}}</div>
+                    </div>
+                    <p class="user_desc">{{#description}}{{description}}{{/description}}{{^description}}남, 1990 (35세){{/description}}</p>
+                    <ul class="user_info">
+                        <li class="user_email">{{#email}}{{email}}{{/email}}{{^email}}example@email.com{{/email}}</li>
+                        <li class="user_phone">{{#phone}}{{phone}}{{/phone}}{{^phone}}010-1234-5678{{/phone}}</li>
+                        {{#address}}<li class="user_address">{{address}}</li>{{/address}}
+                    </ul>
+                    <div class="picture_box">
+                        <div class="picture">
+                            {{#photo_url}}<img src="{{photo_url}}" alt="프로필 사진">{{/photo_url}}
+                            {{^photo_url}}<div class="no_picture">사진</div>{{/photo_url}}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 대시보드 -->
+                <ul class="resume_dashboard">
+                    <li class="item">
+                        <strong class="tit career">경력</strong>
+                        <p class="txt">
+                            <span class="txt_top">
+                                <span class="emph">{{#current_company}}{{current_company}}{{/current_company}}{{^current_company}}회사명{{/current_company}}</span>
+                                {{#is_working}}<span class="badge_state">재직중</span>{{/is_working}}
+                            </span>
+                            <span class="txt_bottom">총 {{#total_experience}}{{total_experience}}{{/total_experience}}{{^total_experience}}3년{{/total_experience}}</span>
+                        </p>
+                    </li>
+                    <li class="item">
+                        <strong class="tit education">학력</strong>
+                        <p class="txt">
+                            <span class="txt_top"><span class="emph">{{#school}}{{school}}{{/school}}{{^school}}OO대학교{{/school}}</span></span>
+                            <span class="txt_bottom">{{#degree}}{{degree}}{{/degree}}{{^degree}}학사 졸업{{/degree}}</span>
+                        </p>
+                    </li>
+                    <li class="item">
+                        <strong class="tit payment">희망연봉</strong>
+                        <p class="txt">
+                            <span class="txt_top"><span class="emph">{{#desired_salary}}{{desired_salary}}{{/desired_salary}}{{^desired_salary}}회사내규에 따름{{/desired_salary}}</span></span>
+                            {{#current_salary}}<span class="txt_bottom">직전 연봉 : {{current_salary}}</span>{{/current_salary}}
+                        </p>
+                    </li>
+                    <li class="item">
+                        <strong class="tit file">포트폴리오</strong>
+                        <p class="txt">
+                            {{#portfolio_url}}<a href="{{portfolio_url}}" target="_blank" style="color: var(--sri-primary);">보기</a>{{/portfolio_url}}
+                            {{^portfolio_url}}-{{/portfolio_url}}
+                        </p>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- 스킬 -->
+            {{#skills.length}}
+            <section class="resume_skill">
+                <h3 class="tit">나의 스킬</h3>
+                <div class="skill_box">
+                    {{#skills}}
+                    <span class="skill_item">{{.}}</span>
+                    {{/skills}}
+                </div>
+            </section>
+            {{/skills.length}}
+            {{^skills}}
+            <section class="resume_skill">
+                <h3 class="tit">나의 스킬</h3>
+                <div class="skill_box">
+                    <span class="skill_item">Python</span>
+                    <span class="skill_item">JavaScript</span>
+                    <span class="skill_item">React</span>
+                    <span class="skill_item">FastAPI</span>
+                    <span class="skill_item">Docker</span>
+                    <span class="skill_item">PostgreSQL</span>
+                </div>
+            </section>
+            {{/skills}}
+
+            <!-- 경력 -->
+            <div class="resume_part">
+                <div class="part part_career">
+                    <div class="box_tit">
+                        <h2 class="tit">경력</h2>
+                        <span class="txt">총 {{#total_experience}}{{total_experience}}{{/total_experience}}{{^total_experience}}3년{{/total_experience}}</span>
+                    </div>
+                    <div class="box_con">
+                        {{#experiences}}
+                        <div class="box_list">
+                            <h3 class="tit">
+                                <span class="company_name">{{company_name}}</span>
+                                <div class="job_team_name">
+                                    <span>{{department}}{{#position}} · {{position}}{{/position}}</span>
+                                    {{#job_type}}<span>· {{job_type}}</span>{{/job_type}}
+                                </div>
+                            </h3>
+                            <span class="date">
+                                {{start_date}} ~ {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}<span class="work">재직중</span>{{/end_date}}
+                                {{#duration}}<span class="period">{{duration}}</span>{{/duration}}
+                            </span>
+                            {{#description}}<p class="desc">{{description}}</p>{{/description}}
+                            {{#salary}}<dl class="faculty"><dt>연봉</dt><dd>{{salary}}</dd></dl>{{/salary}}
+                            {{#location}}<dl class="faculty"><dt>근무지역</dt><dd>{{location}}</dd></dl>{{/location}}
+                        </div>
+                        {{/experiences}}
+                        {{^experiences}}
+                        <div class="box_list">
+                            <h3 class="tit">
+                                <span class="company_name">주식회사 테크컴퍼니</span>
+                                <div class="job_team_name">
+                                    <span>개발팀 · 선임 개발자</span>
+                                    <span>· 백엔드 개발</span>
+                                </div>
+                            </h3>
+                            <span class="date">2022.03 ~ <span class="work">재직중</span><span class="period">2년 10개월</span></span>
+                            <p class="desc">- 주요 직무: 백엔드 API 개발, 시스템 설계
+
+1. Backend 개발
+   - FastAPI, Django 기반 RESTful API 서버 개발
+   - PostgreSQL 데이터베이스 설계 및 최적화
+   - Docker 컨테이너화 및 CI/CD 파이프라인 구축
+   - 마이크로서비스 아키텍처 설계 및 구현
+
+2. 프로젝트 성과
+   - API 응답 속도 50% 개선
+   - 서버 비용 30% 절감</p>
+                            <dl class="faculty"><dt>연봉</dt><dd>5,000만원</dd></dl>
+                            <dl class="faculty"><dt>근무지역</dt><dd>서울</dd></dl>
+                        </div>
+                        {{/experiences}}
+                    </div>
+                </div>
+
+                <!-- 경력기술서 (프로젝트) -->
+                {{#projects.length}}
+                <div class="part part_only_career">
+                    <div class="box_tit">
+                        <h2 class="tit">경력기술서</h2>
+                    </div>
+                    <div class="box_con">
+                        <div class="box_list">
+                            <p class="desc">{{#projects}}[프로젝트 {{@index}}]
+프로젝트명: {{name}}
+{{#company}}연계/소속회사: {{company}}{{/company}}
+기간: {{start_date}} ~ {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}
+{{#role}}주요 업무: {{role}}{{/role}}
+{{#description}}상세 내용: {{description}}{{/description}}
+{{#technologies}}기술 스택: {{technologies}}{{/technologies}}
+{{#achievements}}성과:
+{{achievements}}{{/achievements}}
+
+{{/projects}}</p>
+                        </div>
+                    </div>
+                </div>
+                {{/projects.length}}
+
+                <!-- 학력 -->
+                <div class="part part_education">
+                    <div class="box_tit">
+                        <h2 class="tit">학력</h2>
+                    </div>
+                    <div class="box_con">
+                        {{#educations}}
+                        <div class="edu_item">
+                            <div class="edu_name">{{school_name}}</div>
+                            {{#major}}<div class="edu_major">{{major}}</div>{{/major}}
+                            <div class="edu_date">
+                                {{start_date}} ~ {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}재학중{{/end_date}}
+                                <span class="edu_status">{{#status}}{{status}}{{/status}}{{^status}}졸업{{/status}}</span>
+                            </div>
+                        </div>
+                        {{/educations}}
+                        {{^educations}}
+                        <div class="edu_item">
+                            <div class="edu_name">OO대학교</div>
+                            <div class="edu_major">컴퓨터공학과</div>
+                            <div class="edu_date">2015.03 ~ 2019.02<span class="edu_status">졸업</span></div>
+                        </div>
+                        {{/educations}}
+                    </div>
+                </div>
+
+                <!-- 자격증 -->
+                {{#certifications.length}}
+                <div class="part part_cert">
+                    <div class="box_tit">
+                        <h2 class="tit">자격/어학/수상</h2>
+                    </div>
+                    <div class="cert_list">
+                        {{#certifications}}
+                        <div class="cert_item">
+                            <div class="cert_name">{{name}}</div>
+                            <div class="cert_info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                        </div>
+                        {{/certifications}}
+                    </div>
+                </div>
+                {{/certifications.length}}
+
+                <!-- 자기소개서 -->
+                {{#summary}}
+                <div class="part part_letter">
+                    <div class="box_tit">
+                        <h2 class="tit">자기소개서</h2>
+                    </div>
+                    <div class="letter_content">{{summary}}</div>
+                </div>
+                {{/summary}}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

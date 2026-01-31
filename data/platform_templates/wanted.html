@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}} - 이력서 | 원티드</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
+    <style>
+        :root {
+            --wanted-primary: #3366ff;
+            --wanted-primary-dark: #2952cc;
+            --wanted-primary-light: rgba(51, 102, 255, 0.08);
+            --wanted-bg: #F7F7F8;
+            --wanted-white: #FFFFFF;
+            --wanted-text: #171719;
+            --wanted-text-secondary: #37383C;
+            --wanted-text-tertiary: #989BA2;
+            --wanted-border: #E1E2E4;
+            --wanted-border-light: #F4F4F5;
+            --wanted-positive: #00BF40;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--wanted-text);
+            background: var(--wanted-bg);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .resume-container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* 헤더 */
+        .resume-header {
+            background: var(--wanted-white);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 16px;
+        }
+        .header-top {
+            display: flex;
+            align-items: flex-start;
+            gap: 28px;
+            margin-bottom: 28px;
+        }
+        .profile-photo {
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--wanted-border-light);
+            flex-shrink: 0;
+        }
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: var(--wanted-text-tertiary);
+        }
+        .header-info { flex: 1; }
+        .header-name {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--wanted-text);
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+        .header-position {
+            font-size: 16px;
+            color: var(--wanted-text-secondary);
+            margin-bottom: 16px;
+        }
+        .header-contacts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 14px;
+            color: var(--wanted-text-secondary);
+        }
+        .header-contacts a {
+            color: var(--wanted-primary);
+            text-decoration: none;
+        }
+        .header-contacts a:hover { text-decoration: underline; }
+
+        /* 요약 정보 */
+        .header-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            padding-top: 24px;
+            border-top: 1px solid var(--wanted-border-light);
+        }
+        .summary-item {
+            text-align: center;
+            padding: 16px;
+            background: var(--wanted-border-light);
+            border-radius: 8px;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: var(--wanted-text-tertiary);
+            margin-bottom: 4px;
+        }
+        .summary-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--wanted-text);
+        }
+
+        /* 섹션 */
+        .section {
+            background: var(--wanted-white);
+            border-radius: 12px;
+            padding: 32px 40px;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--wanted-text);
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--wanted-text);
+        }
+
+        /* 소개 */
+        .intro-text {
+            font-size: 15px;
+            line-height: 1.9;
+            color: var(--wanted-text-secondary);
+            white-space: pre-wrap;
+        }
+
+        /* 경력 */
+        .experience-item {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--wanted-border-light);
+        }
+        .experience-item:first-child { padding-top: 0; }
+        .experience-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .experience-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .experience-company {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--wanted-text);
+        }
+        .experience-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--wanted-primary-light);
+            color: var(--wanted-primary);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .experience-period {
+            font-size: 13px;
+            color: var(--wanted-text-tertiary);
+        }
+        .experience-position {
+            font-size: 14px;
+            color: var(--wanted-text-secondary);
+            margin-bottom: 16px;
+        }
+        .experience-desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--wanted-text-secondary);
+            white-space: pre-wrap;
+        }
+
+        /* 프로젝트 */
+        .project-item {
+            padding: 24px;
+            background: var(--wanted-border-light);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .project-item:last-child { margin-bottom: 0; }
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .project-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--wanted-text);
+        }
+        .project-period {
+            font-size: 13px;
+            color: var(--wanted-text-tertiary);
+        }
+        .project-company {
+            font-size: 13px;
+            color: var(--wanted-text-tertiary);
+            margin-bottom: 12px;
+        }
+        .project-desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--wanted-text-secondary);
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+        .project-tech {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .project-tech-tag {
+            padding: 4px 12px;
+            background: var(--wanted-white);
+            border: 1px solid var(--wanted-border);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--wanted-text-secondary);
+        }
+        .project-achievements {
+            padding: 16px;
+            background: var(--wanted-white);
+            border-radius: 6px;
+            border-left: 3px solid var(--wanted-primary);
+        }
+        .project-achievements-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--wanted-primary);
+            margin-bottom: 8px;
+        }
+        .project-achievements-list {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--wanted-text-secondary);
+        }
+
+        /* 스킬 */
+        .skills-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .skill-tag {
+            padding: 10px 18px;
+            background: var(--wanted-primary-light);
+            color: var(--wanted-primary);
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* 학력 */
+        .education-item {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--wanted-border-light);
+        }
+        .education-item:last-child { border-bottom: none; }
+        .education-school {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--wanted-text);
+            margin-bottom: 4px;
+        }
+        .education-major {
+            font-size: 14px;
+            color: var(--wanted-text-secondary);
+            margin-bottom: 4px;
+        }
+        .education-period {
+            font-size: 13px;
+            color: var(--wanted-text-tertiary);
+        }
+
+        /* 자격증 */
+        .cert-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .cert-item {
+            padding: 16px;
+            background: var(--wanted-border-light);
+            border-radius: 8px;
+        }
+        .cert-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--wanted-text);
+            margin-bottom: 4px;
+        }
+        .cert-info {
+            font-size: 13px;
+            color: var(--wanted-text-tertiary);
+        }
+
+        /* 플랫폼 헤더 */
+        .platform-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+            margin-bottom: 32px;
+            border-bottom: 2px solid var(--wanted-primary);
+        }
+        .platform-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .platform-logo svg {
+            width: 32px;
+            height: 32px;
+        }
+        .platform-logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--wanted-primary);
+        }
+        .platform-badge {
+            padding: 5px 12px;
+            background: var(--wanted-primary);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        @media print {
+            body { background: white; }
+            .resume-container { padding: 0; }
+            .platform-header { display: none; }
+        }
+        @media (max-width: 640px) {
+            .header-top { flex-direction: column; }
+            .header-summary { grid-template-columns: 1fr; }
+            .cert-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="resume-container">
+        <!-- 플랫폼 헤더 -->
+        <div class="platform-header">
+            <div class="platform-logo">
+                {{{platform_logo_svg}}}
+                <span class="platform-logo-text">Wanted</span>
+            </div>
+            <span class="platform-badge">이력서</span>
+        </div>
+
+        <!-- 헤더 -->
+        <header class="resume-header">
+            <div class="header-top">
+                <div class="profile-photo">
+                    {{#photo_url}}<img src="{{photo_url}}" alt="프로필">{{/photo_url}}
+                    {{^photo_url}}<div class="profile-photo-placeholder">👤</div>{{/photo_url}}
+                </div>
+                <div class="header-info">
+                    <h1 class="header-name">{{#name}}{{name}}{{/name}}{{^name}}홍길동{{/name}}</h1>
+                    <p class="header-position">{{#desired_position}}{{desired_position}}{{/desired_position}}{{^desired_position}}소프트웨어 엔지니어{{/desired_position}}</p>
+                    <div class="header-contacts">
+                        <span>{{#email}}{{email}}{{/email}}{{^email}}example@email.com{{/email}}</span>
+                        {{#phone}}<span>{{phone}}</span>{{/phone}}
+                        {{#github_url}}<a href="{{github_url}}" target="_blank">GitHub</a>{{/github_url}}
+                        {{#portfolio_url}}<a href="{{portfolio_url}}" target="_blank">Portfolio</a>{{/portfolio_url}}
+                    </div>
+                </div>
+            </div>
+            <div class="header-summary">
+                <div class="summary-item">
+                    <div class="summary-label">경력</div>
+                    <div class="summary-value">{{#total_experience}}{{total_experience}}{{/total_experience}}{{^total_experience}}3년{{/total_experience}}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">학력</div>
+                    <div class="summary-value">{{#degree}}{{degree}}{{/degree}}{{^degree}}학사{{/degree}}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">희망 연봉</div>
+                    <div class="summary-value">{{#desired_salary}}{{desired_salary}}{{/desired_salary}}{{^desired_salary}}면접 후 협의{{/desired_salary}}</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 소개 -->
+        <section class="section">
+            <h2 class="section-title">소개</h2>
+            <p class="intro-text">{{#summary}}{{summary}}{{/summary}}{{^summary}}안녕하세요. 사용자 경험을 최우선으로 생각하는 3년차 소프트웨어 엔지니어입니다.
+
+복잡한 문제를 단순하게 해결하는 것을 좋아하며, 클린 코드와 테스트 주도 개발에 관심이 많습니다.
+팀과의 협업을 중시하고, 지속적인 학습을 통해 성장하는 개발자가 되고자 합니다.{{/summary}}</p>
+        </section>
+
+        <!-- 경력 -->
+        <section class="section">
+            <h2 class="section-title">경력</h2>
+            {{#experiences}}
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">
+                        {{company_name}}
+                        {{#is_current}}<span class="experience-badge">재직중</span>{{/is_current}}
+                    </span>
+                    <span class="experience-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}</span>
+                </div>
+                <p class="experience-position">{{position}}{{#department}} · {{department}}{{/department}}</p>
+                {{#description}}<p class="experience-desc">{{description}}</p>{{/description}}
+            </div>
+            {{/experiences}}
+            {{^experiences}}
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">테크 스타트업<span class="experience-badge">재직중</span></span>
+                    <span class="experience-period">2022.03 - 현재</span>
+                </div>
+                <p class="experience-position">시니어 개발자 · 개발팀</p>
+                <p class="experience-desc">• 핵심 서비스 백엔드 API 설계 및 개발
+• 레거시 시스템 리팩토링으로 성능 50% 개선
+• 주니어 개발자 멘토링 및 코드 리뷰</p>
+            </div>
+            <div class="experience-item">
+                <div class="experience-header">
+                    <span class="experience-company">IT 기업</span>
+                    <span class="experience-period">2020.03 - 2022.02</span>
+                </div>
+                <p class="experience-position">주니어 개발자 · 서비스개발팀</p>
+                <p class="experience-desc">• 웹 서비스 프론트엔드/백엔드 개발
+• 배포 자동화 파이프라인 구축
+• 기술 문서 작성 및 지식 공유</p>
+            </div>
+            {{/experiences}}
+        </section>
+
+        <!-- 프로젝트 -->
+        <section class="section">
+            <h2 class="section-title">프로젝트</h2>
+            {{#projects}}
+            <div class="project-item">
+                <div class="project-header">
+                    <span class="project-name">{{name}}</span>
+                    <span class="project-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</span>
+                </div>
+                {{#company}}<p class="project-company">{{company}}</p>{{/company}}
+                {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                {{#technologies}}
+                <div class="project-tech">
+                    {{#technologies_list}}
+                    <span class="project-tech-tag">{{.}}</span>
+                    {{/technologies_list}}
+                </div>
+                {{/technologies}}
+                {{#achievements}}
+                <div class="project-achievements">
+                    <div class="project-achievements-title">성과</div>
+                    <div class="project-achievements-list">{{achievements}}</div>
+                </div>
+                {{/achievements}}
+            </div>
+            {{/projects}}
+            {{^projects}}
+            <div class="project-item">
+                <div class="project-header">
+                    <span class="project-name">결제 시스템 리뉴얼</span>
+                    <span class="project-period">2023.06 - 2023.11</span>
+                </div>
+                <p class="project-company">테크 스타트업</p>
+                <p class="project-desc">기존 모놀리식 결제 시스템을 마이크로서비스 아키텍처로 전환하는 프로젝트를 리드했습니다.
+PG 연동 모듈을 재설계하고, 장애 대응 체계를 개선했습니다.</p>
+                <div class="project-tech">
+                    <span class="project-tech-tag">Java</span>
+                    <span class="project-tech-tag">Spring Boot</span>
+                    <span class="project-tech-tag">Kafka</span>
+                    <span class="project-tech-tag">Redis</span>
+                </div>
+                <div class="project-achievements">
+                    <div class="project-achievements-title">성과</div>
+                    <div class="project-achievements-list">• 결제 처리 시간 40% 단축
+• 시스템 가용성 99.9% 달성
+• 월 처리량 300만 건 달성</div>
+                </div>
+            </div>
+            {{/projects}}
+        </section>
+
+        <!-- 스킬 -->
+        <section class="section">
+            <h2 class="section-title">스킬</h2>
+            <div class="skills-grid">
+                {{#skills}}
+                <span class="skill-tag">{{.}}</span>
+                {{/skills}}
+                {{^skills}}
+                <span class="skill-tag">Java</span>
+                <span class="skill-tag">Spring Boot</span>
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">FastAPI</span>
+                <span class="skill-tag">PostgreSQL</span>
+                <span class="skill-tag">Redis</span>
+                <span class="skill-tag">Docker</span>
+                <span class="skill-tag">AWS</span>
+                {{/skills}}
+            </div>
+        </section>
+
+        <!-- 학력 -->
+        <section class="section">
+            <h2 class="section-title">학력</h2>
+            {{#educations}}
+            <div class="education-item">
+                <div class="education-school">{{school_name}}</div>
+                {{#major}}<div class="education-major">{{major}}</div>{{/major}}
+                <div class="education-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}재학중{{/end_date}}</div>
+            </div>
+            {{/educations}}
+            {{^educations}}
+            <div class="education-item">
+                <div class="education-school">OO대학교</div>
+                <div class="education-major">컴퓨터공학과</div>
+                <div class="education-period">2016.03 - 2020.02</div>
+            </div>
+            {{/educations}}
+        </section>
+
+        <!-- 자격증 -->
+        {{#certifications.length}}
+        <section class="section">
+            <h2 class="section-title">자격증</h2>
+            <div class="cert-grid">
+                {{#certifications}}
+                <div class="cert-item">
+                    <div class="cert-name">{{name}}</div>
+                    <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                </div>
+                {{/certifications}}
+            </div>
+        </section>
+        {{/certifications.length}}
+    </div>
+</body>
+</html>

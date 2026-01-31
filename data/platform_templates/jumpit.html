@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}} - 이력서 | 점핏</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
+    <style>
+        :root {
+            --jumpit-primary: #00DD6D;
+            --jumpit-primary-dark: #00C462;
+            --jumpit-primary-light: #E6FFF2;
+            --jumpit-dark: #222222;
+            --jumpit-text: #333333;
+            --jumpit-text-secondary: #666666;
+            --jumpit-text-tertiary: #999999;
+            --jumpit-bg: #F5F5F8;
+            --jumpit-bg-light: #FAFAFA;
+            --jumpit-border: #E5E5E5;
+            --jumpit-white: #FFFFFF;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--jumpit-text);
+            background: var(--jumpit-bg);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 메인 컨테이너 */
+        .resume-container {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* 프로필 헤더 */
+        .profile-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
+            padding: 32px;
+            background: var(--jumpit-white);
+            border-radius: 16px;
+            margin-bottom: 16px;
+        }
+        .profile-photo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--jumpit-bg);
+            flex-shrink: 0;
+        }
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: var(--jumpit-text-tertiary);
+            background: var(--jumpit-bg);
+        }
+        .profile-info { flex: 1; }
+        .profile-name {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--jumpit-dark);
+            margin-bottom: 8px;
+        }
+        .profile-position {
+            font-size: 16px;
+            color: var(--jumpit-text-secondary);
+            margin-bottom: 16px;
+        }
+        .profile-contacts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 14px;
+            color: var(--jumpit-text-secondary);
+        }
+        .profile-contacts a {
+            color: var(--jumpit-primary-dark);
+            text-decoration: none;
+        }
+        .profile-contacts a:hover { text-decoration: underline; }
+
+        /* 섹션 공통 */
+        .section {
+            background: var(--jumpit-white);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--jumpit-dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--jumpit-primary);
+            border-radius: 2px;
+        }
+
+        /* 간단 소개 */
+        .intro-text {
+            font-size: 15px;
+            line-height: 1.8;
+            color: var(--jumpit-text);
+            white-space: pre-wrap;
+        }
+
+        /* 기술 스택 */
+        .skills-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .skill-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: var(--jumpit-primary-light);
+            color: var(--jumpit-primary-dark);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* 링크 섹션 */
+        .links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .link-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--jumpit-bg-light);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--jumpit-text);
+            transition: background 0.2s;
+        }
+        .link-item:hover { background: var(--jumpit-bg); }
+        .link-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .link-text { font-size: 14px; }
+
+        /* 타임라인 (경력/학력) */
+        .timeline { position: relative; }
+        .timeline-item {
+            position: relative;
+            padding-left: 24px;
+            padding-bottom: 28px;
+            border-left: 2px solid var(--jumpit-border);
+        }
+        .timeline-item:last-child {
+            border-left-color: transparent;
+            padding-bottom: 0;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 6px;
+            width: 10px;
+            height: 10px;
+            background: var(--jumpit-primary);
+            border-radius: 50%;
+        }
+        .timeline-item.current::before {
+            box-shadow: 0 0 0 4px var(--jumpit-primary-light);
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .timeline-company {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--jumpit-dark);
+        }
+        .timeline-period {
+            font-size: 13px;
+            color: var(--jumpit-text-tertiary);
+        }
+        .timeline-position {
+            font-size: 14px;
+            color: var(--jumpit-text-secondary);
+            margin-bottom: 12px;
+        }
+        .timeline-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: var(--jumpit-primary);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        .timeline-desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--jumpit-text);
+            white-space: pre-wrap;
+        }
+
+        /* 프로젝트 카드 */
+        .projects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .project-card {
+            padding: 24px;
+            background: var(--jumpit-bg-light);
+            border-radius: 12px;
+            border: 1px solid var(--jumpit-border);
+        }
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .project-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--jumpit-dark);
+        }
+        .project-period {
+            font-size: 13px;
+            color: var(--jumpit-text-tertiary);
+        }
+        .project-company {
+            font-size: 14px;
+            color: var(--jumpit-text-secondary);
+            margin-bottom: 12px;
+        }
+        .project-desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--jumpit-text);
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+        .project-tech {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .project-tech-tag {
+            padding: 4px 10px;
+            background: var(--jumpit-white);
+            border: 1px solid var(--jumpit-border);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--jumpit-text-secondary);
+        }
+        .project-achievements {
+            padding: 16px;
+            background: var(--jumpit-white);
+            border-radius: 8px;
+        }
+        .project-achievements-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--jumpit-primary-dark);
+            margin-bottom: 8px;
+        }
+        .project-achievements-list {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--jumpit-text);
+        }
+
+        /* 자격증 */
+        .cert-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .cert-item {
+            padding: 16px;
+            background: var(--jumpit-bg-light);
+            border-radius: 8px;
+        }
+        .cert-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--jumpit-dark);
+            margin-bottom: 4px;
+        }
+        .cert-info {
+            font-size: 13px;
+            color: var(--jumpit-text-secondary);
+        }
+
+        /* 자기소개서 */
+        .cover-letter {
+            font-size: 15px;
+            line-height: 1.9;
+            color: var(--jumpit-text);
+            white-space: pre-wrap;
+        }
+
+        /* 플랫폼 헤더 */
+        .platform-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: #000000;
+            margin-bottom: 24px;
+            border-radius: 12px;
+        }
+        .platform-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .platform-logo img,
+        .platform-logo svg {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+        }
+        .platform-logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+        .platform-logo-dot {
+            width: 8px;
+            height: 8px;
+            background: #5CF636;
+            border-radius: 50%;
+            margin-left: 2px;
+        }
+        .platform-badge {
+            padding: 6px 14px;
+            background: var(--jumpit-primary);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        @media print {
+            body { background: white; }
+            .resume-container { padding: 0; }
+            .section { box-shadow: none; }
+            .platform-header { display: none; }
+        }
+        @media (max-width: 640px) {
+            .profile-header { flex-direction: column; align-items: center; text-align: center; }
+            .profile-contacts { justify-content: center; }
+            .cert-list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="resume-container">
+        <!-- 플랫폼 헤더 -->
+        <div class="platform-header">
+            <div class="platform-logo">
+                {{{platform_logo_svg}}}
+                <span class="platform-logo-text">점핏</span>
+                <span class="platform-logo-dot"></span>
+            </div>
+            <span class="platform-badge">이력서</span>
+        </div>
+
+        <!-- 프로필 헤더 -->
+        <header class="profile-header">
+            <div class="profile-photo">
+                {{#photo_url}}<img src="{{photo_url}}" alt="프로필 사진">{{/photo_url}}
+                {{^photo_url}}<div class="profile-photo-placeholder">👤</div>{{/photo_url}}
+            </div>
+            <div class="profile-info">
+                <h1 class="profile-name">{{#name}}{{name}}{{/name}}{{^name}}홍길동{{/name}}</h1>
+                <p class="profile-position">{{#desired_position}}{{desired_position}}{{/desired_position}}{{^desired_position}}백엔드 개발자{{/desired_position}}</p>
+                <div class="profile-contacts">
+                    <span>📧 {{#email}}{{email}}{{/email}}{{^email}}example@email.com{{/email}}</span>
+                    {{#phone}}<span>📱 {{phone}}</span>{{/phone}}
+                    {{#github_url}}<a href="{{github_url}}" target="_blank">GitHub</a>{{/github_url}}
+                    {{#portfolio_url}}<a href="{{portfolio_url}}" target="_blank">포트폴리오</a>{{/portfolio_url}}
+                </div>
+            </div>
+        </header>
+
+        <!-- 간단 소개 -->
+        <section class="section">
+            <h2 class="section-title">간단 소개</h2>
+            <p class="intro-text">{{#summary}}{{summary}}{{/summary}}{{^summary}}안녕하세요, 3년차 백엔드 개발자입니다.
+
+Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수가 용이한 시스템 설계에 관심이 많습니다.
+최근에는 클라우드 인프라와 DevOps에도 역량을 확장하고 있습니다.{{/summary}}</p>
+        </section>
+
+        <!-- 기술 스택 -->
+        <section class="section">
+            <h2 class="section-title">기술 스택</h2>
+            <div class="skills-grid">
+                {{#skills}}
+                <span class="skill-tag">{{.}}</span>
+                {{/skills}}
+                {{^skills}}
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">FastAPI</span>
+                <span class="skill-tag">Django</span>
+                <span class="skill-tag">PostgreSQL</span>
+                <span class="skill-tag">Docker</span>
+                <span class="skill-tag">Kubernetes</span>
+                <span class="skill-tag">AWS</span>
+                <span class="skill-tag">Git</span>
+                {{/skills}}
+            </div>
+        </section>
+
+        <!-- 링크 -->
+        {{#has_links}}
+        <section class="section">
+            <h2 class="section-title">링크</h2>
+            <div class="links-list">
+                {{#github_url}}
+                <a href="{{github_url}}" class="link-item" target="_blank">
+                    <span class="link-icon">🐙</span>
+                    <span class="link-text">GitHub</span>
+                </a>
+                {{/github_url}}
+                {{#portfolio_url}}
+                <a href="{{portfolio_url}}" class="link-item" target="_blank">
+                    <span class="link-icon">🌐</span>
+                    <span class="link-text">포트폴리오</span>
+                </a>
+                {{/portfolio_url}}
+                {{#blog_url}}
+                <a href="{{blog_url}}" class="link-item" target="_blank">
+                    <span class="link-icon">📝</span>
+                    <span class="link-text">블로그</span>
+                </a>
+                {{/blog_url}}
+            </div>
+        </section>
+        {{/has_links}}
+
+        <!-- 경력 -->
+        <section class="section">
+            <h2 class="section-title">경력</h2>
+            <div class="timeline">
+                {{#experiences}}
+                <div class="timeline-item {{#is_current}}current{{/is_current}}">
+                    <div class="timeline-header">
+                        <span class="timeline-company">
+                            {{company_name}}
+                            {{#is_current}}<span class="timeline-badge">재직중</span>{{/is_current}}
+                        </span>
+                        <span class="timeline-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}</span>
+                    </div>
+                    <p class="timeline-position">{{position}}{{#department}} | {{department}}{{/department}}</p>
+                    {{#description}}<p class="timeline-desc">{{description}}</p>{{/description}}
+                </div>
+                {{/experiences}}
+                {{^experiences}}
+                <div class="timeline-item current">
+                    <div class="timeline-header">
+                        <span class="timeline-company">주식회사 테크스타트업<span class="timeline-badge">재직중</span></span>
+                        <span class="timeline-period">2022.03 - 현재</span>
+                    </div>
+                    <p class="timeline-position">백엔드 개발자 | 개발팀</p>
+                    <p class="timeline-desc">- FastAPI 기반 RESTful API 서버 개발 및 운영
+- PostgreSQL 데이터베이스 설계 및 쿼리 최적화
+- Docker/Kubernetes 기반 컨테이너 인프라 구축
+- CI/CD 파이프라인 구축 (GitHub Actions)</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-header">
+                        <span class="timeline-company">스타트업 ABC</span>
+                        <span class="timeline-period">2020.07 - 2022.02</span>
+                    </div>
+                    <p class="timeline-position">주니어 개발자 | 개발팀</p>
+                    <p class="timeline-desc">- Django 기반 웹 서비스 백엔드 개발
+- MySQL 데이터베이스 관리
+- AWS EC2/RDS 인프라 운영</p>
+                </div>
+                {{/experiences}}
+            </div>
+        </section>
+
+        <!-- 프로젝트 -->
+        <section class="section">
+            <h2 class="section-title">프로젝트</h2>
+            <div class="projects-list">
+                {{#projects}}
+                <div class="project-card">
+                    <div class="project-header">
+                        <span class="project-name">{{name}}</span>
+                        <span class="project-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</span>
+                    </div>
+                    {{#company}}<p class="project-company">{{company}}</p>{{/company}}
+                    {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                    {{#technologies}}
+                    <div class="project-tech">
+                        {{#technologies_list}}
+                        <span class="project-tech-tag">{{.}}</span>
+                        {{/technologies_list}}
+                    </div>
+                    {{/technologies}}
+                    {{#achievements}}
+                    <div class="project-achievements">
+                        <div class="project-achievements-title">주요 성과</div>
+                        <div class="project-achievements-list">{{achievements}}</div>
+                    </div>
+                    {{/achievements}}
+                </div>
+                {{/projects}}
+                {{^projects}}
+                <div class="project-card">
+                    <div class="project-header">
+                        <span class="project-name">AI 기반 추천 시스템 개발</span>
+                        <span class="project-period">2023.06 - 2023.12</span>
+                    </div>
+                    <p class="project-company">주식회사 테크스타트업</p>
+                    <p class="project-desc">사용자 행동 데이터를 분석하여 개인화된 콘텐츠를 추천하는 시스템을 개발했습니다.
+머신러닝 모델을 FastAPI로 서빙하고, Redis를 활용한 캐싱으로 응답 속도를 개선했습니다.</p>
+                    <div class="project-tech">
+                        <span class="project-tech-tag">Python</span>
+                        <span class="project-tech-tag">FastAPI</span>
+                        <span class="project-tech-tag">PostgreSQL</span>
+                        <span class="project-tech-tag">Redis</span>
+                        <span class="project-tech-tag">Docker</span>
+                    </div>
+                    <div class="project-achievements">
+                        <div class="project-achievements-title">주요 성과</div>
+                        <div class="project-achievements-list">• 추천 정확도 35% 향상
+• API 응답 시간 200ms 이하 달성
+• 일일 100만 요청 처리</div>
+                    </div>
+                </div>
+                {{/projects}}
+            </div>
+        </section>
+
+        <!-- 학력 -->
+        <section class="section">
+            <h2 class="section-title">학력</h2>
+            <div class="timeline">
+                {{#educations}}
+                <div class="timeline-item">
+                    <div class="timeline-header">
+                        <span class="timeline-company">{{school_name}}</span>
+                        <span class="timeline-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}재학중{{/end_date}}</span>
+                    </div>
+                    {{#major}}<p class="timeline-position">{{major}}</p>{{/major}}
+                </div>
+                {{/educations}}
+                {{^educations}}
+                <div class="timeline-item">
+                    <div class="timeline-header">
+                        <span class="timeline-company">OO대학교</span>
+                        <span class="timeline-period">2016.03 - 2020.02</span>
+                    </div>
+                    <p class="timeline-position">컴퓨터공학과 학사</p>
+                </div>
+                {{/educations}}
+            </div>
+        </section>
+
+        <!-- 자격증 -->
+        {{#certifications.length}}
+        <section class="section">
+            <h2 class="section-title">자격증</h2>
+            <div class="cert-list">
+                {{#certifications}}
+                <div class="cert-item">
+                    <div class="cert-name">{{name}}</div>
+                    <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                </div>
+                {{/certifications}}
+            </div>
+        </section>
+        {{/certifications.length}}
+    </div>
+</body>
+</html>
