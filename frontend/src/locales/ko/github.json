@@ -57,6 +57,7 @@
   "allLanguages": "모든 언어",
   "clearFilters": "필터 초기화",
   "showingCount": "전체 {{total}}개 중 {{showing}}개 표시",
+  "hiddenAsAdded": "{{count}}개 이미 추가됨",
   "selectedCount": "{{count}}개 선택됨",
   "selectAll": "전체 선택",
   "deselectAll": "전체 해제",

@@ -17,6 +17,7 @@ import {
   History,
   Github,
   FileOutput,
+  Globe,
 } from 'lucide-react'
 
 const getNavigation = (t: (key: string) => string) => [
@@ -24,6 +25,7 @@ const getNavigation = (t: (key: string) => string) => [
   { name: t('navigation:companies'), href: '/knowledge/companies', icon: Building2 },
   { name: t('navigation:githubRepos'), href: '/github/repos', icon: Github },
   { name: t('navigation:projects'), href: '/knowledge/projects', icon: FolderKanban },
+  { name: t('navigation:platforms'), href: '/platforms', icon: Globe },
   { name: t('navigation:templates'), href: '/templates', icon: FileText },
   { name: t('navigation:generate'), href: '/generate', icon: FileOutput },
   { name: t('navigation:documents'), href: '/documents', icon: FileText },

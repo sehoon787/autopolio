@@ -57,6 +57,7 @@
   "allLanguages": "All Languages",
   "clearFilters": "Clear Filters",
   "showingCount": "Showing {{showing}} of {{total}}",
+  "hiddenAsAdded": "{{count}} already added",
   "selectedCount": "{{count}} selected",
   "selectAll": "Select All",
   "deselectAll": "Deselect All",

@@ -14,6 +14,7 @@ import koDashboard from '@/locales/ko/dashboard.json'
 import koPipeline from '@/locales/ko/pipeline.json'
 import koGithub from '@/locales/ko/github.json'
 import koHistory from '@/locales/ko/history.json'
+import koPlatforms from '@/locales/ko/platforms.json'
 
 import enCommon from '@/locales/en/common.json'
 import enNavigation from '@/locales/en/navigation.json'
@@ -27,6 +28,7 @@ import enDashboard from '@/locales/en/dashboard.json'
 import enPipeline from '@/locales/en/pipeline.json'
 import enGithub from '@/locales/en/github.json'
 import enHistory from '@/locales/en/history.json'
+import enPlatforms from '@/locales/en/platforms.json'
 
 // Language resources
 const resources = {
@@ -43,6 +45,7 @@ const resources = {
     pipeline: koPipeline,
     github: koGithub,
     history: koHistory,
+    platforms: koPlatforms,
   },
   en: {
     common: enCommon,
@@ -57,6 +60,7 @@ const resources = {
     pipeline: enPipeline,
     github: enGithub,
     history: enHistory,
+    platforms: enPlatforms,
   },
 }
 
@@ -97,6 +101,7 @@ i18n.use(initReactI18next).init({
     'pipeline',
     'github',
     'history',
+    'platforms',
   ],
   interpolation: {
     escapeValue: false, // React already escapes values
