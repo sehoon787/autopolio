@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s",
 
 from api.config import get_settings
 from api.database import init_db, close_db
-from api.routers import users, github, templates, pipeline, documents, llm
+from api.routers import users, github, templates, pipeline, documents, llm, platforms
 from api.routers.knowledge import companies, projects, achievements
 
 settings = get_settings()
@@ -94,6 +94,7 @@ app.include_router(templates.router, prefix="/api/templates", tags=["Templates"]
 app.include_router(pipeline.router, prefix="/api/pipeline", tags=["Pipeline"])
 app.include_router(documents.router, prefix="/api/documents", tags=["Documents"])
 app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
+app.include_router(platforms.router, prefix="/api/platforms", tags=["Platforms"])
 
 
 @app.get("/")

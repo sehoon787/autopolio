@@ -8,6 +8,7 @@ from api.models.contributor_analysis import ContributorAnalysis
 from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.job import Job
+from api.models.platform_template import PlatformTemplate
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "Template",
     "GeneratedDocument",
     "Job",
+    "PlatformTemplate",
 ]

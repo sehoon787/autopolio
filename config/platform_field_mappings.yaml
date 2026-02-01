@@ -1,0 +1,288 @@
+# Platform Template Field Mappings
+# 각 플랫폼 템플릿에서 사용되는 필드 정의
+
+common_fields:
+  # 기본 정보
+  - name: name
+    type: text
+    label: 이름
+    label_en: Name
+    required: true
+
+  - name: email
+    type: email
+    label: 이메일
+    label_en: Email
+    required: true
+
+  - name: phone
+    type: tel
+    label: 전화번호
+    label_en: Phone
+    required: false
+
+  - name: photo_url
+    type: url
+    label: 프로필 사진 URL
+    label_en: Profile Photo URL
+    required: false
+
+  - name: desired_position
+    type: text
+    label: 희망 직무
+    label_en: Desired Position
+    required: false
+
+  - name: summary
+    type: textarea
+    label: 자기소개
+    label_en: Summary
+    required: false
+
+  - name: github_url
+    type: url
+    label: GitHub URL
+    label_en: GitHub URL
+    required: false
+
+  - name: portfolio_url
+    type: url
+    label: 포트폴리오 URL
+    label_en: Portfolio URL
+    required: false
+
+  - name: generated_date
+    type: date
+    label: 생성일
+    label_en: Generated Date
+    auto_fill: true
+
+section_fields:
+  experiences:
+    label: 경력사항
+    label_en: Work Experience
+    fields:
+      - name: company_name
+        type: text
+        label: 회사명
+        label_en: Company Name
+        required: true
+
+      - name: position
+        type: text
+        label: 직책/포지션
+        label_en: Position
+        required: true
+
+      - name: start_date
+        type: date
+        label: 시작일
+        label_en: Start Date
+        required: true
+
+      - name: end_date
+        type: date
+        label: 종료일
+        label_en: End Date
+        required: false
+
+      - name: description
+        type: textarea
+        label: 업무 설명
+        label_en: Description
+        required: false
+
+      - name: achievements
+        type: list
+        label: 주요 성과
+        label_en: Achievements
+        required: false
+
+  projects:
+    label: 프로젝트
+    label_en: Projects
+    fields:
+      - name: name
+        type: text
+        label: 프로젝트명
+        label_en: Project Name
+        required: true
+
+      - name: company_name
+        type: text
+        label: 소속 회사
+        label_en: Company
+        required: false
+
+      - name: start_date
+        type: date
+        label: 시작일
+        label_en: Start Date
+        required: true
+
+      - name: end_date
+        type: date
+        label: 종료일
+        label_en: End Date
+        required: false
+
+      - name: description
+        type: textarea
+        label: 프로젝트 설명
+        label_en: Description
+        required: false
+
+      - name: role
+        type: text
+        label: 담당 역할
+        label_en: Role
+        required: false
+
+      - name: technologies
+        type: list
+        label: 사용 기술
+        label_en: Technologies
+        required: false
+
+      - name: achievements
+        type: list
+        label: 주요 성과
+        label_en: Achievements
+        required: false
+
+  skills:
+    label: 기술스택
+    label_en: Technical Skills
+    fields:
+      - name: languages
+        type: list
+        label: 프로그래밍 언어
+        label_en: Programming Languages
+        required: false
+
+      - name: frameworks
+        type: list
+        label: 프레임워크
+        label_en: Frameworks
+        required: false
+
+      - name: databases
+        type: list
+        label: 데이터베이스
+        label_en: Databases
+        required: false
+
+      - name: tools
+        type: list
+        label: 도구 & 기타
+        label_en: Tools & Others
+        required: false
+
+  educations:
+    label: 학력사항
+    label_en: Education
+    fields:
+      - name: school_name
+        type: text
+        label: 학교명
+        label_en: School Name
+        required: true
+
+      - name: major
+        type: text
+        label: 전공
+        label_en: Major
+        required: false
+
+      - name: start_date
+        type: date
+        label: 입학일
+        label_en: Start Date
+        required: false
+
+      - name: end_date
+        type: date
+        label: 졸업일
+        label_en: End Date
+        required: false
+
+      - name: description
+        type: textarea
+        label: 설명
+        label_en: Description
+        required: false
+
+  certifications:
+    label: 자격증
+    label_en: Certifications
+    fields:
+      - name: name
+        type: text
+        label: 자격증명
+        label_en: Certification Name
+        required: true
+
+      - name: issuer
+        type: text
+        label: 발급기관
+        label_en: Issuer
+        required: false
+
+      - name: date
+        type: date
+        label: 취득일
+        label_en: Date
+        required: false
+
+platforms:
+  saramin:
+    name: 사람인
+    name_en: Saramin
+    description: 국내 최대 취업 포털 사람인 스타일의 이력서 템플릿
+    description_en: Resume template styled like Saramin, Korea's largest job portal
+    color: "#4876EF"
+    template_file: saramin.html
+    features:
+      - 전통적인 이력서 양식
+      - Pretendard 폰트 적용
+      - 섹션별 구분이 명확
+      - 프린트 최적화
+
+  remember:
+    name: 리멤버
+    name_en: Remember
+    description: 비즈니스 네트워킹 앱 리멤버 스타일의 프로필 템플릿
+    description_en: Profile template styled like Remember business networking app
+    color: "#FF6A0D"
+    template_file: remember.html
+    features:
+      - 모던하고 깔끔한 디자인
+      - 오렌지 액센트 컬러
+      - Pretendard 폰트 적용
+      - 반응형 레이아웃
+
+  jumpit:
+    name: 점핏
+    name_en: Jumpit
+    description: 개발자 전문 채용 플랫폼 점핏 스타일의 이력서 템플릿
+    description_en: Resume template styled like Jumpit, a developer-focused job platform
+    color: "#00DD6D"
+    template_file: jumpit.html
+    features:
+      - 개발자 친화적 디자인
+      - 카드 기반 레이아웃
+      - 기술 스택 강조
+      - Noto Sans KR + Pretendard Variable 폰트
+
+  wanted:
+    name: 원티드
+    name_en: Wanted
+    description: 커리어 성장 플랫폼 원티드 스타일의 모던한 이력서 템플릿
+    description_en: Modern resume template styled like Wanted career platform
+    color: "#0066FF"
+    template_file: wanted.html
+    features:
+      - 모던하고 세련된 디자인
+      - 아토믹 디자인 시스템 기반
+      - Noto Sans KR + Pretendard Variable 폰트
+      - 반응형 레이아웃
