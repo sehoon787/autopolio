@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useSelection } from '@/hooks/useSelection'
 import { githubApi, GitHubRepo } from '@/api/github'
+import { projectsApi } from '@/api/knowledge'
 import {
   Github,
   Search,
@@ -82,11 +83,31 @@ export default function RepoSelector() {
     retry: 1,
   })
 
+  // Step 3: Fetch existing projects to filter out already-added repos
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects', user?.id],
+    queryFn: () => projectsApi.getAll(user!.id),
+    enabled: !!user?.id,
+  })
+
   const isLoading = statusLoading || (canFetchRepos && reposLoading)
   const isError = reposError // Only show error for repos fetch, not status
 
   const repos = reposData?.data?.repos || []
   const totalRepos = reposData?.data?.total || 0
+
+  // Get set of already-added repo URLs (for filtering)
+  const addedRepoUrls = useMemo(() => {
+    const urls = new Set<string>()
+    projectsData?.data?.projects?.forEach((p) => {
+      if (p.git_url) {
+        // Normalize URL: remove trailing .git and convert to lowercase
+        const normalized = p.git_url.toLowerCase().replace(/\.git$/, '')
+        urls.add(normalized)
+      }
+    })
+    return urls
+  }, [projectsData])
 
   // Get unique languages for filter
   const languages = useMemo(() => {
@@ -97,9 +118,24 @@ export default function RepoSelector() {
     return Array.from(langSet).sort()
   }, [repos])
 
-  // Filtered repos
+  // Count of repos already added as projects
+  const alreadyAddedCount = useMemo(() => {
+    return repos.filter((repo) => {
+      const normalizedCloneUrl = repo.clone_url.toLowerCase().replace(/\.git$/, '')
+      const normalizedHtmlUrl = repo.html_url.toLowerCase().replace(/\.git$/, '')
+      return addedRepoUrls.has(normalizedCloneUrl) || addedRepoUrls.has(normalizedHtmlUrl)
+    }).length
+  }, [repos, addedRepoUrls])
+
+  // Filtered repos (excluding already-added repos)
   const filteredRepos = useMemo(() => {
     return repos.filter((repo) => {
+      // Check if repo is already added as a project
+      const normalizedCloneUrl = repo.clone_url.toLowerCase().replace(/\.git$/, '')
+      const normalizedHtmlUrl = repo.html_url.toLowerCase().replace(/\.git$/, '')
+      const isAlreadyAdded = addedRepoUrls.has(normalizedCloneUrl) || addedRepoUrls.has(normalizedHtmlUrl)
+      if (isAlreadyAdded) return false
+
       const matchesSearch = searchQuery === '' ||
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -108,7 +144,7 @@ export default function RepoSelector() {
 
       return matchesSearch && matchesLanguage
     })
-  }, [repos, searchQuery, languageFilter])
+  }, [repos, searchQuery, languageFilter, addedRepoUrls])
 
   // Import mutation
   const importMutation = useMutation({
@@ -331,6 +367,11 @@ export default function RepoSelector() {
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
           <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
+          {alreadyAddedCount > 0 && (
+            <Badge variant="outline" className="text-gray-500">
+              {t('hiddenAsAdded', { count: alreadyAddedCount })}
+            </Badge>
+          )}
           {selection.selectedCount > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />

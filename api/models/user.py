@@ -36,3 +36,4 @@ class User(Base):
     templates = relationship("Template", back_populates="user", cascade="all, delete-orphan")
     documents = relationship("GeneratedDocument", back_populates="user", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="user", cascade="all, delete-orphan")
+    platform_templates = relationship("PlatformTemplate", back_populates="user", cascade="all, delete-orphan")
