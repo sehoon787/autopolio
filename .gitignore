@@ -62,3 +62,11 @@ logs/
 # Playwright MCP
 .playwright-mcp/
 /REFACTORING.md
+
+# Playwright test results
+frontend/test-results/
+playwright-report/
+
+# Temporary files
+nul
+test_*.png
