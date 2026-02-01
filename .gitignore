@@ -70,3 +70,8 @@ playwright-report/
 # Temporary files
 nul
 test_*.png
+
+# Development scripts (logo extraction, template creation)
+scripts/
+/package.json
+/package-lock.json
