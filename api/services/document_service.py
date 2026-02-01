@@ -6,7 +6,6 @@ from pathlib import Path
 import os
 import re
 from datetime import datetime
-import uuid
 
 from api.config import get_settings
 
@@ -99,6 +98,8 @@ class DocumentService:
             file_size = await self._generate_pdf(rendered_content, file_path)
         elif output_format == "md":
             file_size = await self._generate_markdown(rendered_content, file_path)
+        elif output_format == "html":
+            file_size = await self._generate_html(rendered_content, file_path)
         else:
             raise ValueError(f"Unsupported output format: {output_format}")
 
@@ -276,6 +277,52 @@ class DocumentService:
         """Generate a Markdown document."""
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
+        return os.path.getsize(file_path)
+
+    async def _generate_html(self, content: str, file_path: Path) -> int:
+        """Generate an HTML document from markdown-like content."""
+        import markdown
+
+        # Convert markdown to HTML
+        html_body = markdown.markdown(content, extensions=['tables', 'fenced_code', 'toc'])
+
+        # Wrap in a complete HTML document with basic styling
+        html_content = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume</title>
+    <style>
+        body {{
+            font-family: 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: #333;
+        }}
+        h1 {{ font-size: 28px; border-bottom: 2px solid #333; padding-bottom: 10px; }}
+        h2 {{ font-size: 20px; color: #0066cc; margin-top: 30px; }}
+        h3 {{ font-size: 16px; margin-top: 20px; }}
+        ul {{ padding-left: 20px; }}
+        li {{ margin-bottom: 5px; }}
+        hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 15px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #f5f5f5; }}
+        @media print {{
+            body {{ padding: 0; }}
+        }}
+    </style>
+</head>
+<body>
+{html_body}
+</body>
+</html>"""
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
         return os.path.getsize(file_path)
 
     def prepare_template_data(
