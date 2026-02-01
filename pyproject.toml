@@ -39,6 +39,7 @@ dependencies = [
     "reportlab>=4.2.2",
     "PyPDF2>=3.0.1",
     "markdown>=3.7",
+    "chevron>=0.14.0",  # Mustache templating for platform templates
 
     # Encryption
     "cryptography>=43.0.1",

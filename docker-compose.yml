@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./result:/app/result
+      - ./config:/app/config
     env_file:
       - .env
     environment:
