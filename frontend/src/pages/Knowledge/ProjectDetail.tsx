@@ -89,6 +89,13 @@ export default function ProjectDetailPage() {
     enabled: !!projectId && !!projectData?.data?.is_analyzed,
   })
 
+  // Fetch contributor analysis for the current user
+  const { data: contributorAnalysisData } = useQuery({
+    queryKey: ['contributor-analysis', projectId, user?.id],
+    queryFn: () => githubApi.getContributorAnalysis(projectId, user!.id),
+    enabled: !!projectId && !!projectData?.data?.is_analyzed && !!user?.id,
+  })
+
   // Mutation for updating analysis content
   const updateContentMutation = useMutation({
     mutationFn: ({ field, content }: { field: 'key_tasks' | 'implementation_details' | 'detailed_achievements', content: any }) =>
@@ -146,17 +153,13 @@ export default function ProjectDetailPage() {
       // Build LLM/CLI options based on aiMode
       const options: Parameters<typeof githubApi.analyzeRepo>[3] = {}
 
-      console.log('[Analyze] aiMode:', aiMode, 'isElectronApp:', isElectronApp, 'selectedCLI:', selectedCLI)
-
       if (aiMode === 'cli' && isElectronApp) {
         // CLI mode (Electron only)
         options.cli_mode = selectedCLI
         options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
-        console.log('[Analyze] Using CLI mode:', options.cli_mode, 'model:', options.cli_model)
       } else {
         // API mode
         options.provider = selectedLLMProvider
-        console.log('[Analyze] Using API mode, provider:', options.provider)
       }
 
       return githubApi.analyzeRepo(user!.id, project!.git_url!, project!.id, options)
@@ -356,6 +359,7 @@ export default function ProjectDetailPage() {
             onResetKeyTasks={async () => {
               await resetFieldMutation.mutateAsync('key_tasks')
             }}
+            contributorAnalysis={contributorAnalysisData?.data}
           />
         </TabsContent>
 
@@ -373,6 +377,7 @@ export default function ProjectDetailPage() {
             onResetKeyTasks={async () => {
               await resetFieldMutation.mutateAsync('key_tasks')
             }}
+            contributorAnalysis={contributorAnalysisData?.data}
           />
         </TabsContent>
 
@@ -390,12 +395,7 @@ export default function ProjectDetailPage() {
             onResetImplementationDetails={async () => {
               await resetFieldMutation.mutateAsync('implementation_details')
             }}
-            onSaveDetailedAchievements={async (achievements) => {
-              await updateContentMutation.mutateAsync({ field: 'detailed_achievements', content: achievements })
-            }}
-            onResetDetailedAchievements={async () => {
-              await resetFieldMutation.mutateAsync('detailed_achievements')
-            }}
+            contributorAnalysis={contributorAnalysisData?.data}
           />
         </TabsContent>
       </Tabs>

@@ -23,6 +23,7 @@ export function DetailTab({
   onSaveImplementationDetails,
   onResetImplementationDetails,
   t,
+  contributorAnalysis,
 }: DetailTabProps) {
   const [isEditingImplementationDetails, setIsEditingImplementationDetails] = useState(false)
 
@@ -117,6 +118,28 @@ export function DetailTab({
                 </ul>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 내 기술 스택 (사용자 기여) */}
+      {contributorAnalysis?.detected_technologies && contributorAnalysis.detected_technologies.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="h-5 w-5 text-blue-500" />
+              {t('detail.detailTab.myTechStack')}
+              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                {t('detail.basicInfo.myContribution')}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {contributorAnalysis.detected_technologies.map((tech: string) => (
+                <TechBadge key={tech} tech={tech} size="sm" />
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

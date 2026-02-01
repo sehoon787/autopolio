@@ -1,4 +1,4 @@
-import type { EffectiveRepoAnalysis, EditStatus } from '@/api/github'
+import type { EffectiveRepoAnalysis, EditStatus, ContributorAnalysis } from '@/api/github'
 import type { DetailedReportData, FinalReportData } from '@/api/documents'
 import type { StructuredItem } from '@/components/EditableStructuredList'
 
@@ -9,6 +9,7 @@ export interface BasicInfoTabProps {
   t: (key: string, options?: any) => string
   onSaveKeyTasks: (items: string[]) => Promise<void>
   onResetKeyTasks: () => Promise<void>
+  contributorAnalysis?: ContributorAnalysis
 }
 
 export interface SummaryTabProps {
@@ -19,6 +20,7 @@ export interface SummaryTabProps {
   t: (key: string, options?: any) => string
   onSaveKeyTasks: (items: string[]) => Promise<void>
   onResetKeyTasks: () => Promise<void>
+  contributorAnalysis?: ContributorAnalysis
 }
 
 export interface DetailTabProps {
@@ -28,7 +30,6 @@ export interface DetailTabProps {
   editStatus?: EditStatus
   onSaveImplementationDetails: (sections: StructuredItem[]) => Promise<void>
   onResetImplementationDetails: () => Promise<void>
-  onSaveDetailedAchievements?: (achievements: Record<string, any>) => Promise<void>
-  onResetDetailedAchievements?: () => Promise<void>
   t: (key: string, options?: any) => string
+  contributorAnalysis?: ContributorAnalysis
 }

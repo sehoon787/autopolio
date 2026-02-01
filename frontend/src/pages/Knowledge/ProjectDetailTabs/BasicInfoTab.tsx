@@ -22,7 +22,8 @@ export function BasicInfoTab({
   editStatus,
   t,
   onSaveKeyTasks,
-  onResetKeyTasks
+  onResetKeyTasks,
+  contributorAnalysis
 }: BasicInfoTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
 
@@ -78,16 +79,62 @@ export function BasicInfoTab({
           <CardHeader>
             <CardTitle>{t('detail.basicInfo.techStack')}</CardTitle>
           </CardHeader>
-          <CardContent>
-            {project.technologies?.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {project.technologies.map((tech: any) => (
-                  <TechBadge key={tech.id} tech={tech.name} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">{t('detail.basicInfo.noTechStack')}</p>
-            )}
+          <CardContent className="space-y-6">
+            {/* 프로젝트 기술스택 (전체) */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                {t('detail.basicInfo.projectTechStack')}
+                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                  {t('detail.basicInfo.autoDetected')}
+                </Badge>
+              </h4>
+              {(() => {
+                // Combine registered and detected technologies
+                const registeredTech = project.technologies?.map((t: any) => t.name) || []
+                const detectedTech = analysis?.detected_technologies || []
+                const allProjectTech = [...new Set([...registeredTech, ...detectedTech])]
+
+                if (allProjectTech.length > 0) {
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {allProjectTech.slice(0, 10).map((tech: string) => (
+                        <TechBadge key={tech} tech={tech} />
+                      ))}
+                      {allProjectTech.length > 10 && (
+                        <Badge variant="outline" className="text-xs">
+                          {t('detail.basicInfo.moreCount', { count: allProjectTech.length - 10 })}
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                }
+                return <p className="text-sm text-gray-500">{t('detail.basicInfo.noTechStack')}</p>
+              })()}
+            </div>
+
+            {/* 내 기술스택 (사용자 기여) */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                {t('detail.basicInfo.myTechStack')}
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  {t('detail.basicInfo.myContribution')}
+                </Badge>
+              </h4>
+              {contributorAnalysis?.detected_technologies && contributorAnalysis.detected_technologies.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {contributorAnalysis.detected_technologies.slice(0, 10).map((tech: string) => (
+                    <TechBadge key={tech} tech={tech} />
+                  ))}
+                  {contributorAnalysis.detected_technologies.length > 10 && (
+                    <Badge variant="outline" className="text-xs">
+                      {t('detail.basicInfo.moreCount', { count: contributorAnalysis.detected_technologies.length - 10 })}
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">{t('detail.basicInfo.noUserTechStack')}</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

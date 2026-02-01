@@ -15,7 +15,8 @@ export function SummaryTab({
   editStatus,
   t,
   onSaveKeyTasks,
-  onResetKeyTasks
+  onResetKeyTasks,
+  contributorAnalysis
 }: SummaryTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
 
@@ -62,9 +63,9 @@ export function SummaryTab({
             )}
           </div>
           <div className="pt-2">
-            <span className="text-gray-500 text-sm">{t('detail.summary.techStackLabel')}</span>
+            <span className="text-gray-500 text-sm">{t('detail.summary.myTechStackLabel')}</span>
             <div className="flex flex-wrap gap-1 mt-1">
-              {(final?.technologies || project.technologies?.map((tech: any) => tech.name) || []).map((tech: string) => (
+              {(contributorAnalysis?.detected_technologies || final?.technologies || project.technologies?.map((tech: any) => tech.name) || []).map((tech: string) => (
                 <TechBadge key={tech} tech={tech} size="sm" />
               ))}
             </div>
