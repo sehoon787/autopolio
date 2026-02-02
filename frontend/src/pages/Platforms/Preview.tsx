@@ -15,9 +15,6 @@ import {
   Minimize2,
   Loader2,
   Printer,
-  FileCode,
-  FileText,
-  File,
 } from 'lucide-react'
 import { platformsApi } from '@/api/platforms'
 import { useUserStore } from '@/stores/userStore'
@@ -29,12 +26,9 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { markdownToHtml, generateWordPreviewHtml } from '@/utils/markdownRenderer'
 
-type PreviewFormat = 'html' | 'markdown' | 'word'
 type DataSourceStatus = 'real' | 'sample' | 'loading'
 
 export default function PlatformPreviewPage() {
@@ -43,32 +37,18 @@ export default function PlatformPreviewPage() {
   const { t } = useTranslation(['platforms', 'common'])
   const { user } = useUserStore()
 
-  const [activeFormat, setActiveFormat] = useState<PreviewFormat>('html')
   const [previewHtml, setPreviewHtml] = useState<string>('')
-  const [previewMarkdown, setPreviewMarkdown] = useState<string>('')
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Format-specific data source tracking
-  const [dataSource, setDataSource] = useState<{
-    html: DataSourceStatus
-    markdown: DataSourceStatus
-  }>({
-    html: 'loading',
-    markdown: 'loading',
-  })
+  // Data source tracking for HTML preview
+  const [dataSource, setDataSource] = useState<DataSourceStatus>('loading')
 
   // User toggle: show real data (default: false = sample data)
   const [useRealData, setUseRealData] = useState(false)
 
-  // Track what source has been loaded for each format to prevent redundant API calls
-  const loadedSourceRef = useRef<{
-    html: 'real' | 'sample' | null
-    markdown: 'real' | 'sample' | null
-  }>({
-    html: null,
-    markdown: null,
-  })
+  // Track what source has been loaded to prevent redundant API calls
+  const loadedSourceRef = useRef<'real' | 'sample' | null>(null)
 
   // Fetch template details
   const {
@@ -87,7 +67,7 @@ export default function PlatformPreviewPage() {
     if (!template) return
 
     setIsPreviewLoading(true)
-    setDataSource(prev => ({ ...prev, html: 'loading' }))
+    setDataSource('loading')
     try {
       // If not forcing sample and user exists, try real data first
       if (!forceSample && user?.id) {
@@ -95,7 +75,7 @@ export default function PlatformPreviewPage() {
           const response = await platformsApi.renderFromDb(Number(templateId), user.id)
           if (response.data.html) {
             setPreviewHtml(response.data.html)
-            setDataSource(prev => ({ ...prev, html: 'real' }))
+            setDataSource('real')
             return
           }
         } catch {
@@ -106,7 +86,7 @@ export default function PlatformPreviewPage() {
       // Fall back to sample data
       const sampleResponse = await platformsApi.previewWithSampleData(Number(templateId))
       setPreviewHtml(sampleResponse.data.html)
-      setDataSource(prev => ({ ...prev, html: 'sample' }))
+      setDataSource('sample')
     } catch {
       // Preview load failed - silently ignore as UI shows empty state
     } finally {
@@ -114,44 +94,7 @@ export default function PlatformPreviewPage() {
     }
   }, [template, templateId, user?.id])
 
-  // Load Markdown preview - tries user data first, falls back to sample data
-  const loadMarkdownPreview = useCallback(async (forceSample = false) => {
-    if (!template) return
-
-    setIsPreviewLoading(true)
-    setDataSource(prev => ({ ...prev, markdown: 'loading' }))
-    try {
-      // If not forcing sample and user exists, try real data first
-      if (!forceSample && user?.id) {
-        try {
-          const response = await platformsApi.renderMarkdownFromDb(Number(templateId), user.id)
-          if (response.data.markdown) {
-            setPreviewMarkdown(response.data.markdown)
-            setDataSource(prev => ({ ...prev, markdown: 'real' }))
-            return
-          }
-        } catch {
-          // Fall through to sample data
-        }
-      }
-
-      // Fall back to sample data
-      const sampleResponse = await platformsApi.previewMarkdownWithSampleData(Number(templateId))
-      setPreviewMarkdown(sampleResponse.data.markdown)
-      setDataSource(prev => ({ ...prev, markdown: 'sample' }))
-    } catch {
-      // Preview load failed - silently ignore as UI shows empty state
-    } finally {
-      setIsPreviewLoading(false)
-    }
-  }, [template, templateId, user?.id])
-
-  // Determine current data source based on active format
-  const currentDataSource = activeFormat === 'html'
-    ? dataSource.html
-    : dataSource.markdown
-
-  // Load preview when template loads, format changes, or toggle changes
+  // Load preview when template loads or toggle changes
   // Uses ref to track what source has been loaded to prevent redundant API calls
   useEffect(() => {
     if (!template) return
@@ -159,34 +102,19 @@ export default function PlatformPreviewPage() {
     const targetSource: 'real' | 'sample' = useRealData ? 'real' : 'sample'
     const forceSample = !useRealData
 
-    if (activeFormat === 'html') {
-      // Only reload if source changed or not loaded yet
-      if (loadedSourceRef.current.html !== targetSource) {
-        setPreviewHtml('')  // Clear to show loading state
-        loadHtmlPreview(forceSample)
-        loadedSourceRef.current.html = targetSource
-      }
-    } else {
-      // markdown or word both use markdown data
-      if (loadedSourceRef.current.markdown !== targetSource) {
-        setPreviewMarkdown('')  // Clear to show loading state
-        loadMarkdownPreview(forceSample)
-        loadedSourceRef.current.markdown = targetSource
-      }
+    // Only reload if source changed or not loaded yet
+    if (loadedSourceRef.current !== targetSource) {
+      setPreviewHtml('')  // Clear to show loading state
+      loadHtmlPreview(forceSample)
+      loadedSourceRef.current = targetSource
     }
-  }, [template, activeFormat, useRealData, loadHtmlPreview, loadMarkdownPreview])
+  }, [template, useRealData, loadHtmlPreview])
 
   const handlePrint = () => {
     const iframe = document.querySelector('iframe') as HTMLIFrameElement
     if (iframe?.contentWindow) {
       iframe.contentWindow.print()
     }
-  }
-
-  // Get Word-style preview HTML
-  const getWordPreviewHtml = (): string => {
-    if (!previewMarkdown) return ''
-    return generateWordPreviewHtml(previewMarkdown)
   }
 
   if (isLoadingTemplate) {
@@ -233,10 +161,10 @@ export default function PlatformPreviewPage() {
           </div>
         ) : (
           <iframe
-            srcDoc={activeFormat === 'html' ? previewHtml : (activeFormat === 'markdown' ? markdownToHtml(previewMarkdown) : getWordPreviewHtml())}
+            srcDoc={previewHtml}
             className="w-full h-full"
             title="Resume Preview"
-                      />
+          />
         )}
       </div>
     )
@@ -280,149 +208,55 @@ export default function PlatformPreviewPage() {
       <Card>
         <CardHeader className="pb-2">
           {/* Current data source badge - upper left */}
-          {currentDataSource === 'loading' ? null : currentDataSource === 'real' ? (
+          {dataSource === 'loading' ? null : dataSource === 'real' ? (
             <Badge variant="default" className="w-fit bg-green-600">
               {t('usingRealData')}
             </Badge>
-          ) : currentDataSource === 'sample' ? (
+          ) : dataSource === 'sample' ? (
             <Badge variant="secondary" className="w-fit">
               {t('sampleDataBadge')}
             </Badge>
           ) : null}
         </CardHeader>
         <CardContent>
-          <Tabs value={activeFormat} onValueChange={(v) => setActiveFormat(v as PreviewFormat)}>
-            {/* Tabs row with toggle on the right */}
-            <div className="flex items-center justify-between mb-4">
-              <TabsList>
-                <TabsTrigger value="html" className="flex items-center gap-2">
-                  <FileCode className="h-4 w-4" />
-                  {t('formatHtml')}
-                </TabsTrigger>
-                <TabsTrigger value="markdown" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {t('formatMarkdown')}
-                </TabsTrigger>
-                <TabsTrigger value="word" className="flex items-center gap-2">
-                  <File className="h-4 w-4" />
-                  {t('formatWord')}
-                </TabsTrigger>
-              </TabsList>
+          {/* Data source toggle */}
+          <div className="flex items-center justify-end mb-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background">
+              <Switch
+                id="real-data-toggle"
+                checked={useRealData}
+                onCheckedChange={setUseRealData}
+              />
+              <Label htmlFor="real-data-toggle" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                {t('showRealData')}
+              </Label>
+            </div>
+          </div>
 
-              {/* Data source toggle - right side */}
-              <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background">
-                <Switch
-                  id="real-data-toggle"
-                  checked={useRealData}
-                  onCheckedChange={setUseRealData}
-                />
-                <Label htmlFor="real-data-toggle" className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                  {t('showRealData')}
-                </Label>
+          {/* HTML Preview */}
+          {isPreviewLoading ? (
+            <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
+              <div className="text-center space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">{t('loadingPreview')}</p>
               </div>
             </div>
-
-            <TabsContent value="html">
-              {isPreviewLoading && activeFormat === 'html' ? (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">{t('loadingPreview')}</p>
-                  </div>
-                </div>
-              ) : previewHtml ? (
-                <div className="border rounded-lg overflow-hidden bg-white shadow-inner">
-                  <iframe
-                    srcDoc={previewHtml}
-                    className="w-full h-[70vh]"
-                    title="HTML Preview"
-                                      />
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">{t('loadingPreview')}</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="markdown">
-              {isPreviewLoading && activeFormat === 'markdown' ? (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">{t('loadingPreview')}</p>
-                  </div>
-                </div>
-              ) : previewMarkdown ? (
-                <div className="grid grid-cols-2 gap-4 h-[70vh]">
-                  {/* Raw Markdown */}
-                  <div className="border rounded-lg overflow-auto bg-gray-900 text-gray-100 p-4 font-mono text-sm">
-                    <pre className="whitespace-pre-wrap">{previewMarkdown}</pre>
-                  </div>
-                  {/* Rendered Preview */}
-                  <div className="border rounded-lg overflow-hidden bg-white shadow-inner">
-                    <iframe
-                      srcDoc={markdownToHtml(previewMarkdown)}
-                      className="w-full h-full"
-                      title="Markdown Preview"
-                                          />
-                  </div>
-                </div>
-              ) : !user?.id ? (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">{t('loginRequired')}</p>
-                    <p className="text-sm text-muted-foreground">{t('createUserFirst')}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">{t('noPreviewAvailable')}</p>
-                    <p className="text-sm text-muted-foreground">{t('addProjectsFirst')}</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="word">
-              {isPreviewLoading && activeFormat === 'word' ? (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">{t('loadingPreview')}</p>
-                  </div>
-                </div>
-              ) : previewMarkdown ? (
-                <div className="border rounded-lg overflow-hidden bg-gray-100 p-4">
-                  <div className="bg-white shadow-lg mx-auto" style={{ maxWidth: '210mm' }}>
-                    <iframe
-                      srcDoc={getWordPreviewHtml()}
-                      className="w-full h-[70vh]"
-                      title="Word Preview"
-                                          />
-                  </div>
-                </div>
-              ) : !user?.id ? (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">{t('loginRequired')}</p>
-                    <p className="text-sm text-muted-foreground">{t('createUserFirst')}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
-                  <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">{t('noPreviewAvailable')}</p>
-                    <p className="text-sm text-muted-foreground">{t('addProjectsFirst')}</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+          ) : previewHtml ? (
+            <div className="border rounded-lg overflow-hidden bg-white shadow-inner">
+              <iframe
+                srcDoc={previewHtml}
+                className="w-full h-[70vh]"
+                title="HTML Preview"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[70vh] bg-muted rounded-lg">
+              <div className="text-center space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">{t('loadingPreview')}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

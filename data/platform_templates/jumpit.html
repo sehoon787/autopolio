@@ -435,14 +435,7 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                 <span class="skill-tag">{{.}}</span>
                 {{/skills}}
                 {{^skills}}
-                <span class="skill-tag">Python</span>
-                <span class="skill-tag">FastAPI</span>
-                <span class="skill-tag">Django</span>
-                <span class="skill-tag">PostgreSQL</span>
-                <span class="skill-tag">Docker</span>
-                <span class="skill-tag">Kubernetes</span>
-                <span class="skill-tag">AWS</span>
-                <span class="skill-tag">Git</span>
+                <span style="color: var(--jumpit-text-tertiary); font-size: 13px;">등록된 스킬이 없습니다.</span>
                 {{/skills}}
             </div>
         </section>
@@ -485,87 +478,120 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                             {{company_name}}
                             {{#is_current}}<span class="timeline-badge">재직중</span>{{/is_current}}
                         </span>
-                        <span class="timeline-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}</span>
+                        <span class="timeline-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}{{#duration}} ({{duration}}){{/duration}}</span>
                     </div>
                     <p class="timeline-position">{{position}}{{#department}} | {{department}}{{/department}}</p>
-                    {{#description}}<p class="timeline-desc">{{description}}</p>{{/description}}
+                    {{#description}}<p class="timeline-desc" style="margin-bottom: 12px;">- 주요 직무: {{description}}</p>{{/description}}
+                    {{#has_domain_skills}}
+                    <div class="domain-skills" style="margin-top: 16px;">
+                        {{#skills_by_domain}}
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-weight: 600; color: var(--jumpit-primary-dark); font-size: 14px; margin-bottom: 8px;">{{domain_index}}. {{domain_name}}</div>
+                            {{#has_technologies}}
+                            <div style="margin-left: 16px; margin-bottom: 6px;">
+                                <span style="color: var(--jumpit-text-tertiary); font-size: 13px;">주요 사용 기술</span>
+                                <div style="margin-left: 12px; color: var(--jumpit-text); font-size: 13px;">- {{technologies_str}}</div>
+                            </div>
+                            {{/has_technologies}}
+                            {{#has_implementations}}
+                            <div style="margin-left: 16px; margin-bottom: 6px;">
+                                <span style="color: var(--jumpit-text-tertiary); font-size: 13px;">구현 내용</span>
+                                {{#implementations}}
+                                <div style="margin-left: 12px; color: var(--jumpit-text); font-size: 13px;">- {{text}}</div>
+                                {{/implementations}}
+                            </div>
+                            {{/has_implementations}}
+                            {{#has_databases}}
+                            <div style="margin-left: 16px;">
+                                <span style="color: var(--jumpit-text-tertiary); font-size: 13px;">DB</span>
+                                <div style="margin-left: 12px; color: var(--jumpit-text); font-size: 13px;">- {{databases_str}}</div>
+                            </div>
+                            {{/has_databases}}
+                        </div>
+                        {{/skills_by_domain}}
+                    </div>
+                    {{/has_domain_skills}}
                 </div>
                 {{/experiences}}
                 {{^experiences}}
-                <div class="timeline-item current">
-                    <div class="timeline-header">
-                        <span class="timeline-company">주식회사 테크스타트업<span class="timeline-badge">재직중</span></span>
-                        <span class="timeline-period">2022.03 - 현재</span>
-                    </div>
-                    <p class="timeline-position">백엔드 개발자 | 개발팀</p>
-                    <p class="timeline-desc">- FastAPI 기반 RESTful API 서버 개발 및 운영
-- PostgreSQL 데이터베이스 설계 및 쿼리 최적화
-- Docker/Kubernetes 기반 컨테이너 인프라 구축
-- CI/CD 파이프라인 구축 (GitHub Actions)</p>
-                </div>
+                {{#has_capabilities}}
+                <!-- 역량 섹션 (회사 없이 개인 프로젝트만 있는 경우) -->
                 <div class="timeline-item">
-                    <div class="timeline-header">
-                        <span class="timeline-company">스타트업 ABC</span>
-                        <span class="timeline-period">2020.07 - 2022.02</span>
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <div class="company-header">
+                            <span class="company-name">역량 (개인 프로젝트 기반)</span>
+                        </div>
+                        {{#capabilities}}
+                        <div style="margin-top: 16px;">
+                            <div style="font-weight: 600; color: var(--jumpit-text); margin-bottom: 8px; font-size: 14px;">
+                                {{domain_index}}. {{domain_name}}
+                            </div>
+                            {{#has_technologies}}
+                            <div style="margin-bottom: 8px;">
+                                <span style="color: var(--jumpit-text-secondary); font-size: 13px;">주요 사용 기술</span>
+                                <div style="margin-left: 12px; color: var(--jumpit-text); font-size: 13px;">{{technologies_str}}</div>
+                            </div>
+                            {{/has_technologies}}
+                            {{#has_implementations}}
+                            <div style="margin-bottom: 8px;">
+                                <span style="color: var(--jumpit-text-secondary); font-size: 13px;">구현 내용</span>
+                                {{#implementations}}
+                                <div style="margin-left: 12px; color: var(--jumpit-text); font-size: 13px;">• {{text}}</div>
+                                {{/implementations}}
+                            </div>
+                            {{/has_implementations}}
+                        </div>
+                        {{/capabilities}}
                     </div>
-                    <p class="timeline-position">주니어 개발자 | 개발팀</p>
-                    <p class="timeline-desc">- Django 기반 웹 서비스 백엔드 개발
-- MySQL 데이터베이스 관리
-- AWS EC2/RDS 인프라 운영</p>
                 </div>
+                {{/has_capabilities}}
+                {{^has_capabilities}}
+                <div class="timeline-item" style="text-align: center; padding: 32px 20px; color: var(--jumpit-text-tertiary); border-left: none;">
+                    <p style="font-size: 14px;">등록된 경력이 없습니다.</p>
+                    <p style="font-size: 13px; margin-top: 8px;">회사 관리에서 경력을 추가해주세요.</p>
+                </div>
+                {{/has_capabilities}}
                 {{/experiences}}
             </div>
         </section>
 
-        <!-- 프로젝트 -->
+        <!-- 경력기술서 -->
         <section class="section">
-            <h2 class="section-title">프로젝트</h2>
+            <h2 class="section-title">경력기술서</h2>
             <div class="projects-list">
                 {{#projects}}
                 <div class="project-card">
-                    <div class="project-header">
-                        <span class="project-name">{{name}}</span>
-                        <span class="project-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</span>
+                    <div style="font-weight: 700; color: var(--jumpit-primary-dark); margin-bottom: 12px;">[프로젝트 {{index}}]</div>
+                    <div style="font-size: 14px; line-height: 1.8; color: var(--jumpit-text);">
+                        <div><strong>프로젝트명:</strong> {{name}}</div>
+                        <div><strong>연계/소속회사:</strong> {{#company}}{{company}}{{/company}}{{^company}}{{#company_name}}{{company_name}}{{/company_name}}{{^company_name}}사이드 프로젝트{{/company_name}}{{/company}}</div>
+                        <div><strong>기간:</strong> {{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</div>
+                        {{#role}}<div><strong>주요 업무:</strong> {{role}}</div>{{/role}}
+                        {{#has_key_tasks}}
+                        <div style="margin-top: 8px;"><strong>주요 구현 기능:</strong></div>
+                        <div style="margin-left: 16px;">
+                            {{#key_tasks_list}}
+                            <div>• {{.}}</div>
+                            {{/key_tasks_list}}
+                        </div>
+                        {{/has_key_tasks}}
+                        {{#technologies}}<div><strong>기술 스택:</strong> {{technologies}}</div>{{/technologies}}
+                        {{#team_size}}<div><strong>개발 인원:</strong> {{team_size}}</div>{{/team_size}}
+                        {{#description}}<div style="margin-top: 8px;"><strong>상세 내용:</strong> {{description}}</div>{{/description}}
+                        {{#achievements}}
+                        <div class="project-achievements" style="margin-top: 12px;">
+                            <div class="project-achievements-title">성과</div>
+                            <div class="project-achievements-list">{{achievements}}</div>
+                        </div>
+                        {{/achievements}}
                     </div>
-                    {{#company}}<p class="project-company">{{company}}</p>{{/company}}
-                    {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
-                    {{#technologies}}
-                    <div class="project-tech">
-                        {{#technologies_list}}
-                        <span class="project-tech-tag">{{.}}</span>
-                        {{/technologies_list}}
-                    </div>
-                    {{/technologies}}
-                    {{#achievements}}
-                    <div class="project-achievements">
-                        <div class="project-achievements-title">주요 성과</div>
-                        <div class="project-achievements-list">{{achievements}}</div>
-                    </div>
-                    {{/achievements}}
                 </div>
                 {{/projects}}
                 {{^projects}}
-                <div class="project-card">
-                    <div class="project-header">
-                        <span class="project-name">AI 기반 추천 시스템 개발</span>
-                        <span class="project-period">2023.06 - 2023.12</span>
-                    </div>
-                    <p class="project-company">주식회사 테크스타트업</p>
-                    <p class="project-desc">사용자 행동 데이터를 분석하여 개인화된 콘텐츠를 추천하는 시스템을 개발했습니다.
-머신러닝 모델을 FastAPI로 서빙하고, Redis를 활용한 캐싱으로 응답 속도를 개선했습니다.</p>
-                    <div class="project-tech">
-                        <span class="project-tech-tag">Python</span>
-                        <span class="project-tech-tag">FastAPI</span>
-                        <span class="project-tech-tag">PostgreSQL</span>
-                        <span class="project-tech-tag">Redis</span>
-                        <span class="project-tech-tag">Docker</span>
-                    </div>
-                    <div class="project-achievements">
-                        <div class="project-achievements-title">주요 성과</div>
-                        <div class="project-achievements-list">• 추천 정확도 35% 향상
-• API 응답 시간 200ms 이하 달성
-• 일일 100만 요청 처리</div>
-                    </div>
+                <div class="project-card" style="text-align: center; padding: 32px 20px; color: var(--jumpit-text-tertiary);">
+                    <p style="font-size: 14px;">등록된 프로젝트가 없습니다.</p>
+                    <p style="font-size: 13px; margin-top: 8px;">프로젝트 관리에서 프로젝트를 추가해주세요.</p>
                 </div>
                 {{/projects}}
             </div>
@@ -585,12 +611,8 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                 </div>
                 {{/educations}}
                 {{^educations}}
-                <div class="timeline-item">
-                    <div class="timeline-header">
-                        <span class="timeline-company">OO대학교</span>
-                        <span class="timeline-period">2016.03 - 2020.02</span>
-                    </div>
-                    <p class="timeline-position">컴퓨터공학과 학사</p>
+                <div class="timeline-item" style="text-align: center; padding: 20px; color: var(--jumpit-text-tertiary); border-left: none;">
+                    <p style="font-size: 13px;">등록된 학력이 없습니다.</p>
                 </div>
                 {{/educations}}
             </div>

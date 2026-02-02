@@ -48,16 +48,16 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.result_dir, exist_ok=True)
     await init_db()
 
-    # Auto-initialize system templates on startup
+    # Auto-refresh system templates on startup (always update from files)
     try:
         async with AsyncSessionLocal() as session:
             service = PlatformTemplateService(session)
-            templates = await service.init_system_templates(force_update=False)
+            templates = await service.refresh_system_templates()
             if templates:
-                logging.info(f"Initialized {len(templates)} system platform templates")
+                logging.info(f"Refreshed {len(templates)} system platform templates")
             await session.commit()
     except Exception as e:
-        logging.warning(f"Failed to initialize system templates: {e}")
+        logging.warning(f"Failed to refresh system templates: {e}")
 
     yield
     # Shutdown

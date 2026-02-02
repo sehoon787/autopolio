@@ -425,26 +425,65 @@
                                     {{company_name}}
                                     {{#is_current}}<span class="experience-badge">재직중</span>{{/is_current}}
                                 </span>
-                                <span class="experience-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}</span>
+                                <span class="experience-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}현재{{/end_date}}{{#duration}} ({{duration}}){{/duration}}</span>
                             </div>
                             <p class="experience-position">{{position}}</p>
-                            {{#description}}<p class="experience-desc">{{description}}</p>{{/description}}
+                            {{#description}}<p class="experience-desc" style="margin-bottom: 12px;">주요 직무: {{description}}</p>{{/description}}
+                            {{#has_domain_skills}}
+                            <div class="domain-skills" style="margin-top: 16px;">
+                                <div style="font-weight: 600; color: var(--rmb-primary); font-size: 13px; margin-bottom: 12px;">[담당 기술 스택]</div>
+                                {{#skills_by_domain}}
+                                <div style="margin-bottom: 12px; margin-left: 8px;">
+                                    <div style="font-weight: 500; color: var(--rmb-text); font-size: 13px;">{{domain_name}}</div>
+                                    {{#has_technologies}}
+                                    <div style="margin-left: 12px; color: var(--rmb-text-tertiary); font-size: 12px;">- {{technologies_str}}</div>
+                                    {{/has_technologies}}
+                                </div>
+                                {{/skills_by_domain}}
+                            </div>
+                            {{/has_domain_skills}}
                         </div>
                     </div>
                     {{/experiences}}
                     {{^experiences}}
+                    {{#has_capabilities}}
+                    <!-- 역량 섹션 (회사 없이 개인 프로젝트만 있는 경우) -->
                     <div class="experience-item">
-                        <div class="experience-logo">🏢</div>
+                        <div class="timeline-marker"></div>
                         <div class="experience-content">
                             <div class="experience-header">
-                                <span class="experience-company">테크 스타트업<span class="experience-badge">재직중</span></span>
-                                <span class="experience-period">2022.03 - 현재</span>
+                                <span class="company-name" style="background: var(--rmb-gradient);">역량 (개인 프로젝트 기반)</span>
                             </div>
-                            <p class="experience-position">백엔드 개발자</p>
-                            <p class="experience-desc">서비스 핵심 API 개발 및 시스템 설계를 담당하고 있습니다.
-성능 최적화와 코드 품질 개선에 집중하고 있습니다.</p>
+                            {{#capabilities}}
+                            <div style="margin-top: 16px;">
+                                <div style="font-weight: 600; color: var(--rmb-text); margin-bottom: 8px; font-size: 14px;">
+                                    {{domain_index}}. {{domain_name}}
+                                </div>
+                                {{#has_technologies}}
+                                <div style="margin-bottom: 8px;">
+                                    <span style="color: var(--rmb-text-secondary); font-size: 12px;">주요 사용 기술</span>
+                                    <div style="margin-left: 12px; color: var(--rmb-text); font-size: 13px;">{{technologies_str}}</div>
+                                </div>
+                                {{/has_technologies}}
+                                {{#has_implementations}}
+                                <div style="margin-bottom: 8px;">
+                                    <span style="color: var(--rmb-text-secondary); font-size: 12px;">구현 내용</span>
+                                    {{#implementations}}
+                                    <div style="margin-left: 12px; color: var(--rmb-text); font-size: 13px;">• {{text}}</div>
+                                    {{/implementations}}
+                                </div>
+                                {{/has_implementations}}
+                            </div>
+                            {{/capabilities}}
                         </div>
                     </div>
+                    {{/has_capabilities}}
+                    {{^has_capabilities}}
+                    <div class="experience-item" style="text-align: center; padding: 32px 20px; color: var(--rmb-text-tertiary);">
+                        <p style="font-size: 14px;">등록된 경력이 없습니다.</p>
+                        <p style="font-size: 13px; margin-top: 8px;">회사 관리에서 경력을 추가해주세요.</p>
+                    </div>
+                    {{/has_capabilities}}
                     {{/experiences}}
                 </div>
             </section>
@@ -457,46 +496,54 @@
                     <span class="skill-tag">{{.}}</span>
                     {{/skills}}
                     {{^skills}}
-                    <span class="skill-tag primary">Python</span>
-                    <span class="skill-tag primary">FastAPI</span>
-                    <span class="skill-tag">PostgreSQL</span>
-                    <span class="skill-tag">Docker</span>
-                    <span class="skill-tag">AWS</span>
-                    <span class="skill-tag">Git</span>
+                    <span style="color: var(--rmb-text-tertiary); font-size: 13px;">등록된 스킬이 없습니다.</span>
                     {{/skills}}
                 </div>
             </section>
 
-            <!-- 프로젝트 -->
-            {{#projects.length}}
+            <!-- 주요 프로젝트 -->
             <section class="section">
-                <h2 class="section-title">프로젝트</h2>
+                <h2 class="section-title">주요 프로젝트</h2>
                 {{#projects}}
                 <div class="project-item">
                     <div class="project-header">
-                        <span class="project-name">{{name}}</span>
+                        <span class="project-name">{{index}}. {{name}}</span>
                         <span class="project-period">{{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</span>
                     </div>
-                    {{#company}}<p class="project-company">{{company}}</p>{{/company}}
+                    <p class="project-company">{{#company}}{{company}}{{/company}}{{^company}}{{#company_name}}{{company_name}}{{/company_name}}{{^company_name}}사이드 프로젝트{{/company_name}}{{/company}}</p>
+                    {{#role}}<p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 4px;"><strong>역할:</strong> {{role}}</p>{{/role}}
                     {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                    {{#has_key_tasks}}
+                    <div style="margin-top: 8px;">
+                        <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>주요 구현 기능:</strong></p>
+                        <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text);">
+                            {{#key_tasks_list}}
+                            <div>• {{.}}</div>
+                            {{/key_tasks_list}}
+                        </div>
+                    </div>
+                    {{/has_key_tasks}}
+                    {{#technologies}}
+                    <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 8px;"><strong>기술 스택:</strong> <span style="color: var(--rmb-text);">{{technologies}}</span></p>
+                    {{/technologies}}
+                    {{#team_size}}
+                    <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 4px;"><strong>개발 인원:</strong> <span style="color: var(--rmb-text);">{{team_size}}</span></p>
+                    {{/team_size}}
+                    {{#has_achievements}}
+                    <div style="margin-top: 8px;">
+                        <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>성과:</strong></p>
+                        <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text); white-space: pre-wrap;">{{achievements}}</div>
+                    </div>
+                    {{/has_achievements}}
+                </div>
+                {{/projects}}
+                {{^projects}}
+                <div class="project-item" style="text-align: center; padding: 32px 20px; color: var(--rmb-text-tertiary);">
+                    <p style="font-size: 14px;">등록된 프로젝트가 없습니다.</p>
+                    <p style="font-size: 13px; margin-top: 8px;">프로젝트 관리에서 프로젝트를 추가해주세요.</p>
                 </div>
                 {{/projects}}
             </section>
-            {{/projects.length}}
-            {{^projects}}
-            <section class="section">
-                <h2 class="section-title">프로젝트</h2>
-                <div class="project-item">
-                    <div class="project-header">
-                        <span class="project-name">데이터 분석 플랫폼</span>
-                        <span class="project-period">2023.03 - 2023.09</span>
-                    </div>
-                    <p class="project-company">테크 스타트업</p>
-                    <p class="project-desc">실시간 데이터 분석 및 시각화 플랫폼을 개발했습니다.
-대용량 데이터 처리 파이프라인 구축과 API 설계를 담당했습니다.</p>
-                </div>
-            </section>
-            {{/projects}}
 
             <!-- 학력 -->
             <section class="section">
@@ -512,13 +559,8 @@
                 </div>
                 {{/educations}}
                 {{^educations}}
-                <div class="education-item">
-                    <div class="education-icon">🎓</div>
-                    <div class="education-content">
-                        <div class="education-school">OO대학교</div>
-                        <div class="education-major">컴퓨터공학과</div>
-                        <div class="education-period">2016.03 - 2020.02</div>
-                    </div>
+                <div class="education-item" style="text-align: center; padding: 20px; color: var(--rmb-text-tertiary);">
+                    <p style="font-size: 13px;">등록된 학력이 없습니다.</p>
                 </div>
                 {{/educations}}
             </section>

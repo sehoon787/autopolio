@@ -38,9 +38,20 @@ async def get_templates(
     user_id: Optional[int] = None,
     platform: Optional[str] = None,
     include_system: bool = True,
+    include_platform_templates: bool = False,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all templates (system + user's custom templates)."""
+    """Get all templates (system + user's custom templates).
+
+    Args:
+        user_id: Filter by user ID
+        platform: Filter by specific platform
+        include_system: Include system templates
+        include_platform_templates: Include platform-specific templates (saramin, wanted, remember).
+                                   Defaults to False since these are now in /platforms.
+    """
+    from sqlalchemy import or_, and_, not_
+
     query = select(Template)
 
     conditions = []
@@ -50,11 +61,16 @@ async def get_templates(
         conditions.append(Template.user_id == user_id)
 
     if conditions:
-        from sqlalchemy import or_
         query = query.where(or_(*conditions))
 
     if platform:
         query = query.where(Template.platform == platform)
+
+    # Exclude platform-specific templates unless explicitly requested
+    # These templates are now available via /platforms endpoint with HTML rendering
+    if not include_platform_templates:
+        platform_specific = ["saramin_1", "saramin_2", "wanted", "remember"]
+        query = query.where(not_(Template.platform.in_(platform_specific)))
 
     query = query.order_by(Template.is_system.desc(), Template.name)
 

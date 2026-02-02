@@ -16,6 +16,43 @@ from api.models.repo_analysis import RepoAnalysis
 from api.models.achievement import ProjectAchievement
 
 
+# Domain categorization keywords
+DOMAIN_CATEGORIES = {
+    "Backend": {
+        "keywords": ["python", "fastapi", "django", "flask", "spring", "java", "kotlin", "express", "nodejs", "restful", "api", "jwt", "oauth"],
+        "name_ko": "Backend",
+    },
+    "AI/ML": {
+        "keywords": ["tensorflow", "pytorch", "scikit", "langchain", "llm", "gpt", "openai", "ml", "ai", "machine learning", "deep learning", "rag", "nlp"],
+        "name_ko": "AI/ML",
+    },
+    "Frontend": {
+        "keywords": ["react", "vue", "angular", "next", "typescript", "javascript", "html", "css", "tailwind", "shadcn"],
+        "name_ko": "Frontend",
+    },
+    "Mobile": {
+        "keywords": ["flutter", "dart", "swift", "kotlin", "react native", "android", "ios", "mobile"],
+        "name_ko": "Mobile/Cross-Platform",
+    },
+    "Data": {
+        "keywords": ["pandas", "numpy", "matplotlib", "data analysis", "데이터 분석", "excel", "visualization"],
+        "name_ko": "데이터 분석",
+    },
+    "Database": {
+        "keywords": ["postgresql", "mysql", "sqlite", "mongodb", "redis", "elasticsearch", "sql", "database", "db"],
+        "name_ko": "Database",
+    },
+    "DevOps": {
+        "keywords": ["docker", "kubernetes", "aws", "gcp", "azure", "ci/cd", "github action", "nginx", "linux"],
+        "name_ko": "DevOps/인프라",
+    },
+    "IoT": {
+        "keywords": ["iot", "embedded", "ble", "bluetooth", "sensor", "raspberry", "arduino", "임베디드"],
+        "name_ko": "IoT/임베디드",
+    },
+}
+
+
 class UserDataCollector:
     """Collects user data from database for template rendering"""
 
@@ -53,12 +90,21 @@ class UserDataCollector:
 
         # Build render data
         data = self._build_base_data(user, companies)
-        data["experiences"] = self._build_experiences(companies)
 
         project_list, all_technologies = self._build_projects(projects, companies)
         data["projects"] = project_list
         data["skills"] = list(all_technologies)
         data["skills_categorized"] = self._categorize_skills(all_technologies)
+
+        # Build experiences with domain-categorized skills
+        company_projects = self._group_projects_by_company(project_list)
+        data["experiences"] = self._build_experiences(companies, company_projects)
+
+        # Build capabilities (역량) from personal projects (projects without company)
+        personal_projects = [p for p in project_list if not p.get("company_name")]
+        data["capabilities"] = self._build_capabilities(personal_projects)
+        data["has_capabilities"] = len(data["capabilities"]) > 0
+        data["has_experiences"] = len(data["experiences"]) > 0
 
         # Empty arrays for fields not in current schema
         data["education"] = []
@@ -99,9 +145,70 @@ class UserDataCollector:
             "portfolio_url": f"https://github.com/{user.github_username}" if user.github_username else None,
         }
 
-    def _build_experiences(self, companies: List[Company]) -> List[Dict[str, Any]]:
-        """Build experiences from companies"""
+    def _build_capabilities(
+        self,
+        personal_projects: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Build capabilities (역량) from personal projects (projects without company)
+
+        Returns list of capability items with domain-categorized skills.
+        Used when user has personal/side projects but no company-based experience.
+        """
+        if not personal_projects:
+            return []
+
+        # Categorize skills by domain for personal projects
+        skills_by_domain = self._categorize_skills_by_domain_detailed(personal_projects)
+
+        capabilities = []
+        for domain_item in skills_by_domain:
+            cap = {
+                "domain_name": domain_item.get("domain_name", ""),
+                "domain_index": domain_item.get("domain_index", 0),
+                "technologies": domain_item.get("technologies", []),
+                "technologies_str": domain_item.get("technologies_str", ""),
+                "has_technologies": domain_item.get("has_technologies", False),
+                "implementations": domain_item.get("implementations", []),
+                "has_implementations": domain_item.get("has_implementations", False),
+                "databases": domain_item.get("databases", []),
+                "databases_str": domain_item.get("databases_str", ""),
+                "has_databases": domain_item.get("has_databases", False),
+                # Include project names for reference
+                "projects": [p.get("name", "") for p in personal_projects
+                            if self._project_matches_domain(p, domain_item.get("domain_name", ""))],
+            }
+            capabilities.append(cap)
+
+        return capabilities
+
+    def _project_matches_domain(self, project: Dict[str, Any], domain_name: str) -> bool:
+        """Check if a project's technologies match a domain"""
+        tech = project.get("technologies", "")
+        if isinstance(tech, str):
+            techs = [t.strip().lower() for t in tech.split(",") if t.strip()]
+        elif isinstance(tech, list):
+            techs = [t.lower() for t in tech]
+        else:
+            techs = []
+
+        # Find matching keywords for this domain
+        for domain_key, domain_info in DOMAIN_CATEGORIES.items():
+            if domain_info.get("name_ko") == domain_name:
+                return any(
+                    any(kw in tech for kw in domain_info["keywords"])
+                    for tech in techs
+                )
+        return False
+
+    def _build_experiences(
+        self,
+        companies: List[Company],
+        company_projects: Dict[str, List[Dict[str, Any]]] = None
+    ) -> List[Dict[str, Any]]:
+        """Build experiences from companies with domain-categorized skills"""
         experiences = []
+        company_projects = company_projects or {}
+
         for company in companies:
             is_current = company.end_date is None
             start = company.start_date
@@ -120,6 +227,12 @@ class UserDataCollector:
                 else:
                     duration = f"{rem_months}개월"
 
+            # Get projects for this company
+            company_projs = company_projects.get(company.name, [])
+
+            # Categorize skills by domain for this company's projects
+            skills_by_domain = self._categorize_skills_by_domain_detailed(company_projs)
+
             exp = {
                 "company_name": company.name,
                 "position": company.position or "",
@@ -132,6 +245,9 @@ class UserDataCollector:
                 "description": company.description or "",
                 "salary": "",
                 "location": "",
+                # Domain-categorized skills for HTML template
+                "skills_by_domain": skills_by_domain,
+                "has_domain_skills": len(skills_by_domain) > 0,
             }
             experiences.append(exp)
         return experiences
@@ -244,8 +360,10 @@ class UserDataCollector:
                 "main_features": "",
                 "achievements": achievements_str,
                 "achievements_list": project_achievements or detailed_achievements,  # For template iteration
+                "has_achievements": bool(achievements_str),  # Boolean flag for Mustache
                 "key_tasks": key_tasks_str,
                 "key_tasks_list": key_tasks,  # For template iteration
+                "has_key_tasks": len(key_tasks) > 0,  # Boolean flag for Mustache
                 "implementation_details": implementation_details,  # For detailed rendering
                 "git_url": project.git_url or "",
             }
@@ -287,3 +405,174 @@ class UserDataCollector:
                 skills_categorized["tools"].append(tech)
 
         return skills_categorized
+
+    def _group_projects_by_company(
+        self,
+        projects: List[Dict[str, Any]]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Group projects by company name"""
+        company_projects = {}
+        for proj in projects:
+            company = proj.get("company_name") or proj.get("company") or ""
+            if company not in company_projects:
+                company_projects[company] = []
+            company_projects[company].append(proj)
+        return company_projects
+
+    def _categorize_skills_by_domain_detailed(
+        self,
+        projects: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Categorize skills by domain with detailed format for HTML rendering
+
+        Returns list of domain dicts for Mustache iteration:
+        [
+            {
+                "domain_name": "Backend",
+                "domain_index": 1,
+                "technologies": ["FastAPI", "Django", "PostgreSQL"],
+                "technologies_str": "FastAPI, Django, PostgreSQL",
+                "implementations": ["RESTful API 서버 개발", ...],
+                "databases": ["PostgreSQL", "MySQL"],
+                "databases_str": "PostgreSQL, MySQL",
+                "has_implementations": True,
+                "has_databases": True
+            },
+            ...
+        ]
+        """
+        domain_data = {}
+
+        for proj in projects:
+            # Get technologies
+            tech = proj.get("technologies")
+            if isinstance(tech, str):
+                techs = [t.strip() for t in tech.split(",") if t.strip()]
+            elif isinstance(tech, list):
+                techs = tech
+            else:
+                techs = []
+
+            # Get key tasks and implementation details
+            key_tasks = proj.get("key_tasks_list", [])
+            if not key_tasks:
+                key_tasks_str = proj.get("key_tasks", "")
+                if key_tasks_str:
+                    key_tasks = [t.strip().lstrip("•").strip()
+                                for t in key_tasks_str.split("\n") if t.strip()]
+
+            # Find primary domain
+            project_primary_domain = None
+            domain_tech_count = {}
+
+            # Categorize technologies
+            for tech_name in techs:
+                tech_lower = tech_name.lower()
+                matched_domain = None
+
+                for domain_key, domain_info in DOMAIN_CATEGORIES.items():
+                    if any(kw in tech_lower for kw in domain_info["keywords"]):
+                        matched_domain = domain_info["name_ko"]
+                        break
+
+                if not matched_domain:
+                    matched_domain = "기타"
+
+                if matched_domain not in domain_data:
+                    domain_data[matched_domain] = {
+                        "_tech_set": set(),
+                        "_impl_set": set(),
+                        "_db_set": set(),
+                    }
+
+                domain_data[matched_domain]["_tech_set"].add(tech_name)
+                domain_tech_count[matched_domain] = domain_tech_count.get(matched_domain, 0) + 1
+
+                # Check if it's a database tech
+                if any(kw in tech_lower for kw in DOMAIN_CATEGORIES.get("Database", {}).get("keywords", [])):
+                    domain_data[matched_domain]["_db_set"].add(tech_name)
+
+            # Find primary domain
+            if domain_tech_count:
+                project_primary_domain = max(domain_tech_count.items(), key=lambda x: x[1])[0]
+
+            # Add key_tasks to implementations
+            for task in key_tasks:
+                task_lower = task.lower()
+                task_assigned = False
+
+                for domain_key, domain_info in DOMAIN_CATEGORIES.items():
+                    if any(kw in task_lower for kw in domain_info["keywords"]):
+                        domain_name = domain_info["name_ko"]
+                        if domain_name not in domain_data:
+                            domain_data[domain_name] = {
+                                "_tech_set": set(),
+                                "_impl_set": set(),
+                                "_db_set": set(),
+                            }
+                        domain_data[domain_name]["_impl_set"].add(task)
+                        task_assigned = True
+                        break
+
+                if not task_assigned and project_primary_domain:
+                    if project_primary_domain not in domain_data:
+                        domain_data[project_primary_domain] = {
+                            "_tech_set": set(),
+                            "_impl_set": set(),
+                            "_db_set": set(),
+                        }
+                    domain_data[project_primary_domain]["_impl_set"].add(task)
+
+        # Sort by priority and convert to list format for Mustache
+        priority_order = ["Backend", "AI/ML", "Frontend", "Mobile/Cross-Platform", "데이터 분석", "Database", "DevOps/인프라", "IoT/임베디드", "기타"]
+
+        result = []
+        domain_idx = 1
+
+        for domain_name in priority_order:
+            if domain_name in domain_data:
+                dd = domain_data[domain_name]
+                techs = sorted(dd["_tech_set"])
+                impls = list(dd["_impl_set"])[:10]
+                dbs = sorted(dd["_db_set"])
+
+                # Only include domains that have content
+                if techs or impls:
+                    result.append({
+                        "domain_name": domain_name,
+                        "domain_index": domain_idx,
+                        "technologies": techs,
+                        "technologies_str": ", ".join(techs) if techs else "",
+                        "has_technologies": len(techs) > 0,
+                        "implementations": [{"text": impl} for impl in impls],
+                        "has_implementations": len(impls) > 0,
+                        "databases": dbs,
+                        "databases_str": ", ".join(dbs) if dbs else "",
+                        "has_databases": len(dbs) > 0,
+                    })
+                    domain_idx += 1
+
+        # Add any remaining domains not in priority order
+        for domain_name in domain_data:
+            if domain_name not in priority_order:
+                dd = domain_data[domain_name]
+                techs = sorted(dd["_tech_set"])
+                impls = list(dd["_impl_set"])[:10]
+                dbs = sorted(dd["_db_set"])
+
+                if techs or impls:
+                    result.append({
+                        "domain_name": domain_name,
+                        "domain_index": domain_idx,
+                        "technologies": techs,
+                        "technologies_str": ", ".join(techs) if techs else "",
+                        "has_technologies": len(techs) > 0,
+                        "implementations": [{"text": impl} for impl in impls],
+                        "has_implementations": len(impls) > 0,
+                        "databases": dbs,
+                        "databases_str": ", ".join(dbs) if dbs else "",
+                        "has_databases": len(dbs) > 0,
+                    })
+                    domain_idx += 1
+
+        return result
