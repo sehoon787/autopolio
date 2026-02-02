@@ -443,6 +443,7 @@ export default function ProjectDetailPage() {
               await resetFieldMutation.mutateAsync('key_tasks')
             }}
             contributorAnalysis={contributorAnalysisData?.data}
+            companies={companies}
           />
         </TabsContent>
 

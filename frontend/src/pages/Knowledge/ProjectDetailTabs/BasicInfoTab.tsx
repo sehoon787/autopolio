@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,9 +23,16 @@ export function BasicInfoTab({
   t,
   onSaveKeyTasks,
   onResetKeyTasks,
-  contributorAnalysis
+  contributorAnalysis,
+  companies
 }: BasicInfoTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
+
+  // Get company name from companies list
+  const companyName = useMemo(() => {
+    if (!project.company_id || !companies) return null
+    return companies.find(c => c.id === project.company_id)?.name
+  }, [project.company_id, companies])
 
   return (
     <>
@@ -45,6 +52,12 @@ export function BasicInfoTab({
                 {formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : t('detail.basicInfo.ongoing')}
               </p>
             </div>
+            {companyName && (
+              <div>
+                <span className="text-sm text-gray-500">{t('detail.basicInfo.company')}</span>
+                <p>{companyName}</p>
+              </div>
+            )}
             {project.role && (
               <div>
                 <span className="text-sm text-gray-500">{t('detail.basicInfo.role')}</span>

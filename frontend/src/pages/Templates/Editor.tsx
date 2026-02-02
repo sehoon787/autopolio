@@ -76,6 +76,7 @@ export default function TemplateEditor() {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       queryClient.invalidateQueries({ queryKey: ['template', templateId] })
       toast({ title: t('saved') })
+      navigate('/templates')
     },
     onError: () => {
       toast({ title: tc('error'), description: t('editor.saveFailed'), variant: 'destructive' })
@@ -86,10 +87,10 @@ export default function TemplateEditor() {
   const createMutation = useMutation({
     mutationFn: (data: { name: string; description: string; template_content: string }) =>
       templatesApi.create(user!.id, { ...data, output_format: 'md' }),
-    onSuccess: (response) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       toast({ title: t('saved') })
-      navigate(`/templates/${response.data.id}/edit`)
+      navigate('/templates')
     },
     onError: () => {
       toast({ title: tc('error'), description: t('editor.createFailed'), variant: 'destructive' })

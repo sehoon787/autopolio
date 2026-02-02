@@ -10,6 +10,7 @@ export interface BasicInfoTabProps {
   onSaveKeyTasks: (items: string[]) => Promise<void>
   onResetKeyTasks: () => Promise<void>
   contributorAnalysis?: ContributorAnalysis
+  companies?: Array<{ id: number; name: string }>
 }
 
 export interface SummaryTabProps {

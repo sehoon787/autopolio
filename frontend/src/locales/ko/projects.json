@@ -194,6 +194,7 @@
       "projectInfo": "프로젝트 정보",
       "period": "기간",
       "ongoing": "진행중",
+      "company": "소속",
       "role": "역할",
       "teamSize": "팀 규모",
       "teamSizeValue": "{{count}}명",

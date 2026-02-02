@@ -5,6 +5,7 @@
   "projects": "프로젝트 관리",
   "projectsKanban": "프로젝트 칸반",
   "platforms": "플랫폼 템플릿",
+  "documentManagement": "문서 관리",
   "templates": "템플릿",
   "generate": "문서 생성",
   "documents": "생성 문서",

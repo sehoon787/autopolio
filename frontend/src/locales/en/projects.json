@@ -194,6 +194,7 @@
       "projectInfo": "Project Info",
       "period": "Period",
       "ongoing": "Ongoing",
+      "company": "Company",
       "role": "Role",
       "teamSize": "Team Size",
       "teamSizeValue": "{{count}} members",
