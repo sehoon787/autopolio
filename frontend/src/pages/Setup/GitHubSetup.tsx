@@ -119,7 +119,7 @@ export default function GitHubSetup() {
   }, [handleOAuthSuccess])
 
   const connectMutation = useMutation({
-    mutationFn: () => githubApi.connect('/setup/github', isElectronApp),
+    mutationFn: () => githubApi.connect('/setup/github', isElectronApp, user?.id),
     onSuccess: (response) => {
       if (isElectronApp) {
         // Electron: open OAuth in external browser
