@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -25,6 +25,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useAppStore } from '@/stores/appStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { projectsApi, companiesApi, type ProjectCreate } from '@/api/knowledge'
 import { githubApi } from '@/api/github'
 import { reportsApi, type DetailedReportData, type FinalReportData } from '@/api/documents'
@@ -40,7 +41,9 @@ import {
   Pencil,
   HelpCircle,
   X,
+  StopCircle,
 } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
 import {
   Popover,
   PopoverContent,
@@ -59,6 +62,18 @@ export default function ProjectDetailPage() {
   const { user } = useUserStore()
   const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
 
+  // Analysis store for background analysis tracking
+  const {
+    isAnalyzing,
+    getProgress,
+    getJob,
+    startPolling,
+    stopPolling,
+    startAnalysis,
+    cancelAnalysis,
+    activeJobs,
+  } = useAnalysisStore()
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [editFormData, setEditFormData] = useState<Partial<ProjectCreate>>({})
@@ -66,6 +81,39 @@ export default function ProjectDetailPage() {
   const [isOngoing, setIsOngoing] = useState(false)
 
   const projectId = parseInt(id || '0')
+
+  // Start polling for analysis status
+  useEffect(() => {
+    if (user?.id) {
+      startPolling(user.id)
+    }
+    return () => stopPolling()
+  }, [user?.id, startPolling, stopPolling])
+
+  // Refetch data when analysis completes
+  useEffect(() => {
+    const job = activeJobs.get(projectId)
+    if (job && (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled')) {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['contributor-analysis', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
+
+      if (job.status === 'completed') {
+        toast({ title: t('backgroundAnalysis.completed'), description: t('backgroundAnalysis.completedDesc') })
+      } else if (job.status === 'failed') {
+        toast({ title: t('backgroundAnalysis.failed'), description: t('backgroundAnalysis.failedDesc', { error: job.error_message }), variant: 'destructive' })
+      } else if (job.status === 'cancelled') {
+        toast({ title: t('backgroundAnalysis.cancelled') })
+      }
+    }
+  }, [activeJobs, projectId, queryClient, toast, t])
+
+  const analyzing = isAnalyzing(projectId)
+  const analysisProgress = getProgress(projectId)
+  const analysisJob = getJob(projectId)
 
   // Fetch companies for edit form
   const { data: companiesData } = useQuery({
@@ -148,39 +196,49 @@ export default function ProjectDetailPage() {
     enabled: !!projectId && !!projectData?.data?.is_analyzed,
   })
 
-  const analyzeMutation = useMutation({
-    mutationFn: () => {
-      // Build LLM/CLI options based on aiMode
-      const options: Parameters<typeof githubApi.analyzeRepo>[3] = {}
+  // Start background analysis
+  const handleStartAnalysis = async () => {
+    if (!user?.id || !project?.git_url) return
 
-      if (aiMode === 'cli' && isElectronApp) {
-        // CLI mode (Electron only)
-        options.cli_mode = selectedCLI
-        options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
-      } else {
-        // API mode
-        options.provider = selectedLLMProvider
-      }
+    // Build options based on aiMode
+    const options: Parameters<typeof startAnalysis>[3] = {}
 
-      return githubApi.analyzeRepo(user!.id, project!.git_url!, project!.id, options)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['repo-analysis-effective', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['report-summary', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['report-final', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['report-detailed', projectId] })
-      toast({ title: t('detail.toast.analyzeSuccess'), description: t('detail.toast.analyzeSuccessDesc') })
-    },
-    onError: (error: any) => {
+    if (aiMode === 'cli' && isElectronApp) {
+      // CLI mode (Electron only)
+      options.cli_mode = selectedCLI
+      options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+    } else {
+      // API mode
+      options.provider = selectedLLMProvider
+    }
+
+    try {
+      await startAnalysis(user.id, project.git_url, project.id, options)
+      toast({ title: t('detail.toast.analyzeStarted'), description: t('detail.toast.analyzeStartedDesc') })
+    } catch (error: any) {
       const errorMessage = error?.response?.data?.detail || t('detail.toast.analyzeFailedDesc')
       toast({
         title: t('detail.toast.analyzeFailed'),
         description: errorMessage,
         variant: 'destructive'
       })
-    },
-  })
+    }
+  }
+
+  // Cancel ongoing analysis
+  const handleCancelAnalysis = async () => {
+    if (!user?.id) return
+    try {
+      await cancelAnalysis(user.id, projectId)
+      toast({ title: t('backgroundAnalysis.cancelled') })
+    } catch (error: any) {
+      toast({
+        title: t('detail.toast.cancelFailed'),
+        description: error?.response?.data?.detail || 'Failed to cancel analysis',
+        variant: 'destructive'
+      })
+    }
+  }
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<ProjectCreate>) => projectsApi.update(projectId, data),
@@ -277,10 +335,26 @@ export default function ProjectDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{project.name}</h1>
-            {project.is_analyzed && <Badge variant="success">{t('detail.badge.analyzed')}</Badge>}
+            {analyzing ? (
+              <Badge className="bg-blue-500 text-white animate-pulse">
+                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                {t('backgroundAnalysis.inProgress')} ({analysisProgress}%)
+              </Badge>
+            ) : project.is_analyzed ? (
+              <Badge variant="success">{t('detail.badge.analyzed')}</Badge>
+            ) : null}
           </div>
           {project.short_description && (
             <p className="text-gray-600 mt-1">{project.short_description}</p>
+          )}
+          {/* Progress bar during analysis */}
+          {analyzing && analysisJob && (
+            <div className="mt-2 flex items-center gap-2">
+              <Progress value={analysisProgress} className="h-2 flex-1 max-w-md" />
+              <span className="text-xs text-gray-500">
+                {t('backgroundAnalysis.stepProgress', { step: analysisJob.current_step, total: analysisJob.total_steps })}
+              </span>
+            </div>
           )}
         </div>
         <Button variant="outline" onClick={openEditDialog}>
@@ -295,14 +369,23 @@ export default function ProjectDetailPage() {
         )}
         {project.git_url && (
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              onClick={() => analyzeMutation.mutate()}
-              disabled={analyzeMutation.isPending}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${analyzeMutation.isPending ? 'animate-spin' : ''}`} />
-              {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
-            </Button>
+            {analyzing ? (
+              <Button
+                variant="destructive"
+                onClick={handleCancelAnalysis}
+              >
+                <StopCircle className="h-4 w-4 mr-2" />
+                {t('backgroundAnalysis.cancel')}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleStartAnalysis}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {project.is_analyzed ? t('detail.buttons.reanalyze') : t('detail.buttons.analyzeRepo')}
+              </Button>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">

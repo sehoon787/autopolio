@@ -85,3 +85,4 @@ class Project(Base):
     technologies = relationship("ProjectTechnology", back_populates="project", cascade="all, delete-orphan")
     achievements = relationship("ProjectAchievement", back_populates="project", cascade="all, delete-orphan")
     repo_analysis = relationship("RepoAnalysis", back_populates="project", uselist=False, cascade="all, delete-orphan")
+    jobs = relationship("Job", back_populates="project", foreign_keys="Job.target_project_id")

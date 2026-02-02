@@ -72,7 +72,26 @@
     "pending": "대기 중",
     "analyzing": "분석 중",
     "review": "검토 중",
-    "completed": "완료"
+    "completed": "완료",
+    "partial": "부분 완료"
+  },
+  "backgroundAnalysis": {
+    "inProgress": "분석 중",
+    "progress": "{{progress}}%",
+    "stepProgress": "{{step}}/{{total}}",
+    "step1": "레포지토리 정보",
+    "step2": "기술 스택 감지",
+    "step3": "커밋 분석",
+    "step4": "역할 감지",
+    "step5": "LLM 주요 업무",
+    "step6": "LLM 상세 분석",
+    "cancel": "취소",
+    "cancelled": "분석이 취소되었습니다.",
+    "cancelledWithPartial": "분석이 취소되었습니다. 부분 결과가 저장되었습니다.",
+    "failed": "분석 실패",
+    "failedDesc": "분석 중 오류가 발생했습니다: {{error}}",
+    "completed": "분석 완료",
+    "completedDesc": "레포지토리 분석이 완료되었습니다."
   },
   "filters": {
     "all": "전체",
@@ -136,6 +155,9 @@
       "analyzeSuccessDesc": "레포지토리 분석이 완료되었습니다.",
       "analyzeFailed": "분석 오류",
       "analyzeFailedDesc": "분석에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      "analyzeStarted": "분석 시작",
+      "analyzeStartedDesc": "백그라운드에서 분석이 시작되었습니다. 페이지를 이동해도 분석은 계속됩니다.",
+      "cancelFailed": "취소 실패",
       "updateSuccess": "프로젝트가 수정되었습니다.",
       "updateFailed": "오류",
       "updateFailedDesc": "수정에 실패했습니다."

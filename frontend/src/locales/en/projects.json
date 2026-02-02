@@ -72,7 +72,26 @@
     "pending": "Pending",
     "analyzing": "Analyzing",
     "review": "Under Review",
-    "completed": "Completed"
+    "completed": "Completed",
+    "partial": "Partial"
+  },
+  "backgroundAnalysis": {
+    "inProgress": "Analyzing",
+    "progress": "{{progress}}%",
+    "stepProgress": "{{step}}/{{total}}",
+    "step1": "Repository Info",
+    "step2": "Tech Detection",
+    "step3": "Commit Analysis",
+    "step4": "Role Detection",
+    "step5": "LLM Key Tasks",
+    "step6": "LLM Details",
+    "cancel": "Cancel",
+    "cancelled": "Analysis cancelled.",
+    "cancelledWithPartial": "Analysis cancelled. Partial results saved.",
+    "failed": "Analysis Failed",
+    "failedDesc": "Error during analysis: {{error}}",
+    "completed": "Analysis Complete",
+    "completedDesc": "Repository analysis completed."
   },
   "filters": {
     "all": "All",
@@ -132,6 +151,9 @@
       "resetSuccessDesc": "Restored to original content.",
       "resetFailed": "Restore Failed",
       "resetFailedDesc": "Failed to restore.",
+      "analyzeStarted": "Analysis Started",
+      "analyzeStartedDesc": "Analysis started in the background. You can navigate away and it will continue.",
+      "cancelFailed": "Cancel Failed",
       "analyzeSuccess": "Analysis Complete",
       "analyzeSuccessDesc": "Repository analysis completed.",
       "analyzeFailed": "Analysis Error",

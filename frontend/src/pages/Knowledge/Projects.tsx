@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -41,6 +41,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useAppStore } from '@/stores/appStore'
 import { useUsageStore } from '@/stores/usageStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { generateWithCLI } from '@/services/cliLLMService'
 import { isElectron } from '@/lib/electron'
 import { projectsApi, companiesApi, ProjectCreate, ProjectFilters as ProjectFiltersType, Project } from '@/api/knowledge'
@@ -57,7 +58,7 @@ import { ScrollToTop } from '@/components/ScrollToTop'
 import { ExportDialog } from '@/components/ExportDialog'
 import { ProjectFormFields } from '@/components/ProjectFormFields'
 import { ProjectFilters, countActiveFilters } from '@/components/ProjectFilters'
-import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown, StopCircle } from 'lucide-react'
 
 // Kanban item interface
 interface ProjectKanbanItem extends KanbanItem {
@@ -77,6 +78,10 @@ function getColumnId(project: Project): string {
 // Kanban card component
 function ProjectKanbanCard({ project }: { project: Project }) {
   const { t } = useTranslation('projects')
+  const { isAnalyzing, getProgress } = useAnalysisStore()
+  const analyzing = isAnalyzing(project.id)
+  const progress = getProgress(project.id)
+
   return (
     <Card className="hover:shadow-md transition-shadow bg-white">
       <CardHeader className="p-3 pb-2">
@@ -84,13 +89,21 @@ function ProjectKanbanCard({ project }: { project: Project }) {
           <Link to={`/knowledge/projects/${project.id}`} className="font-medium text-sm hover:text-primary hover:underline line-clamp-2">
             {project.name}
           </Link>
-          {project.project_type && (
-            <Badge variant="outline" className="text-xs shrink-0">
-              {project.project_type === 'company' ? t('projectTypes.company') :
-               project.project_type === 'personal' ? t('projectTypes.personal') :
-               project.project_type === 'open-source' ? t('projectTypes.openSource') : project.project_type}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {analyzing && (
+              <Badge className="bg-blue-500 text-white animate-pulse text-xs shrink-0">
+                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                {progress}%
+              </Badge>
+            )}
+            {project.project_type && !analyzing && (
+              <Badge variant="outline" className="text-xs shrink-0">
+                {project.project_type === 'company' ? t('projectTypes.company') :
+                 project.project_type === 'personal' ? t('projectTypes.personal') :
+                 project.project_type === 'open-source' ? t('projectTypes.openSource') : project.project_type}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-3 pt-0 space-y-2">
@@ -121,6 +134,17 @@ export default function ProjectsPage() {
   const queryClient = useQueryClient()
   const { user } = useUserStore()
 
+  // Analysis store for background analysis tracking
+  const {
+    isAnalyzing,
+    getProgress,
+    getJob,
+    startPolling,
+    stopPolling,
+    activeJobs,
+    cancelAnalysis,
+  } = useAnalysisStore()
+
   // View and UI state
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
@@ -150,6 +174,32 @@ export default function ProjectsPage() {
 
   // GitHub connection check
   const isGitHubConnected = !!user?.github_username
+
+  // Start polling for active analyses on mount
+  useEffect(() => {
+    if (user?.id) {
+      startPolling(user.id)
+    }
+    return () => stopPolling()
+  }, [user?.id, startPolling, stopPolling])
+
+  // Refetch projects when analysis jobs complete
+  useEffect(() => {
+    // Check if any jobs just completed
+    const completedJobs = Array.from(activeJobs.values()).filter(
+      job => job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'
+    )
+    if (completedJobs.length > 0) {
+      queryClient.refetchQueries({ queryKey: ['projects'] })
+      completedJobs.forEach(job => {
+        if (job.status === 'completed') {
+          toast({ title: t('backgroundAnalysis.completed'), description: t('backgroundAnalysis.completedDesc') })
+        } else if (job.status === 'failed') {
+          toast({ title: t('backgroundAnalysis.failed'), description: t('backgroundAnalysis.failedDesc', { error: job.error_message }), variant: 'destructive' })
+        }
+      })
+    }
+  }, [activeJobs, queryClient, toast, t])
 
   // Queries
   const { data: projectsData, isLoading } = useQuery({
@@ -412,44 +462,77 @@ export default function ProjectsPage() {
             </Button>
           </SelectionActionBar>
           <div className="grid gap-4">
-            {projects.map((project) => (
-              <SelectableTile key={project.id} id={project.id} selected={selection.isSelected(project.id)} onSelectChange={() => selection.toggle(project.id)} className="hover:shadow-md">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Link to={`/knowledge/projects/${project.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}><h3 className="text-xl font-semibold">{project.name}</h3></Link>
-                        {project.is_analyzed ? <Badge variant="success">{t('analyzed')}</Badge> : <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">{t('notAnalyzed')}</Badge>}
-                        {project.project_type && <Badge variant="outline">{project.project_type}</Badge>}
-                      </div>
-                      {project.short_description && <p className="text-gray-700">{project.short_description}</p>}
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
-                        {project.start_date && <span>{formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : t('ongoing')}</span>}
-                        {project.role && <span>· {project.role}</span>}
-                        {project.team_size && <span>· {t('teamSizeValue', { count: project.team_size })}</span>}
-                      </div>
-                      {project.technologies?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {project.technologies.slice(0, 10).map((tech) => <TechBadge key={tech.id} tech={tech.name} />)}
-                          {project.technologies.length > 10 && <Badge variant="outline" className="text-xs">{t('detail.basicInfo.moreCount', { count: project.technologies.length - 10 })}</Badge>}
+            {projects.map((project) => {
+              const analyzing = isAnalyzing(project.id)
+              const progress = getProgress(project.id)
+              const job = getJob(project.id)
+
+              return (
+                <SelectableTile key={project.id} id={project.id} selected={selection.isSelected(project.id)} onSelectChange={() => selection.toggle(project.id)} className="hover:shadow-md">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Link to={`/knowledge/projects/${project.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}><h3 className="text-xl font-semibold">{project.name}</h3></Link>
+                          {analyzing ? (
+                            <Badge className="bg-blue-500 text-white animate-pulse">
+                              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                              {t('backgroundAnalysis.inProgress')} ({progress}%)
+                            </Badge>
+                          ) : project.is_analyzed ? (
+                            <Badge variant="success">{t('analyzed')}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">{t('notAnalyzed')}</Badge>
+                          )}
+                          {project.project_type && <Badge variant="outline">{project.project_type}</Badge>}
                         </div>
-                      )}
-                      {project.git_url && (
-                        <div className="mt-3">
-                          <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 text-sm text-primary rounded-md hover:bg-primary/5 hover:underline transition-colors" onClick={(e) => e.stopPropagation()}>
-                            <Github className="h-4 w-4" /><span>GitHub</span><ExternalLink className="h-3 w-3" />
-                          </a>
+                        {analyzing && job && (
+                          <div className="mb-2 flex items-center gap-2">
+                            <Progress value={progress} className="h-2 flex-1 max-w-xs" />
+                            <span className="text-xs text-gray-500">{t('backgroundAnalysis.stepProgress', { step: job.current_step, total: job.total_steps })}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (user?.id) cancelAnalysis(user.id, project.id)
+                              }}
+                            >
+                              <StopCircle className="h-3 w-3 mr-1" />
+                              {t('backgroundAnalysis.cancel')}
+                            </Button>
+                          </div>
+                        )}
+                        {project.short_description && <p className="text-gray-700">{project.short_description}</p>}
+                        <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
+                          {project.start_date && <span>{formatDate(project.start_date)} ~ {project.end_date ? formatDate(project.end_date) : t('ongoing')}</span>}
+                          {project.role && <span>· {project.role}</span>}
+                          {project.team_size && <span>· {t('teamSizeValue', { count: project.team_size })}</span>}
                         </div>
-                      )}
+                        {project.technologies?.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {project.technologies.slice(0, 10).map((tech) => <TechBadge key={tech.id} tech={tech.name} />)}
+                            {project.technologies.length > 10 && <Badge variant="outline" className="text-xs">{t('detail.basicInfo.moreCount', { count: project.technologies.length - 10 })}</Badge>}
+                          </div>
+                        )}
+                        {project.git_url && (
+                          <div className="mt-3">
+                            <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 text-sm text-primary rounded-md hover:bg-primary/5 hover:underline transition-colors" onClick={(e) => e.stopPropagation()}>
+                              <Github className="h-4 w-4" /><span>GitHub</span><ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEditProject(project)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: project.id, name: project.name })}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditProject(project)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: project.id, name: project.name })}><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </SelectableTile>
-            ))}
+                  </CardContent>
+                </SelectableTile>
+              )
+            })}
           </div>
         </div>
       ) : (
