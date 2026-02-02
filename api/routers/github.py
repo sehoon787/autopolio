@@ -23,7 +23,9 @@ from api.schemas.github import (
     AnalysisContentUpdate, EffectiveAnalysisResponse, EditStatus,
     # Extended analysis schemas (v1.10)
     ContributorAnalysisResponse, ContributorsListResponse, ContributorSummary,
-    CodeQualityMetrics, DetailedCommit, ExtendedRepoAnalysisResponse
+    CodeQualityMetrics, DetailedCommit, ExtendedRepoAnalysisResponse,
+    # Background analysis schemas (v1.12)
+    AnalysisJobStatus, AnalysisJobListResponse, StartAnalysisResponse, CancelAnalysisResponse,
 )
 from api.services.github_service import (
     GitHubService,
@@ -36,8 +38,10 @@ from api.services.github_service import (
 from api.services.encryption_service import EncryptionService
 from api.services.role_service import RoleService
 from api.services.achievement_service import AchievementService
+from api.services.analysis_job_service import AnalysisJobService, run_background_analysis
 from api.models.achievement import ProjectAchievement
 from api.models.contributor_analysis import ContributorAnalysis
+from api.models.job import Job
 
 router = APIRouter()
 settings = get_settings()
@@ -214,14 +218,15 @@ JSON 배열 형식으로만 응답하세요:
 async def github_connect(
     redirect_url: Optional[str] = None,
     frontend_origin: Optional[str] = None,
-    is_electron: bool = False
+    is_electron: bool = False,
+    user_id: Optional[int] = None
 ):
     """Initiate GitHub OAuth flow."""
     import json
     import base64
     import logging
 
-    logger.info("[GitHub Connect] Called with redirect_url=%s, frontend_origin=%s, is_electron=%s", redirect_url, frontend_origin, is_electron)
+    logger.info("[GitHub Connect] Called with redirect_url=%s, frontend_origin=%s, is_electron=%s, user_id=%s", redirect_url, frontend_origin, is_electron, user_id)
     logger.debug("[GitHub Connect] settings.github_client_id=%s", settings.github_client_id)
 
     if not settings.github_client_id:
@@ -231,13 +236,18 @@ async def github_connect(
         )
 
     # Build authorization URL
-    scope = "repo,user:email"
+    # Scopes:
+    # - repo: Full control of private repositories (includes public repos)
+    # - user:email: Access user email addresses
+    # - read:org: Read organization membership, team membership
+    scope = "repo,user:email,read:org"
 
-    # Encode origin, redirect_path, and electron flag in state
+    # Encode origin, redirect_path, electron flag, and user_id in state
     state_data = {
         "path": redirect_url or "/",
         "origin": frontend_origin,  # Can be None, will use settings.frontend_url as fallback
-        "is_electron": is_electron  # Flag to use custom protocol for callback
+        "is_electron": is_electron,  # Flag to use custom protocol for callback
+        "user_id": user_id  # Existing user to link GitHub to (instead of creating new)
     }
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
 
@@ -290,36 +300,11 @@ async def github_callback(
     github_service = GitHubService(access_token)
     user_info = await github_service.get_user_info()
 
-    # Find or create user
-    result = await db.execute(
-        select(User).where(User.github_username == user_info["login"])
-    )
-    user = result.scalar_one_or_none()
-
-    if user:
-        # Update token
-        user.github_token_encrypted = encryption.encrypt(access_token)
-        user.github_avatar_url = user_info.get("avatar_url")
-        if user_info.get("email"):
-            user.email = user_info["email"]
-    else:
-        # Create new user
-        user = User(
-            name=user_info.get("name") or user_info["login"],
-            email=user_info.get("email"),
-            github_username=user_info["login"],
-            github_token_encrypted=encryption.encrypt(access_token),
-            github_avatar_url=user_info.get("avatar_url")
-        )
-        db.add(user)
-
-    await db.flush()
-    await db.refresh(user)
-
-    # Parse state to get origin, redirect path, and electron flag
+    # Parse state first to get user_id, origin, redirect path, and electron flag
     redirect_path = "/"
     frontend_origin = settings.frontend_url  # Default fallback
     is_electron = False
+    existing_user_id = None  # User ID to link GitHub to (if provided)
 
     if state:
         try:
@@ -329,9 +314,57 @@ async def github_callback(
             if state_data.get("origin"):
                 frontend_origin = state_data["origin"]
             is_electron = state_data.get("is_electron", False)
+            existing_user_id = state_data.get("user_id")  # Existing user to link GitHub to
         except Exception:
             # Fallback: old format (plain redirect path)
             redirect_path = state
+
+    # Find or create user
+    user = None
+
+    # Priority 1: If user_id was provided in state, update that existing user
+    if existing_user_id:
+        result = await db.execute(
+            select(User).where(User.id == existing_user_id)
+        )
+        user = result.scalar_one_or_none()
+        if user:
+            # Update existing user with GitHub info
+            user.github_username = user_info["login"]
+            user.github_token_encrypted = encryption.encrypt(access_token)
+            user.github_avatar_url = user_info.get("avatar_url")
+            if user_info.get("email") and not user.email:
+                user.email = user_info["email"]
+            logger.info("[GitHub Callback] Linked GitHub to existing user id=%s, username=%s", existing_user_id, user_info["login"])
+
+    # Priority 2: Look up by GitHub username (for re-auth scenarios)
+    if not user:
+        result = await db.execute(
+            select(User).where(User.github_username == user_info["login"])
+        )
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Update token for existing GitHub user
+            user.github_token_encrypted = encryption.encrypt(access_token)
+            user.github_avatar_url = user_info.get("avatar_url")
+            if user_info.get("email"):
+                user.email = user_info["email"]
+            logger.info("[GitHub Callback] Updated existing GitHub user id=%s, username=%s", user.id, user_info["login"])
+        else:
+            # Create new user only if no existing user was found
+            user = User(
+                name=user_info.get("name") or user_info["login"],
+                email=user_info.get("email"),
+                github_username=user_info["login"],
+                github_token_encrypted=encryption.encrypt(access_token),
+                github_avatar_url=user_info.get("avatar_url")
+            )
+            db.add(user)
+            logger.info("[GitHub Callback] Created new user for GitHub username=%s", user_info["login"])
+
+    await db.flush()
+    await db.refresh(user)
 
     # Build redirect URL
     if is_electron:
@@ -1915,3 +1948,235 @@ async def get_detailed_commits(
     except Exception as e:
         logger.exception("Failed to get detailed commits: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to get detailed commits: {str(e)}")
+
+
+# ============ Background Analysis Endpoints (v1.12) ============
+
+@router.post("/analyze-background", response_model=StartAnalysisResponse)
+async def start_background_analysis(
+    request: RepoAnalysisRequest,
+    user_id: int = Query(..., description="User ID"),
+    provider: Optional[str] = Query(None, description="LLM provider to use"),
+    cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_model: Optional[str] = Query(None, description="CLI model name"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Start a background analysis job for a GitHub repository.
+
+    Returns immediately with a task_id that can be used to track progress.
+    """
+    import asyncio
+
+    # Get user
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.github_token_encrypted:
+        raise HTTPException(status_code=400, detail="GitHub is not connected. Please connect GitHub first.")
+
+    try:
+        token = encryption.decrypt(user.github_token_encrypted)
+        github_username = user.github_username
+    except Exception:
+        raise HTTPException(status_code=400, detail="GitHub token is corrupted. Please reconnect.")
+
+    # Get or create project
+    project_id = request.project_id
+    if project_id:
+        proj_result = await db.execute(select(Project).where(Project.id == project_id))
+        project = proj_result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    else:
+        # Create project
+        github_service = GitHubService(token)
+        repo_info = await github_service.get_repo_info(request.git_url)
+        project = Project(
+            user_id=user_id,
+            name=repo_info["name"],
+            description=repo_info.get("description"),
+            git_url=request.git_url,
+            project_type="personal",
+            status="pending"
+        )
+        db.add(project)
+        await db.flush()
+        await db.refresh(project)
+        project_id = project.id
+
+    # Check if there's already an active job for this project
+    service = AnalysisJobService(db)
+    existing_job = await service.get_job_by_project(project_id)
+    if existing_job:
+        return StartAnalysisResponse(
+            task_id=existing_job.task_id,
+            project_id=project_id,
+            message="Analysis already in progress"
+        )
+
+    # Build options
+    options = {}
+    if cli_mode:
+        options["cli_mode"] = cli_mode
+        options["cli_model"] = cli_model
+    elif provider:
+        options["provider"] = provider
+
+    # Create job
+    job = await service.create_analysis_job(
+        user_id=user_id,
+        project_id=project_id,
+        git_url=request.git_url,
+        options=options
+    )
+
+    await db.commit()
+
+    # Start background analysis task
+    asyncio.create_task(run_background_analysis(
+        task_id=job.task_id,
+        user_id=user_id,
+        project_id=project_id,
+        git_url=request.git_url,
+        github_username=github_username,
+        github_token=token,
+        options=options
+    ))
+
+    return StartAnalysisResponse(
+        task_id=job.task_id,
+        project_id=project_id,
+        message="Analysis started in background"
+    )
+
+
+@router.get("/active-analyses", response_model=AnalysisJobListResponse)
+async def get_active_analyses(
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all active analysis jobs for a user."""
+    service = AnalysisJobService(db)
+    jobs = await service.get_active_jobs_for_user(user_id)
+
+    return AnalysisJobListResponse(
+        jobs=[
+            AnalysisJobStatus(
+                task_id=job.task_id,
+                project_id=job.target_project_id,
+                status=job.status,
+                progress=job.progress,
+                current_step=job.current_step,
+                total_steps=job.total_steps,
+                step_name=job.step_name,
+                error_message=job.error_message,
+                partial_results=job.partial_results,
+                started_at=job.started_at,
+                completed_at=job.completed_at,
+                created_at=job.created_at,
+            )
+            for job in jobs
+        ],
+        total=len(jobs)
+    )
+
+
+@router.get("/analysis-status/{project_id}", response_model=Optional[AnalysisJobStatus])
+async def get_analysis_status(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the status of an active analysis job for a project."""
+    service = AnalysisJobService(db)
+    job = await service.get_job_by_project(project_id)
+
+    if not job:
+        return None
+
+    # Verify user owns this job
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this job")
+
+    return AnalysisJobStatus(
+        task_id=job.task_id,
+        project_id=job.target_project_id,
+        status=job.status,
+        progress=job.progress,
+        current_step=job.current_step,
+        total_steps=job.total_steps,
+        step_name=job.step_name,
+        error_message=job.error_message,
+        partial_results=job.partial_results,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        created_at=job.created_at,
+    )
+
+
+@router.post("/analysis/{project_id}/cancel", response_model=CancelAnalysisResponse)
+async def cancel_analysis(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Cancel an in-progress analysis for a project.
+
+    Partial results will be saved if any steps completed.
+    """
+    service = AnalysisJobService(db)
+    job = await service.get_job_by_project(project_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="No active analysis found for this project")
+
+    # Verify user owns this job
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this job")
+
+    # Cancel the job
+    cancelled_job = await service.cancel_job(job.task_id)
+    await db.commit()
+
+    partial_saved = bool(cancelled_job.partial_results)
+
+    return CancelAnalysisResponse(
+        task_id=cancelled_job.task_id,
+        project_id=project_id,
+        status=cancelled_job.status,
+        message="Analysis cancelled" + (" with partial results saved" if partial_saved else ""),
+        partial_saved=partial_saved
+    )
+
+
+@router.get("/job/{task_id}", response_model=AnalysisJobStatus)
+async def get_job_status(
+    task_id: str,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the status of a specific analysis job by task_id."""
+    service = AnalysisJobService(db)
+    job = await service.get_job(task_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Verify user owns this job
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this job")
+
+    return AnalysisJobStatus(
+        task_id=job.task_id,
+        project_id=job.target_project_id,
+        status=job.status,
+        progress=job.progress,
+        current_step=job.current_step,
+        total_steps=job.total_steps,
+        step_name=job.step_name,
+        error_message=job.error_message,
+        partial_results=job.partial_results,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        created_at=job.created_at,
+    )

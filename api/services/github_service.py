@@ -191,10 +191,19 @@ class GitHubService:
         per_page: int = 100,
         sort: str = "updated"
     ) -> List[Dict[str, Any]]:
-        """Get user's repositories (single page)."""
+        """Get user's repositories (single page).
+
+        Uses affiliation parameter to include:
+        - owner: repos the user owns
+        - collaborator: repos the user has been added to as a collaborator
+        - organization_member: repos from organizations the user is a member of
+
+        Uses visibility=all to include both public and private repos.
+        """
         repos = await self._request(
             "GET",
             f"/user/repos?page={page}&per_page={per_page}&sort={sort}"
+            f"&affiliation=owner,collaborator,organization_member&visibility=all"
         )
         return self._format_repos(repos)
 
@@ -203,21 +212,159 @@ class GitHubService:
         sort: str = "updated",
         max_pages: int = 10
     ) -> List[Dict[str, Any]]:
-        """Get all user's repositories (multiple pages)."""
+        """Get all user's repositories (multiple pages).
+
+        Includes owned repos, collaborator repos, and organization repos.
+        Uses multiple strategies to ensure all accessible repos are fetched:
+        1. /user/repos API with all affiliations (private + accessible repos)
+        2. /users/{username}/repos API (all public repos including forks)
+        3. Organization repos from /user/orgs
+        """
         all_repos = []
+        seen_ids = set()
         per_page = 100  # GitHub max per page
 
+        # Get authenticated user info
+        user_info = await self._request("GET", "/user")
+        username = user_info.get("login", "")
+        public_repos = user_info.get("public_repos", 0)
+        total_private = user_info.get("total_private_repos", 0)
+        owned_private = user_info.get("owned_private_repos", 0)
+        logger.info(f"[GitHub] User: {username}, public_repos={public_repos}, total_private={total_private}, owned_private={owned_private}")
+
+        # 1. Fetch from /user/repos (includes private repos, collaborator access)
         for page in range(1, max_pages + 1):
             repos = await self._request(
                 "GET",
                 f"/user/repos?page={page}&per_page={per_page}&sort={sort}"
+                f"&affiliation=owner,collaborator,organization_member&visibility=all"
             )
             if not repos:
                 break
-            all_repos.extend(repos)
+            for repo in repos:
+                if repo["id"] not in seen_ids:
+                    seen_ids.add(repo["id"])
+                    all_repos.append(repo)
             if len(repos) < per_page:
                 break
 
+        logger.info(f"[GitHub] After /user/repos: {len(all_repos)} repos")
+
+        # 2. Fetch from /users/{username}/repos (public repos - may include forks not in /user/repos)
+        if username:
+            for page in range(1, max_pages + 1):
+                try:
+                    public_repos = await self._request(
+                        "GET",
+                        f"/users/{username}/repos?page={page}&per_page={per_page}&sort={sort}&type=all"
+                    )
+                    if not public_repos:
+                        break
+                    for repo in public_repos:
+                        if repo["id"] not in seen_ids:
+                            seen_ids.add(repo["id"])
+                            all_repos.append(repo)
+                    if len(public_repos) < per_page:
+                        break
+                except Exception as e:
+                    logger.warning(f"[GitHub] Failed to fetch /users/{username}/repos: {e}")
+                    break
+
+            logger.info(f"[GitHub] After /users/{username}/repos: {len(all_repos)} repos")
+
+        # 2. Fetch repos from user's organizations
+        # Note: requires 'read:org' OAuth scope to list organizations
+        try:
+            orgs = await self._request("GET", "/user/orgs")
+            logger.info(f"[GitHub] Organizations found: {len(orgs)} - {[o.get('login') for o in orgs]}")
+            for org in orgs:
+                org_login = org.get("login")
+                if not org_login:
+                    continue
+                # Fetch repos from this organization
+                for page in range(1, max_pages + 1):
+                    try:
+                        org_repos = await self._request(
+                            "GET",
+                            f"/orgs/{org_login}/repos?page={page}&per_page={per_page}&sort={sort}"
+                        )
+                        if not org_repos:
+                            break
+                        for repo in org_repos:
+                            if repo["id"] not in seen_ids:
+                                seen_ids.add(repo["id"])
+                                all_repos.append(repo)
+                        if len(org_repos) < per_page:
+                            break
+                    except Exception:
+                        # Skip if org repos are not accessible
+                        break
+        except Exception as e:
+            # Skip if orgs endpoint fails (may lack read:org scope)
+            logger.warning(f"[GitHub] Failed to fetch orgs: {e}")
+
+        logger.info(f"[GitHub] After org repos: {len(all_repos)} repos")
+
+        # 3. Use Search API to find additional repos the user can access
+        # This catches repos where user is collaborator but not org member
+        if username:
+            try:
+                # Search for repos where user is owner
+                for page in range(1, 5):  # Search has 1000 result limit
+                    search_result = await self._request(
+                        "GET",
+                        f"/search/repositories?q=user:{username}&per_page={per_page}&page={page}"
+                    )
+                    items = search_result.get("items", [])
+                    if not items:
+                        break
+                    for repo in items:
+                        if repo["id"] not in seen_ids:
+                            seen_ids.add(repo["id"])
+                            all_repos.append(repo)
+                    if len(items) < per_page:
+                        break
+
+                logger.info(f"[GitHub] After search (user:{username}): {len(all_repos)} repos")
+
+            except Exception as e:
+                logger.warning(f"[GitHub] Search API failed: {e}")
+
+        # 4. Events API removed - causes too many individual repo requests
+        # The /users/{username}/repos endpoint already covers public repos
+
+        # 5. Fetch repos from user's organization memberships
+        # Try to get org repos even if /user/orgs returned empty
+        try:
+            memberships = await self._request("GET", "/user/memberships/orgs")
+            logger.info(f"[GitHub] Org memberships found: {len(memberships)}")
+            for membership in memberships:
+                org_data = membership.get("organization", {})
+                org_login = org_data.get("login")
+                if not org_login:
+                    continue
+                logger.info(f"[GitHub] Fetching repos from org: {org_login}")
+                for page in range(1, max_pages + 1):
+                    try:
+                        org_repos = await self._request(
+                            "GET",
+                            f"/orgs/{org_login}/repos?page={page}&per_page={per_page}&sort={sort}&type=all"
+                        )
+                        if not org_repos:
+                            break
+                        for repo in org_repos:
+                            if repo["id"] not in seen_ids:
+                                seen_ids.add(repo["id"])
+                                all_repos.append(repo)
+                        if len(org_repos) < per_page:
+                            break
+                    except Exception:
+                        break
+            logger.info(f"[GitHub] After org memberships: {len(all_repos)} repos")
+        except Exception as e:
+            logger.warning(f"[GitHub] Org memberships failed: {e}")
+
+        logger.info(f"[GitHub] Total repos fetched: {len(all_repos)}")
         return self._format_repos(all_repos)
 
     def _format_repos(self, repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -235,7 +382,9 @@ class GitHubService:
                 "forks_count": r["forks_count"],
                 "created_at": r["created_at"],
                 "updated_at": r["updated_at"],
-                "pushed_at": r["pushed_at"]
+                "pushed_at": r["pushed_at"],
+                "fork": r.get("fork", False),
+                "owner": r.get("owner", {}).get("login", "") if isinstance(r.get("owner"), dict) else ""
             }
             for r in repos
         ]

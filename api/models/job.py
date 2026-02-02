@@ -13,6 +13,9 @@ class Job(Base):
     task_id = Column(String(36), unique=True, index=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
+    # Target association (v1.12 - for background analysis)
+    target_project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+
     # Job type
     job_type = Column(String(50), nullable=False)  # github_analysis, pipeline, document_generation
 
@@ -27,6 +30,9 @@ class Job(Base):
 
     # Step details for each pipeline step
     step_results = Column(JSON)  # {"step_1": {...}, "step_2": {...}, ...}
+
+    # Partial results for background analysis (v1.12)
+    partial_results = Column(JSON)  # Intermediate results saved at each step
 
     # Input/Output
     input_data = Column(JSON)  # Parameters for the job
@@ -50,6 +56,7 @@ class Job(Base):
     # Relationships
     user = relationship("User", back_populates="jobs")
     documents = relationship("GeneratedDocument", back_populates="job")
+    project = relationship("Project", back_populates="jobs", foreign_keys=[target_project_id])
 
     @property
     def is_running(self) -> bool:
@@ -63,6 +70,10 @@ class Job(Base):
     def is_failed(self) -> bool:
         return self.status == "failed"
 
+    @property
+    def is_cancelled(self) -> bool:
+        return self.status == "cancelled"
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -74,6 +85,8 @@ class Job(Base):
             "total_steps": self.total_steps,
             "step_name": self.step_name,
             "error_message": self.error_message,
+            "target_project_id": self.target_project_id,
+            "partial_results": self.partial_results,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
