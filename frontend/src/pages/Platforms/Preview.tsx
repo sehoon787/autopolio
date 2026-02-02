@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+
+// Build version for cache busting
+const BUILD_VERSION = '1.11.1-20260202'
+if (typeof window !== 'undefined') {
+  (window as unknown as { __PREVIEW_VERSION__: string }).__PREVIEW_VERSION__ = BUILD_VERSION
+}
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -20,14 +26,16 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { markdownToHtml, generateWordPreviewHtml } from '@/utils/markdownRenderer'
 
 type PreviewFormat = 'html' | 'markdown' | 'word'
+type DataSourceStatus = 'real' | 'sample' | 'loading'
 
 export default function PlatformPreviewPage() {
   const { templateId } = useParams<{ templateId: string }>()
@@ -40,6 +48,27 @@ export default function PlatformPreviewPage() {
   const [previewMarkdown, setPreviewMarkdown] = useState<string>('')
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Format-specific data source tracking
+  const [dataSource, setDataSource] = useState<{
+    html: DataSourceStatus
+    markdown: DataSourceStatus
+  }>({
+    html: 'loading',
+    markdown: 'loading',
+  })
+
+  // User toggle: show real data (default: false = sample data)
+  const [useRealData, setUseRealData] = useState(false)
+
+  // Track what source has been loaded for each format to prevent redundant API calls
+  const loadedSourceRef = useRef<{
+    html: 'real' | 'sample' | null
+    markdown: 'real' | 'sample' | null
+  }>({
+    html: null,
+    markdown: null,
+  })
 
   // Fetch template details
   const {
@@ -54,17 +83,19 @@ export default function PlatformPreviewPage() {
   const template = templateData?.data
 
   // Load HTML preview - tries user data first, falls back to sample data
-  const loadHtmlPreview = useCallback(async () => {
+  const loadHtmlPreview = useCallback(async (forceSample = false) => {
     if (!template) return
 
     setIsPreviewLoading(true)
+    setDataSource(prev => ({ ...prev, html: 'loading' }))
     try {
-      // Try to render with user data if user exists
-      if (user?.id) {
+      // If not forcing sample and user exists, try real data first
+      if (!forceSample && user?.id) {
         try {
           const response = await platformsApi.renderFromDb(Number(templateId), user.id)
           if (response.data.html) {
             setPreviewHtml(response.data.html)
+            setDataSource(prev => ({ ...prev, html: 'real' }))
             return
           }
         } catch {
@@ -75,6 +106,7 @@ export default function PlatformPreviewPage() {
       // Fall back to sample data
       const sampleResponse = await platformsApi.previewWithSampleData(Number(templateId))
       setPreviewHtml(sampleResponse.data.html)
+      setDataSource(prev => ({ ...prev, html: 'sample' }))
     } catch {
       // Preview load failed - silently ignore as UI shows empty state
     } finally {
@@ -83,24 +115,30 @@ export default function PlatformPreviewPage() {
   }, [template, templateId, user?.id])
 
   // Load Markdown preview - tries user data first, falls back to sample data
-  const loadMarkdownPreview = useCallback(async () => {
+  const loadMarkdownPreview = useCallback(async (forceSample = false) => {
     if (!template) return
 
     setIsPreviewLoading(true)
+    setDataSource(prev => ({ ...prev, markdown: 'loading' }))
     try {
-      // Try to render with user data if user exists
-      if (user?.id) {
+      // If not forcing sample and user exists, try real data first
+      if (!forceSample && user?.id) {
         try {
           const response = await platformsApi.renderMarkdownFromDb(Number(templateId), user.id)
           if (response.data.markdown) {
             setPreviewMarkdown(response.data.markdown)
+            setDataSource(prev => ({ ...prev, markdown: 'real' }))
             return
           }
         } catch {
-          // Fall through - Markdown sample data not yet supported
+          // Fall through to sample data
         }
       }
-      // Note: Sample markdown not yet supported, will show empty state
+
+      // Fall back to sample data
+      const sampleResponse = await platformsApi.previewMarkdownWithSampleData(Number(templateId))
+      setPreviewMarkdown(sampleResponse.data.markdown)
+      setDataSource(prev => ({ ...prev, markdown: 'sample' }))
     } catch {
       // Preview load failed - silently ignore as UI shows empty state
     } finally {
@@ -108,16 +146,35 @@ export default function PlatformPreviewPage() {
     }
   }, [template, templateId, user?.id])
 
-  // Load preview based on format
+  // Determine current data source based on active format
+  const currentDataSource = activeFormat === 'html'
+    ? dataSource.html
+    : dataSource.markdown
+
+  // Load preview when template loads, format changes, or toggle changes
+  // Uses ref to track what source has been loaded to prevent redundant API calls
   useEffect(() => {
     if (!template) return
 
-    if (activeFormat === 'html' && !previewHtml) {
-      loadHtmlPreview()
-    } else if (activeFormat === 'markdown' && !previewMarkdown) {
-      loadMarkdownPreview()
+    const targetSource: 'real' | 'sample' = useRealData ? 'real' : 'sample'
+    const forceSample = !useRealData
+
+    if (activeFormat === 'html') {
+      // Only reload if source changed or not loaded yet
+      if (loadedSourceRef.current.html !== targetSource) {
+        setPreviewHtml('')  // Clear to show loading state
+        loadHtmlPreview(forceSample)
+        loadedSourceRef.current.html = targetSource
+      }
+    } else {
+      // markdown or word both use markdown data
+      if (loadedSourceRef.current.markdown !== targetSource) {
+        setPreviewMarkdown('')  // Clear to show loading state
+        loadMarkdownPreview(forceSample)
+        loadedSourceRef.current.markdown = targetSource
+      }
     }
-  }, [template, activeFormat, previewHtml, previewMarkdown, loadHtmlPreview, loadMarkdownPreview])
+  }, [template, activeFormat, useRealData, loadHtmlPreview, loadMarkdownPreview])
 
   const handlePrint = () => {
     const iframe = document.querySelector('iframe') as HTMLIFrameElement
@@ -222,28 +279,48 @@ export default function PlatformPreviewPage() {
       {/* Preview with Format Tabs */}
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t('previewWithYourData')}
-            </CardTitle>
-          </div>
+          {/* Current data source badge - upper left */}
+          {currentDataSource === 'loading' ? null : currentDataSource === 'real' ? (
+            <Badge variant="default" className="w-fit bg-green-600">
+              {t('usingRealData')}
+            </Badge>
+          ) : currentDataSource === 'sample' ? (
+            <Badge variant="secondary" className="w-fit">
+              {t('sampleDataBadge')}
+            </Badge>
+          ) : null}
         </CardHeader>
         <CardContent>
           <Tabs value={activeFormat} onValueChange={(v) => setActiveFormat(v as PreviewFormat)}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="html" className="flex items-center gap-2">
-                <FileCode className="h-4 w-4" />
-                {t('formatHtml')}
-              </TabsTrigger>
-              <TabsTrigger value="markdown" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                {t('formatMarkdown')}
-              </TabsTrigger>
-              <TabsTrigger value="word" className="flex items-center gap-2">
-                <File className="h-4 w-4" />
-                {t('formatWord')}
-              </TabsTrigger>
-            </TabsList>
+            {/* Tabs row with toggle on the right */}
+            <div className="flex items-center justify-between mb-4">
+              <TabsList>
+                <TabsTrigger value="html" className="flex items-center gap-2">
+                  <FileCode className="h-4 w-4" />
+                  {t('formatHtml')}
+                </TabsTrigger>
+                <TabsTrigger value="markdown" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  {t('formatMarkdown')}
+                </TabsTrigger>
+                <TabsTrigger value="word" className="flex items-center gap-2">
+                  <File className="h-4 w-4" />
+                  {t('formatWord')}
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Data source toggle - right side */}
+              <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background">
+                <Switch
+                  id="real-data-toggle"
+                  checked={useRealData}
+                  onCheckedChange={setUseRealData}
+                />
+                <Label htmlFor="real-data-toggle" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                  {t('showRealData')}
+                </Label>
+              </div>
+            </div>
 
             <TabsContent value="html">
               {isPreviewLoading && activeFormat === 'html' ? (

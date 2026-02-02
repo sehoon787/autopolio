@@ -448,18 +448,50 @@ class PlatformTemplateService:
         # Build experiences
         experiences = []
         for exp in render_data.get("experiences", []):
+            # achievements can be a list or string, ensure it's a list
+            exp_achievements = exp.get("achievements_list") or exp.get("achievements")
+            if isinstance(exp_achievements, str):
+                exp_achievements = [a.strip() for a in exp_achievements.split("\n") if a.strip()]
+
             experiences.append(ExperienceData(
                 company_name=exp.get("company_name", ""),
                 position=exp.get("position"),
                 start_date=exp.get("start_date"),
                 end_date=exp.get("end_date"),
                 description=exp.get("description"),
-                achievements=exp.get("achievements"),
+                achievements=exp_achievements if exp_achievements else None,
             ))
 
         # Build projects
         projects = []
         for proj in render_data.get("projects", []):
+            # Use list versions or convert strings to lists
+            tech_list = proj.get("technologies_list") or proj.get("technologies")
+            if isinstance(tech_list, str):
+                tech_list = [t.strip() for t in tech_list.split(",") if t.strip()]
+
+            # Get achievements - prefer string version, convert list of dicts if needed
+            ach_list = proj.get("achievements")  # String version
+            if isinstance(ach_list, str):
+                # Strip bullet prefixes (• or -) since markdown will add its own
+                ach_list = [a.strip().lstrip("•").lstrip("-").strip() for a in ach_list.split("\n") if a.strip()]
+            elif not ach_list:
+                # Fall back to achievements_list (list of dicts)
+                ach_list_raw = proj.get("achievements_list")
+                if isinstance(ach_list_raw, list):
+                    ach_list = []
+                    for ach in ach_list_raw:
+                        if isinstance(ach, dict):
+                            # Convert dict to string
+                            metric = ach.get("metric_name", ach.get("title", ""))
+                            value = ach.get("metric_value", ach.get("description", ""))
+                            if metric and value:
+                                ach_list.append(f"{metric}: {value}")
+                            elif metric:
+                                ach_list.append(metric)
+                        elif isinstance(ach, str):
+                            ach_list.append(ach)
+
             projects.append(ProjectData(
                 name=proj.get("name", ""),
                 company_name=proj.get("company_name"),
@@ -467,8 +499,8 @@ class PlatformTemplateService:
                 end_date=proj.get("end_date"),
                 description=proj.get("description"),
                 role=proj.get("role"),
-                technologies=proj.get("technologies"),
-                achievements=proj.get("achievements"),
+                technologies=tech_list if tech_list else None,
+                achievements=ach_list if ach_list else None,
             ))
 
         # Build skills
@@ -498,7 +530,160 @@ class PlatformTemplateService:
 
         return self.exporter.generate_markdown(data, template.name)
 
+    async def render_markdown_with_sample_data(
+        self,
+        template_id: int
+    ) -> str:
+        """
+        Render a template as Markdown with sample data for preview
+
+        Args:
+            template_id: Platform template ID
+
+        Returns:
+            Rendered Markdown string with sample data
+        """
+        template = await self.get_by_id(template_id)
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        # Use the same sample data as HTML preview
+        sample_data = self._get_sample_data(template.platform_key)
+
+        # Build experiences from sample data
+        experiences = []
+        for exp in sample_data.get("experiences", []):
+            experiences.append(ExperienceData(
+                company_name=exp.get("company_name", exp.get("company", "")),
+                position=exp.get("position"),
+                start_date=exp.get("start_date"),
+                end_date=exp.get("end_date") if not exp.get("is_current") else None,
+                description=exp.get("description"),
+                achievements=exp.get("achievements"),
+            ))
+
+        # Build projects from sample data
+        projects = []
+        for proj in sample_data.get("projects", []):
+            # Handle technologies_list or technologies (list in sample data)
+            tech_list = proj.get("technologies_list") or proj.get("technologies")
+            if isinstance(tech_list, bool):
+                tech_list = None  # Sample data has technologies: True as flag
+
+            # Handle achievements (can be string in sample data)
+            ach = proj.get("achievements")
+            ach_list = None
+            if isinstance(ach, str):
+                ach_list = [a.strip().lstrip("• ") for a in ach.split("\n") if a.strip()]
+            elif isinstance(ach, list):
+                ach_list = ach
+
+            projects.append(ProjectData(
+                name=proj.get("name", ""),
+                company_name=proj.get("company"),
+                start_date=proj.get("start_date"),
+                end_date=proj.get("end_date"),
+                description=proj.get("description"),
+                role=proj.get("role"),
+                technologies=tech_list if tech_list else None,
+                achievements=ach_list if ach_list else None,
+            ))
+
+        # Build skills from sample data
+        skills_cat = sample_data.get("skills_categorized", {})
+        skills = SkillsData(
+            languages=skills_cat.get("languages", []),
+            frameworks=skills_cat.get("frameworks", []),
+            databases=skills_cat.get("databases", []),
+            tools=skills_cat.get("tools", []),
+        ) if skills_cat else None
+
+        data = RenderDataRequest(
+            name=sample_data.get("name", "홍길동"),
+            email=sample_data.get("email"),
+            phone=sample_data.get("phone"),
+            photo_url=sample_data.get("photo_url"),
+            desired_position=sample_data.get("desired_position"),
+            summary=sample_data.get("summary"),
+            github_url=sample_data.get("github_url"),
+            portfolio_url=sample_data.get("portfolio_url"),
+            experiences=experiences if experiences else None,
+            projects=projects if projects else None,
+            skills=skills,
+            educations=None,
+            certifications=None,
+        )
+
+        return self.exporter.generate_markdown(data, template.name)
+
     # ==================== Export Methods ====================
+
+    async def export_from_db_to_html(
+        self,
+        template_id: int,
+        user_id: int
+    ) -> Tuple[str, str]:
+        """
+        Export to HTML file using data from the database
+
+        Args:
+            template_id: Platform template ID
+            user_id: User ID to fetch data for
+
+        Returns:
+            Tuple of (file_path, content)
+        """
+        html_content = await self.render_from_db(template_id, user_id)
+        template = await self.get_by_id(template_id)
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        data = await self.data_collector.collect(user_id)
+        return self.exporter.export_html(html_content, template.platform_key, data.get("name", "user"))
+
+    async def export_from_db_to_markdown(
+        self,
+        template_id: int,
+        user_id: int
+    ) -> Tuple[str, str]:
+        """
+        Export to Markdown file using data from the database
+
+        Args:
+            template_id: Platform template ID
+            user_id: User ID to fetch data for
+
+        Returns:
+            Tuple of (file_path, content)
+        """
+        template = await self.get_by_id(template_id)
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        data = await self.data_collector.collect(user_id)
+        return self.exporter.export_markdown_from_dict(data, template.platform_key, template.name)
+
+    async def export_from_db_to_docx(
+        self,
+        template_id: int,
+        user_id: int
+    ) -> str:
+        """
+        Export to Word document using data from the database
+
+        Args:
+            template_id: Platform template ID
+            user_id: User ID to fetch data for
+
+        Returns:
+            File path to generated DOCX
+        """
+        template = await self.get_by_id(template_id)
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        data = await self.data_collector.collect(user_id)
+        return self.exporter.export_docx_from_dict(data, template.platform_key)
 
     async def export_to_html(
         self,

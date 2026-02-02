@@ -354,6 +354,120 @@ async def render_markdown_from_database(
     }
 
 
+@router.get("/{template_id}/preview-markdown-sample")
+async def preview_markdown_with_sample_data(
+    template_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Preview a platform template as Markdown with sample data.
+    Returns markdown string suitable for preview when no user data is available.
+    """
+    service = PlatformTemplateService(db)
+
+    try:
+        markdown = await service.render_markdown_with_sample_data(template_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {
+        "markdown": markdown,
+        "generated_date": datetime.now().strftime("%Y-%m-%d")
+    }
+
+
+# ==================== Export from DB ====================
+
+@router.post("/{template_id}/export-from-db/html", response_model=ExportResponse)
+async def export_from_db_to_html(
+    template_id: int,
+    user_id: int = Query(..., description="User ID to fetch data for"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Export rendered template to HTML file using data from the database."""
+    # Verify user exists
+    result = await db.execute(select(User).where(User.id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    service = PlatformTemplateService(db)
+
+    try:
+        file_path, content = await service.export_from_db_to_html(template_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    filename = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    return ExportResponse(
+        filename=filename,
+        download_url=f"/api/platforms/download/{filename}",
+        format="html",
+        size_bytes=file_size
+    )
+
+
+@router.post("/{template_id}/export-from-db/md", response_model=ExportResponse)
+async def export_from_db_to_markdown(
+    template_id: int,
+    user_id: int = Query(..., description="User ID to fetch data for"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Export to Markdown file using data from the database."""
+    # Verify user exists
+    result = await db.execute(select(User).where(User.id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    service = PlatformTemplateService(db)
+
+    try:
+        file_path, content = await service.export_from_db_to_markdown(template_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    filename = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    return ExportResponse(
+        filename=filename,
+        download_url=f"/api/platforms/download/{filename}",
+        format="md",
+        size_bytes=file_size
+    )
+
+
+@router.post("/{template_id}/export-from-db/docx", response_model=ExportResponse)
+async def export_from_db_to_docx(
+    template_id: int,
+    user_id: int = Query(..., description="User ID to fetch data for"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Export to Word document using data from the database."""
+    # Verify user exists
+    result = await db.execute(select(User).where(User.id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    service = PlatformTemplateService(db)
+
+    try:
+        file_path = await service.export_from_db_to_docx(template_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    filename = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    return ExportResponse(
+        filename=filename,
+        download_url=f"/api/platforms/download/{filename}",
+        format="docx",
+        size_bytes=file_size
+    )
+
+
 # ==================== Export ====================
 
 @router.post("/{template_id}/export/html", response_model=ExportResponse)

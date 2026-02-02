@@ -39,5 +39,12 @@
   "exitFullscreen": "Exit Fullscreen",
   "formatHtml": "HTML",
   "formatMarkdown": "Markdown",
-  "formatWord": "Word"
+  "formatWord": "Word",
+  "exportDisabledNoData": "No analyzed projects. Please analyze projects first.",
+  "sampleDataBadge": "Sample Data",
+  "usingRealData": "Real Data",
+  "showSampleData": "View with sample data",
+  "showRealData": "View real data",
+  "noAnalyzedProjects": "No Analyzed Projects",
+  "analyzeProjectsFirst": "You can export after analyzing projects. Please analyze GitHub repositories on the Projects page first."
 }

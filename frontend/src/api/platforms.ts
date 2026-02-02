@@ -193,7 +193,12 @@ export const platformsApi = {
       { params: { user_id: userId } }
     ),
 
-  // Export
+  previewMarkdownWithSampleData: (templateId: number) =>
+    apiClient.get<{ markdown: string; generated_date: string }>(
+      `/platforms/${templateId}/preview-markdown-sample`
+    ),
+
+  // Export (with user-provided data)
   exportToHtml: (templateId: number, data: RenderDataRequest) =>
     apiClient.post<ExportResponse>(
       `/platforms/${templateId}/export/html`,
@@ -210,6 +215,28 @@ export const platformsApi = {
     apiClient.post<ExportResponse>(
       `/platforms/${templateId}/export/docx`,
       { data, format: 'docx' }
+    ),
+
+  // Export from DB (using database data)
+  exportFromDbToHtml: (templateId: number, userId: number) =>
+    apiClient.post<ExportResponse>(
+      `/platforms/${templateId}/export-from-db/html`,
+      null,
+      { params: { user_id: userId } }
+    ),
+
+  exportFromDbToMarkdown: (templateId: number, userId: number) =>
+    apiClient.post<ExportResponse>(
+      `/platforms/${templateId}/export-from-db/md`,
+      null,
+      { params: { user_id: userId } }
+    ),
+
+  exportFromDbToDocx: (templateId: number, userId: number) =>
+    apiClient.post<ExportResponse>(
+      `/platforms/${templateId}/export-from-db/docx`,
+      null,
+      { params: { user_id: userId } }
     ),
 
   // Download helper - returns the full download URL

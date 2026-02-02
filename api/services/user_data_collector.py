@@ -12,6 +12,8 @@ from sqlalchemy.orm import selectinload
 from api.models.user import User
 from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
+from api.models.repo_analysis import RepoAnalysis
+from api.models.achievement import ProjectAchievement
 
 
 class UserDataCollector:
@@ -37,10 +39,14 @@ class UserDataCollector:
         )
         companies = list(companies_result.scalars().all())
 
-        # Get projects with technologies
+        # Get projects with technologies, repo_analysis, and achievements
         projects_result = await self.db.execute(
             select(Project).where(Project.user_id == user_id)
-            .options(selectinload(Project.technologies).selectinload(ProjectTechnology.technology))
+            .options(
+                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+                selectinload(Project.repo_analysis),
+                selectinload(Project.achievements),
+            )
             .order_by(Project.start_date.desc())
         )
         projects = list(projects_result.scalars().all())
@@ -158,19 +164,90 @@ class UserDataCollector:
 
             is_ongoing = project.end_date is None
 
+            # Extract data from RepoAnalysis if available
+            key_tasks = []
+            implementation_details = []
+            detailed_achievements = []
+
+            if project.repo_analysis:
+                ra = project.repo_analysis
+                # Key tasks (list of strings)
+                if ra.key_tasks:
+                    key_tasks = ra.key_tasks if isinstance(ra.key_tasks, list) else []
+
+                # Implementation details (list of dicts with title and items)
+                if ra.implementation_details:
+                    impl_details = ra.implementation_details if isinstance(ra.implementation_details, list) else []
+                    for detail in impl_details:
+                        if isinstance(detail, dict):
+                            title = detail.get("title", "")
+                            items = detail.get("items", [])
+                            if title or items:
+                                implementation_details.append({
+                                    "title": title,
+                                    "items": items if isinstance(items, list) else []
+                                })
+
+                # Detailed achievements from RepoAnalysis
+                if ra.detailed_achievements:
+                    achievements_data = ra.detailed_achievements if isinstance(ra.detailed_achievements, dict) else {}
+                    for category, items in achievements_data.items():
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, dict):
+                                    detailed_achievements.append({
+                                        "category": category,
+                                        "title": item.get("title", ""),
+                                        "description": item.get("description", "")
+                                    })
+
+            # Also get achievements from ProjectAchievement model
+            project_achievements = []
+            if project.achievements:
+                for ach in project.achievements:
+                    project_achievements.append({
+                        "metric_name": ach.metric_name,
+                        "metric_value": ach.metric_value,
+                        "description": ach.description or ""
+                    })
+
+            # Format achievements as string for template compatibility
+            achievements_str = ""
+            if project_achievements:
+                achievements_str = "\n".join([
+                    f"• {ach['metric_name']}: {ach['metric_value']}" +
+                    (f" - {ach['description']}" if ach['description'] else "")
+                    for ach in project_achievements
+                ])
+            elif detailed_achievements:
+                achievements_str = "\n".join([
+                    f"• {ach['title']}" + (f": {ach['description']}" if ach['description'] else "")
+                    for ach in detailed_achievements
+                ])
+
+            # Format key tasks as string
+            key_tasks_str = "\n".join([f"• {task}" for task in key_tasks]) if key_tasks else ""
+
             proj = {
                 "index": idx,
                 "name": project.name,
                 "company_name": company_name,
+                "company": company_name,  # Alias for template compatibility
                 "start_date": project.start_date.strftime("%Y.%m") if project.start_date else "",
                 "end_date": project.end_date.strftime("%Y.%m") if project.end_date else "",
                 "is_ongoing": is_ongoing,
                 "description": project.description or "",
                 "role": project.role or "",
                 "technologies": ", ".join(tech_names) if tech_names else "",
+                "technologies_list": tech_names,  # For template iteration
                 "team_size": project.team_size if hasattr(project, 'team_size') else "",
                 "main_features": "",
-                "achievements": "",
+                "achievements": achievements_str,
+                "achievements_list": project_achievements or detailed_achievements,  # For template iteration
+                "key_tasks": key_tasks_str,
+                "key_tasks_list": key_tasks,  # For template iteration
+                "implementation_details": implementation_details,  # For detailed rendering
+                "git_url": project.git_url or "",
             }
             project_list.append(proj)
 

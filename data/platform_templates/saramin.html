@@ -534,14 +534,14 @@
                 </div>
 
                 <!-- 경력기술서 (프로젝트) -->
-                {{#projects.length}}
+                {{#projects}}
                 <div class="part part_only_career">
                     <div class="box_tit">
                         <h2 class="tit">경력기술서</h2>
                     </div>
                     <div class="box_con">
                         <div class="box_list">
-                            <p class="desc">{{#projects}}[프로젝트 {{@index}}]
+                            <p class="desc">[프로젝트 {{@index}}]
 프로젝트명: {{name}}
 {{#company}}연계/소속회사: {{company}}{{/company}}
 기간: {{start_date}} ~ {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}
@@ -551,11 +551,11 @@
 {{#achievements}}성과:
 {{achievements}}{{/achievements}}
 
-{{/projects}}</p>
+</p>
                         </div>
                     </div>
                 </div>
-                {{/projects.length}}
+                {{/projects}}
 
                 <!-- 학력 -->
                 <div class="part part_education">

@@ -11,8 +11,10 @@ import {
   Eye,
   Loader2,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
-import { platformsApi, RenderDataRequest } from '@/api/platforms'
+import { platformsApi } from '@/api/platforms'
+import { usersApi } from '@/api/users'
 import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +29,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 type ExportFormat = 'html' | 'md' | 'docx'
 
@@ -72,7 +75,15 @@ export default function PlatformExportPage() {
     enabled: !!templateId,
   })
 
+  // Fetch user stats to check for analyzed projects
+  const { data: statsData } = useQuery({
+    queryKey: ['userStats', user?.id],
+    queryFn: () => usersApi.getStats(user!.id),
+    enabled: !!user?.id,
+  })
+
   const template = templateData?.data
+  const hasAnalyzedData = (statsData?.data?.analyzed_projects_count ?? 0) > 0
 
   // Load preview when template is available
   useEffect(() => {
@@ -93,25 +104,19 @@ export default function PlatformExportPage() {
     loadPreview()
   }, [template, templateId, user?.id])
 
-  // Export mutation
+  // Export mutation - uses DB-based export
   const exportMutation = useMutation({
     mutationFn: async ({ format }: { format: ExportFormat }) => {
       if (!user?.id) throw new Error('User not found')
 
-      // Create data object from user info
-      const data: RenderDataRequest = {
-        name: user.name || 'User',
-        email: user.email ?? undefined,
-        github_url: user.github_username ? `https://github.com/${user.github_username}` : undefined,
-      }
-
+      // Use DB-based export endpoints
       switch (format) {
         case 'html':
-          return platformsApi.exportToHtml(Number(templateId), data)
+          return platformsApi.exportFromDbToHtml(Number(templateId), user.id)
         case 'md':
-          return platformsApi.exportToMarkdown(Number(templateId), data)
+          return platformsApi.exportFromDbToMarkdown(Number(templateId), user.id)
         case 'docx':
-          return platformsApi.exportToDocx(Number(templateId), data)
+          return platformsApi.exportFromDbToDocx(Number(templateId), user.id)
         default:
           throw new Error(`Unknown format: ${format}`)
       }
@@ -193,6 +198,17 @@ export default function PlatformExportPage() {
             <CardDescription>{t('selectFormat')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Warning when no analyzed data */}
+            {!hasAnalyzedData && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{t('noAnalyzedProjects')}</AlertTitle>
+                <AlertDescription>
+                  {t('analyzeProjectsFirst')}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Format Selection */}
             <RadioGroup
               value={selectedFormat}
@@ -234,7 +250,7 @@ export default function PlatformExportPage() {
               className="w-full"
               size="lg"
               onClick={() => exportMutation.mutate({ format: selectedFormat })}
-              disabled={exportMutation.isPending}
+              disabled={exportMutation.isPending || !hasAnalyzedData}
             >
               {exportMutation.isPending ? (
                 <>

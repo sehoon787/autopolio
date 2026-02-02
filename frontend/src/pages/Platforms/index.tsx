@@ -1,15 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Download,
   Eye,
-  RefreshCw,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react'
 import { platformsApi, PlatformTemplateListItem } from '@/api/platforms'
+import { usersApi } from '@/api/users'
+import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -20,54 +20,38 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/components/ui/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { getPlatformIcon } from '@/components/icons/PlatformIcons'
 
 export default function PlatformsPage() {
   const { t } = useTranslation(['platforms', 'common'])
   const navigate = useNavigate()
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
+  const { user } = useUserStore()
 
   // Fetch platform templates
   const {
     data: templatesData,
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: ['platformTemplates'],
     queryFn: () => platformsApi.getAll(),
   })
 
-  // Initialize system templates mutation
-  const initMutation = useMutation({
-    mutationFn: () => platformsApi.initSystemTemplates(),
-    onSuccess: (response) => {
-      const created = response.data.templates?.length || 0
-      if (created > 0) {
-        toast({
-          title: t('initSuccess'),
-          description: t('templatesCreated', { count: created }),
-        })
-        queryClient.invalidateQueries({ queryKey: ['platformTemplates'] })
-      } else {
-        toast({
-          title: t('alreadyInitialized'),
-          description: t('templatesAlreadyExist'),
-        })
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: t('common:error'),
-        description: String(error),
-        variant: 'destructive',
-      })
-    },
+  // Fetch user stats to check for analyzed projects
+  const { data: statsData } = useQuery({
+    queryKey: ['userStats', user?.id],
+    queryFn: () => usersApi.getStats(user!.id),
+    enabled: !!user?.id,
   })
 
   const templates = templatesData?.data?.templates || []
+  const hasAnalyzedData = (statsData?.data?.analyzed_projects_count ?? 0) > 0
 
   const handleExport = (templateId: number) => {
     navigate(`/platforms/${templateId}/export`)
@@ -80,28 +64,9 @@ export default function PlatformsPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground">{t('description')}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            {t('common:refresh')}
-          </Button>
-          <Button
-            onClick={() => initMutation.mutate()}
-            disabled={initMutation.isPending}
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            {t('initTemplates')}
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('description')}</p>
       </div>
 
       {/* Templates Grid */}
@@ -127,13 +92,9 @@ export default function PlatformsPage() {
           <CardContent className="py-12 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('noTemplates')}</h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground">
               {t('noTemplatesDescription')}
             </p>
-            <Button onClick={() => initMutation.mutate()}>
-              <Sparkles className="h-4 w-4 mr-2" />
-              {t('initTemplates')}
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -144,6 +105,7 @@ export default function PlatformsPage() {
               template={template}
               onExport={() => handleExport(template.id)}
               onPreview={() => handlePreview(template.id)}
+              hasAnalyzedData={hasAnalyzedData}
             />
           ))}
         </div>
@@ -156,9 +118,10 @@ interface PlatformCardProps {
   template: PlatformTemplateListItem
   onExport: () => void
   onPreview: () => void
+  hasAnalyzedData: boolean
 }
 
-function PlatformCard({ template, onExport, onPreview }: PlatformCardProps) {
+function PlatformCard({ template, onExport, onPreview, hasAnalyzedData }: PlatformCardProps) {
   const { t } = useTranslation(['platforms', 'common'])
 
   return (
@@ -214,10 +177,27 @@ function PlatformCard({ template, onExport, onPreview }: PlatformCardProps) {
           <Eye className="h-4 w-4 mr-2" />
           {t('preview')}
         </Button>
-        <Button className="flex-1" onClick={onExport}>
-          <Download className="h-4 w-4 mr-2" />
-          {t('export')}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex-1">
+                <Button
+                  className="w-full"
+                  onClick={onExport}
+                  disabled={!hasAnalyzedData}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {t('export')}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!hasAnalyzedData && (
+              <TooltipContent>
+                <p>{t('exportDisabledNoData')}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
     </Card>
   )
