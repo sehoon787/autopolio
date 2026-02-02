@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,7 @@ export default function RepoSelector() {
   // State
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
+  const [ownerFilter, setOwnerFilter] = useState<string>('all')
 
   // Step 1: Check GitHub connection status FIRST
   const {
@@ -76,7 +78,7 @@ export default function RepoSelector() {
   }, [githubStatus, user, setUser])
 
   // Step 2: Only fetch repos if GitHub is connected AND token is valid
-  const { data: reposData, isLoading: reposLoading, isError: reposError, refetch } = useQuery({
+  const { data: reposData, isLoading: reposLoading, isFetching: reposFetching, isError: reposError, refetch } = useQuery({
     queryKey: ['github-repos', user?.id],
     queryFn: () => githubApi.getRepos(user!.id, true),
     enabled: !!user?.id && canFetchRepos,
@@ -91,7 +93,11 @@ export default function RepoSelector() {
   })
 
   const isLoading = statusLoading || (canFetchRepos && reposLoading)
+  const isRefreshing = canFetchRepos && reposFetching && !reposLoading // True during refetch only
   const isError = reposError // Only show error for repos fetch, not status
+
+  // Virtual list scroll container ref
+  const parentRef = useRef<HTMLDivElement>(null)
 
   const repos = reposData?.data?.repos || []
   const totalRepos = reposData?.data?.total || 0
@@ -129,6 +135,8 @@ export default function RepoSelector() {
 
   // Filtered repos (excluding already-added repos)
   const filteredRepos = useMemo(() => {
+    const githubUsername = user?.github_username?.toLowerCase() || ''
+
     return repos.filter((repo) => {
       // Check if repo is already added as a project
       const normalizedCloneUrl = repo.clone_url.toLowerCase().replace(/\.git$/, '')
@@ -142,9 +150,30 @@ export default function RepoSelector() {
 
       const matchesLanguage = languageFilter === 'all' || repo.language === languageFilter
 
-      return matchesSearch && matchesLanguage
+      // Owner filter logic
+      const isOwned = repo.owner?.toLowerCase() === githubUsername
+      const isFork = repo.fork === true
+      let matchesOwner = true
+      if (ownerFilter === 'owned') {
+        matchesOwner = isOwned && !isFork
+      } else if (ownerFilter === 'forked') {
+        matchesOwner = isFork
+      } else if (ownerFilter === 'contributed') {
+        // Contributed: repos where user is the owner (either owned or forked into their account)
+        matchesOwner = isOwned
+      }
+
+      return matchesSearch && matchesLanguage && matchesOwner
     })
-  }, [repos, searchQuery, languageFilter, addedRepoUrls])
+  }, [repos, searchQuery, languageFilter, ownerFilter, addedRepoUrls, user?.github_username])
+
+  // Virtual list configuration
+  const virtualizer = useVirtualizer({
+    count: filteredRepos.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100, // Estimated row height (repos with description ~110px, without ~80px)
+    overscan: 5, // Render 5 extra items above/below viewport
+  })
 
   // Import mutation
   const importMutation = useMutation({
@@ -199,6 +228,7 @@ export default function RepoSelector() {
   const clearFilters = () => {
     setSearchQuery('')
     setLanguageFilter('all')
+    setOwnerFilter('all')
   }
 
   // Render: Loading state (checking GitHub status)
@@ -304,9 +334,9 @@ export default function RepoSelector() {
           <Button
             variant="outline"
             onClick={() => refetch()}
-            disabled={isLoading}
+            disabled={isLoading || isRefreshing}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
             {t('refresh')}
           </Button>
           <Button
@@ -338,6 +368,19 @@ export default function RepoSelector() {
               </div>
             </div>
 
+            <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+              <SelectTrigger className="w-[160px]">
+                <Github className="mr-2 h-4 w-4" />
+                <SelectValue placeholder={t('ownerFilter')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allRepos')}</SelectItem>
+                <SelectItem value="owned">{t('myRepos')}</SelectItem>
+                <SelectItem value="forked">{t('forkedRepos')}</SelectItem>
+                <SelectItem value="contributed">{t('contributedRepos')}</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={languageFilter} onValueChange={setLanguageFilter}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="mr-2 h-4 w-4" />
@@ -353,7 +396,7 @@ export default function RepoSelector() {
               </SelectContent>
             </Select>
 
-            {(searchQuery || languageFilter !== 'all') && (
+            {(searchQuery || languageFilter !== 'all' || ownerFilter !== 'all') && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="mr-1 h-4 w-4" />
                 {t('clearFilters')}
@@ -412,15 +455,42 @@ export default function RepoSelector() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {filteredRepos.map((repo) => (
-            <RepoCard
-              key={repo.id}
-              repo={repo}
-              selected={selection.isSelected(repo.clone_url)}
-              onToggle={() => selection.toggle(repo.clone_url)}
-            />
-          ))}
+        <div
+          ref={parentRef}
+          className="h-[calc(100vh-380px)] min-h-[400px] overflow-auto"
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const repo = filteredRepos[virtualItem.index]
+              return (
+                <div
+                  key={repo.id}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualItem.size}px`,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <div className="pb-3">
+                    <RepoCard
+                      repo={repo}
+                      selected={selection.isSelected(repo.clone_url)}
+                      onToggle={() => selection.toggle(repo.clone_url)}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

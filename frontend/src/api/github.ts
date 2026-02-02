@@ -13,6 +13,8 @@ export interface GitHubRepo {
   created_at: string
   updated_at: string
   pushed_at: string | null
+  fork: boolean
+  owner: string
 }
 
 // LLM-generated content types (v1.2)
@@ -247,18 +249,55 @@ export interface ExtendedRepoAnalysis extends RepoAnalysis {
   primary_contributor?: ContributorAnalysis
 }
 
+// ============ Background Analysis Types (v1.12) ============
+
+export interface AnalysisJobStatus {
+  task_id: string
+  project_id: number
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  progress: number
+  current_step: number
+  total_steps: number
+  step_name?: string
+  error_message?: string
+  partial_results?: Record<string, any>
+  started_at?: string
+  completed_at?: string
+  created_at: string
+}
+
+export interface AnalysisJobListResponse {
+  jobs: AnalysisJobStatus[]
+  total: number
+}
+
+export interface StartAnalysisResponse {
+  task_id: string
+  project_id: number
+  message: string
+}
+
+export interface CancelAnalysisResponse {
+  task_id: string
+  project_id: number
+  status: string
+  message: string
+  partial_saved: boolean
+}
+
 export const githubApi = {
   getStatus: (userId: number) =>
     apiClient.get<GitHubStatus>('/github/status', {
       params: { user_id: userId }
     }),
 
-  connect: (redirectUrl?: string, isElectron?: boolean) =>
+  connect: (redirectUrl?: string, isElectron?: boolean, userId?: number) =>
     apiClient.get<{ auth_url: string }>('/github/connect', {
       params: {
         redirect_url: redirectUrl,
         frontend_origin: window.location.origin,  // Pass current origin for dynamic redirect
-        is_electron: isElectron || false  // Use custom protocol for Electron OAuth callback
+        is_electron: isElectron || false,  // Use custom protocol for Electron OAuth callback
+        user_id: userId  // Link GitHub to existing user instead of creating new one
       }
     }),
 
@@ -414,5 +453,49 @@ export const githubApi = {
         author: options?.author,
         limit: options?.limit || 50
       }
+    }),
+
+  // ============ Background Analysis APIs (v1.12) ============
+
+  startBackgroundAnalysis: (
+    userId: number,
+    gitUrl: string,
+    projectId?: number,
+    options?: {
+      provider?: string
+      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_model?: string
+    }
+  ) =>
+    apiClient.post<StartAnalysisResponse>('/github/analyze-background', {
+      git_url: gitUrl,
+      project_id: projectId
+    }, {
+      params: {
+        user_id: userId,
+        provider: options?.provider,
+        cli_mode: options?.cli_mode,
+        cli_model: options?.cli_model
+      }
+    }),
+
+  getActiveAnalyses: (userId: number) =>
+    apiClient.get<AnalysisJobListResponse>('/github/active-analyses', {
+      params: { user_id: userId }
+    }),
+
+  getAnalysisStatus: (projectId: number, userId: number) =>
+    apiClient.get<AnalysisJobStatus | null>(`/github/analysis-status/${projectId}`, {
+      params: { user_id: userId }
+    }),
+
+  cancelAnalysis: (projectId: number, userId: number) =>
+    apiClient.post<CancelAnalysisResponse>(`/github/analysis/${projectId}/cancel`, null, {
+      params: { user_id: userId }
+    }),
+
+  getJobStatus: (taskId: string, userId: number) =>
+    apiClient.get<AnalysisJobStatus>(`/github/job/${taskId}`, {
+      params: { user_id: userId }
     }),
 }

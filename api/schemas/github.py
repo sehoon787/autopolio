@@ -43,6 +43,8 @@ class GitHubRepoInfo(BaseModel):
     created_at: datetime
     updated_at: datetime
     pushed_at: Optional[datetime] = None
+    fork: bool = False
+    owner: str = ""
 
 
 class RepoAnalysisRequest(BaseModel):
@@ -288,3 +290,46 @@ class ExtendedRepoAnalysisResponse(RepoAnalysisResponse):
     contributors: List[ContributorAnalysisResponse] = []
     # Primary contributor (logged-in user)
     primary_contributor: Optional[ContributorAnalysisResponse] = None
+
+
+# ============ Analysis Job Schemas (v1.12) ============
+
+class AnalysisJobStatus(BaseModel):
+    """Status of an analysis job."""
+    task_id: str
+    project_id: int
+    status: str  # pending, running, completed, failed, cancelled
+    progress: int  # 0-100
+    current_step: int
+    total_steps: int
+    step_name: Optional[str] = None
+    error_message: Optional[str] = None
+    partial_results: Optional[Dict[str, Any]] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AnalysisJobListResponse(BaseModel):
+    """List of active analysis jobs."""
+    jobs: List[AnalysisJobStatus]
+    total: int
+
+
+class StartAnalysisResponse(BaseModel):
+    """Response when starting a background analysis."""
+    task_id: str
+    project_id: int
+    message: str
+
+
+class CancelAnalysisResponse(BaseModel):
+    """Response when cancelling an analysis."""
+    task_id: str
+    project_id: int
+    status: str
+    message: str
+    partial_saved: bool = False
