@@ -11,8 +11,9 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s", force=True)
 
 from api.config import get_settings
-from api.database import init_db, close_db
+from api.database import init_db, close_db, AsyncSessionLocal
 from api.routers import users, github, templates, pipeline, documents, llm, platforms
+from api.services.platform_template_service import PlatformTemplateService
 from api.routers.knowledge import companies, projects, achievements
 
 settings = get_settings()
@@ -46,6 +47,18 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.templates_dir, exist_ok=True)
     os.makedirs(settings.result_dir, exist_ok=True)
     await init_db()
+
+    # Auto-initialize system templates on startup
+    try:
+        async with AsyncSessionLocal() as session:
+            service = PlatformTemplateService(session)
+            templates = await service.init_system_templates(force_update=False)
+            if templates:
+                logging.info(f"Initialized {len(templates)} system platform templates")
+            await session.commit()
+    except Exception as e:
+        logging.warning(f"Failed to initialize system templates: {e}")
+
     yield
     # Shutdown
     await close_db()
