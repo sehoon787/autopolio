@@ -114,7 +114,14 @@ class ExperienceData(BaseModel):
 
 
 class ProjectData(BaseModel):
-    """Project data for rendering."""
+    """Project data for rendering.
+
+    Extended fields for platform-specific exports:
+    - key_tasks_list: List of key implementation tasks (max 8 items used in exports)
+    - team_size: Number of team members on the project
+    - implementation_details: List of dicts with categorized implementation details.
+      Expected format: [{"title": "Backend Development", "items": ["FastAPI setup", ...]}, ...]
+    """
     name: str
     company_name: Optional[str] = None
     start_date: Optional[str] = None
@@ -123,6 +130,12 @@ class ProjectData(BaseModel):
     role: Optional[str] = None
     technologies: Optional[List[str]] = None
     achievements: Optional[List[str]] = None
+    # Extended fields for platform-specific exports
+    key_tasks_list: Optional[List[str]] = None
+    has_key_tasks: bool = False
+    team_size: Optional[int] = None
+    implementation_details: Optional[List[Dict[str, Any]]] = None
+    has_achievements: bool = False
 
 
 class SkillsData(BaseModel):

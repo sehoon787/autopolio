@@ -324,46 +324,136 @@ class PlatformTemplateService:
                     "company": "테크스타트 주식회사",
                     "company_name": "테크스타트 주식회사",
                     "position": "시니어 프론트엔드 개발자",
-                    "start_date": "2022-03",
+                    "start_date": "2022.03",
                     "end_date": "",
                     "is_current": True,
-                    "description": "React 기반 SaaS 플랫폼 프론트엔드 개발 리드",
-                    "achievements": ["페이지 로딩 속도 40% 개선", "컴포넌트 라이브러리 구축으로 개발 생산성 30% 향상"]
+                    "duration": "2년 10개월",
+                    "description": "SaaS 플랫폼 개발, 시스템 설계",
+                    "achievements": ["페이지 로딩 속도 40% 개선", "컴포넌트 라이브러리 구축으로 개발 생산성 30% 향상"],
+                    "has_domain_skills": True,
+                    "skills_by_domain": [
+                        {
+                            "domain_name": "Backend",
+                            "domain_index": 1,
+                            "technologies": ["FastAPI", "Python", "RESTful API"],
+                            "technologies_str": "FastAPI, Python, RESTful API",
+                            "has_technologies": True,
+                            "implementations": [
+                                {"text": "RESTful API 서버 개발 (10개 이상 프로젝트)"},
+                                {"text": "데이터 수집 파이프라인 구축"},
+                                {"text": "Microservices 아키텍처 설계"}
+                            ],
+                            "has_implementations": True,
+                            "databases": ["PostgreSQL", "MySQL"],
+                            "databases_str": "PostgreSQL, MySQL",
+                            "has_databases": True
+                        },
+                        {
+                            "domain_name": "Frontend",
+                            "domain_index": 2,
+                            "technologies": ["React", "TypeScript", "Next.js"],
+                            "technologies_str": "React, TypeScript, Next.js",
+                            "has_technologies": True,
+                            "implementations": [
+                                {"text": "React 기반 SaaS 플랫폼 프론트엔드 개발"},
+                                {"text": "컴포넌트 라이브러리 구축"}
+                            ],
+                            "has_implementations": True,
+                            "databases": [],
+                            "databases_str": "",
+                            "has_databases": False
+                        },
+                        {
+                            "domain_name": "AI/ML",
+                            "domain_index": 3,
+                            "technologies": ["LangChain", "OpenAI API"],
+                            "technologies_str": "LangChain, OpenAI API",
+                            "has_technologies": True,
+                            "implementations": [
+                                {"text": "RAG 시스템 구축"},
+                                {"text": "GPT-4 기반 문서 분석 파이프라인"}
+                            ],
+                            "has_implementations": True,
+                            "databases": [],
+                            "databases_str": "",
+                            "has_databases": False
+                        }
+                    ]
                 },
                 {
                     "company": "디지털솔루션 주식회사",
                     "company_name": "디지털솔루션 주식회사",
                     "position": "풀스택 개발자",
-                    "start_date": "2019-07",
-                    "end_date": "2022-02",
+                    "start_date": "2019.07",
+                    "end_date": "2022.02",
                     "is_current": False,
+                    "duration": "2년 7개월",
                     "description": "B2B 플랫폼 풀스택 개발",
-                    "achievements": ["REST API 설계 및 구현", "MySQL 쿼리 최적화로 응답시간 60% 단축"]
+                    "achievements": ["REST API 설계 및 구현", "MySQL 쿼리 최적화로 응답시간 60% 단축"],
+                    "has_domain_skills": True,
+                    "skills_by_domain": [
+                        {
+                            "domain_name": "Backend",
+                            "domain_index": 1,
+                            "technologies": ["Django", "Python"],
+                            "technologies_str": "Django, Python",
+                            "has_technologies": True,
+                            "implementations": [
+                                {"text": "B2B 플랫폼 백엔드 개발"},
+                                {"text": "REST API 설계 및 구현"}
+                            ],
+                            "has_implementations": True,
+                            "databases": ["MySQL"],
+                            "databases_str": "MySQL",
+                            "has_databases": True
+                        }
+                    ]
                 }
             ],
             "projects": [
                 {
+                    "index": 1,
                     "name": "AI 기반 문서 분석 플랫폼",
                     "company": "테크스타트 주식회사",
+                    "company_name": "테크스타트 주식회사",
                     "role": "테크 리드",
-                    "start_date": "2023-01",
-                    "end_date": "2023-12",
+                    "start_date": "2023.01",
+                    "end_date": "2023.12",
                     "description": "GPT-4 API를 활용한 기업 문서 자동 분석 및 요약 플랫폼 개발",
-                    "technologies": True,
+                    "technologies": "React, TypeScript, FastAPI, PostgreSQL, OpenAI API",
                     "technologies_list": ["React", "TypeScript", "FastAPI", "PostgreSQL", "OpenAI API"],
+                    "team_size": 3,
+                    "key_tasks_list": [
+                        "GPT-4 API 기반 문서 분석 파이프라인 구축",
+                        "React 기반 사용자 대시보드 개발",
+                        "FastAPI 백엔드 API 서버 구현",
+                        "PostgreSQL 기반 문서 메타데이터 관리 시스템"
+                    ],
+                    "has_key_tasks": True,
                     "achievements": "• 문서 처리 시간 80% 단축\n• 월간 활성 사용자 5,000명 달성",
+                    "has_achievements": True,
                     "git_url": "https://github.com/example/doc-analyzer"
                 },
                 {
+                    "index": 2,
                     "name": "실시간 협업 화이트보드",
                     "company": "테크스타트 주식회사",
+                    "company_name": "테크스타트 주식회사",
                     "role": "프론트엔드 개발자",
-                    "start_date": "2022-06",
-                    "end_date": "2022-12",
+                    "start_date": "2022.06",
+                    "end_date": "2022.12",
                     "description": "WebSocket 기반 실시간 멀티플레이어 화이트보드 애플리케이션",
-                    "technologies": True,
+                    "technologies": "React, Canvas API, Socket.io, Node.js, Redis",
                     "technologies_list": ["React", "Canvas API", "Socket.io", "Node.js", "Redis"],
+                    "team_size": 2,
+                    "key_tasks_list": [
+                        "Canvas API 기반 드로잉 엔진 개발",
+                        "WebSocket 기반 실시간 동기화 구현",
+                        "Redis Pub/Sub 기반 이벤트 브로커"
+                    ],
+                    "has_key_tasks": True,
                     "achievements": "• 동시 접속자 1,000명 지원",
+                    "has_achievements": True,
                     "git_url": ""
                 }
             ],
@@ -492,6 +582,7 @@ class PlatformTemplateService:
                         elif isinstance(ach, str):
                             ach_list.append(ach)
 
+            key_tasks = proj.get("key_tasks_list", [])
             projects.append(ProjectData(
                 name=proj.get("name", ""),
                 company_name=proj.get("company_name"),
@@ -501,6 +592,12 @@ class PlatformTemplateService:
                 role=proj.get("role"),
                 technologies=tech_list if tech_list else None,
                 achievements=ach_list if ach_list else None,
+                # Extended fields for platform-specific exports
+                key_tasks_list=key_tasks if key_tasks else None,
+                has_key_tasks=len(key_tasks) > 0 if key_tasks else False,
+                team_size=proj.get("team_size"),
+                implementation_details=proj.get("implementation_details"),
+                has_achievements=bool(ach_list),
             ))
 
         # Build skills
@@ -528,7 +625,8 @@ class PlatformTemplateService:
             certifications=None,
         )
 
-        return self.exporter.generate_markdown(data, template.name)
+        # Pass platform_key for platform-specific formatting
+        return self.exporter.generate_markdown(data, template.name, template.platform_key)
 
     async def render_markdown_with_sample_data(
         self,
@@ -614,7 +712,8 @@ class PlatformTemplateService:
             certifications=None,
         )
 
-        return self.exporter.generate_markdown(data, template.name)
+        # Pass platform_key for platform-specific formatting
+        return self.exporter.generate_markdown(data, template.name, template.platform_key)
 
     # ==================== Export Methods ====================
 

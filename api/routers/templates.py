@@ -669,6 +669,108 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 - GitHub: [{{github_username}}](https://github.com/{{github_username}})
 """
         },
+        {
+            "name": "일반 이력서 (Word)",
+            "description": "플랫폼에 종속되지 않는 범용 Word 이력서 템플릿",
+            "platform": "general_docx",
+            "output_format": "docx",
+            "sections": ["summary", "experience", "projects", "achievements", "skills"],
+            "max_projects": 10,
+            "template_content": """# {{name}} 이력서
+
+## 기본 정보
+- 이름: {{name}}
+- 이메일: {{email}}
+- GitHub: {{github_username}}
+
+## 자기소개
+{{summary}}
+
+## 경력 사항
+{{#companies}}
+### {{name}}
+- 직책: {{position}}
+- 기간: {{start_date}} ~ {{end_date}}
+- 주요 업무: {{description}}
+{{/companies}}
+
+## 프로젝트
+{{#projects}}
+### {{name}}
+- 기간: {{start_date}} ~ {{end_date}}
+- 역할: {{role}}
+- 기술 스택: {{technologies}}
+- 설명: {{description}}
+
+#### 주요 구현 기능
+{{key_tasks}}
+
+#### 성과
+{{#achievements}}
+- {{metric_name}}: {{metric_value}}
+{{/achievements}}
+{{/projects}}
+
+## 기술 스택
+{{skills}}
+"""
+        },
+        {
+            "name": "일반 이력서 (Markdown)",
+            "description": "플랫폼에 종속되지 않는 범용 Markdown 이력서 템플릿",
+            "platform": "general_md",
+            "output_format": "md",
+            "sections": ["summary", "experience", "projects", "achievements", "skills"],
+            "max_projects": 10,
+            "template_content": """# {{name}}
+
+> {{summary}}
+
+---
+
+## 💼 경력
+
+{{#companies}}
+### {{name}}
+**{{position}}** | {{start_date}} - {{end_date}}
+
+{{description}}
+
+{{/companies}}
+
+---
+
+## 🚀 프로젝트
+
+{{#projects}}
+### {{name}}
+**{{role}}** | {{start_date}} - {{end_date}}
+
+{{description}}
+
+**기술 스택:** {{technologies}}
+
+**주요 구현 기능:**
+{{key_tasks}}
+
+**성과:**
+{{#achievements}}
+- {{metric_name}}: {{metric_value}}
+{{/achievements}}
+
+---
+{{/projects}}
+
+## 🛠 기술 스택
+{{skills}}
+
+---
+
+## 📫 연락처
+- Email: {{email}}
+- GitHub: [{{github_username}}](https://github.com/{{github_username}})
+"""
+        },
     ]
 
     for tmpl_data in system_templates:
