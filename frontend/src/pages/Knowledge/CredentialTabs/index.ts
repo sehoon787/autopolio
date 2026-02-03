@@ -1,0 +1,7 @@
+export { CertificationsTab } from './CertificationsTab'
+export { AwardsTab } from './AwardsTab'
+export { EducationsTab } from './EducationsTab'
+export { AcademicEducationTab } from './AcademicEducationTab'
+export { TrainingsTab } from './TrainingsTab'
+export { PublicationsTab } from './PublicationsTab'
+export { VolunteerActivitiesTab } from './VolunteerActivitiesTab'
