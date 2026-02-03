@@ -13,6 +13,7 @@ dependencies = [
     # Database
     "sqlalchemy>=2.0.35",
     "aiosqlite>=0.20.0",
+    "aiofiles>=24.0.0",
 
     # Validation and settings
     "pydantic>=2.9.2",

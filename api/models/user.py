@@ -37,3 +37,13 @@ class User(Base):
     documents = relationship("GeneratedDocument", back_populates="user", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="user", cascade="all, delete-orphan")
     platform_templates = relationship("PlatformTemplate", back_populates="user", cascade="all, delete-orphan")
+
+    # Credentials relationships
+    certifications = relationship("Certification", back_populates="user", cascade="all, delete-orphan")
+    awards = relationship("Award", back_populates="user", cascade="all, delete-orphan")
+    educations = relationship("Education", back_populates="user", cascade="all, delete-orphan")
+    publications = relationship("Publication", back_populates="user", cascade="all, delete-orphan")
+    volunteer_activities = relationship("VolunteerActivity", back_populates="user", cascade="all, delete-orphan")
+
+    # OAuth identities - support for multiple OAuth providers
+    oauth_identities = relationship("OAuthIdentity", back_populates="user", cascade="all, delete-orphan")

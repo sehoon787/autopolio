@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Frontend URL (for OAuth redirect)
     frontend_url: str = "http://localhost:5173"
 
+    # API URL (for OAuth callbacks)
+    api_url: str = "http://localhost:8000"
+
     # CORS (includes app:// for Electron desktop app)
     cors_origins: list[str] = [
         "http://localhost:5173",

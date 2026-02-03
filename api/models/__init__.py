@@ -9,6 +9,8 @@ from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.job import Job
 from api.models.platform_template import PlatformTemplate
+from api.models.credentials import Certification, Award, Education, Publication, VolunteerActivity
+from api.models.oauth_identity import OAuthIdentity
 
 __all__ = [
     "User",
@@ -24,4 +26,10 @@ __all__ = [
     "GeneratedDocument",
     "Job",
     "PlatformTemplate",
+    "Certification",
+    "Award",
+    "Education",
+    "Publication",
+    "VolunteerActivity",
+    "OAuthIdentity",
 ]
