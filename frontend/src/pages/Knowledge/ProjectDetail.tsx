@@ -125,9 +125,9 @@ export default function ProjectDetailPage() {
   const companies = companiesData?.data || []
 
   const { data: projectData, isLoading } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => projectsApi.getById(projectId),
-    enabled: !!projectId,
+    queryKey: ['project', projectId, user?.id],
+    queryFn: () => projectsApi.getById(user!.id, projectId),
+    enabled: !!projectId && !!user?.id,
   })
 
   // Use effective analysis (with user edits applied)
@@ -241,7 +241,7 @@ export default function ProjectDetailPage() {
   }
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<ProjectCreate>) => projectsApi.update(projectId, data),
+    mutationFn: (data: Partial<ProjectCreate>) => projectsApi.update(user!.id, projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })

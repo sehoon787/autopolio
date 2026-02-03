@@ -20,6 +20,8 @@ import {
   Users,
   Calendar,
   Code,
+  Briefcase,
+  MapPin,
 } from 'lucide-react'
 
 function TechCategoryBadges({ techCategories }: { techCategories: Record<string, string[]> }) {
@@ -37,137 +39,223 @@ function TechCategoryBadges({ techCategories }: { techCategories: Record<string,
   )
 }
 
-function CompanyCard({ companySummary, t }: { companySummary: CompanySummaryResponse, t: (key: string, options?: any) => string }) {
+function CompanyCard({
+  companySummary,
+  t,
+  isFirst,
+  isLast,
+  userId
+}: {
+  companySummary: CompanySummaryResponse
+  t: (key: string, options?: any) => string
+  isFirst?: boolean
+  isLast?: boolean
+  userId: number
+}) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(true)
   const { company, projects, project_count, tech_categories, date_range } = companySummary
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Building2 className="h-6 w-6 text-primary" />
-            </div>
+    <div className="relative flex gap-6">
+      {/* Timeline marker */}
+      <div className="flex flex-col items-center">
+        {/* Connector line top */}
+        <div className={`w-0.5 flex-1 ${isFirst ? 'bg-transparent' : 'bg-primary/30'}`} />
+
+        {/* Timeline dot */}
+        <div className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-4 overflow-hidden ${
+          company.is_current
+            ? 'bg-primary border-primary/30 text-white'
+            : 'bg-white border-primary/30 text-primary'
+        }`}>
+          {company.logo_path ? (
+            <img
+              src={companiesApi.getLogoUrl(userId, company.id)}
+              alt={company.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Building2 className="h-5 w-5" />
+          )}
+        </div>
+
+        {/* Connector line bottom */}
+        <div className={`w-0.5 flex-1 ${isLast ? 'bg-transparent' : 'bg-primary/30'}`} />
+      </div>
+
+      {/* Company Card */}
+      <Card className="flex-1 mb-6 shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-xl">{company.name}</CardTitle>
-                {company.is_current && <Badge variant="success">{t('current')}</Badge>}
+              <div className="flex items-center gap-3 mb-1">
+                <CardTitle className="text-xl font-bold">{company.name}</CardTitle>
+                {company.is_current && (
+                  <Badge variant="success" className="text-xs">
+                    {t('current')}
+                  </Badge>
+                )}
               </div>
-              {company.position && (
-                <p className="text-gray-700 font-medium mt-1">{company.position}</p>
-              )}
-              <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {company.position && (
+                  <span className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Briefcase className="h-4 w-4 text-primary" />
+                    {company.position}
+                    {company.department && <span className="text-muted-foreground">· {company.department}</span>}
+                  </span>
+                )}
+                {company.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {company.location}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded">
+                  <Calendar className="h-3.5 w-3.5" />
                   {date_range}
                 </span>
-                <span className="flex items-center gap-1">
-                  <FolderGit2 className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded">
+                  <FolderGit2 className="h-3.5 w-3.5" />
                   {t('timeline.projectsCount', { count: project_count })}
                 </span>
               </div>
+
+              {company.description && (
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                  {company.description}
+                </p>
+              )}
             </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="shrink-0"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-5 w-5" />
+              ) : (
+                <ChevronRight className="h-5 w-5" />
+              )}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
+        </CardHeader>
+
+        {isExpanded && (
+          <CardContent className="pt-0 space-y-6">
+            {/* Tech Stack Summary */}
+            {Object.keys(tech_categories).length > 0 && (
+              <div className="p-4 bg-muted/30 rounded-lg border">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Code className="h-4 w-4 text-primary" />
+                  {t('timeline.techStack')}
+                </h4>
+                <TechCategoryBadges techCategories={tech_categories} />
+              </div>
             )}
-          </Button>
-        </div>
-      </CardHeader>
 
-      {isExpanded && (
-        <CardContent className="pt-0">
-          {/* Tech Stack Summary */}
-          {Object.keys(tech_categories).length > 0 && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                <Code className="h-4 w-4" />
-                {t('timeline.techStack')}
+            {/* Projects List */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <FolderGit2 className="h-4 w-4 text-primary" />
+                {t('timeline.keyProjects')}
               </h4>
-              <TechCategoryBadges techCategories={tech_categories} />
-            </div>
-          )}
 
-          {/* Projects List */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <FolderGit2 className="h-4 w-4" />
-              {t('timeline.keyProjects')}
-            </h4>
-            {projects.map((project, index) => (
-              <div
-                key={project.id}
-                className="border-l-2 border-primary/30 pl-4 ml-2 py-2 hover:bg-gray-50 cursor-pointer rounded-r"
-                onClick={() => navigate(`/knowledge/projects/${project.id}`)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+              <div className="space-y-3">
+                {projects.map((project, index) => (
+                  <div
+                    key={project.id}
+                    className="group relative border rounded-lg p-4 hover:bg-accent/50 hover:border-primary/30 cursor-pointer transition-all"
+                    onClick={() => navigate(`/knowledge/projects/${project.id}`)}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Project number */}
+                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-semibold shrink-0">
                         {index + 1}
-                      </span>
-                      <h5 className="font-medium text-gray-900">{project.name}</h5>
-                      {project.git_url && (
-                        <a
-                          href={project.git_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                      <span>
-                        {formatDate(project.start_date)} ~ {formatDate(project.end_date) || t('timeline.ongoing')}
-                      </span>
-                      {project.team_size && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {t('timeline.teamMembers', { count: project.team_size })}
-                        </span>
-                      )}
-                      {project.role && <span>| {project.role}</span>}
-                    </div>
-                    {project.description && (
-                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    {project.technologies.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {project.technologies.slice(0, 8).map((tech) => (
-                          <TechBadge key={tech} tech={tech} size="sm" />
-                        ))}
-                        {project.technologies.length > 8 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{project.technologies.length - 8}
-                          </Badge>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Project header */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                            {project.name}
+                          </h5>
+                          {project.git_url && (
+                            <a
+                              href={project.git_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-muted-foreground hover:text-primary shrink-0"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Project meta */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-2">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(project.start_date)} ~ {formatDate(project.end_date) || t('timeline.ongoing')}
+                          </span>
+                          {project.team_size && (
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {t('timeline.teamMembers', { count: project.team_size })}
+                            </span>
+                          )}
+                          {project.role && (
+                            <span className="flex items-center gap-1">
+                              <Briefcase className="h-3 w-3" />
+                              {project.role}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Description */}
+                        {project.description && (
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                            {project.description}
+                          </p>
+                        )}
+
+                        {/* Technologies */}
+                        {project.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {project.technologies.slice(0, 6).map((tech) => (
+                              <TechBadge key={tech} tech={tech} size="sm" />
+                            ))}
+                            {project.technologies.length > 6 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{project.technologies.length - 6}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
+                ))}
+
+                {projects.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FolderGit2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{t('timeline.noProjectsRegistered')}</p>
+                  </div>
+                )}
               </div>
-            ))}
-            {projects.length === 0 && (
-              <p className="text-sm text-gray-500 italic">{t('timeline.noProjectsRegistered')}</p>
-            )}
-          </div>
-        </CardContent>
-      )}
-    </Card>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
   )
 }
 
@@ -271,16 +359,17 @@ export default function CompanyTimelinePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
-
-              {/* Company cards */}
-              <div className="space-y-0 pl-12">
-                {companySummaries.map((summary) => (
-                  <CompanyCard key={summary.company.id} companySummary={summary} t={t} />
-                ))}
-              </div>
+            <div className="space-y-0">
+              {companySummaries.map((summary, index) => (
+                <CompanyCard
+                  key={summary.company.id}
+                  companySummary={summary}
+                  t={t}
+                  isFirst={index === 0}
+                  isLast={index === companySummaries.length - 1}
+                  userId={user!.id}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
@@ -295,7 +384,15 @@ export default function CompanyTimelinePage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Building2 className="h-5 w-5 text-primary" />
+                        {summary.company.logo_path ? (
+                          <img
+                            src={companiesApi.getLogoUrl(user!.id, summary.company.id)}
+                            alt={summary.company.name}
+                            className="w-8 h-8 rounded object-cover"
+                          />
+                        ) : (
+                          <Building2 className="h-5 w-5 text-primary" />
+                        )}
                         <div>
                           <h3 className="font-medium">{summary.company.name}</h3>
                           <p className="text-sm text-gray-500">

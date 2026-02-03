@@ -14,6 +14,7 @@ export interface Company {
   description: string | null
   location: string | null
   company_url: string | null
+  logo_path: string | null
   created_at: string
   updated_at: string
 }
@@ -134,28 +135,49 @@ export const companiesApi = {
   getAll: (userId: number) =>
     apiClient.get<Company[]>('/knowledge/companies', { params: { user_id: userId } }),
 
-  getById: (id: number) =>
-    apiClient.get<Company>(`/knowledge/companies/${id}`),
+  getById: (userId: number, id: number) =>
+    apiClient.get<Company>(`/knowledge/companies/${id}`, { params: { user_id: userId } }),
 
   create: (userId: number, data: CompanyCreate) =>
     apiClient.post<Company>('/knowledge/companies', data, { params: { user_id: userId } }),
 
-  update: (id: number, data: Partial<CompanyCreate>) =>
-    apiClient.put<Company>(`/knowledge/companies/${id}`, data),
+  update: (userId: number, id: number, data: Partial<CompanyCreate>) =>
+    apiClient.put<Company>(`/knowledge/companies/${id}`, data, { params: { user_id: userId } }),
 
-  delete: (id: number) =>
-    apiClient.delete(`/knowledge/companies/${id}`),
+  delete: (userId: number, id: number) =>
+    apiClient.delete(`/knowledge/companies/${id}`, { params: { user_id: userId } }),
 
-  getProjects: (id: number) =>
-    apiClient.get(`/knowledge/companies/${id}/projects`),
+  getProjects: (userId: number, id: number) =>
+    apiClient.get(`/knowledge/companies/${id}/projects`, { params: { user_id: userId } }),
 
-  getSummary: (id: number) =>
-    apiClient.get<CompanySummaryResponse>(`/knowledge/companies/${id}/summary`),
+  getSummary: (userId: number, id: number) =>
+    apiClient.get<CompanySummaryResponse>(`/knowledge/companies/${id}/summary`, { params: { user_id: userId } }),
 
   getGroupedByCompany: (userId: number) =>
     apiClient.get<CompanyGroupedResponse>('/knowledge/companies/grouped-by-company', {
       params: { user_id: userId }
     }),
+
+  linkProject: (userId: number, companyId: number, projectId: number) =>
+    apiClient.post(`/knowledge/companies/${companyId}/link-project/${projectId}`, null, { params: { user_id: userId } }),
+
+  unlinkProject: (userId: number, companyId: number, projectId: number) =>
+    apiClient.delete(`/knowledge/companies/${companyId}/unlink-project/${projectId}`, { params: { user_id: userId } }),
+
+  uploadLogo: (userId: number, companyId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post(`/knowledge/companies/${companyId}/logo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: { user_id: userId },
+    })
+  },
+
+  deleteLogo: (userId: number, companyId: number) =>
+    apiClient.delete(`/knowledge/companies/${companyId}/logo`, { params: { user_id: userId } }),
+
+  getLogoUrl: (userId: number, companyId: number) =>
+    `/api/knowledge/companies/${companyId}/logo?user_id=${userId}`,
 }
 
 export interface ProjectFilters {
@@ -185,23 +207,24 @@ export const projectsApi = {
       params: { user_id: userId, ...params }
     }),
 
-  getById: (id: number) =>
-    apiClient.get<Project>(`/knowledge/projects/${id}`),
+  getById: (userId: number, id: number) =>
+    apiClient.get<Project>(`/knowledge/projects/${id}`, { params: { user_id: userId } }),
 
   create: (userId: number, data: ProjectCreate) =>
     apiClient.post<Project>('/knowledge/projects', data, { params: { user_id: userId } }),
 
-  update: (id: number, data: Partial<ProjectCreate>) =>
-    apiClient.put<Project>(`/knowledge/projects/${id}`, data),
+  update: (userId: number, id: number, data: Partial<ProjectCreate>) =>
+    apiClient.put<Project>(`/knowledge/projects/${id}`, data, { params: { user_id: userId } }),
 
-  delete: (id: number) =>
-    apiClient.delete(`/knowledge/projects/${id}`),
+  delete: (userId: number, id: number) =>
+    apiClient.delete(`/knowledge/projects/${id}`, { params: { user_id: userId } }),
 
-  deleteBatch: (projectIds: number[]) =>
+  deleteBatch: (userId: number, projectIds: number[]) =>
     apiClient.delete<BatchDeleteResponse>('/knowledge/projects', {
-      params: { project_ids: projectIds },
+      params: { user_id: userId, project_ids: projectIds },
       paramsSerializer: (params) => {
         const searchParams = new URLSearchParams()
+        searchParams.append('user_id', String(params.user_id))
         params.project_ids.forEach((id: number) => {
           searchParams.append('project_ids', String(id))
         })
@@ -252,33 +275,39 @@ export interface AutoDetectAllResponse {
 }
 
 export const achievementsApi = {
-  getAll: (projectId: number, category?: string) =>
+  getAll: (userId: number, projectId: number, category?: string) =>
     apiClient.get<Achievement[]>('/knowledge/achievements', {
-      params: { project_id: projectId, category }
+      params: { user_id: userId, project_id: projectId, category }
     }),
 
-  getById: (id: number) =>
-    apiClient.get<Achievement>(`/knowledge/achievements/${id}`),
+  getById: (userId: number, id: number) =>
+    apiClient.get<Achievement>(`/knowledge/achievements/${id}`, {
+      params: { user_id: userId }
+    }),
 
-  create: (projectId: number, data: Omit<Achievement, 'id' | 'project_id' | 'created_at' | 'updated_at'>) =>
+  create: (userId: number, projectId: number, data: Omit<Achievement, 'id' | 'project_id' | 'created_at' | 'updated_at'>) =>
     apiClient.post<Achievement>('/knowledge/achievements', data, {
-      params: { project_id: projectId }
+      params: { user_id: userId, project_id: projectId }
     }),
 
-  update: (id: number, data: Partial<Achievement>) =>
-    apiClient.put<Achievement>(`/knowledge/achievements/${id}`, data),
+  update: (userId: number, id: number, data: Partial<Achievement>) =>
+    apiClient.put<Achievement>(`/knowledge/achievements/${id}`, data, {
+      params: { user_id: userId }
+    }),
 
-  delete: (id: number) =>
-    apiClient.delete(`/knowledge/achievements/${id}`),
+  delete: (userId: number, id: number) =>
+    apiClient.delete(`/knowledge/achievements/${id}`, {
+      params: { user_id: userId }
+    }),
 
-  createBulk: (projectId: number, data: Omit<Achievement, 'id' | 'project_id' | 'created_at' | 'updated_at'>[]) =>
+  createBulk: (userId: number, projectId: number, data: Omit<Achievement, 'id' | 'project_id' | 'created_at' | 'updated_at'>[]) =>
     apiClient.post<Achievement[]>('/knowledge/achievements/bulk', data, {
-      params: { project_id: projectId }
+      params: { user_id: userId, project_id: projectId }
     }),
 
-  autoDetect: (projectId: number, useLlm: boolean = true, saveToDb: boolean = true) =>
+  autoDetect: (userId: number, projectId: number, useLlm: boolean = true, saveToDb: boolean = true) =>
     apiClient.post<AutoDetectResponse>('/knowledge/achievements/auto-detect', null, {
-      params: { project_id: projectId, use_llm: useLlm, save_to_db: saveToDb }
+      params: { user_id: userId, project_id: projectId, use_llm: useLlm, save_to_db: saveToDb }
     }),
 
   autoDetectAll: (userId: number, useLlm: boolean = false, saveToDb: boolean = true) =>

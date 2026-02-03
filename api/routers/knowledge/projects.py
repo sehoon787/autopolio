@@ -183,11 +183,15 @@ async def get_projects(
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
+async def get_project(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
     """Get a specific project by ID."""
     result = await db.execute(
         select(Project)
-        .where(Project.id == project_id)
+        .where(Project.id == project_id, Project.user_id == user_id)
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
             selectinload(Project.achievements),
@@ -306,10 +310,13 @@ async def create_project(
 async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
+    user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """Update a project."""
-    result = await db.execute(select(Project).where(Project.id == project_id))
+    result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+    )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -386,9 +393,15 @@ async def update_project(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_project(project_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_project(
+    project_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
     """Delete a project."""
-    result = await db.execute(select(Project).where(Project.id == project_id))
+    result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+    )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -400,15 +413,19 @@ async def delete_project(project_id: int, db: AsyncSession = Depends(get_db)):
 @router.delete("", status_code=status.HTTP_200_OK)
 async def delete_projects_batch(
     project_ids: List[int] = Query(..., description="List of project IDs to delete"),
+    user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete multiple projects at once."""
     if not project_ids:
         raise HTTPException(status_code=400, detail="No project IDs provided")
 
-    # Get all projects to delete
+    # Get all projects to delete that belong to the user
     result = await db.execute(
-        select(Project).where(Project.id.in_(project_ids))
+        select(Project).where(
+            Project.id.in_(project_ids),
+            Project.user_id == user_id
+        )
     )
     projects = result.scalars().all()
 

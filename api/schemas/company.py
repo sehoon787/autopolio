@@ -14,6 +14,7 @@ class CompanyBase(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
     company_url: Optional[str] = None
+    logo_path: Optional[str] = None
 
 
 class CompanyCreate(CompanyBase):
@@ -31,6 +32,7 @@ class CompanyUpdate(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
     company_url: Optional[str] = None
+    logo_path: Optional[str] = None
 
 
 class CompanyResponse(CompanyBase):

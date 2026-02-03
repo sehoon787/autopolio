@@ -23,6 +23,9 @@ class Company(Base):
     location = Column(String(200))
     company_url = Column(String(500))
 
+    # Logo
+    logo_path = Column(String(500), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

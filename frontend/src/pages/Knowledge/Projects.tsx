@@ -238,19 +238,19 @@ export default function ProjectsPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => projectsApi.delete(id),
+    mutationFn: (id: number) => projectsApi.delete(user!.id, id),
     onSuccess: () => { queryClient.refetchQueries({ queryKey: ['projects'] }); toast({ title: t('projectDeleted') }) },
     onError: (error: any) => toast({ title: tc('error'), description: error?.response?.data?.detail || t('deleteFailed'), variant: 'destructive' }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<ProjectCreate> }) => projectsApi.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<ProjectCreate> }) => projectsApi.update(user!.id, id, data),
     onSuccess: () => { queryClient.refetchQueries({ queryKey: ['projects'] }); setEditingProject(null); toast({ title: t('projectUpdated') }) },
     onError: (error: any) => toast({ title: tc('error'), description: error?.response?.data?.detail || t('updateFailed'), variant: 'destructive' }),
   })
 
   const batchDeleteMutation = useMutation({
-    mutationFn: (projectIds: number[]) => projectsApi.deleteBatch(projectIds),
+    mutationFn: (projectIds: number[]) => projectsApi.deleteBatch(user!.id, projectIds),
     onSuccess: (response) => {
       const { deleted_count, not_found_ids } = response.data
       queryClient.refetchQueries({ queryKey: ['projects'] })
@@ -267,7 +267,7 @@ export default function ProjectsPage() {
   })
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => projectsApi.update(id, { status }),
+    mutationFn: ({ id, status }: { id: number; status: string }) => projectsApi.update(user!.id, id, { status }),
     onSuccess: () => queryClient.refetchQueries({ queryKey: ['projects'] }),
     onError: () => toast({ title: tc('error'), description: t('statusChangeFailed'), variant: 'destructive' }),
   })

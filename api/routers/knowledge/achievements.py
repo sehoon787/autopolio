@@ -29,10 +29,18 @@ class AutoDetectResponse(BaseModel):
 @router.get("", response_model=List[AchievementResponse])
 async def get_achievements(
     project_id: int = Query(..., description="Project ID"),
+    user_id: int = Query(..., description="User ID"),
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """Get all achievements for a project."""
+    # Verify project belongs to user
+    project_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+    )
+    if not project_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Project not found")
+
     query = select(ProjectAchievement).where(
         ProjectAchievement.project_id == project_id
     )
@@ -45,10 +53,19 @@ async def get_achievements(
 
 
 @router.get("/{achievement_id}", response_model=AchievementResponse)
-async def get_achievement(achievement_id: int, db: AsyncSession = Depends(get_db)):
+async def get_achievement(
+    achievement_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
     """Get a specific achievement by ID."""
     result = await db.execute(
-        select(ProjectAchievement).where(ProjectAchievement.id == achievement_id)
+        select(ProjectAchievement)
+        .join(Project)
+        .where(
+            ProjectAchievement.id == achievement_id,
+            Project.user_id == user_id
+        )
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -60,11 +77,14 @@ async def get_achievement(achievement_id: int, db: AsyncSession = Depends(get_db
 async def create_achievement(
     achievement_data: AchievementCreate,
     project_id: int = Query(..., description="Project ID"),
+    user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new achievement for a project."""
-    # Verify project exists
-    result = await db.execute(select(Project).where(Project.id == project_id))
+    # Verify project exists and belongs to user
+    result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+    )
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -82,11 +102,17 @@ async def create_achievement(
 async def update_achievement(
     achievement_id: int,
     achievement_data: AchievementUpdate,
+    user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """Update an achievement."""
     result = await db.execute(
-        select(ProjectAchievement).where(ProjectAchievement.id == achievement_id)
+        select(ProjectAchievement)
+        .join(Project)
+        .where(
+            ProjectAchievement.id == achievement_id,
+            Project.user_id == user_id
+        )
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -102,10 +128,19 @@ async def update_achievement(
 
 
 @router.delete("/{achievement_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_achievement(achievement_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_achievement(
+    achievement_id: int,
+    user_id: int = Query(..., description="User ID"),
+    db: AsyncSession = Depends(get_db)
+):
     """Delete an achievement."""
     result = await db.execute(
-        select(ProjectAchievement).where(ProjectAchievement.id == achievement_id)
+        select(ProjectAchievement)
+        .join(Project)
+        .where(
+            ProjectAchievement.id == achievement_id,
+            Project.user_id == user_id
+        )
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -118,11 +153,14 @@ async def delete_achievement(achievement_id: int, db: AsyncSession = Depends(get
 async def create_achievements_bulk(
     achievements_data: List[AchievementCreate],
     project_id: int = Query(..., description="Project ID"),
+    user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """Create multiple achievements for a project at once."""
-    # Verify project exists
-    result = await db.execute(select(Project).where(Project.id == project_id))
+    # Verify project exists and belongs to user
+    result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+    )
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -146,6 +184,7 @@ async def create_achievements_bulk(
 @router.post("/auto-detect", response_model=AutoDetectResponse)
 async def auto_detect_achievements(
     project_id: int = Query(..., description="Project ID"),
+    user_id: int = Query(..., description="User ID"),
     use_llm: bool = Query(True, description="Use LLM to generate additional achievements"),
     save_to_db: bool = Query(True, description="Save detected achievements to database"),
     db: AsyncSession = Depends(get_db)
@@ -159,10 +198,10 @@ async def auto_detect_achievements(
     3. Code statistics (commits, lines added/deleted)
     4. LLM-based generation (optional)
     """
-    # Get project with related data
+    # Get project with related data and verify user ownership
     result = await db.execute(
         select(Project)
-        .where(Project.id == project_id)
+        .where(Project.id == project_id, Project.user_id == user_id)
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
             selectinload(Project.repo_analysis),
