@@ -13,6 +13,10 @@ import CompaniesPage from '@/pages/Knowledge/Companies'
 import ProjectsPage from '@/pages/Knowledge/Projects'
 import ProjectDetailPage from '@/pages/Knowledge/ProjectDetail'
 import CompanyTimelinePage from '@/pages/Knowledge/CompanyTimeline'
+import CredentialsPage from '@/pages/Knowledge/Credentials'
+import EducationPublicationsPatentsPage from '@/pages/Knowledge/EducationPublicationsPatents'
+import CertificationsAwardsPage from '@/pages/Knowledge/CertificationsAwards'
+import ActivitiesPage from '@/pages/Knowledge/Activities'
 import TemplatesPage from '@/pages/Templates'
 import TemplateEditor from '@/pages/Templates/Editor'
 import PlatformsPage from '@/pages/Platforms'
@@ -60,10 +64,18 @@ function App() {
             // Try to fetch existing user from backend
             const response = await usersApi.getById(Number(validStoredUserId))
             if (response.data && response.data.id) {
-              console.log('[App] Found existing user:', response.data.id, response.data.name)
-              setUser(response.data)
-              setIsInitializing(false)
-              return
+              // Verify the returned ID matches what we requested
+              if (response.data.id !== Number(validStoredUserId)) {
+                console.log('[App] User ID mismatch, clearing stale data')
+                localStorage.removeItem('user_id')
+                localStorage.removeItem('user-storage')
+                setUser(null)
+              } else {
+                console.log('[App] Found existing user:', response.data.id, response.data.name)
+                setUser(response.data)
+                setIsInitializing(false)
+                return
+              }
             }
           } catch (fetchError) {
             // User doesn't exist in backend, clear stale data
@@ -127,6 +139,10 @@ function App() {
           <Route path="knowledge/projects/:id" element={<ProjectDetailPage />} />
           <Route path="knowledge/projects/kanban" element={<Navigate to="/knowledge/projects" replace />} />
           <Route path="knowledge/companies/timeline" element={<CompanyTimelinePage />} />
+          <Route path="knowledge/credentials" element={<CredentialsPage />} />
+          <Route path="knowledge/education-publications-patents" element={<EducationPublicationsPatentsPage />} />
+          <Route path="knowledge/certifications-awards" element={<CertificationsAwardsPage />} />
+          <Route path="knowledge/activities" element={<ActivitiesPage />} />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="templates/:templateId/edit" element={<TemplateEditor />} />
           <Route path="platforms" element={<PlatformsPage />} />

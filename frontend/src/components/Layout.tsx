@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/stores/userStore'
@@ -25,6 +25,10 @@ import {
   Globe,
   FileStack,
   ChevronDown,
+  Briefcase,
+  Medal,
+  GraduationCap,
+  Heart,
 } from 'lucide-react'
 
 // Type definitions for navigation
@@ -46,7 +50,16 @@ const isNavGroup = (item: NavigationItem): item is NavGroup => 'items' in item
 
 const getNavigation = (t: (key: string) => string): NavigationItem[] => [
   { name: t('navigation:dashboard'), href: '/dashboard', icon: LayoutDashboard },
-  { name: t('navigation:companies'), href: '/knowledge/companies', icon: Building2 },
+  {
+    name: t('navigation:careerManagement'),
+    icon: Briefcase,
+    items: [
+      { name: t('navigation:companies'), href: '/knowledge/companies', icon: Building2 },
+      { name: t('navigation:educationPublicationsPatents'), href: '/knowledge/education-publications-patents', icon: GraduationCap },
+      { name: t('navigation:certificationsAwards'), href: '/knowledge/certifications-awards', icon: Medal },
+      { name: t('navigation:activities'), href: '/knowledge/activities', icon: Heart },
+    ]
+  },
   { name: t('navigation:githubRepos'), href: '/github/repos', icon: Github },
   { name: t('navigation:projects'), href: '/knowledge/projects', icon: FolderKanban },
   { name: t('navigation:platforms'), href: '/platforms', icon: Globe },
@@ -63,23 +76,17 @@ const getNavigation = (t: (key: string) => string): NavigationItem[] => [
 ]
 
 // Collapsible navigation group component
-function CollapsibleNavGroup({ group, isAnyChildActive }: {
+function CollapsibleNavGroup({ group, isAnyChildActive, isOpen, onOpenChange }: {
   group: NavGroup
   isAnyChildActive: boolean
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
 }) {
-  const [isOpen, setIsOpen] = useState(isAnyChildActive)
   const location = useLocation()
   const Icon = group.icon
 
-  // Auto-expand when a child becomes active
-  useEffect(() => {
-    if (isAnyChildActive && !isOpen) {
-      setIsOpen(true)
-    }
-  }, [isAnyChildActive, isOpen])
-
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible open={isOpen} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className={cn(
         'flex items-center justify-between w-full px-3 py-2 rounded-md text-sm font-medium transition-colors',
         isAnyChildActive
@@ -118,14 +125,56 @@ function CollapsibleNavGroup({ group, isAnyChildActive }: {
 
 export default function Layout() {
   const location = useLocation()
-  const { user } = useUserStore()
+  const { user, isGuest } = useUserStore()
   const { t } = useTranslation()
   const { initializeTheme } = useThemeStore()
   const navigation = getNavigation(t)
 
+  // Track expanded state for each collapsible group by group name
+  // Use a ref to track manual user interactions to avoid overriding user's choice
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
+  const userInteractedRef = React.useRef<Set<string>>(new Set())
+
   useEffect(() => {
     initializeTheme()
   }, [initializeTheme])
+
+  // Auto-expand groups when their child becomes active
+  // Only auto-expand if user hasn't manually interacted with the group
+  useEffect(() => {
+    setExpandedGroups(prev => {
+      const newState = { ...prev }
+      let hasChanges = false
+
+      navigation.forEach((item) => {
+        if (isNavGroup(item)) {
+          const isAnyChildActive = item.items.some(
+            child => location.pathname.startsWith(child.href)
+          )
+
+          // Only auto-expand if:
+          // 1. A child is active
+          // 2. User hasn't manually collapsed this group
+          // 3. Group is not already expanded
+          if (isAnyChildActive && !userInteractedRef.current.has(item.name) && !newState[item.name]) {
+            newState[item.name] = true
+            hasChanges = true
+          }
+        }
+      })
+
+      return hasChanges ? newState : prev
+    })
+  }, [location.pathname, navigation])
+
+  const handleGroupOpenChange = (groupName: string, open: boolean) => {
+    // Track that user manually interacted with this group
+    userInteractedRef.current.add(groupName)
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: open
+    }))
+  }
 
   return (
     <div className="h-screen overflow-hidden bg-background">
@@ -148,11 +197,14 @@ export default function Layout() {
                 const isAnyChildActive = item.items.some(
                   child => location.pathname.startsWith(child.href)
                 )
+                const isOpen = expandedGroups[item.name] ?? false
                 return (
                   <CollapsibleNavGroup
                     key={index}
                     group={item}
                     isAnyChildActive={isAnyChildActive}
+                    isOpen={isOpen}
+                    onOpenChange={(open) => handleGroupOpenChange(item.name, open)}
                   />
                 )
               }
@@ -227,6 +279,14 @@ export default function Layout() {
                     )}
                   </div>
                 </div>
+              ) : isGuest ? (
+                <Link
+                  to="/setup"
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-md"
+                >
+                  <Github className="h-5 w-5" />
+                  {t('common:loginToSave')}
+                </Link>
               ) : (
                 <Link
                   to="/setup"
@@ -243,6 +303,23 @@ export default function Layout() {
 
       {/* Main content */}
       <main className="pl-64 h-screen overflow-y-auto">
+        {/* Guest mode banner */}
+        {isGuest && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-8 py-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <span className="font-medium">{t('common:guestMode')}:</span>{' '}
+                {t('common:guestModeDescription')}
+              </p>
+              <Link
+                to="/setup"
+                className="text-sm font-medium text-amber-900 dark:text-amber-100 hover:underline"
+              >
+                {t('common:loginNow')} →
+              </Link>
+            </div>
+          </div>
+        )}
         <div className="p-8">
           <Outlet />
         </div>

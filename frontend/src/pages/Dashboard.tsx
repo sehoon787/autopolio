@@ -31,6 +31,9 @@ export default function Dashboard() {
     queryKey: ['user-stats', user?.id],
     queryFn: () => usersApi.getStats(user!.id),
     enabled: !!user?.id,
+    // Refetch on mount to ensure we have latest GitHub connection status
+    refetchOnMount: true,
+    staleTime: 0,
   })
 
   // Fetch recent projects

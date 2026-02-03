@@ -70,6 +70,8 @@ export default function GitHubSetup() {
     usersApi.getById(parseInt(oauthUserId)).then((response) => {
       setUser(response.data)
       setTokenInvalid(false)
+      // Invalidate user-stats query so Dashboard refreshes the GitHub connected state
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] })
       toast({
         title: t('setup.toastConnected'),
         description: t('setup.toastConnectedDesc'),
@@ -77,7 +79,7 @@ export default function GitHubSetup() {
       // Clear URL params
       window.history.replaceState({}, '', window.location.pathname)
     })
-  }, [setUser, toast, t])
+  }, [setUser, toast, t, queryClient])
 
   // Fetch updated user info after GitHub OAuth (URL params or localStorage)
   useEffect(() => {
@@ -151,8 +153,9 @@ export default function GitHubSetup() {
         setUser({ ...user, github_username: null, github_avatar_url: null })
       }
       setTokenInvalid(false)
-      // Invalidate github-status query to refresh UI
+      // Invalidate queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ['github-status'] })
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] })
       toast({
         title: t('setup.toastDisconnected'),
         description: t('setup.toastDisconnectedDesc'),

@@ -106,15 +106,30 @@ export default function TemplateEditor() {
 
     setIsPreviewLoading(true)
     try {
+      console.log('[Editor] Previewing template with user:', user?.id)
       const response = await templatesApi.preview(
         { template_content: content },
         user?.id
       )
-      setPreviewHtml(response.data.preview_html)
-      setPreviewText(response.data.preview_text)
-      setFieldsUsed(response.data.fields_used)
-    } catch {
+      console.log('[Editor] Preview response:', response.data)
+      setPreviewHtml(response.data.preview_html || '')
+      setPreviewText(response.data.preview_text || '')
+      setFieldsUsed(response.data.fields_used || [])
+    } catch (error: unknown) {
+      // Extract error message from API response
+      let errorMessage: string
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string }, status?: number } }
+        errorMessage = axiosError.response?.data?.detail || String(error)
+        console.error('[Editor] Template preview API error:', axiosError.response?.status, errorMessage)
+      } else {
+        errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('[Editor] Template preview failed:', errorMessage)
+      }
       toast({ title: tc('error'), description: t('editor.previewFailed'), variant: 'destructive' })
+      // Set fallback preview showing raw template
+      setPreviewHtml(`<pre style="color: red; white-space: pre-wrap;">${t('editor.previewFailed')}\n${errorMessage}\n\n${content}</pre>`)
+      setPreviewText(content)
     } finally {
       setIsPreviewLoading(false)
     }

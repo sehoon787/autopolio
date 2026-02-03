@@ -127,6 +127,48 @@ async def get_available_fields():
             {"field": "metric_value", "description": "성과 수치", "example": "40% 개선", "parent": "achievements"},
             {"field": "description", "description": "성과 설명", "example": "API 최적화", "parent": "achievements"},
         ],
+        "certification_fields": [
+            {"field": "certifications", "description": "자격증 목록 (반복 섹션)", "is_section": True},
+            {"field": "name", "description": "자격증명", "example": "정보처리기사", "parent": "certifications"},
+            {"field": "issuer", "description": "발급기관", "example": "한국산업인력공단", "parent": "certifications"},
+            {"field": "issue_date", "description": "취득일", "example": "2019.05", "parent": "certifications"},
+            {"field": "expiry_date", "description": "만료일", "example": "2024.05", "parent": "certifications"},
+            {"field": "credential_id", "description": "자격번호", "example": "12345678", "parent": "certifications"},
+        ],
+        "award_fields": [
+            {"field": "awards", "description": "수상이력 목록 (반복 섹션)", "is_section": True},
+            {"field": "name", "description": "수상명", "example": "최우수상", "parent": "awards"},
+            {"field": "issuer", "description": "수여기관", "example": "한국IT협회", "parent": "awards"},
+            {"field": "award_date", "description": "수상일", "example": "2023.11", "parent": "awards"},
+            {"field": "description", "description": "상세 설명", "example": "AI 경진대회 1위", "parent": "awards"},
+        ],
+        "education_fields": [
+            {"field": "educations", "description": "교육 이력 목록 (반복 섹션)", "is_section": True},
+            {"field": "school_name", "description": "학교명", "example": "서울대학교", "parent": "educations"},
+            {"field": "major", "description": "전공", "example": "컴퓨터공학", "parent": "educations"},
+            {"field": "degree", "description": "학위", "example": "학사", "parent": "educations"},
+            {"field": "period", "description": "기간", "example": "2015.03 - 2019.02", "parent": "educations"},
+            {"field": "gpa", "description": "학점", "example": "3.8/4.5", "parent": "educations"},
+        ],
+        "publication_fields": [
+            {"field": "publications", "description": "논문/저술 목록 (반복 섹션)", "is_section": True},
+            {"field": "title", "description": "제목", "example": "AI 기반 코드 분석", "parent": "publications"},
+            {"field": "authors", "description": "저자", "example": "홍길동, 김철수", "parent": "publications"},
+            {"field": "publication_type", "description": "유형", "example": "학술지 논문", "parent": "publications"},
+            {"field": "publisher", "description": "출판사/학술지", "example": "한국정보과학회", "parent": "publications"},
+            {"field": "publication_date", "description": "발표일", "example": "2023.06", "parent": "publications"},
+            {"field": "doi", "description": "DOI", "example": "10.1000/xyz123", "parent": "publications"},
+        ],
+        "volunteer_activity_fields": [
+            {"field": "volunteer_activities", "description": "봉사/대외활동 목록 (반복 섹션)", "is_section": True},
+            {"field": "name", "description": "활동명", "example": "오픈소스 컨트리뷰션", "parent": "volunteer_activities"},
+            {"field": "organization", "description": "기관/단체명", "example": "한국오픈소스협회", "parent": "volunteer_activities"},
+            {"field": "activity_type", "description": "활동 유형 (volunteer/external)", "example": "external", "parent": "volunteer_activities"},
+            {"field": "period", "description": "활동 기간", "example": "2023.01 - 2023.06", "parent": "volunteer_activities"},
+            {"field": "hours", "description": "봉사시간", "example": "120", "parent": "volunteer_activities"},
+            {"field": "role", "description": "역할", "example": "멘토", "parent": "volunteer_activities"},
+            {"field": "description", "description": "상세 설명", "example": "신입 개발자 교육 및 코드리뷰", "parent": "volunteer_activities"},
+        ],
         "syntax_guide": {
             "simple_field": "{{field_name}}",
             "section_start": "{{#section_name}}",
@@ -509,6 +551,27 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 ## 기술 스택
 {{skills}}
+
+{{#has_educations}}
+## 학력
+{{#educations}}
+- **{{school_name}}** - {{degree}} {{major}} ({{period}}){{#gpa}} | 학점: {{gpa}}{{/gpa}}
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 자격증
+{{#certifications}}
+- **{{name}}** - {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+{{#has_awards}}
+## 수상이력
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
+{{/awards}}
+{{/has_awards}}
 """
         },
         {
@@ -551,6 +614,41 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 ## 기술 스택
 {{skills}}
+
+{{#has_educations}}
+## 학력
+{{#educations}}
+- **{{school_name}}** - {{degree}} {{major}} ({{period}}){{#gpa}} | 학점: {{gpa}}{{/gpa}}
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 자격증
+{{#certifications}}
+- **{{name}}** - {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+{{#has_awards}}
+## 수상이력
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
+{{/awards}}
+{{/has_awards}}
+
+{{#has_publications}}
+## 논문/저술
+{{#publications}}
+- **{{title}}** - {{authors}} | {{publisher}} ({{publication_date}})
+{{/publications}}
+{{/has_publications}}
+
+{{#has_volunteer_activities}}
+## 봉사/대외활동
+{{#volunteer_activities}}
+- **{{name}}** - {{organization}} ({{period}}){{#role}} | 역할: {{role}}{{/role}}{{#hours}} | {{hours}}시간{{/hours}}
+{{/volunteer_activities}}
+{{/has_volunteer_activities}}
 """
         },
         {
@@ -586,6 +684,42 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 **사용 기술**: {{technologies}}
 {{/projects}}
+
+{{#has_educations}}
+## 학력
+{{#educations}}
+### {{school_name}}
+{{degree}} {{major}} | {{period}}{{#gpa}} | 학점: {{gpa}}{{/gpa}}
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 자격증
+{{#certifications}}
+- {{name}} | {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+{{#has_awards}}
+## 수상이력
+{{#awards}}
+- {{name}} | {{issuer}} ({{award_date}})
+{{/awards}}
+{{/has_awards}}
+
+{{#has_publications}}
+## 논문/저술
+{{#publications}}
+- {{title}} | {{publisher}} ({{publication_date}})
+{{/publications}}
+{{/has_publications}}
+
+{{#has_volunteer_activities}}
+## 봉사/대외활동
+{{#volunteer_activities}}
+- {{name}} | {{organization}} ({{period}})
+{{/volunteer_activities}}
+{{/has_volunteer_activities}}
 """
         },
         {
@@ -608,6 +742,13 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 {{#projects}}
 - {{name}}: {{short_description}}
 {{/projects}}
+
+{{#has_certifications}}
+## 자격증
+{{#certifications}}
+- {{name}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
 """
         },
         {
@@ -664,6 +805,47 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 ---
 
+{{#has_educations}}
+## 🎓 학력
+{{#educations}}
+### {{school_name}}
+> {{degree}} {{major}} | {{period}}{{#gpa}} | 학점: {{gpa}}{{/gpa}}
+
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 📜 자격증
+{{#certifications}}
+- **{{name}}** | {{issuer}} ({{issue_date}})
+{{/certifications}}
+
+{{/has_certifications}}
+
+{{#has_awards}}
+## 🏆 수상이력
+{{#awards}}
+- **{{name}}** | {{issuer}} ({{award_date}})
+{{/awards}}
+
+{{/has_awards}}
+
+{{#has_publications}}
+## 📚 논문/저술
+{{#publications}}
+- **{{title}}** | {{publisher}} ({{publication_date}})
+{{/publications}}
+
+{{/has_publications}}
+
+{{#has_volunteer_activities}}
+## 🤝 봉사/대외활동
+{{#volunteer_activities}}
+- **{{name}}** | {{organization}} ({{period}})
+{{/volunteer_activities}}
+
+{{/has_volunteer_activities}}
+
 ## 📫 연락처
 - Email: {{email}}
 - GitHub: [{{github_username}}](https://github.com/{{github_username}})
@@ -713,6 +895,49 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 ## 기술 스택
 {{skills}}
+
+{{#has_educations}}
+## 학력
+{{#educations}}
+### {{school_name}}
+- 학위: {{degree}} {{major}}
+- 기간: {{period}}
+{{#gpa}}- 학점: {{gpa}}{{/gpa}}
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 자격증
+{{#certifications}}
+- **{{name}}** - {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+{{#has_awards}}
+## 수상이력
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}})
+{{#description}}  - {{description}}{{/description}}
+{{/awards}}
+{{/has_awards}}
+
+{{#has_publications}}
+## 논문/저술
+{{#publications}}
+- **{{title}}**
+  - 저자: {{authors}}
+  - 출판: {{publisher}} ({{publication_date}})
+{{/publications}}
+{{/has_publications}}
+
+{{#has_volunteer_activities}}
+## 봉사/대외활동
+{{#volunteer_activities}}
+- **{{name}}** - {{organization}} ({{period}})
+{{#role}}  - 역할: {{role}}{{/role}}
+{{#hours}}  - 봉사시간: {{hours}}시간{{/hours}}
+{{/volunteer_activities}}
+{{/has_volunteer_activities}}
 """
         },
         {
@@ -763,6 +988,54 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 
 ## 🛠 기술 스택
 {{skills}}
+
+---
+
+{{#has_educations}}
+## 🎓 학력
+
+{{#educations}}
+### {{school_name}}
+**{{degree}} {{major}}** | {{period}}{{#gpa}} | 학점: {{gpa}}{{/gpa}}
+
+{{/educations}}
+{{/has_educations}}
+
+{{#has_certifications}}
+## 📜 자격증
+
+{{#certifications}}
+- **{{name}}** | {{issuer}} ({{issue_date}})
+{{/certifications}}
+
+{{/has_certifications}}
+
+{{#has_awards}}
+## 🏆 수상이력
+
+{{#awards}}
+- **{{name}}** | {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
+{{/awards}}
+
+{{/has_awards}}
+
+{{#has_publications}}
+## 📚 논문/저술
+
+{{#publications}}
+- **{{title}}** | {{authors}} | {{publisher}} ({{publication_date}})
+{{/publications}}
+
+{{/has_publications}}
+
+{{#has_volunteer_activities}}
+## 🤝 봉사/대외활동
+
+{{#volunteer_activities}}
+- **{{name}}** | {{organization}} ({{period}}){{#role}} | {{role}}{{/role}}
+{{/volunteer_activities}}
+
+{{/has_volunteer_activities}}
 
 ---
 

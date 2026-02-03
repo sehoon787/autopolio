@@ -1,292 +1,233 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useAppStore } from '@/stores/appStore'
 import { usersApi } from '@/api/users'
-import { Wizard, WizardStep, WizardStepContent, useWizard } from '@/components/Wizard'
-import { User, Github, CheckCircle2, Sparkles } from 'lucide-react'
+import { githubApi } from '@/api/github'
+import { Github, UserX, Loader2, CheckCircle2 } from 'lucide-react'
 
-// Step 1: User Info Component
-function UserInfoStep() {
-  const { toast } = useToast()
-  const { setUser } = useUserStore()
-  const { setCanGoNext, nextStep } = useWizard()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-
-  const createUserMutation = useMutation({
-    mutationFn: (data: { name: string; email?: string }) => usersApi.create(data),
-    onSuccess: (response) => {
-      setUser(response.data)
-      toast({
-        title: '사용자 정보 저장 완료',
-        description: '다음 단계로 진행합니다.',
-      })
-      nextStep()
-    },
-    onError: (error: Error) => {
-      toast({
-        title: '오류',
-        description: error.message || '사용자 생성에 실패했습니다.',
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      toast({
-        title: '입력 필요',
-        description: '이름을 입력해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-    createUserMutation.mutate({
-      name: name.trim(),
-      email: email.trim() || undefined,
-    })
-  }
-
-  return (
-    <WizardStepContent>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            기본 정보 입력
-          </CardTitle>
-          <CardDescription>
-            이력서에 표시될 기본 정보를 입력하세요.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">이름 *</Label>
-            <Input
-              id="name"
-              placeholder="홍길동"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setCanGoNext(e.target.value.trim().length > 0)
-              }}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">이메일 (선택)</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="example@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <Button
-            onClick={handleSubmit}
-            className="w-full"
-            disabled={createUserMutation.isPending || !name.trim()}
-          >
-            {createUserMutation.isPending ? '저장 중...' : '정보 저장'}
-          </Button>
-        </CardContent>
-      </Card>
-    </WizardStepContent>
-  )
-}
-
-// Step 2: GitHub Connection Component
-function GitHubConnectionStep() {
+export default function SetupPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  useUserStore() // Keep store connection for potential future use
-  useWizard() // Keep wizard context connection
+  const { t } = useTranslation('github')
+  const [searchParams] = useSearchParams()
+  const { user, setUser, startGuestMode } = useUserStore()
   const { isElectronApp } = useAppStore()
+  const queryClient = useQueryClient()
   const [isConnecting, setIsConnecting] = useState(false)
 
-  const handleConnect = async () => {
-    setIsConnecting(true)
-    try {
-      const { githubApi } = await import('@/api/github')
-      const response = await githubApi.connect('/setup/github', isElectronApp)
+  // Check if redirected from OAuth
+  const userId = searchParams.get('user_id')
+  const githubConnected = searchParams.get('github_connected')
+
+  // Handle OAuth callback completion
+  const handleOAuthSuccess = useCallback((oauthUserId: string) => {
+    usersApi.getById(parseInt(oauthUserId)).then((response) => {
+      setUser(response.data)
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] })
+      toast({
+        title: t('setup.toastConnected'),
+        description: t('setup.toastConnectedDesc'),
+      })
+      // Clear URL params and navigate to dashboard
+      window.history.replaceState({}, '', window.location.pathname)
+      navigate('/dashboard')
+    }).catch((error) => {
+      console.error('[Setup] Failed to fetch user after OAuth:', error)
+      toast({
+        title: t('setup.toastError'),
+        description: t('setup.toastConnectError'),
+        variant: 'destructive',
+      })
+    })
+  }, [setUser, toast, t, queryClient, navigate])
+
+  // Handle OAuth callback from URL params or localStorage (Electron)
+  useEffect(() => {
+    let oauthUserId = userId
+    let oauthConnected = githubConnected
+
+    // Check localStorage for Electron OAuth callback
+    if (!oauthUserId) {
+      oauthUserId = localStorage.getItem('oauth_callback_user_id')
+      oauthConnected = localStorage.getItem('oauth_callback_github_connected')
+
+      if (oauthUserId) {
+        localStorage.removeItem('oauth_callback_user_id')
+        localStorage.removeItem('oauth_callback_github_connected')
+        localStorage.removeItem('oauth_callback_path')
+      }
+    }
+
+    if (oauthUserId && oauthConnected === 'true') {
+      handleOAuthSuccess(oauthUserId)
+    }
+  }, [userId, githubConnected, handleOAuthSuccess])
+
+  // Listen for OAuth callback event (Electron)
+  useEffect(() => {
+    const handleOAuthCallback = (event: CustomEvent<{ userId: string; githubConnected: string }>) => {
+      const { userId: eventUserId, githubConnected: eventConnected } = event.detail
+      if (eventUserId && eventConnected === 'true') {
+        handleOAuthSuccess(eventUserId)
+      }
+    }
+
+    window.addEventListener('oauth-callback', handleOAuthCallback as EventListener)
+    return () => {
+      window.removeEventListener('oauth-callback', handleOAuthCallback as EventListener)
+    }
+  }, [handleOAuthSuccess])
+
+  // GitHub OAuth connect mutation (uses existing /api/github/connect endpoint)
+  const connectMutation = useMutation({
+    mutationFn: () => githubApi.connect('/setup', isElectronApp),
+    onSuccess: (response) => {
       if (isElectronApp) {
-        // Electron: open OAuth in external browser
-        // After OAuth, backend will redirect to autopolio:// protocol
         window.open(response.data.auth_url, '_blank')
         toast({
-          title: 'GitHub 인증',
-          description: '브라우저에서 GitHub 인증을 완료해주세요.',
+          title: t('setup.toastAuth'),
+          description: t('setup.toastAuthDesc'),
         })
         setIsConnecting(false)
       } else {
-        // Web: redirect in same window
         window.location.href = response.data.auth_url
       }
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       toast({
-        title: '오류',
-        description: 'GitHub 연동을 시작할 수 없습니다.',
+        title: t('setup.toastError'),
+        description: error.message || t('setup.toastConnectError'),
         variant: 'destructive',
       })
       setIsConnecting(false)
-    }
+    },
+  })
+
+  const handleConnect = () => {
+    setIsConnecting(true)
+    connectMutation.mutate()
   }
 
-  const handleSkip = () => {
-    navigate('/dashboard')
+  const handleStartAsGuest = () => {
+    startGuestMode()
+    navigate('/platforms')
+  }
+
+  // If already logged in, redirect to dashboard
+  if (user) {
+    return (
+      <div className="max-w-md mx-auto mt-20">
+        <Card>
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+            <CardTitle>{t('setup.alreadyLoggedIn')}</CardTitle>
+            <CardDescription>
+              {t('setup.loggedInAs', { name: user.name || user.github_username || 'User' })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button onClick={() => navigate('/dashboard')} className="w-full">
+              {t('setup.goToDashboard')}
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/knowledge/projects')} className="w-full">
+              {t('setup.goToProjects')}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <WizardStepContent>
-      <Card>
+    <div className="max-w-md mx-auto mt-10">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2">{t('setup.welcomeTitle')}</h1>
+        <p className="text-muted-foreground">
+          {t('setup.welcomeSubtitle')}
+        </p>
+      </div>
+
+      {/* Main login card */}
+      <Card className="mb-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Github className="h-5 w-5" />
-            GitHub 연동
+            {t('setup.socialLogin')}
           </CardTitle>
           <CardDescription>
-            GitHub를 연동하면 레포지토리 분석을 통해 프로젝트 정보를 자동으로 추출할 수 있습니다.
+            {t('setup.socialLoginDesc')}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <h4 className="font-medium">연동 시 제공되는 기능:</h4>
-            <ul className="space-y-2 text-sm text-gray-600">
+        <CardContent className="space-y-4">
+          {/* Features list */}
+          <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+            <p className="text-sm font-medium">{t('setup.features')}</p>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                레포지토리 목록 조회
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                {t('setup.featureRepoList')}
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                커밋 내역 분석
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                {t('setup.featureCommitAnalysis')}
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                기술 스택 자동 탐지 (200+ 기술)
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                {t('setup.featureTechDetection')}
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                기여도 통계 계산
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                {t('setup.featureContribution')}
               </li>
             </ul>
           </div>
 
-          <div className="space-y-3">
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleConnect}
-              disabled={isConnecting}
-            >
+          {/* GitHub login button */}
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleConnect}
+            disabled={isConnecting || connectMutation.isPending}
+          >
+            {isConnecting || connectMutation.isPending ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
               <Github className="mr-2 h-5 w-5" />
-              {isConnecting ? '연동 중...' : 'GitHub로 연동하기'}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={handleSkip}
-            >
-              나중에 하기
-            </Button>
-          </div>
+            )}
+            {isConnecting || connectMutation.isPending
+              ? t('setup.connecting')
+              : t('setup.connectWithGitHub')}
+          </Button>
         </CardContent>
       </Card>
-    </WizardStepContent>
-  )
-}
 
-// Step 3: Completion Component
-function CompletionStep() {
-  const navigate = useNavigate()
-
-  return (
-    <WizardStepContent>
-      <Card>
-        <CardContent className="py-12 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-              <Sparkles className="h-8 w-8 text-green-600" />
-            </div>
-          </div>
-          <h3 className="text-xl font-semibold mb-2">설정 완료!</h3>
-          <p className="text-gray-600 mb-6">
-            Autopolio를 사용할 준비가 되었습니다.
-            <br />
-            이제 프로젝트를 추가하고 이력서를 생성해보세요.
-          </p>
-          <div className="flex flex-col gap-3 max-w-xs mx-auto">
-            <Button onClick={() => navigate('/knowledge/projects')}>
-              프로젝트 추가하기
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
-              대시보드로 이동
-            </Button>
-          </div>
+      {/* Guest mode option */}
+      <Card className="border-dashed opacity-80 hover:opacity-100 transition-opacity">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+            <UserX className="h-5 w-5" />
+            {t('setup.guestMode')}
+          </CardTitle>
+          <CardDescription>
+            {t('setup.guestModeDesc')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="ghost" className="w-full" onClick={handleStartAsGuest}>
+            {t('setup.continueAsGuest')}
+          </Button>
         </CardContent>
       </Card>
-    </WizardStepContent>
-  )
-}
-
-export default function SetupPage() {
-  const navigate = useNavigate()
-  const { user } = useUserStore()
-
-  const steps: WizardStep[] = [
-    {
-      id: 'user-info',
-      title: '기본 정보',
-      description: '이력서에 표시될 기본 정보를 입력하세요',
-      component: <UserInfoStep />,
-    },
-    {
-      id: 'github',
-      title: 'GitHub 연동',
-      description: 'GitHub를 연동하여 프로젝트를 자동으로 분석하세요',
-      component: <GitHubConnectionStep />,
-      canSkip: true,
-    },
-    {
-      id: 'complete',
-      title: '완료',
-      description: '설정이 완료되었습니다',
-      component: <CompletionStep />,
-    },
-  ]
-
-  const handleComplete = () => {
-    navigate('/dashboard')
-  }
-
-  const handleCancel = () => {
-    navigate('/dashboard')
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">초기 설정</h1>
-        <p className="text-gray-600">
-          Autopolio를 시작하기 전에 기본 정보를 설정해주세요.
-        </p>
-      </div>
-
-      <Wizard
-        steps={user ? steps.slice(1) : steps}
-        onComplete={handleComplete}
-        onCancel={handleCancel}
-        completeButtonText="시작하기"
-        showStepIndicator={true}
-        showProgress={true}
-      />
     </div>
   )
 }
