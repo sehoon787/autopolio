@@ -1,0 +1,22 @@
+{
+  "name": "autopolio-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for Autopolio portfolio automation platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:knowledge": "playwright test knowledge/",
+    "test:github": "playwright test github/",
+    "test:platforms": "playwright test platforms/",
+    "test:documents": "playwright test documents/",
+    "test:flows": "playwright test flows/",
+    "install:browsers": "playwright install chromium --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.10.0"
+  }
+}
