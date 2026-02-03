@@ -1,0 +1,146 @@
+# Korean Certifications (국가기술자격 및 민간자격)
+certifications:
+  # IT 국가자격
+  - id: kr-ipss
+    name: 정보처리기사
+    name_en: Engineer Information Processing
+    issuer: 한국산업인력공단
+    category: it
+  - id: kr-ipii
+    name: 정보처리산업기사
+    name_en: Industrial Engineer Information Processing
+    issuer: 한국산업인력공단
+    category: it
+  - id: kr-ipte
+    name: 정보처리기능사
+    name_en: Craftsman Information Processing
+    issuer: 한국산업인력공단
+    category: it
+  - id: kr-sqld
+    name: SQL개발자 (SQLD)
+    name_en: SQL Developer
+    issuer: 한국데이터산업진흥원
+    category: it
+  - id: kr-sqlp
+    name: SQL전문가 (SQLP)
+    name_en: SQL Professional
+    issuer: 한국데이터산업진흥원
+    category: it
+  - id: kr-adsp
+    name: 데이터분석 준전문가 (ADsP)
+    name_en: Advanced Data Analytics Semi-Professional
+    issuer: 한국데이터산업진흥원
+    category: it
+  - id: kr-adp
+    name: 데이터분석 전문가 (ADP)
+    name_en: Advanced Data Analytics Professional
+    issuer: 한국데이터산업진흥원
+    category: it
+  - id: kr-linux-master-1
+    name: 리눅스마스터 1급
+    name_en: Linux Master Level 1
+    issuer: 한국정보통신진흥협회
+    category: it
+  - id: kr-linux-master-2
+    name: 리눅스마스터 2급
+    name_en: Linux Master Level 2
+    issuer: 한국정보통신진흥협회
+    category: it
+  - id: kr-network-admin-1
+    name: 네트워크관리사 1급
+    name_en: Network Administrator Level 1
+    issuer: 한국정보통신자격협회
+    category: it
+  - id: kr-network-admin-2
+    name: 네트워크관리사 2급
+    name_en: Network Administrator Level 2
+    issuer: 한국정보통신자격협회
+    category: it
+  - id: kr-isms-p
+    name: 정보보안기사
+    name_en: Engineer Information Security
+    issuer: 한국인터넷진흥원
+    category: security
+  - id: kr-isms-pi
+    name: 정보보안산업기사
+    name_en: Industrial Engineer Information Security
+    issuer: 한국인터넷진흥원
+    category: security
+
+  # 전자/전기 자격
+  - id: kr-elec-eng
+    name: 전기기사
+    name_en: Engineer Electric
+    issuer: 한국산업인력공단
+    category: engineering
+  - id: kr-elec-ind
+    name: 전기산업기사
+    name_en: Industrial Engineer Electric
+    issuer: 한국산업인력공단
+    category: engineering
+  - id: kr-electron-eng
+    name: 전자기사
+    name_en: Engineer Electronics
+    issuer: 한국산업인력공단
+    category: engineering
+
+  # 품질/경영 자격
+  - id: kr-qa-eng
+    name: 품질경영기사
+    name_en: Engineer Quality Management
+    issuer: 한국산업인력공단
+    category: management
+  - id: kr-qa-ind
+    name: 품질경영산업기사
+    name_en: Industrial Engineer Quality Management
+    issuer: 한국산업인력공단
+    category: management
+
+  # 어학 자격
+  - id: kr-toeic
+    name: TOEIC
+    name_en: TOEIC
+    issuer: ETS
+    category: language
+  - id: kr-toefl
+    name: TOEFL
+    name_en: TOEFL
+    issuer: ETS
+    category: language
+  - id: kr-teps
+    name: TEPS
+    name_en: TEPS
+    issuer: 서울대학교
+    category: language
+  - id: kr-opic
+    name: OPIc
+    name_en: OPIc
+    issuer: ACTFL
+    category: language
+  - id: kr-jlpt-n1
+    name: JLPT N1
+    name_en: JLPT N1
+    issuer: 일본국제교류기금
+    category: language
+  - id: kr-jlpt-n2
+    name: JLPT N2
+    name_en: JLPT N2
+    issuer: 일본국제교류기금
+    category: language
+  - id: kr-hsk-6
+    name: HSK 6급
+    name_en: HSK Level 6
+    issuer: 한반
+    category: language
+
+  # 기타 국가자격
+  - id: kr-driver-1
+    name: 운전면허 1종 보통
+    name_en: Driver's License Class 1
+    issuer: 경찰청
+    category: other
+  - id: kr-driver-2
+    name: 운전면허 2종 보통
+    name_en: Driver's License Class 2
+    issuer: 경찰청
+    category: other

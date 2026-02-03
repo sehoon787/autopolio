@@ -1,0 +1,255 @@
+# Global IT Certifications
+certifications:
+  # AWS Certifications
+  - id: aws-ccp
+    name: AWS Certified Cloud Practitioner
+    name_ko: AWS 클라우드 실무자
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+  - id: aws-saa
+    name: AWS Certified Solutions Architect - Associate
+    name_ko: AWS 솔루션 아키텍트 어소시에이트
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+  - id: aws-sap
+    name: AWS Certified Solutions Architect - Professional
+    name_ko: AWS 솔루션 아키텍트 프로페셔널
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+  - id: aws-dva
+    name: AWS Certified Developer - Associate
+    name_ko: AWS 개발자 어소시에이트
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+  - id: aws-sysops
+    name: AWS Certified SysOps Administrator - Associate
+    name_ko: AWS 시스템 운영 관리자 어소시에이트
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+  - id: aws-devops
+    name: AWS Certified DevOps Engineer - Professional
+    name_ko: AWS DevOps 엔지니어 프로페셔널
+    issuer: Amazon Web Services
+    category: cloud
+    validity_years: 3
+
+  # Microsoft Azure
+  - id: az-900
+    name: Microsoft Azure Fundamentals (AZ-900)
+    name_ko: Azure 기초
+    issuer: Microsoft
+    category: cloud
+    validity_years: null
+  - id: az-104
+    name: Microsoft Azure Administrator (AZ-104)
+    name_ko: Azure 관리자
+    issuer: Microsoft
+    category: cloud
+    validity_years: 2
+  - id: az-204
+    name: Microsoft Azure Developer Associate (AZ-204)
+    name_ko: Azure 개발자
+    issuer: Microsoft
+    category: cloud
+    validity_years: 2
+  - id: az-305
+    name: Microsoft Azure Solutions Architect Expert (AZ-305)
+    name_ko: Azure 솔루션 아키텍트
+    issuer: Microsoft
+    category: cloud
+    validity_years: 2
+  - id: az-400
+    name: Microsoft DevOps Engineer Expert (AZ-400)
+    name_ko: Azure DevOps 엔지니어
+    issuer: Microsoft
+    category: cloud
+    validity_years: 2
+
+  # Google Cloud
+  - id: gcp-cdl
+    name: Google Cloud Digital Leader
+    name_ko: GCP 디지털 리더
+    issuer: Google Cloud
+    category: cloud
+    validity_years: 3
+  - id: gcp-ace
+    name: Google Cloud Associate Cloud Engineer
+    name_ko: GCP 클라우드 엔지니어
+    issuer: Google Cloud
+    category: cloud
+    validity_years: 3
+  - id: gcp-pca
+    name: Google Cloud Professional Cloud Architect
+    name_ko: GCP 프로페셔널 아키텍트
+    issuer: Google Cloud
+    category: cloud
+    validity_years: 2
+  - id: gcp-pde
+    name: Google Cloud Professional Data Engineer
+    name_ko: GCP 데이터 엔지니어
+    issuer: Google Cloud
+    category: cloud
+    validity_years: 2
+  - id: gcp-pmle
+    name: Google Cloud Professional Machine Learning Engineer
+    name_ko: GCP ML 엔지니어
+    issuer: Google Cloud
+    category: cloud
+    validity_years: 2
+
+  # Kubernetes
+  - id: cka
+    name: Certified Kubernetes Administrator (CKA)
+    name_ko: 쿠버네티스 관리자
+    issuer: CNCF
+    category: devops
+    validity_years: 3
+  - id: ckad
+    name: Certified Kubernetes Application Developer (CKAD)
+    name_ko: 쿠버네티스 개발자
+    issuer: CNCF
+    category: devops
+    validity_years: 3
+  - id: cks
+    name: Certified Kubernetes Security Specialist (CKS)
+    name_ko: 쿠버네티스 보안 전문가
+    issuer: CNCF
+    category: devops
+    validity_years: 3
+
+  # Security Certifications
+  - id: cissp
+    name: Certified Information Systems Security Professional (CISSP)
+    name_ko: 정보시스템 보안 전문가
+    issuer: (ISC)²
+    category: security
+    validity_years: 3
+  - id: cism
+    name: Certified Information Security Manager (CISM)
+    name_ko: 정보보안 관리자
+    issuer: ISACA
+    category: security
+    validity_years: 3
+  - id: ceh
+    name: Certified Ethical Hacker (CEH)
+    name_ko: 윤리적 해커
+    issuer: EC-Council
+    category: security
+    validity_years: 3
+  - id: oscp
+    name: Offensive Security Certified Professional (OSCP)
+    name_ko: 공격 보안 전문가
+    issuer: Offensive Security
+    category: security
+    validity_years: null
+  - id: comptia-security
+    name: CompTIA Security+
+    name_ko: CompTIA 보안+
+    issuer: CompTIA
+    category: security
+    validity_years: 3
+
+  # CompTIA
+  - id: comptia-a
+    name: CompTIA A+
+    name_ko: CompTIA A+
+    issuer: CompTIA
+    category: it
+    validity_years: 3
+  - id: comptia-network
+    name: CompTIA Network+
+    name_ko: CompTIA 네트워크+
+    issuer: CompTIA
+    category: it
+    validity_years: 3
+  - id: comptia-linux
+    name: CompTIA Linux+
+    name_ko: CompTIA 리눅스+
+    issuer: CompTIA
+    category: it
+    validity_years: 3
+
+  # Project Management
+  - id: pmp
+    name: Project Management Professional (PMP)
+    name_ko: 프로젝트 관리 전문가
+    issuer: Project Management Institute
+    category: management
+    validity_years: 3
+  - id: capm
+    name: Certified Associate in Project Management (CAPM)
+    name_ko: 프로젝트 관리 준전문가
+    issuer: Project Management Institute
+    category: management
+    validity_years: 3
+  - id: psm
+    name: Professional Scrum Master (PSM I)
+    name_ko: 스크럼 마스터
+    issuer: Scrum.org
+    category: management
+    validity_years: null
+  - id: csm
+    name: Certified Scrum Master (CSM)
+    name_ko: 인증 스크럼 마스터
+    issuer: Scrum Alliance
+    category: management
+    validity_years: 2
+
+  # Cisco
+  - id: ccna
+    name: Cisco Certified Network Associate (CCNA)
+    name_ko: 시스코 네트워크 어소시에이트
+    issuer: Cisco
+    category: networking
+    validity_years: 3
+  - id: ccnp
+    name: Cisco Certified Network Professional (CCNP)
+    name_ko: 시스코 네트워크 프로페셔널
+    issuer: Cisco
+    category: networking
+    validity_years: 3
+  - id: ccie
+    name: Cisco Certified Internetwork Expert (CCIE)
+    name_ko: 시스코 인터네트워크 전문가
+    issuer: Cisco
+    category: networking
+    validity_years: 3
+
+  # Database
+  - id: ocp-java
+    name: Oracle Certified Professional, Java SE Developer
+    name_ko: 오라클 자바 개발자
+    issuer: Oracle
+    category: development
+    validity_years: null
+  - id: ocp-db
+    name: Oracle Database Administrator Certified Professional
+    name_ko: 오라클 DB 관리자
+    issuer: Oracle
+    category: database
+    validity_years: null
+  - id: mongodb-dev
+    name: MongoDB Certified Developer Associate
+    name_ko: MongoDB 개발자
+    issuer: MongoDB
+    category: database
+    validity_years: 3
+
+  # Data Science & AI
+  - id: tf-cert
+    name: TensorFlow Developer Certificate
+    name_ko: TensorFlow 개발자
+    issuer: Google
+    category: ai
+    validity_years: 3
+  - id: databricks-spark
+    name: Databricks Certified Associate Developer for Apache Spark
+    name_ko: Databricks Spark 개발자
+    issuer: Databricks
+    category: data
+    validity_years: 2
