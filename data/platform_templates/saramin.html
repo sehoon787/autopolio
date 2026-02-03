@@ -639,21 +639,82 @@
                 </div>
 
                 <!-- 자격증 -->
-                {{#certifications.length}}
+                {{#has_certifications}}
                 <div class="part part_cert">
                     <div class="box_tit">
-                        <h2 class="tit">자격/어학/수상</h2>
+                        <h2 class="tit">자격증</h2>
                     </div>
                     <div class="cert_list">
                         {{#certifications}}
                         <div class="cert_item">
                             <div class="cert_name">{{name}}</div>
-                            <div class="cert_info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                            <div class="cert_info">{{#issuer}}{{issuer}}{{/issuer}} {{#issue_date}}| {{issue_date}}{{/issue_date}}</div>
                         </div>
                         {{/certifications}}
                     </div>
                 </div>
-                {{/certifications.length}}
+                {{/has_certifications}}
+
+                <!-- 수상이력 -->
+                {{#has_awards}}
+                <div class="part part_cert">
+                    <div class="box_tit">
+                        <h2 class="tit">수상이력</h2>
+                    </div>
+                    <div class="cert_list">
+                        {{#awards}}
+                        <div class="cert_item">
+                            <div class="cert_name">{{name}}</div>
+                            <div class="cert_info">{{#issuer}}{{issuer}}{{/issuer}} {{#award_date}}| {{award_date}}{{/award_date}}</div>
+                            {{#description}}<div style="margin-top: 4px; font-size: 12px; color: var(--sri-text-tertiary);">{{description}}</div>{{/description}}
+                        </div>
+                        {{/awards}}
+                    </div>
+                </div>
+                {{/has_awards}}
+
+                <!-- 논문/저술 -->
+                {{#has_publications}}
+                <div class="part">
+                    <div class="box_tit">
+                        <h2 class="tit">논문/저술</h2>
+                    </div>
+                    <div class="box_con">
+                        {{#publications}}
+                        <div class="box_list">
+                            <h3 class="tit">
+                                <span class="company_name">{{title}}</span>
+                            </h3>
+                            <span class="date">{{#publication_type}}{{publication_type}} | {{/publication_type}}{{#publisher}}{{publisher}}{{/publisher}} {{#publication_date}}| {{publication_date}}{{/publication_date}}</span>
+                            {{#authors}}<div class="faculty"><dt>저자</dt><dd>{{authors}}</dd></div>{{/authors}}
+                            {{#description}}<p class="desc">{{description}}</p>{{/description}}
+                        </div>
+                        {{/publications}}
+                    </div>
+                </div>
+                {{/has_publications}}
+
+                <!-- 봉사/대외활동 -->
+                {{#has_volunteer_activities}}
+                <div class="part">
+                    <div class="box_tit">
+                        <h2 class="tit">봉사/대외활동</h2>
+                    </div>
+                    <div class="box_con">
+                        {{#volunteer_activities}}
+                        <div class="box_list">
+                            <h3 class="tit">
+                                <span class="company_name">{{name}}</span>
+                                <span class="job_team_name">{{organization}}</span>
+                            </h3>
+                            <span class="date">{{period}}{{#hours}} | 봉사시간: {{hours}}시간{{/hours}}</span>
+                            {{#role}}<div class="faculty"><dt>역할</dt><dd>{{role}}</dd></div>{{/role}}
+                            {{#description}}<p class="desc">{{description}}</p>{{/description}}
+                        </div>
+                        {{/volunteer_activities}}
+                    </div>
+                </div>
+                {{/has_volunteer_activities}}
 
                 <!-- 자기소개서 -->
                 {{#summary}}

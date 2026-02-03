@@ -32,10 +32,23 @@ class TemplateRenderer:
         if "generated_date" not in data:
             data["generated_date"] = datetime.now().strftime("%Y-%m-%d")
 
-        # Process list lengths for conditional rendering
-        for key in ["experiences", "projects", "educations", "certifications"]:
+        # Process list lengths for conditional rendering (backwards compatibility)
+        list_keys = [
+            "experiences", "projects", "educations", "certifications",
+            "awards", "publications", "volunteer_activities", "activities"
+        ]
+        for key in list_keys:
             if key in data and data[key]:
                 data[f"{key}.length"] = len(data[key]) > 0
+                # Also set has_* flag if not already set
+                has_key = f"has_{key}"
+                if has_key not in data:
+                    data[has_key] = len(data[key]) > 0
+            else:
+                # Ensure has_* is False for empty/missing lists
+                has_key = f"has_{key}"
+                if has_key not in data:
+                    data[has_key] = False
 
         # Handle skills object
         if "skills" in data and data["skills"]:

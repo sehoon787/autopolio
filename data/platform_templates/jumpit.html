@@ -619,19 +619,74 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
         </section>
 
         <!-- 자격증 -->
-        {{#certifications.length}}
+        {{#has_certifications}}
         <section class="section">
             <h2 class="section-title">자격증</h2>
             <div class="cert-list">
                 {{#certifications}}
                 <div class="cert-item">
                     <div class="cert-name">{{name}}</div>
-                    <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                    <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#issue_date}}| {{issue_date}}{{/issue_date}}</div>
                 </div>
                 {{/certifications}}
             </div>
         </section>
-        {{/certifications.length}}
+        {{/has_certifications}}
+
+        <!-- 수상이력 -->
+        {{#has_awards}}
+        <section class="section">
+            <h2 class="section-title">수상이력</h2>
+            <div class="cert-list">
+                {{#awards}}
+                <div class="cert-item">
+                    <div class="cert-name">🏆 {{name}}</div>
+                    <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#award_date}}| {{award_date}}{{/award_date}}</div>
+                    {{#description}}<div style="margin-top: 4px; font-size: 12px; color: var(--jumpit-text-tertiary);">{{description}}</div>{{/description}}
+                </div>
+                {{/awards}}
+            </div>
+        </section>
+        {{/has_awards}}
+
+        <!-- 논문/저술 -->
+        {{#has_publications}}
+        <section class="section">
+            <h2 class="section-title">논문/저술</h2>
+            <div class="projects-list">
+                {{#publications}}
+                <div class="project-card">
+                    <div class="project-header">
+                        <span class="project-name">{{title}}</span>
+                        <span class="project-period">{{publication_date}}</span>
+                    </div>
+                    <p class="project-company">{{#publication_type}}{{publication_type}} | {{/publication_type}}{{publisher}}</p>
+                    {{#authors}}<p style="font-size: 13px; color: var(--jumpit-text-secondary); margin-top: 4px;">저자: {{authors}}</p>{{/authors}}
+                    {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                </div>
+                {{/publications}}
+            </div>
+        </section>
+        {{/has_publications}}
+
+        <!-- 봉사/대외활동 -->
+        {{#has_volunteer_activities}}
+        <section class="section">
+            <h2 class="section-title">봉사/대외활동</h2>
+            <div class="timeline">
+                {{#volunteer_activities}}
+                <div class="timeline-item">
+                    <div class="timeline-header">
+                        <span class="timeline-company">{{name}}</span>
+                        <span class="timeline-period">{{period}}{{#hours}} ({{hours}}시간){{/hours}}</span>
+                    </div>
+                    <p class="timeline-position">{{organization}}{{#role}} | {{role}}{{/role}}</p>
+                    {{#description}}<p class="timeline-desc">{{description}}</p>{{/description}}
+                </div>
+                {{/volunteer_activities}}
+            </div>
+        </section>
+        {{/has_volunteer_activities}}
     </div>
 </body>
 </html>

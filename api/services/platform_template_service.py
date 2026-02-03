@@ -319,6 +319,8 @@ class PlatformTemplateService:
             "github_url": "https://github.com/gildong",
             "portfolio_url": "https://gildong.dev",
             "has_links": True,
+            "has_experiences": True,
+            "has_capabilities": False,
             "experiences": [
                 {
                     "company": "테크스타트 주식회사",
@@ -470,15 +472,33 @@ class PlatformTemplateService:
                     "school_name": "한국대학교",
                     "major": "컴퓨터공학과",
                     "degree": "학사",
-                    "start_date": "2015-03",
-                    "end_date": "2019-02",
-                    "description": "소프트웨어 공학 전공, 학점 3.8/4.5"
+                    "start_date": "2015.03",
+                    "end_date": "2019.02",
+                    "period": "2015.03 - 2019.02",
+                    "gpa": "3.8/4.5",
+                    "description": "소프트웨어 공학 전공"
                 }
             ],
+            "has_educations": True,
+            "has_education": True,
             "certifications": [
-                {"name": "정보처리기사", "issuer": "한국산업인력공단", "date": "2019-05", "credential_id": "19-001234"},
-                {"name": "AWS Solutions Architect Associate", "issuer": "Amazon Web Services", "date": "2022-03", "credential_id": "AWS-SAA-001234"}
+                {"name": "정보처리기사", "issuer": "한국산업인력공단", "issue_date": "2019.05", "date": "2019.05", "credential_id": "19-001234"},
+                {"name": "AWS Solutions Architect Associate", "issuer": "Amazon Web Services", "issue_date": "2022.03", "date": "2022.03", "credential_id": "AWS-SAA-001234"}
             ],
+            "has_certifications": True,
+            "awards": [
+                {"name": "우수 개발자상", "issuer": "테크스타트 주식회사", "award_date": "2023.12", "description": "분기 MVP 선정"},
+                {"name": "해커톤 대상", "issuer": "한국SW산업협회", "award_date": "2022.08", "description": "AI 활용 서비스 개발 부문"}
+            ],
+            "has_awards": True,
+            "publications": [
+                {"title": "대규모 언어 모델 기반 문서 요약 시스템", "authors": "홍길동, 김철수", "publication_type": "학술논문", "publisher": "한국정보과학회", "publication_date": "2023.06", "doi": "10.1234/kips.2023.001", "description": "GPT 모델을 활용한 자동 문서 요약 연구"}
+            ],
+            "has_publications": True,
+            "volunteer_activities": [
+                {"name": "코딩 멘토링", "organization": "코드잇", "activity_type": "external", "period": "2022.03 - 2023.02", "hours": 120, "role": "멘토", "description": "비전공자 대상 프로그래밍 기초 교육"}
+            ],
+            "has_volunteer_activities": True,
             "generated_date": datetime.now().strftime("%Y-%m-%d")
         }
 
@@ -496,13 +516,27 @@ class PlatformTemplateService:
 
         Returns:
             Rendered HTML string
+
+        Raises:
+            ValueError: If template not found, user not found, or no data available
         """
         template = await self.get_by_id(template_id)
         if not template or not template.html_content:
             raise ValueError(f"Template {template_id} not found or has no content")
 
         # Fetch user data from database using data collector
-        render_data = await self.data_collector.collect(user_id)
+        try:
+            render_data = await self.data_collector.collect(user_id)
+        except ValueError as e:
+            # Re-raise with more context
+            raise ValueError(f"Failed to collect user data: {str(e)}")
+
+        # Check if user has any meaningful data
+        has_companies = len(render_data.get("experiences", [])) > 0
+        has_projects = len(render_data.get("projects", [])) > 0
+
+        if not has_companies and not has_projects:
+            raise ValueError("No companies or projects found. Please add your career information first.")
 
         # Add platform logo (Wanted uses smaller padding for larger logo)
         logo_padding = 3 if template.platform_key == "wanted" else 8

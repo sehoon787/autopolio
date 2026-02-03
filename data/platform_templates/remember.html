@@ -566,7 +566,7 @@
             </section>
 
             <!-- 자격증 -->
-            {{#certifications.length}}
+            {{#has_certifications}}
             <section class="section">
                 <h2 class="section-title">자격증</h2>
                 <div class="cert-list">
@@ -575,13 +575,72 @@
                         <div class="cert-icon">✓</div>
                         <div class="cert-content">
                             <div class="cert-name">{{name}}</div>
-                            <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#date}}| {{date}}{{/date}}</div>
+                            <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#issue_date}}| {{issue_date}}{{/issue_date}}</div>
                         </div>
                     </div>
                     {{/certifications}}
                 </div>
             </section>
-            {{/certifications.length}}
+            {{/has_certifications}}
+
+            <!-- 수상이력 -->
+            {{#has_awards}}
+            <section class="section">
+                <h2 class="section-title">수상이력</h2>
+                <div class="cert-list">
+                    {{#awards}}
+                    <div class="cert-item">
+                        <div class="cert-icon" style="background: var(--rmb-blue);">🏆</div>
+                        <div class="cert-content">
+                            <div class="cert-name">{{name}}</div>
+                            <div class="cert-info">{{#issuer}}{{issuer}}{{/issuer}} {{#award_date}}| {{award_date}}{{/award_date}}</div>
+                            {{#description}}<div style="margin-top: 4px; font-size: 12px; color: var(--rmb-text-tertiary);">{{description}}</div>{{/description}}
+                        </div>
+                    </div>
+                    {{/awards}}
+                </div>
+            </section>
+            {{/has_awards}}
+
+            <!-- 논문/저술 -->
+            {{#has_publications}}
+            <section class="section">
+                <h2 class="section-title">논문/저술</h2>
+                {{#publications}}
+                <div class="project-item">
+                    <div class="project-header">
+                        <span class="project-name">{{title}}</span>
+                        <span class="project-period">{{publication_date}}</span>
+                    </div>
+                    <p class="project-company">{{#publication_type}}{{publication_type}} | {{/publication_type}}{{publisher}}</p>
+                    {{#authors}}<p style="font-size: 13px; color: var(--rmb-text-secondary);">저자: {{authors}}</p>{{/authors}}
+                    {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                </div>
+                {{/publications}}
+            </section>
+            {{/has_publications}}
+
+            <!-- 봉사/대외활동 -->
+            {{#has_volunteer_activities}}
+            <section class="section">
+                <h2 class="section-title">봉사/대외활동</h2>
+                <div class="experience-list">
+                    {{#volunteer_activities}}
+                    <div class="experience-item">
+                        <div class="experience-logo">🤝</div>
+                        <div class="experience-content">
+                            <div class="experience-header">
+                                <span class="experience-company">{{name}}</span>
+                                <span class="experience-period">{{period}}{{#hours}} ({{hours}}시간){{/hours}}</span>
+                            </div>
+                            <p class="experience-position">{{organization}}{{#role}} | {{role}}{{/role}}</p>
+                            {{#description}}<p class="experience-desc">{{description}}</p>{{/description}}
+                        </div>
+                    </div>
+                    {{/volunteer_activities}}
+                </div>
+            </section>
+            {{/has_volunteer_activities}}
         </div>
     </div>
 </body>

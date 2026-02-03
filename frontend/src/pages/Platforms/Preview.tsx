@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 // Build version for cache busting
-const BUILD_VERSION = '1.11.1-20260202'
+const BUILD_VERSION = '1.11.2-20260203'
 if (typeof window !== 'undefined') {
   (window as unknown as { __PREVIEW_VERSION__: string }).__PREVIEW_VERSION__ = BUILD_VERSION
 }
@@ -15,6 +15,7 @@ import {
   Minimize2,
   Loader2,
   Printer,
+  AlertCircle,
 } from 'lucide-react'
 import { platformsApi } from '@/api/platforms'
 import { useUserStore } from '@/stores/userStore'
@@ -28,6 +29,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { useToast } from '@/components/ui/use-toast'
 
 type DataSourceStatus = 'real' | 'sample' | 'loading'
 
@@ -36,6 +38,7 @@ export default function PlatformPreviewPage() {
   const navigate = useNavigate()
   const { t } = useTranslation(['platforms', 'common'])
   const { user } = useUserStore()
+  const { toast } = useToast()
 
   const [previewHtml, setPreviewHtml] = useState<string>('')
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
@@ -43,6 +46,9 @@ export default function PlatformPreviewPage() {
 
   // Data source tracking for HTML preview
   const [dataSource, setDataSource] = useState<DataSourceStatus>('loading')
+
+  // Error state for real data loading
+  const [realDataError, setRealDataError] = useState<string | null>(null)
 
   // User toggle: show real data (default: false = sample data)
   const [useRealData, setUseRealData] = useState(false)
@@ -68,31 +74,69 @@ export default function PlatformPreviewPage() {
 
     setIsPreviewLoading(true)
     setDataSource('loading')
+    setRealDataError(null)
+
     try {
       // If not forcing sample and user exists, try real data first
       if (!forceSample && user?.id) {
         try {
+          console.log('[Preview] Attempting to load real data for user:', user.id, 'template:', templateId)
           const response = await platformsApi.renderFromDb(Number(templateId), user.id)
-          if (response.data.html) {
+          if (response.data?.html) {
+            console.log('[Preview] Real data loaded successfully')
             setPreviewHtml(response.data.html)
             setDataSource('real')
             return
           }
-        } catch {
+          // If response exists but no HTML, fall through to sample
+          console.log('[Preview] Real data response had no HTML, falling back to sample')
+        } catch (error: unknown) {
+          // Real data failed - extract error message from API response
+          let errorMessage: string
+          if (error && typeof error === 'object' && 'response' in error) {
+            const axiosError = error as { response?: { data?: { detail?: string }, status?: number } }
+            errorMessage = axiosError.response?.data?.detail || String(error)
+            console.error('[Preview] Real data API error:', axiosError.response?.status, errorMessage)
+          } else {
+            errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[Preview] Failed to load real data:', errorMessage)
+          }
+          setRealDataError(errorMessage)
+          toast({
+            title: t('realDataLoadFailed'),
+            description: errorMessage.includes('No companies or projects')
+              ? t('fallbackToSampleData')
+              : errorMessage,
+            variant: 'destructive',
+          })
           // Fall through to sample data
         }
       }
 
       // Fall back to sample data
+      console.log('[Preview] Loading sample data for template:', templateId)
       const sampleResponse = await platformsApi.previewWithSampleData(Number(templateId))
       setPreviewHtml(sampleResponse.data.html)
       setDataSource('sample')
-    } catch {
-      // Preview load failed - silently ignore as UI shows empty state
+    } catch (error: unknown) {
+      // Preview load completely failed
+      let errorMessage: string
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string } } }
+        errorMessage = axiosError.response?.data?.detail || String(error)
+      } else {
+        errorMessage = error instanceof Error ? error.message : String(error)
+      }
+      console.error('[Preview] Preview load failed:', errorMessage)
+      toast({
+        title: t('previewLoadFailed'),
+        description: errorMessage,
+        variant: 'destructive',
+      })
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [template, templateId, user?.id])
+  }, [template, templateId, user?.id, toast, t])
 
   // Load preview when template loads or toggle changes
   // Uses ref to track what source has been loaded to prevent redundant API calls
@@ -208,30 +252,41 @@ export default function PlatformPreviewPage() {
       <Card>
         <CardHeader className="pb-2">
           {/* Current data source badge - upper left */}
-          {dataSource === 'loading' ? null : dataSource === 'real' ? (
-            <Badge variant="default" className="w-fit bg-green-600">
-              {t('usingRealData')}
-            </Badge>
-          ) : dataSource === 'sample' ? (
-            <Badge variant="secondary" className="w-fit">
-              {t('sampleDataBadge')}
-            </Badge>
-          ) : null}
+          <div className="flex items-center gap-2 flex-wrap">
+            {dataSource === 'loading' ? null : dataSource === 'real' ? (
+              <Badge variant="default" className="w-fit bg-green-600">
+                {t('usingRealData')}
+              </Badge>
+            ) : dataSource === 'sample' ? (
+              <Badge variant="secondary" className="w-fit">
+                {t('sampleDataBadge')}
+              </Badge>
+            ) : null}
+            {/* Show error indicator when real data was requested but failed */}
+            {realDataError && useRealData && dataSource === 'sample' && (
+              <Badge variant="destructive" className="w-fit flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {t('realDataUnavailable')}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {/* Data source toggle */}
-          <div className="flex items-center justify-end mb-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background">
-              <Switch
-                id="real-data-toggle"
-                checked={useRealData}
-                onCheckedChange={setUseRealData}
-              />
-              <Label htmlFor="real-data-toggle" className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                {t('showRealData')}
-              </Label>
+          {/* Data source toggle - only show for logged in users */}
+          {user && (
+            <div className="flex items-center justify-end mb-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background">
+                <Switch
+                  id="real-data-toggle"
+                  checked={useRealData}
+                  onCheckedChange={setUseRealData}
+                />
+                <Label htmlFor="real-data-toggle" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                  {t('showRealData')}
+                </Label>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* HTML Preview */}
           {isPreviewLoading ? (

@@ -46,60 +46,66 @@ test.describe('Platforms Page (v1.11)', () => {
     }
   })
 
-  test('should navigate to export page', async ({ page }) => {
+  test('should have export button on template cards', async ({ page }) => {
     // Wait for templates to load
     await page.waitForTimeout(2000)
 
-    // Find and click export button
-    const exportButton = page.locator('button, a').filter({ hasText: /export|내보내기|다운로드/i }).first()
+    // Find export buttons on template cards
+    const exportButtons = page.locator('button').filter({ hasText: /export|내보내기/i })
+    const count = await exportButtons.count()
 
-    if (await exportButton.isVisible()) {
-      await exportButton.click()
-      await expect(page).toHaveURL(/.*platforms.*export|.*export.*/)
-    }
+    // Export buttons should exist (may be disabled if no data)
+    expect(count).toBeGreaterThan(0)
+
+    // Check if at least one export button is visible
+    await expect(exportButtons.first()).toBeVisible({ timeout: 5000 })
   })
 })
 
 test.describe('Platform Preview Page', () => {
-  test('should display preview with format tabs', async ({ page }) => {
+  test('should display preview with sample data for guest users', async ({ page }) => {
     // First go to platforms page
     await page.goto('/platforms')
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
 
-    // Find and click on first preview link
-    const previewLink = page.locator('a[href*="preview"], button').filter({ hasText: /preview|미리보기/i }).first()
+    // Find and click on first preview button (not link)
+    const previewButton = page.locator('button').filter({ hasText: /preview|미리보기/i }).first()
 
-    if (await previewLink.isVisible()) {
-      await previewLink.click()
+    if (await previewButton.isVisible()) {
+      await previewButton.click()
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
 
-      // Check for format tabs (HTML, Markdown, Word)
-      const tabs = page.locator('[role="tablist"], [class*="Tabs"]')
-      await expect(tabs).toBeVisible({ timeout: 10000 })
+      // Check for Sample Data indicator
+      const sampleDataIndicator = page.locator('text=/sample data|샘플/i')
+      await expect(sampleDataIndicator.first()).toBeVisible({ timeout: 10000 })
 
-      // Check for HTML tab
-      const htmlTab = page.locator('button, [role="tab"]').filter({ hasText: /html/i })
-      await expect(htmlTab.first()).toBeVisible({ timeout: 5000 })
+      // Guest users should NOT see the "real data" toggle (it's hidden for non-logged-in users)
+      const realDataToggle = page.locator('text=/real data|실제.*데이터|view.*real/i')
+      await expect(realDataToggle).toHaveCount(0)
+
+      // Check for action buttons (Print, Fullscreen, Export)
+      const printButton = page.locator('button').filter({ hasText: /print|인쇄/i })
+      await expect(printButton.first()).toBeVisible({ timeout: 5000 })
     }
   })
 })
 
-test.describe('Platform Export Page', () => {
-  test('should display export options', async ({ page }) => {
+test.describe('Platform Export from Preview', () => {
+  test('should have export button on preview page', async ({ page }) => {
     // Go to platforms page
     await page.goto('/platforms')
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
 
-    // Find and click on first export link
-    const exportLink = page.locator('a[href*="export"], button').filter({ hasText: /export|내보내기/i }).first()
+    // Click preview first
+    const previewButton = page.locator('button').filter({ hasText: /preview|미리보기/i }).first()
 
-    if (await exportLink.isVisible()) {
-      await exportLink.click()
+    if (await previewButton.isVisible()) {
+      await previewButton.click()
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
 
-      // Check for export format selection
-      const formatOptions = page.locator('[class*="radio"], [role="radiogroup"], select')
-      await expect(formatOptions.first()).toBeVisible({ timeout: 10000 })
+      // Check for export button on preview page (in header)
+      const exportButton = page.locator('button').filter({ hasText: /export|내보내기/i })
+      await expect(exportButton.first()).toBeVisible({ timeout: 10000 })
     }
   })
 })
