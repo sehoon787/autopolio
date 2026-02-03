@@ -63,6 +63,10 @@
   "tryAgain": "Try again",
   "comingSoon": "Coming soon",
   "beta": "Beta",
+  "guestMode": "Guest Mode",
+  "guestModeDescription": "Preview only. Log in to save your data.",
+  "loginToSave": "Log in",
+  "loginNow": "Log in now",
   "export": {
     "title": "Export Projects",
     "titleSingleProject": "Export {{name}}",

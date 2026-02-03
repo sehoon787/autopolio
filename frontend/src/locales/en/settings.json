@@ -133,9 +133,52 @@
     "desktopRequiredDescription": "CLI tools and API configuration are only available in the desktop app."
   },
   "user": {
-    "title": "User Info",
+    "title": "Profile",
+    "description": "Your account profile information",
     "name": "Name",
     "email": "Email"
+  },
+  "connectedAccounts": {
+    "title": "Connected Accounts",
+    "description": "Manage your connected social accounts for login",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "disconnected": "Disconnected",
+    "disconnectedDesc": "Account has been disconnected successfully",
+    "connectFailed": "Connection Failed",
+    "disconnectFailed": "Disconnect Failed",
+    "primary": "Primary",
+    "setAsPrimary": "Set as Primary",
+    "primarySet": "Primary account updated",
+    "notConfigured": "Not available",
+    "comingSoon": "Coming Soon",
+    "authStarted": "Authentication Started",
+    "authStartedDesc": "Complete the login in the opened browser window",
+    "connected": "Connected",
+    "reconnect": "Reconnect",
+    "disconnectedAndLogout": "Account Disconnected",
+    "guestModeActivated": "You have been logged out. Use the app as a guest or connect a social account.",
+    "lastAccountWarning": {
+      "title": "Disconnect Last Account?",
+      "description": "This is your only connected account. Disconnecting will convert you to a guest account.",
+      "dataWarning": "Warning: Guest accounts cannot save data. All your data will be inaccessible until you reconnect.",
+      "cancel": "Cancel",
+      "confirm": "Disconnect & Logout"
+    },
+    "features": {
+      "title": "Features Available with Integration",
+      "github": {
+        "repoList": "Repository listing",
+        "commitAnalysis": "Commit history analysis",
+        "techDetection": "Auto tech stack detection (200+ techs)",
+        "contributionStats": "Contribution statistics"
+      }
+    }
+  },
+  "logout": {
+    "title": "Logout",
+    "description": "Sign out of your account on this device",
+    "button": "Logout"
   },
   "setup": {
     "title": "Initial Setup",

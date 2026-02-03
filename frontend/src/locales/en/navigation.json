@@ -1,7 +1,12 @@
 {
   "dashboard": "Dashboard",
+  "careerManagement": "Career Management",
   "githubRepos": "GitHub Repos",
   "companies": "Companies",
+  "credentials": "Credentials",
+  "educationPublicationsPatents": "Education & Publications",
+  "certificationsAwards": "Certifications & Awards",
+  "activities": "Activities",
   "projects": "Projects",
   "projectsKanban": "Project Kanban",
   "platforms": "Platform Templates",

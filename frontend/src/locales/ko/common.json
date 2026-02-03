@@ -63,6 +63,10 @@
   "tryAgain": "다시 시도",
   "comingSoon": "준비 중",
   "beta": "베타",
+  "guestMode": "게스트 모드",
+  "guestModeDescription": "미리보기만 가능합니다. 데이터를 저장하려면 로그인하세요.",
+  "loginToSave": "로그인",
+  "loginNow": "지금 로그인",
   "export": {
     "title": "프로젝트 내보내기",
     "titleSingleProject": "{{name}} 내보내기",

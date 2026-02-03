@@ -1,7 +1,12 @@
 {
   "dashboard": "대시보드",
+  "careerManagement": "이력 관리",
   "githubRepos": "GitHub 레포",
   "companies": "회사 관리",
+  "credentials": "추가 이력",
+  "educationPublicationsPatents": "교육·저술·특허",
+  "certificationsAwards": "자격·수상",
+  "activities": "활동",
   "projects": "프로젝트 관리",
   "projectsKanban": "프로젝트 칸반",
   "platforms": "플랫폼 템플릿",

@@ -46,5 +46,9 @@
   "showSampleData": "View with sample data",
   "showRealData": "View real data",
   "noAnalyzedProjects": "No Analyzed Projects",
-  "analyzeProjectsFirst": "You can export after analyzing projects. Please analyze GitHub repositories on the Projects page first."
+  "analyzeProjectsFirst": "You can export after analyzing projects. Please analyze GitHub repositories on the Projects page first.",
+  "realDataLoadFailed": "Failed to load real data",
+  "fallbackToSampleData": "Showing sample data instead. Please check if you have companies and projects registered.",
+  "previewLoadFailed": "Failed to load preview",
+  "realDataUnavailable": "Real data unavailable"
 }
