@@ -1,6 +1,14 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
+
+
+# Shared validator functions
+def validate_percent_range(v: Optional[int]) -> Optional[int]:
+    """Validate percentage is between 0 and 100."""
+    if v is not None and (v < 0 or v > 100):
+        raise ValueError('Value must be between 0 and 100')
+    return v
 
 
 # Technology schemas
@@ -67,12 +75,14 @@ class ProjectBase(BaseModel):
     end_date: Optional[date] = None
     team_size: Optional[int] = None
     role: Optional[str] = None
-    contribution_percent: Optional[int] = None
+    contribution_percent: Optional[int] = Field(None, description="기여도 (0-100%)")
     git_url: Optional[str] = None
     project_type: Optional[str] = None
     status: Optional[str] = None
     links: Optional[Dict[str, str]] = None
     images: Optional[List[str]] = None
+
+    _validate_contribution = field_validator('contribution_percent')(validate_percent_range)
 
 
 class ProjectCreate(ProjectBase):
@@ -88,7 +98,7 @@ class ProjectUpdate(BaseModel):
     end_date: Optional[date] = None
     team_size: Optional[int] = None
     role: Optional[str] = None
-    contribution_percent: Optional[int] = None
+    contribution_percent: Optional[int] = Field(None, description="기여도 (0-100%)")
     git_url: Optional[str] = None
     project_type: Optional[str] = None
     status: Optional[str] = None
@@ -96,6 +106,8 @@ class ProjectUpdate(BaseModel):
     images: Optional[List[str]] = None
     company_id: Optional[int] = None
     technologies: Optional[List[str]] = None
+
+    _validate_contribution = field_validator('contribution_percent')(validate_percent_range)
 
 
 class ProjectResponse(ProjectBase):

@@ -5,15 +5,16 @@ Supports cancellation and partial result saving.
 import logging
 import asyncio
 from typing import Optional, Dict, Any, List, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 
 from api.models.job import Job
 from api.models.project import Project, Technology, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
 from api.models.achievement import ProjectAchievement
+from api.models.contributor_analysis import ContributorAnalysis
 from api.services.task_service import TaskService
 from api.services.github_service import GitHubService
 from api.services.role_service import RoleService
@@ -101,12 +102,27 @@ class AnalysisJobService:
         return result.scalar_one_or_none()
 
     async def get_active_jobs_for_user(self, user_id: int) -> List[Job]:
-        """Get all active analysis jobs for a user."""
+        """Get all active analysis jobs for a user.
+
+        Includes:
+        - Active jobs (pending, running)
+        - Recently completed jobs (within last 60 seconds) for token tracking
+        """
+        recent_cutoff = datetime.utcnow() - timedelta(seconds=60)
+
         result = await self.db.execute(
             select(Job).where(
                 Job.user_id == user_id,
                 Job.job_type == "github_analysis",
-                Job.status.in_(["pending", "running"])
+                or_(
+                    # Active jobs
+                    Job.status.in_(["pending", "running"]),
+                    # Recently completed/failed jobs (for token tracking)
+                    and_(
+                        Job.status.in_(["completed", "failed"]),
+                        Job.completed_at >= recent_cutoff
+                    )
+                )
             ).order_by(Job.created_at.desc())
         )
         return list(result.scalars().all())
@@ -352,6 +368,10 @@ async def run_background_analysis(
     role_service = RoleService()
     options = options or {}
     total_tokens = 0
+    language = options.get("language", "ko")  # Default to Korean
+
+    logger.info("[BackgroundAnalysis] Options: %s", options)
+    logger.info("[BackgroundAnalysis] Analysis language: %s", language)
 
     # Initialize LLM service
     llm_service = None
@@ -360,14 +380,21 @@ async def run_background_analysis(
         cli_model = options.get("cli_model")
         provider = options.get("provider")
 
+        logger.info("[BackgroundAnalysis] LLM config - cli_mode=%s, provider=%s", cli_mode, provider)
+
         if cli_mode:
             llm_service = CLILLMService(cli_mode, model=cli_model)
+            logger.info("[BackgroundAnalysis] Using CLI LLM service: %s", cli_mode)
         elif provider:
             llm_service = LLMService(provider)
+            logger.info("[BackgroundAnalysis] Using API LLM service: %s", provider)
         else:
             llm_service = LLMService()
+            logger.info("[BackgroundAnalysis] Using default LLM service")
     except Exception as e:
         logger.warning("[BackgroundAnalysis] LLM service not available: %s", e)
+        import traceback
+        logger.warning("[BackgroundAnalysis] LLM init traceback: %s", traceback.format_exc())
 
     try:
         # Step 1: Repository info
@@ -507,29 +534,31 @@ async def run_background_analysis(
                 achievements, _ = await achievement_service.detect_all(
                     project_data=project_data,
                     commit_messages=commit_messages,
-                    use_llm=False
+                    use_llm=False,
+                    language=language
                 )
 
                 if achievements:
-                    existing_result = await db.execute(
-                        select(ProjectAchievement.metric_name).where(
+                    # Delete existing achievements to avoid language mixing
+                    # (re-analysis should replace all achievements with current language)
+                    await db.execute(
+                        ProjectAchievement.__table__.delete().where(
                             ProjectAchievement.project_id == project_id
                         )
                     )
-                    existing_names = set(row[0] for row in existing_result.fetchall())
+                    logger.info("[BackgroundAnalysis] Deleted existing achievements for project %d", project_id)
 
                     for achievement in achievements:
-                        if achievement.get("metric_name") not in existing_names:
-                            new_achievement = ProjectAchievement(
-                                project_id=project_id,
-                                metric_name=achievement.get("metric_name", ""),
-                                metric_value=achievement.get("metric_value", ""),
-                                description=achievement.get("description"),
-                                category=achievement.get("category"),
-                                evidence=achievement.get("evidence"),
-                            )
-                            db.add(new_achievement)
-                            existing_names.add(achievement.get("metric_name"))
+                        new_achievement = ProjectAchievement(
+                            project_id=project_id,
+                            metric_name=achievement.get("metric_name", ""),
+                            metric_value=achievement.get("metric_value", ""),
+                            description=achievement.get("description"),
+                            category=achievement.get("category"),
+                            evidence=achievement.get("evidence"),
+                        )
+                        db.add(new_achievement)
+                    logger.info("[BackgroundAnalysis] Added %d new achievements", len(achievements))
             except Exception as e:
                 logger.warning("[BackgroundAnalysis] Failed to auto-detect achievements: %s", e)
 
@@ -543,15 +572,20 @@ async def run_background_analysis(
         key_tasks = []
         if llm_service:
             await service.update_step_progress(task_id, 5, "running")
-            logger.info("[BackgroundAnalysis] Step 5: LLM key tasks")
+            logger.info("[BackgroundAnalysis] Step 5: LLM key tasks (language=%s)", language)
 
             try:
                 key_tasks, tokens = await _generate_key_tasks_bg(
-                    project_id, analysis_result, llm_service
+                    project_id, analysis_result, llm_service, language
                 )
                 total_tokens += tokens
+                logger.info("[BackgroundAnalysis] Generated %d key tasks, tokens=%d", len(key_tasks), tokens)
             except Exception as e:
                 logger.warning("[BackgroundAnalysis] Failed to generate key tasks: %s", e)
+                import traceback
+                logger.warning("[BackgroundAnalysis] Key tasks traceback: %s", traceback.format_exc())
+        else:
+            logger.warning("[BackgroundAnalysis] Skipping Step 5: llm_service is None")
 
         step5_result = {"tasks": key_tasks}
         await service.update_step_progress(task_id, 5, "completed", step5_result)
@@ -589,7 +623,8 @@ async def run_background_analysis(
                         "lines_deleted": analysis_result.get("lines_deleted", 0),
                         "files_changed": analysis_result.get("files_changed", 0),
                     },
-                    llm_service=llm_service
+                    llm_service=llm_service,
+                    language=language
                 )
                 total_tokens += content_tokens
             except Exception as e:
@@ -598,25 +633,99 @@ async def run_background_analysis(
         step6_result = detailed_content
         await service.update_step_progress(task_id, 6, "completed", step6_result)
 
-        # Save LLM results to DB
-        if key_tasks or detailed_content:
-            async with AsyncSessionLocal() as db:
-                analysis_db_result = await db.execute(
-                    select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
-                )
-                repo_analysis = analysis_db_result.scalar_one_or_none()
+        # Generate AI summary (same as synchronous analysis)
+        ai_summary = None
+        ai_key_features = None
+        if llm_service:
+            try:
+                logger.info("[BackgroundAnalysis] Generating AI summary (language=%s)", language)
+                async with AsyncSessionLocal() as db:
+                    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                    project = proj_result.scalar_one_or_none()
 
-                if repo_analysis:
-                    if key_tasks:
-                        repo_analysis.key_tasks = key_tasks
-                    if detailed_content.get("implementation_details"):
-                        repo_analysis.implementation_details = detailed_content["implementation_details"]
-                    if detailed_content.get("development_timeline"):
-                        repo_analysis.development_timeline = detailed_content["development_timeline"]
-                    if detailed_content.get("detailed_achievements"):
-                        repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+                    if project:
+                        summary_project_data = {
+                            "name": project.name,
+                            "description": project.description,
+                            "role": project.role,
+                            "team_size": project.team_size,
+                            "contribution_percent": project.contribution_percent,
+                            "technologies": analysis_result.get("detected_technologies", []),
+                            "start_date": str(project.start_date) if project.start_date else None,
+                            "end_date": str(project.end_date) if project.end_date else None,
+                            "total_commits": analysis_result.get("total_commits", 0),
+                            "commit_summary": analysis_result.get("commit_messages_summary", ""),
+                        }
 
-                    await db.commit()
+                        summary_result = await llm_service.generate_project_summary(
+                            summary_project_data,
+                            style="professional",
+                            language=language
+                        )
+                        if summary_result:
+                            ai_summary = summary_result.get("summary", "")
+                            ai_key_features = summary_result.get("key_features", [])
+                            if hasattr(llm_service, 'total_tokens_used'):
+                                total_tokens += llm_service.total_tokens_used
+                            logger.info("[BackgroundAnalysis] AI summary generated: %d chars, %d features",
+                                       len(ai_summary or ""), len(ai_key_features or []))
+                        else:
+                            logger.warning("[BackgroundAnalysis] generate_project_summary returned None/empty")
+                    else:
+                        logger.warning("[BackgroundAnalysis] Project not found for AI summary: %d", project_id)
+            except Exception as e:
+                logger.warning("[BackgroundAnalysis] Failed to generate AI summary: %s", e)
+                import traceback
+                logger.warning("[BackgroundAnalysis] AI summary traceback: %s", traceback.format_exc())
+        else:
+            logger.warning("[BackgroundAnalysis] Skipping AI summary: llm_service is None")
+
+        # Save LLM results and language to DB (ALWAYS save language, even if LLM failed)
+        async with AsyncSessionLocal() as db:
+            analysis_db_result = await db.execute(
+                select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
+            )
+            repo_analysis = analysis_db_result.scalar_one_or_none()
+
+            if repo_analysis:
+                # Always save analysis language (even if LLM calls failed)
+                repo_analysis.analysis_language = language
+                logger.info("[BackgroundAnalysis] Setting analysis_language=%s", language)
+
+                # Save LLM results if available
+                if key_tasks:
+                    repo_analysis.key_tasks = key_tasks
+                    logger.info("[BackgroundAnalysis] Saved %d key_tasks", len(key_tasks))
+                if detailed_content.get("implementation_details"):
+                    repo_analysis.implementation_details = detailed_content["implementation_details"]
+                if detailed_content.get("development_timeline"):
+                    repo_analysis.development_timeline = detailed_content["development_timeline"]
+                if detailed_content.get("detailed_achievements"):
+                    repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+                # Save AI summary (same as synchronous analysis)
+                if ai_summary:
+                    repo_analysis.ai_summary = ai_summary
+                    logger.info("[BackgroundAnalysis] Saved ai_summary (%d chars)", len(ai_summary))
+                if ai_key_features:
+                    repo_analysis.ai_key_features = ai_key_features
+
+                await db.commit()
+
+                # Also copy ai_summary and ai_key_features to Project (for report_service compatibility)
+                if ai_summary or ai_key_features:
+                    proj_result = await db.execute(
+                        select(Project).where(Project.id == project_id)
+                    )
+                    project = proj_result.scalar_one_or_none()
+                    if project:
+                        if ai_summary:
+                            project.ai_summary = ai_summary
+                        if ai_key_features:
+                            project.ai_key_features = ai_key_features
+                        await db.commit()
+                        logger.info("[BackgroundAnalysis] Copied ai_summary to Project %d", project_id)
+            else:
+                logger.warning("[BackgroundAnalysis] RepoAnalysis not found for id=%s", analysis_id)
 
         # Extract tech versions
         try:
@@ -632,6 +741,66 @@ async def run_background_analysis(
                         await db.commit()
         except Exception as e:
             logger.warning("[BackgroundAnalysis] Failed to extract tech versions: %s", e)
+
+        # Create ContributorAnalysis for the current user
+        if github_username:
+            try:
+                logger.info("[BackgroundAnalysis] Creating ContributorAnalysis for user: %s", github_username)
+                contributor_data = await github_service.analyze_contributor(
+                    git_url,
+                    github_username,
+                    commit_limit=100
+                )
+
+                async with AsyncSessionLocal() as db:
+                    # Check if already exists
+                    existing_result = await db.execute(
+                        select(ContributorAnalysis).where(
+                            ContributorAnalysis.repo_analysis_id == analysis_id,
+                            ContributorAnalysis.username == github_username
+                        )
+                    )
+                    existing = existing_result.scalar_one_or_none()
+
+                    if existing:
+                        # Update existing record
+                        existing.email = contributor_data.get("email")
+                        existing.is_primary = True
+                        existing.total_commits = contributor_data.get("total_commits", 0)
+                        existing.first_commit_date = contributor_data.get("first_commit_date")
+                        existing.last_commit_date = contributor_data.get("last_commit_date")
+                        existing.lines_added = contributor_data.get("lines_added", 0)
+                        existing.lines_deleted = contributor_data.get("lines_deleted", 0)
+                        existing.file_extensions = contributor_data.get("file_extensions", {})
+                        existing.work_areas = contributor_data.get("work_areas", [])
+                        existing.detected_technologies = contributor_data.get("detected_technologies", [])
+                        existing.detailed_commits = contributor_data.get("detailed_commits", [])
+                        existing.commit_types = contributor_data.get("commit_types", {})
+                        logger.info("[BackgroundAnalysis] Updated ContributorAnalysis for %s", github_username)
+                    else:
+                        # Create new record
+                        new_contributor = ContributorAnalysis(
+                            repo_analysis_id=analysis_id,
+                            username=github_username,
+                            email=contributor_data.get("email"),
+                            is_primary=True,
+                            total_commits=contributor_data.get("total_commits", 0),
+                            first_commit_date=contributor_data.get("first_commit_date"),
+                            last_commit_date=contributor_data.get("last_commit_date"),
+                            lines_added=contributor_data.get("lines_added", 0),
+                            lines_deleted=contributor_data.get("lines_deleted", 0),
+                            file_extensions=contributor_data.get("file_extensions", {}),
+                            work_areas=contributor_data.get("work_areas", []),
+                            detected_technologies=contributor_data.get("detected_technologies", []),
+                            detailed_commits=contributor_data.get("detailed_commits", []),
+                            commit_types=contributor_data.get("commit_types", {}),
+                        )
+                        db.add(new_contributor)
+                        logger.info("[BackgroundAnalysis] Created ContributorAnalysis for %s", github_username)
+
+                    await db.commit()
+            except Exception as e:
+                logger.warning("[BackgroundAnalysis] Failed to create ContributorAnalysis: %s", e)
 
         # Complete the job
         await service.complete_job(task_id, {
@@ -653,7 +822,8 @@ async def run_background_analysis(
 async def _generate_key_tasks_bg(
     project_id: int,
     analysis_result: Dict[str, Any],
-    llm_service
+    llm_service,
+    language: str = "ko"
 ) -> Tuple[List[str], int]:
     """Generate key tasks using LLM for background analysis."""
     async with AsyncSessionLocal() as db:
@@ -666,18 +836,49 @@ async def _generate_key_tasks_bg(
         commit_summary = analysis_result.get("commit_messages_summary", "")
         commit_categories = analysis_result.get("commit_categories", {})
 
-        commit_context = ""
-        if commit_categories:
-            parts = []
-            if commit_categories.get("feature", 0) > 0:
-                parts.append(f"신규 기능 개발 {commit_categories['feature']}건")
-            if commit_categories.get("fix", 0) > 0:
-                parts.append(f"버그 수정 {commit_categories['fix']}건")
-            if commit_categories.get("refactor", 0) > 0:
-                parts.append(f"리팩토링 {commit_categories['refactor']}건")
-            commit_context = ", ".join(parts)
+        if language == "en":
+            commit_context = ""
+            if commit_categories:
+                parts = []
+                if commit_categories.get("feature", 0) > 0:
+                    parts.append(f"New features: {commit_categories['feature']}")
+                if commit_categories.get("fix", 0) > 0:
+                    parts.append(f"Bug fixes: {commit_categories['fix']}")
+                if commit_categories.get("refactor", 0) > 0:
+                    parts.append(f"Refactoring: {commit_categories['refactor']}")
+                commit_context = ", ".join(parts)
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무 3-5개를 추출해주세요.
+            prompt = f"""Based on the following project information, extract 3-5 key tasks/responsibilities.
+
+Project: {project.name}
+Description: {project.description or 'N/A'}
+Role: {project.role or 'Developer'}
+Tech Stack: {', '.join(technologies[:10]) if technologies else 'N/A'}
+Commit Summary: {commit_context or 'N/A'}
+Commit Messages:
+{commit_summary[:500] if commit_summary else 'N/A'}
+
+Each task should be specific and suitable for a resume.
+Examples:
+- "Designed and developed RESTful APIs"
+- "Database modeling and query optimization"
+
+Respond ONLY with a JSON array:
+["task1", "task2", "task3"]
+"""
+        else:
+            commit_context = ""
+            if commit_categories:
+                parts = []
+                if commit_categories.get("feature", 0) > 0:
+                    parts.append(f"신규 기능 개발 {commit_categories['feature']}건")
+                if commit_categories.get("fix", 0) > 0:
+                    parts.append(f"버그 수정 {commit_categories['fix']}건")
+                if commit_categories.get("refactor", 0) > 0:
+                    parts.append(f"리팩토링 {commit_categories['refactor']}건")
+                commit_context = ", ".join(parts)
+
+            prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무 3-5개를 추출해주세요.
 
 프로젝트: {project.name}
 설명: {project.description or 'N/A'}
@@ -697,12 +898,25 @@ JSON 배열 형식으로만 응답하세요:
 """
 
         try:
-            response, tokens = await llm_service.provider.generate(
-                prompt,
-                system_prompt="당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요.",
-                max_tokens=500,
-                temperature=0.3
+            system_prompt = (
+                "You are an expert at extracting key tasks from development projects. Respond ONLY with a JSON array."
+                if language == "en" else
+                "당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요."
             )
+
+            # Handle both LLMService (has provider) and CLILLMService (is the provider)
+            if hasattr(llm_service, 'provider'):
+                # API-based LLM service (OpenAI, Anthropic, Gemini)
+                response, tokens = await llm_service.provider.generate(
+                    prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=500,
+                    temperature=0.3
+                )
+            else:
+                # CLI-based LLM service (Claude Code CLI, Gemini CLI)
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+                response, tokens = await llm_service.generate_with_cli(full_prompt)
 
             import json
             json_str = response.strip()
@@ -720,4 +934,6 @@ JSON 배열 형식으로만 응답하세요:
 
         except Exception as e:
             logger.warning("[_generate_key_tasks_bg] Failed: %s", e)
+            import traceback
+            logger.warning("[_generate_key_tasks_bg] Traceback: %s", traceback.format_exc())
             return [], 0

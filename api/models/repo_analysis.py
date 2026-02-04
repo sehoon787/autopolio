@@ -66,6 +66,20 @@ class RepoAnalysis(Base):
     detailed_achievements = Column(JSON, nullable=True)  # 상세 성과 (카테고리별)
     # {"새로운 기능 추가": [{"title": "기능", "description": "설명"}], "성능 개선": [...]}
 
+    # AI-generated summary (generated during analysis, not pipeline)
+    ai_summary = Column(Text, nullable=True)  # 프로젝트 AI 요약
+    ai_key_features = Column(JSON, nullable=True)  # ["핵심 기능 1", "핵심 기능 2", ...]
+
+    # User's code contributions summary for LLM context
+    user_code_contributions = Column(JSON, nullable=True)  # 사용자 코드 기여 요약
+    # {"total_commits": 30, "lines_added": 5000, "work_areas": [...], "key_commits": [...]}
+
+    # Suggested contribution percent (auto-calculated from commit/line stats)
+    suggested_contribution_percent = Column(Integer, nullable=True)
+
+    # Language used for analysis
+    analysis_language = Column(String(10), default="ko")  # "ko" or "en"
+
     # Analysis metadata
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     analysis_version = Column(String(20), default="1.0")

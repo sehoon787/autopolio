@@ -55,10 +55,29 @@ export interface RepoAnalysis {
   development_timeline: DevelopmentTimelinePhase[] | null
   tech_stack_versions: Record<string, string[]> | null
   detailed_achievements: Record<string, DetailedAchievementItem[]> | null
+  // AI-generated summary (v1.12 - generated during analysis)
+  ai_summary?: string | null
+  ai_key_features?: string[] | null
+  // User's code contributions context (v1.12)
+  user_code_contributions?: {
+    summary?: {
+      total_commits?: number
+      analyzed_commits?: number
+      lines_added?: number
+      lines_deleted?: number
+      files_changed?: number
+    }
+    technologies?: string[]
+    work_areas?: string[]
+  } | null
   analyzed_at: string
   // LLM usage tracking (v1.8)
   provider?: string | null
   token_usage?: number | null
+  // Auto-calculated contribution percent (v1.12)
+  suggested_contribution_percent?: number | null
+  // Language used for analysis (v1.12)
+  analysis_language?: string  // "ko" or "en"
 }
 
 export interface RepoQuickInfo {
@@ -264,6 +283,8 @@ export interface AnalysisJobStatus {
   started_at?: string
   completed_at?: string
   created_at: string
+  token_usage?: number  // Total tokens used in LLM calls
+  llm_provider?: string  // LLM provider used (e.g., 'openai', 'anthropic', 'claude_code', 'gemini_cli')
 }
 
 export interface AnalysisJobListResponse {
@@ -317,6 +338,7 @@ export const githubApi = {
       provider?: string
       cli_mode?: 'claude_code' | 'gemini_cli'
       cli_model?: string
+      language?: 'ko' | 'en'  // Analysis language (v1.12)
     }
   ) =>
     apiClient.post<RepoAnalysis>('/github/analyze', {
@@ -328,7 +350,8 @@ export const githubApi = {
         user_id: userId,
         provider: options?.provider,
         cli_mode: options?.cli_mode,
-        cli_model: options?.cli_model
+        cli_model: options?.cli_model,
+        language: options?.language  // Pass analysis language
       }
     }),
 
@@ -465,6 +488,7 @@ export const githubApi = {
       provider?: string
       cli_mode?: 'claude_code' | 'gemini_cli'
       cli_model?: string
+      language?: 'ko' | 'en'  // Analysis language (v1.12)
     }
   ) =>
     apiClient.post<StartAnalysisResponse>('/github/analyze-background', {
@@ -475,7 +499,8 @@ export const githubApi = {
         user_id: userId,
         provider: options?.provider,
         cli_mode: options?.cli_mode,
-        cli_model: options?.cli_model
+        cli_model: options?.cli_model,
+        language: options?.language  // Pass analysis language
       }
     }),
 

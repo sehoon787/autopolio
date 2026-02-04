@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional, Tuple, List, Dict, Any
+from urllib.parse import quote
 import httpx
 
 from api.database import get_db
@@ -51,11 +52,15 @@ encryption = EncryptionService()
 async def _auto_detect_achievements(
     db: AsyncSession,
     project: Project,
-    repo_analysis: RepoAnalysis
+    repo_analysis: RepoAnalysis,
+    language: str = "ko"
 ) -> int:
     """
     Auto-detect achievements from analysis data and save to DB.
     Returns the number of saved achievements.
+
+    Args:
+        language: Output language ("ko" for Korean, "en" for English)
     """
     # Build project data for achievement detection
     project_data = {
@@ -79,27 +84,24 @@ async def _auto_detect_achievements(
     achievements, stats = await service.detect_all(
         project_data=project_data,
         commit_messages=commit_messages,
-        use_llm=False
+        use_llm=False,
+        language=language
     )
 
     if not achievements:
         return 0
 
-    # Get existing achievement metric_names for this project to avoid duplicates
-    existing_result = await db.execute(
-        select(ProjectAchievement.metric_name).where(
+    # Delete existing achievements to avoid language mixing
+    # (re-analysis should replace all achievements with current language)
+    await db.execute(
+        ProjectAchievement.__table__.delete().where(
             ProjectAchievement.project_id == project.id
         )
     )
-    existing_names = set(row[0] for row in existing_result.fetchall())
 
     # Save new achievements
     saved_count = 0
     for achievement in achievements:
-        # Skip if already exists
-        if achievement.get("metric_name") in existing_names:
-            continue
-
         new_achievement = ProjectAchievement(
             project_id=project.id,
             metric_name=achievement.get("metric_name", ""),
@@ -121,12 +123,25 @@ async def _generate_key_tasks(
     repo_analysis: RepoAnalysis,
     llm_service=None,
     cli_mode: str = None,
-    cli_model: str = None
+    cli_model: str = None,
+    language: str = "ko",
+    user_context: Optional[str] = None,
+    code_contributions: Optional[Dict[str, Any]] = None
 ) -> Tuple[List[str], int]:
     """
     Generate key tasks using LLM based on project analysis.
     Returns a tuple of (list of key tasks, token count).
     Supports both API mode (LLMService) and CLI mode (CLILLMService).
+
+    Args:
+        project: Project model
+        repo_analysis: Repository analysis model
+        llm_service: Optional pre-initialized LLM service
+        cli_mode: CLI mode ("claude_code" or "gemini_cli")
+        cli_model: CLI model name
+        language: Output language ("ko" or "en")
+        user_context: Optional user-edited content to reference for re-analysis
+        code_contributions: Optional user's code contributions with patches for context
     """
     from api.services.llm_service import LLMService
     from api.services.cli_llm_service import CLILLMService
@@ -139,72 +154,47 @@ async def _generate_key_tasks(
             else:
                 llm_service = LLMService()
 
-        logger.debug("[KeyTasks] LLM service type: %s", type(llm_service).__name__)
+        logger.debug("[KeyTasks] LLM service type: %s, language: %s", type(llm_service).__name__, language)
         if hasattr(llm_service, 'provider_name'):
             logger.debug("[KeyTasks] Provider name: %s", llm_service.provider_name)
 
-        # Build prompt with available information
-        technologies = repo_analysis.detected_technologies or []
+        # Build project data for LLM service
+        project_data = {
+            "name": project.name,
+            "description": project.description or "",
+            "role": project.role or ("Developer" if language == "en" else "개발자"),
+            "technologies": repo_analysis.detected_technologies or [],
+            "total_commits": repo_analysis.total_commits or 0,
+            "lines_added": repo_analysis.lines_added or 0,
+        }
+
         commit_summary = repo_analysis.commit_messages_summary or ""
-        commit_categories = repo_analysis.commit_categories or {}
 
-        # Build context about what was done
-        commit_context = ""
-        if commit_categories:
-            parts = []
-            if commit_categories.get("feature", 0) > 0:
-                parts.append(f"신규 기능 개발 {commit_categories['feature']}건")
-            if commit_categories.get("fix", 0) > 0:
-                parts.append(f"버그 수정 {commit_categories['fix']}건")
-            if commit_categories.get("refactor", 0) > 0:
-                parts.append(f"리팩토링 {commit_categories['refactor']}건")
-            commit_context = ", ".join(parts)
+        # Build code context from contributions
+        code_context = None
+        if code_contributions and code_contributions.get("contributions"):
+            # Format significant code changes for LLM context
+            code_snippets = []
+            for contrib in code_contributions["contributions"][:10]:  # Top 10 commits
+                commit_info = f"Commit: {contrib['message']}"
+                for file_info in contrib.get("files", [])[:3]:  # Top 3 files per commit
+                    if file_info.get("patch"):
+                        code_snippets.append(f"{commit_info}\nFile: {file_info['filename']}\n{file_info['patch'][:500]}")
+            if code_snippets:
+                code_context = "\n\n---\n\n".join(code_snippets[:5])  # Limit to 5 snippets
+                logger.info("[KeyTasks] Including %d code snippets in context", len(code_snippets[:5]))
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무 3-5개를 추출해주세요.
-
-프로젝트: {project.name}
-설명: {project.description or 'N/A'}
-역할: {project.role or '개발자'}
-기술 스택: {', '.join(technologies[:10]) if technologies else 'N/A'}
-커밋 현황: {commit_context or 'N/A'}
-커밋 메시지 요약:
-{commit_summary[:500] if commit_summary else 'N/A'}
-
-각 업무는 구체적이고 이력서에 적합한 형태로 작성해주세요.
-예시:
-- "RESTful API 설계 및 개발"
-- "데이터베이스 모델링 및 쿼리 최적화"
-- "Spring Security 기반 인증/인가 시스템 구현"
-- "React 컴포넌트 설계 및 상태 관리"
-
-JSON 배열 형식으로만 응답하세요:
-["업무1", "업무2", "업무3"]
-"""
-
-        # Call LLM using unified provider.generate() interface
-        # Both LLMService and CLILLMService now support this interface
-        response, tokens = await llm_service.provider.generate(
-            prompt,
-            system_prompt="당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요.",
-            max_tokens=500,
-            temperature=0.3
+        # Use LLMService's generate_key_tasks method with language support
+        tasks = await llm_service.generate_key_tasks(
+            project_data=project_data,
+            commit_summary=commit_summary,
+            language=language,
+            user_context=user_context,
+            code_context=code_context  # New: pass code context
         )
 
-        # Parse JSON response
-        import json
-        json_str = response.strip()
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            json_str = json_str.split("```")[1].split("```")[0]
-
-        tasks = json.loads(json_str.strip())
-
-        # Validate that it's a list of strings
-        if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-            return tasks[:5], tokens  # Limit to 5 tasks
-
-        return [], tokens
+        tokens = llm_service.total_tokens_used if hasattr(llm_service, 'total_tokens_used') else 0
+        return tasks, tokens
 
     except Exception as e:
         # Log error but don't fail the analysis
@@ -251,10 +241,13 @@ async def github_connect(
     }
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
 
+    # URL encode the redirect_uri to prevent parsing issues
+    encoded_redirect_uri = quote(settings.github_redirect_uri, safe='')
+
     auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.github_client_id}"
-        f"&redirect_uri={settings.github_redirect_uri}"
+        f"&redirect_uri={encoded_redirect_uri}"
         f"&scope={scope}"
         f"&state={state}"
     )
@@ -268,9 +261,16 @@ async def github_callback(
     state: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Handle GitHub OAuth callback."""
+    """Handle GitHub OAuth callback.
+
+    Uses OAuthService to properly manage user identities and prevent duplicate user creation.
+    The OAuthService looks up users by GitHub's unique provider_user_id (not just username),
+    which ensures the same GitHub account always maps to the same user.
+    """
     import json
     import base64
+    from api.services.oauth_service import OAuthService
+    from api.services.oauth.base import OAuthUserInfo
 
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(status_code=500, detail="GitHub OAuth not configured")
@@ -298,9 +298,9 @@ async def github_callback(
 
     # Get user info from GitHub
     github_service = GitHubService(access_token)
-    user_info = await github_service.get_user_info()
+    github_user = await github_service.get_user_info()
 
-    # Parse state first to get user_id, origin, redirect path, and electron flag
+    # Parse state to get user_id, origin, redirect path, and electron flag
     redirect_path = "/"
     frontend_origin = settings.frontend_url  # Default fallback
     is_electron = False
@@ -319,52 +319,43 @@ async def github_callback(
             # Fallback: old format (plain redirect path)
             redirect_path = state
 
-    # Find or create user
-    user = None
+    # Use OAuthService to find or create user (prevents duplicate user creation)
+    # This uses provider_user_id (GitHub's unique user ID) for reliable lookup
+    oauth_service = OAuthService(db)
 
-    # Priority 1: If user_id was provided in state, update that existing user
-    if existing_user_id:
-        result = await db.execute(
-            select(User).where(User.id == existing_user_id)
-        )
-        user = result.scalar_one_or_none()
-        if user:
-            # Update existing user with GitHub info
-            user.github_username = user_info["login"]
-            user.github_token_encrypted = encryption.encrypt(access_token)
-            user.github_avatar_url = user_info.get("avatar_url")
-            if user_info.get("email") and not user.email:
-                user.email = user_info["email"]
-            logger.info("[GitHub Callback] Linked GitHub to existing user id=%s, username=%s", existing_user_id, user_info["login"])
+    oauth_user_info = OAuthUserInfo(
+        provider_user_id=str(github_user["id"]),  # GitHub's unique user ID (numeric)
+        username=github_user["login"],
+        email=github_user.get("email"),
+        avatar_url=github_user.get("avatar_url"),
+        access_token=access_token,
+        raw_data=github_user
+    )
 
-    # Priority 2: Look up by GitHub username (for re-auth scenarios)
+    identity, is_new_user = await oauth_service.create_or_update_identity(
+        provider="github",
+        user_info=oauth_user_info,
+        user_id=existing_user_id  # Link to existing user if provided
+    )
+
+    # Get the user from the identity
+    user = identity.user
     if not user:
-        result = await db.execute(
-            select(User).where(User.github_username == user_info["login"])
-        )
+        # Fallback: load user if relationship wasn't loaded
+        result = await db.execute(select(User).where(User.id == identity.user_id))
         user = result.scalar_one_or_none()
 
-        if user:
-            # Update token for existing GitHub user
-            user.github_token_encrypted = encryption.encrypt(access_token)
-            user.github_avatar_url = user_info.get("avatar_url")
-            if user_info.get("email"):
-                user.email = user_info["email"]
-            logger.info("[GitHub Callback] Updated existing GitHub user id=%s, username=%s", user.id, user_info["login"])
-        else:
-            # Create new user only if no existing user was found
-            user = User(
-                name=user_info.get("name") or user_info["login"],
-                email=user_info.get("email"),
-                github_username=user_info["login"],
-                github_token_encrypted=encryption.encrypt(access_token),
-                github_avatar_url=user_info.get("avatar_url")
-            )
-            db.add(user)
-            logger.info("[GitHub Callback] Created new user for GitHub username=%s", user_info["login"])
+    if is_new_user:
+        logger.info("[GitHub Callback] Created new user id=%s for GitHub username=%s (provider_user_id=%s)",
+                    user.id, github_user["login"], github_user["id"])
+    elif existing_user_id:
+        logger.info("[GitHub Callback] Linked GitHub to existing user id=%s, username=%s (provider_user_id=%s)",
+                    existing_user_id, github_user["login"], github_user["id"])
+    else:
+        logger.info("[GitHub Callback] Updated existing user id=%s, username=%s (provider_user_id=%s)",
+                    user.id, github_user["login"], github_user["id"])
 
-    await db.flush()
-    await db.refresh(user)
+    await db.commit()
 
     # Build redirect URL
     if is_electron:
@@ -485,17 +476,29 @@ async def analyze_repository(
     provider: Optional[str] = Query(None, description="LLM provider to use"),
     cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
+    language: Optional[str] = Query(None, description="Analysis output language: 'ko' or 'en'"),
 ):
     """Analyze a GitHub repository.
 
     Uses separate sessions for each phase to prevent SQLite lock issues during long operations.
     Does NOT use Depends(get_db) to avoid session lifecycle issues.
+
+    Args:
+        request: Analysis request with git_url and optional project_id
+        user_id: User ID
+        provider: LLM provider ("openai", "anthropic", "gemini")
+        cli_mode: CLI mode ("claude_code", "gemini_cli")
+        cli_model: CLI model name
+        language: Output language for analysis ("ko" or "en"). Defaults to user's preferred_language.
     """
     from api.services.llm_service import LLMService
     from api.services.cli_llm_service import CLILLMService
     from api.database import AsyncSessionLocal
 
     # ===== PHASE 1: Get user and project info =====
+    analysis_language = language  # Use provided language or fallback to user's preference
+    existing_edits = None  # User's previous edits for context
+
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
@@ -509,6 +512,10 @@ async def analyze_repository(
         except Exception:
             raise HTTPException(status_code=400, detail="GitHub token is corrupted. Please reconnect.")
 
+        # Use user's preferred language if not specified
+        if not analysis_language:
+            analysis_language = getattr(user, 'preferred_language', 'ko') or 'ko'
+
         project_id = request.project_id
         if project_id:
             proj_result = await db.execute(
@@ -517,12 +524,23 @@ async def analyze_repository(
             project = proj_result.scalar_one_or_none()
             if not project:
                 raise HTTPException(status_code=404, detail="Project not found")
+
+            # Get existing analysis and user edits for re-analysis context
+            existing_analysis_result = await db.execute(
+                select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+            )
+            existing_analysis = existing_analysis_result.scalar_one_or_none()
+            if existing_analysis:
+                edits_result = await db.execute(
+                    select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == existing_analysis.id)
+                )
+                existing_edits = edits_result.scalar_one_or_none()
         else:
             # Need to create project, but first get repo info
             project_id = None  # Will create after getting repo info
 
         await db.commit()
-    logger.info("[Analyze] Phase 1 complete: user validated, project_id=%s", project_id)
+    logger.info("[Analyze] Phase 1 complete: user validated, project_id=%s, language=%s", project_id, analysis_language)
 
     # Initialize services (outside of DB session)
     github_service = GitHubService(token)
@@ -641,11 +659,33 @@ async def analyze_repository(
 
             await db.flush()
 
-            # Auto-detect achievements
+            # Auto-detect achievements (with language support)
             try:
-                await _auto_detect_achievements(db, project, repo_analysis)
+                await _auto_detect_achievements(db, project, repo_analysis, language=analysis_language)
             except Exception as e:
                 logger.warning("Failed to auto-detect achievements: %s", e)
+
+            # Calculate and save suggested contribution percent
+            try:
+                user_commits = repo_analysis.user_commits or 0
+                total_commits = repo_analysis.total_commits or 0
+                user_lines = repo_analysis.lines_added or 0  # Approximation: user lines ≈ total lines for now
+                total_lines = repo_analysis.lines_added or 0
+
+                # For more accurate calculation, we would need ContributorAnalysis data
+                # For now, use simple commit-based calculation
+                if total_commits > 0:
+                    suggested = github_service.calculate_contribution_percent(
+                        user_commits=user_commits,
+                        total_commits=total_commits,
+                        user_lines_added=user_lines,
+                        total_lines_added=total_lines,
+                        work_areas=None  # Will be populated from ContributorAnalysis if available
+                    )
+                    repo_analysis.suggested_contribution_percent = suggested
+                    logger.info("[Analyze] Suggested contribution: %d%% (commits: %d/%d)", suggested, user_commits, total_commits)
+            except Exception as e:
+                logger.warning("Failed to calculate suggested contribution: %s", e)
 
             await db.commit()
             await db.refresh(repo_analysis)
@@ -667,6 +707,8 @@ async def analyze_repository(
                 project_name = project.name
                 project_description = project.description
                 project_role = project.role
+                project_team_size = project.team_size
+                project_contribution_percent = project.contribution_percent
                 project_start_date = str(project.start_date) if project.start_date else None
                 project_end_date = str(project.end_date) if project.end_date else None
                 commit_messages_summary = repo_analysis.commit_messages_summary
@@ -677,10 +719,25 @@ async def analyze_repository(
                 lines_deleted = repo_analysis.lines_deleted
                 files_changed = repo_analysis.files_changed
 
-            # Generate key tasks using LLM (outside DB session)
+            # ===== PHASE 5.1: Collect user code contributions for LLM context =====
+            user_code_contributions = None
+            try:
+                logger.info("[Analyze] Collecting user code contributions for LLM context")
+                user_code_contributions = await github_service.get_user_code_contributions(
+                    request.git_url,
+                    github_username,
+                    max_commits=30,
+                    max_total_patch_size=50000  # ~50KB of code diffs
+                )
+                logger.info("[Analyze] Collected %d commits with code diffs",
+                           len(user_code_contributions.get("contributions", [])))
+            except Exception as e:
+                logger.warning("[Analyze] Failed to collect code contributions: %s", e)
+
+            # ===== PHASE 5.2: Generate key tasks using LLM (with code contributions) =====
             key_tasks = None
             try:
-                logger.info("[Analyze] Generating key tasks with %s", type(llm_service).__name__)
+                logger.info("[Analyze] Generating key tasks with %s, language=%s", type(llm_service).__name__, analysis_language)
                 # Create minimal project/analysis objects for _generate_key_tasks
                 class MinimalProject:
                     def __init__(self):
@@ -692,9 +749,21 @@ async def analyze_repository(
                         self.detected_technologies = detected_technologies
                         self.commit_messages_summary = commit_messages_summary
                         self.commit_categories = commit_categories
+                        self.total_commits = total_commits
+                        self.lines_added = lines_added
+
+                # Get user context from previous edits if available
+                key_tasks_user_context = None
+                if existing_edits and existing_edits.key_tasks_modified and existing_edits.key_tasks:
+                    import json
+                    key_tasks_user_context = json.dumps(existing_edits.key_tasks, ensure_ascii=False)
+                    logger.info("[Analyze] Using user's previous key_tasks edits as context")
 
                 key_tasks, tokens = await _generate_key_tasks(
-                    MinimalProject(), MinimalAnalysis(), llm_service
+                    MinimalProject(), MinimalAnalysis(), llm_service,
+                    language=analysis_language,
+                    user_context=key_tasks_user_context,
+                    code_contributions=user_code_contributions  # New: pass code contributions
                 )
                 total_tokens += tokens
             except Exception as e:
@@ -702,7 +771,7 @@ async def analyze_repository(
                 logger.warning("[Analyze] Failed to generate key tasks: %s: %s", type(e).__name__, e)
                 logger.debug("[Analyze] Traceback: %s", traceback.format_exc())
 
-            # Generate detailed content (outside DB session)
+            # ===== PHASE 5.3: Generate detailed content (with code contributions) =====
             detailed_content = None
             try:
                 project_data = {
@@ -723,13 +792,51 @@ async def analyze_repository(
                         "lines_deleted": lines_deleted,
                         "files_changed": files_changed,
                     },
-                    llm_service=llm_service
+                    llm_service=llm_service,
+                    language=analysis_language,
+                    code_contributions=user_code_contributions  # New: pass code contributions
                 )
                 total_tokens += content_tokens
             except Exception as e:
                 logger.warning("Failed to generate detailed content: %s", e)
 
-            # Save LLM results (new session)
+            # ===== PHASE 5.4: Generate AI summary (NEW - previously in Pipeline Step 5) =====
+            ai_summary = None
+            ai_key_features = None
+            try:
+                logger.info("[Analyze] Generating AI summary with code contributions context")
+                summary_project_data = {
+                    "name": project_name,
+                    "description": project_description,
+                    "role": project_role,
+                    "team_size": project_team_size,
+                    "contribution_percent": project_contribution_percent,
+                    "technologies": detected_technologies or [],
+                    "start_date": project_start_date,
+                    "end_date": project_end_date,
+                    "total_commits": total_commits,
+                    "commit_summary": commit_messages_summary,
+                    # Include code contribution summary for better context
+                    "code_contributions_summary": {
+                        "analyzed_commits": user_code_contributions.get("summary", {}).get("analyzed_commits", 0) if user_code_contributions else 0,
+                        "lines_added": user_code_contributions.get("summary", {}).get("lines_added", 0) if user_code_contributions else 0,
+                        "work_areas": user_code_contributions.get("work_areas", []) if user_code_contributions else [],
+                    } if user_code_contributions else None,
+                }
+                summary_result = await llm_service.generate_project_summary(
+                    summary_project_data,
+                    style="professional",
+                    language=analysis_language
+                )
+                if summary_result:
+                    ai_summary = summary_result.get("summary", "")
+                    ai_key_features = summary_result.get("key_features", [])
+                    total_tokens += llm_service.total_tokens_used if hasattr(llm_service, 'total_tokens_used') else 0
+                logger.info("[Analyze] AI summary generated successfully")
+            except Exception as e:
+                logger.warning("[Analyze] Failed to generate AI summary: %s", e)
+
+            # ===== PHASE 5.5: Save LLM results (new session) =====
             async with AsyncSessionLocal() as db:
                 analysis_result_db = await db.execute(
                     select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
@@ -746,8 +853,40 @@ async def analyze_repository(
                     if detailed_content.get("detailed_achievements"):
                         repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
 
+                # Save AI summary (NEW)
+                if ai_summary:
+                    repo_analysis.ai_summary = ai_summary
+                if ai_key_features:
+                    repo_analysis.ai_key_features = ai_key_features
+
+                # Save user code contributions summary
+                if user_code_contributions:
+                    repo_analysis.user_code_contributions = {
+                        "summary": user_code_contributions.get("summary", {}),
+                        "technologies": user_code_contributions.get("technologies", []),
+                        "work_areas": user_code_contributions.get("work_areas", []),
+                        # Don't save full contributions with patches to DB - too large
+                    }
+
+                # Save analysis language
+                repo_analysis.analysis_language = analysis_language
+
                 await db.commit()
-            logger.info("[Analyze] Phase 5 complete: LLM content saved")
+
+                # Also copy ai_summary and ai_key_features to Project (for report_service compatibility)
+                if ai_summary or ai_key_features:
+                    proj_result = await db.execute(
+                        select(Project).where(Project.id == project_id)
+                    )
+                    project_obj = proj_result.scalar_one_or_none()
+                    if project_obj:
+                        if ai_summary:
+                            project_obj.ai_summary = ai_summary
+                        if ai_key_features:
+                            project_obj.ai_key_features = ai_key_features
+                        await db.commit()
+                        logger.info("[Analyze] Copied ai_summary to Project %d", project_id)
+            logger.info("[Analyze] Phase 5 complete: LLM content saved, language=%s", analysis_language)
 
         # ===== PHASE 6: Extract tech versions =====
         try:
@@ -790,9 +929,15 @@ async def analyze_repository(
                 development_timeline=repo_analysis.development_timeline,
                 tech_stack_versions=repo_analysis.tech_stack_versions,
                 detailed_achievements=repo_analysis.detailed_achievements,
+                # AI summary (NEW - generated during analysis)
+                ai_summary=repo_analysis.ai_summary,
+                ai_key_features=repo_analysis.ai_key_features,
+                user_code_contributions=repo_analysis.user_code_contributions,
                 analyzed_at=repo_analysis.analyzed_at,
                 provider=used_provider,
-                token_usage=total_tokens if total_tokens > 0 else None
+                token_usage=total_tokens if total_tokens > 0 else None,
+                suggested_contribution_percent=repo_analysis.suggested_contribution_percent,
+                analysis_language=repo_analysis.analysis_language or "ko"
             )
             return response
 
@@ -844,7 +989,11 @@ async def get_repo_analysis(project_id: int, db: AsyncSession = Depends(get_db))
         development_timeline=analysis.development_timeline,
         tech_stack_versions=analysis.tech_stack_versions,
         detailed_achievements=analysis.detailed_achievements,
-        analyzed_at=analysis.analyzed_at
+        analyzed_at=analysis.analyzed_at,
+        # AI summary fields (v1.12)
+        ai_summary=analysis.ai_summary,
+        ai_key_features=analysis.ai_key_features,
+        analysis_language=analysis.analysis_language or "ko"
     )
 
 
@@ -1959,6 +2108,7 @@ async def start_background_analysis(
     provider: Optional[str] = Query(None, description="LLM provider to use"),
     cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
+    language: Optional[str] = Query(None, description="Analysis language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """Start a background analysis job for a GitHub repository.
@@ -2021,6 +2171,8 @@ async def start_background_analysis(
         options["cli_model"] = cli_model
     elif provider:
         options["provider"] = provider
+    if language:
+        options["language"] = language
 
     # Create job
     job = await service.create_analysis_job(
@@ -2059,24 +2211,38 @@ async def get_active_analyses(
     service = AnalysisJobService(db)
     jobs = await service.get_active_jobs_for_user(user_id)
 
+    def _extract_job_status(job):
+        """Extract AnalysisJobStatus from Job model."""
+        # Extract token usage from output_data
+        token_usage = None
+        if job.output_data and isinstance(job.output_data, dict):
+            token_usage = job.output_data.get("total_tokens")
+
+        # Extract LLM provider from input_data
+        llm_provider = None
+        if job.input_data and isinstance(job.input_data, dict):
+            options = job.input_data.get("options", {})
+            llm_provider = options.get("provider") or options.get("cli_mode")
+
+        return AnalysisJobStatus(
+            task_id=job.task_id,
+            project_id=job.target_project_id,
+            status=job.status,
+            progress=job.progress,
+            current_step=job.current_step,
+            total_steps=job.total_steps,
+            step_name=job.step_name,
+            error_message=job.error_message,
+            partial_results=job.partial_results,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            created_at=job.created_at,
+            token_usage=token_usage,
+            llm_provider=llm_provider,
+        )
+
     return AnalysisJobListResponse(
-        jobs=[
-            AnalysisJobStatus(
-                task_id=job.task_id,
-                project_id=job.target_project_id,
-                status=job.status,
-                progress=job.progress,
-                current_step=job.current_step,
-                total_steps=job.total_steps,
-                step_name=job.step_name,
-                error_message=job.error_message,
-                partial_results=job.partial_results,
-                started_at=job.started_at,
-                completed_at=job.completed_at,
-                created_at=job.created_at,
-            )
-            for job in jobs
-        ],
+        jobs=[_extract_job_status(job) for job in jobs],
         total=len(jobs)
     )
 
@@ -2098,6 +2264,17 @@ async def get_analysis_status(
     if job.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this job")
 
+    # Extract token usage from output_data
+    token_usage = None
+    if job.output_data and isinstance(job.output_data, dict):
+        token_usage = job.output_data.get("total_tokens")
+
+    # Extract LLM provider from input_data
+    llm_provider = None
+    if job.input_data and isinstance(job.input_data, dict):
+        options = job.input_data.get("options", {})
+        llm_provider = options.get("provider") or options.get("cli_mode")
+
     return AnalysisJobStatus(
         task_id=job.task_id,
         project_id=job.target_project_id,
@@ -2111,6 +2288,8 @@ async def get_analysis_status(
         started_at=job.started_at,
         completed_at=job.completed_at,
         created_at=job.created_at,
+        token_usage=token_usage,
+        llm_provider=llm_provider,
     )
 
 
