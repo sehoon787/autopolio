@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface LLMUsage {
   openai: number
@@ -10,10 +10,12 @@ export interface LLMUsage {
 }
 
 interface UsageState {
+  userId: number | null  // Current user ID for per-user tracking
   lastResetDate: string
   llmTokensUsed: LLMUsage
   llmCallCount: LLMUsage
 
+  setUserId: (userId: number | null) => void
   trackTokenUsage: (provider: keyof LLMUsage, tokens: number) => void
   incrementLLMCallCount: (provider: keyof LLMUsage) => void
   resetDailyIfNeeded: () => void
@@ -28,12 +30,65 @@ function getTodayDateString(): string {
 
 const emptyLLM: LLMUsage = { openai: 0, anthropic: 0, gemini: 0, claude_code_cli: 0, gemini_cli: 0 }
 
+// Storage key generator for per-user tracking
+const getStorageKey = (userId: number | null) => `usage-storage-${userId || 'guest'}`
+
+// Custom storage that uses dynamic key based on userId
+const createUserStorage = () => {
+  let currentKey = 'usage-storage-guest'
+
+  return {
+    getItem: (_name: string) => {
+      const item = localStorage.getItem(currentKey)
+      return item
+    },
+    setItem: (_name: string, value: string) => {
+      localStorage.setItem(currentKey, value)
+    },
+    removeItem: (_name: string) => {
+      localStorage.removeItem(currentKey)
+    },
+    setKey: (userId: number | null) => {
+      currentKey = getStorageKey(userId)
+    },
+    getCurrentKey: () => currentKey,
+  }
+}
+
+const userStorage = createUserStorage()
+
 export const useUsageStore = create<UsageState>()(
   persist(
     (set, get) => ({
+      userId: null,
       lastResetDate: getTodayDateString(),
       llmTokensUsed: { ...emptyLLM },
       llmCallCount: { ...emptyLLM },
+
+      setUserId: (userId) => {
+        const currentUserId = get().userId
+        if (currentUserId !== userId) {
+          // Change storage key and reload data for new user
+          userStorage.setKey(userId)
+          const stored = localStorage.getItem(getStorageKey(userId))
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored)
+              const state = parsed.state || {}
+              set({
+                userId,
+                lastResetDate: state.lastResetDate || getTodayDateString(),
+                llmTokensUsed: { ...emptyLLM, ...(state.llmTokensUsed || {}) },
+                llmCallCount: { ...emptyLLM, ...(state.llmCallCount || {}) },
+              })
+            } catch {
+              set({ userId, lastResetDate: getTodayDateString(), llmTokensUsed: { ...emptyLLM }, llmCallCount: { ...emptyLLM } })
+            }
+          } else {
+            set({ userId, lastResetDate: getTodayDateString(), llmTokensUsed: { ...emptyLLM }, llmCallCount: { ...emptyLLM } })
+          }
+        }
+      },
 
       trackTokenUsage: (provider, tokens) => {
         get().resetDailyIfNeeded()
@@ -87,13 +142,15 @@ export const useUsageStore = create<UsageState>()(
     }),
     {
       name: 'usage-storage',
-      version: 4,
+      version: 5,
+      storage: createJSONStorage(() => userStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted || {}) as Record<string, unknown>
-        if (version < 4) {
+        if (version < 5) {
           const oldTokens = (state.llmTokensUsed || {}) as Record<string, number>
           const oldCalls = (state.llmCallCount || {}) as Record<string, number>
           return {
+            userId: null,
             lastResetDate: (state.lastResetDate as string) || getTodayDateString(),
             llmTokensUsed: { ...emptyLLM, ...oldTokens },
             llmCallCount: { ...emptyLLM, ...oldCalls },
@@ -102,6 +159,7 @@ export const useUsageStore = create<UsageState>()(
         return state
       },
       partialize: (state) => ({
+        userId: state.userId,
         lastResetDate: state.lastResetDate,
         llmTokensUsed: state.llmTokensUsed,
         llmCallCount: state.llmCallCount,

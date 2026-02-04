@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, UserStats } from '@/api/users'
+import { useUsageStore } from './usageStore'
 
 interface UserState {
   user: User | null
@@ -24,6 +25,8 @@ export const useUserStore = create<UserState>()(
       isGuest: false,
       setUser: (user) => {
         set({ user, isGuest: false })
+        // Update usage store with user ID for per-user token tracking
+        useUsageStore.getState().setUserId(user?.id ?? null)
         if (user) {
           localStorage.setItem('user_id', String(user.id))
         } else {
@@ -35,6 +38,8 @@ export const useUserStore = create<UserState>()(
       setGuest: (isGuest) => set({ isGuest }),
       logout: () => {
         set({ user: null, stats: null, isGuest: true })
+        // Reset usage store to guest mode
+        useUsageStore.getState().setUserId(null)
         localStorage.removeItem('user_id')
         // Keep guest mode active after logout
         // Clear guest data

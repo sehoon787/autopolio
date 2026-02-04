@@ -56,6 +56,12 @@ export interface AvailableFieldsResponse {
   company_fields: FieldInfo[]
   project_fields: FieldInfo[]
   achievement_fields: FieldInfo[]
+  // Credentials fields
+  certification_fields: FieldInfo[]
+  award_fields: FieldInfo[]
+  education_fields: FieldInfo[]
+  publication_fields: FieldInfo[]
+  volunteer_activity_fields: FieldInfo[]
   syntax_guide: {
     simple_field: string
     section_start: string
