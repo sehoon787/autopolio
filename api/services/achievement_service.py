@@ -203,10 +203,59 @@ class AchievementService:
         lines_added: int,
         lines_deleted: int,
         files_changed: int,
-        commit_categories: Dict[str, int]
+        commit_categories: Dict[str, int],
+        language: str = "ko"
     ) -> List[Dict[str, Any]]:
-        """Generate achievements from code statistics."""
+        """Generate achievements from code statistics.
+
+        Args:
+            language: Output language ("ko" for Korean, "en" for English)
+        """
         achievements = []
+
+        # Translations for achievements
+        translations = {
+            "ko": {
+                "code_contribution": "코드 기여",
+                "refactoring_desc": "코드 리팩토링 및 최적화 수행",
+                "large_scale_desc": "대규모 기능 개발 및 아키텍처 구축",
+                "major_feature_desc": "주요 기능 개발 및 모듈 구현",
+                "maintenance_desc": "기능 추가 및 유지보수",
+                "existing_codebase": "기존 코드베이스",
+                "net_lines_added": "순 {net_lines:,}줄 추가, {files_changed}개 파일 수정",
+                "evidence_format": "추가: {lines_added:,}줄, 삭제: {lines_deleted:,}줄, 파일: {files_changed}개",
+                "feature_dev": "기능 개발",
+                "features_count": "{count}개 기능",
+                "feature_ratio_desc": "프로젝트 전체 커밋의 {ratio}% 차지",
+                "bug_fix": "버그 수정 및 안정화",
+                "fixes_count": "{count}건 해결",
+                "bug_fix_desc": "이슈 해결 및 품질 개선",
+                "refactoring": "코드 리팩토링",
+                "refactor_count": "{count}건",
+                "refactor_desc": "코드 품질 및 유지보수성 향상",
+            },
+            "en": {
+                "code_contribution": "Code Contribution",
+                "refactoring_desc": "Code refactoring and optimization",
+                "large_scale_desc": "Large-scale feature development and architecture design",
+                "major_feature_desc": "Major feature development and module implementation",
+                "maintenance_desc": "Feature additions and maintenance",
+                "existing_codebase": "Existing codebase",
+                "net_lines_added": "Net {net_lines:,} lines added, {files_changed} files modified",
+                "evidence_format": "Added: {lines_added:,} lines, Deleted: {lines_deleted:,} lines, Files: {files_changed}",
+                "feature_dev": "Feature Development",
+                "features_count": "{count} features",
+                "feature_ratio_desc": "{ratio}% of all project commits",
+                "bug_fix": "Bug Fixes & Stabilization",
+                "fixes_count": "{count} issues resolved",
+                "bug_fix_desc": "Issue resolution and quality improvement",
+                "refactoring": "Code Refactoring",
+                "refactor_count": "{count} refactors",
+                "refactor_desc": "Improved code quality and maintainability",
+            }
+        }
+
+        t = translations.get(language, translations["ko"])
 
         # Code contribution achievement with meaningful description
         if lines_added > 0:
@@ -215,22 +264,22 @@ class AchievementService:
 
             # Determine contribution type
             if refactor_ratio > 50:
-                description = "코드 리팩토링 및 최적화 수행"
+                description = t["refactoring_desc"]
             elif net_lines > 5000:
-                description = "대규모 기능 개발 및 아키텍처 구축"
+                description = t["large_scale_desc"]
             elif net_lines > 1000:
-                description = "주요 기능 개발 및 모듈 구현"
+                description = t["major_feature_desc"]
             else:
-                description = "기능 추가 및 유지보수"
+                description = t["maintenance_desc"]
 
             achievements.append({
-                "metric_name": "코드 기여",
+                "metric_name": t["code_contribution"],
                 "metric_value": f"+{lines_added:,} / -{lines_deleted:,} lines",
                 "description": description,
-                "before_value": f"기존 코드베이스",
-                "after_value": f"순 {net_lines:,}줄 추가, {files_changed}개 파일 수정",
+                "before_value": t["existing_codebase"],
+                "after_value": t["net_lines_added"].format(net_lines=net_lines, files_changed=files_changed),
                 "category": "contribution",
-                "evidence": f"추가: {lines_added:,}줄, 삭제: {lines_deleted:,}줄, 파일: {files_changed}개",
+                "evidence": t["evidence_format"].format(lines_added=lines_added, lines_deleted=lines_deleted, files_changed=files_changed),
                 "source": "code_stats"
             })
 
@@ -244,27 +293,27 @@ class AchievementService:
             if total > 0 and feature_count > 0:
                 feature_ratio = round(feature_count / total * 100)
                 achievements.append({
-                    "metric_name": "기능 개발",
-                    "metric_value": f"{feature_count}개 기능",
-                    "description": f"프로젝트 전체 커밋의 {feature_ratio}% 차지",
+                    "metric_name": t["feature_dev"],
+                    "metric_value": t["features_count"].format(count=feature_count),
+                    "description": t["feature_ratio_desc"].format(ratio=feature_ratio),
                     "category": "contribution",
                     "source": "code_stats"
                 })
 
             if fix_count > 0:
                 achievements.append({
-                    "metric_name": "버그 수정 및 안정화",
-                    "metric_value": f"{fix_count}건 해결",
-                    "description": "이슈 해결 및 품질 개선",
+                    "metric_name": t["bug_fix"],
+                    "metric_value": t["fixes_count"].format(count=fix_count),
+                    "description": t["bug_fix_desc"],
                     "category": "quality",
                     "source": "code_stats"
                 })
 
             if refactor_count > 0:
                 achievements.append({
-                    "metric_name": "코드 리팩토링",
-                    "metric_value": f"{refactor_count}건",
-                    "description": "코드 품질 및 유지보수성 향상",
+                    "metric_name": t["refactoring"],
+                    "metric_value": t["refactor_count"].format(count=refactor_count),
+                    "description": t["refactor_desc"],
                     "category": "quality",
                     "source": "code_stats"
                 })
@@ -337,12 +386,21 @@ class AchievementService:
 """
 
         try:
-            response = await llm_service.provider.generate(
-                prompt,
-                system_prompt="당신은 개발자 이력서 작성을 돕는 전문가입니다. 프로젝트 정보를 바탕으로 정량적 성과를 추출하세요.",
-                max_tokens=1500,
-                temperature=0.3
-            )
+            system_prompt = "당신은 개발자 이력서 작성을 돕는 전문가입니다. 프로젝트 정보를 바탕으로 정량적 성과를 추출하세요."
+
+            # Handle both LLMService (has provider) and CLILLMService (is the provider)
+            if hasattr(llm_service, 'provider'):
+                # API-based LLM service (OpenAI, Anthropic, Gemini)
+                response = await llm_service.provider.generate(
+                    prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=1500,
+                    temperature=0.3
+                )
+            else:
+                # CLI-based LLM service (Claude Code CLI, Gemini CLI)
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+                response, _ = await llm_service.generate_with_cli(full_prompt)
 
             # Parse JSON response
             import json
@@ -368,10 +426,14 @@ class AchievementService:
         self,
         project_data: Dict[str, Any],
         commit_messages: Optional[List[str]] = None,
-        use_llm: bool = True
+        use_llm: bool = True,
+        language: str = "ko"
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Detect all achievements from various sources.
+
+        Args:
+            language: Output language ("ko" for Korean, "en" for English)
 
         Returns:
             Tuple of (achievements list, detection stats)
@@ -400,13 +462,14 @@ class AchievementService:
             all_achievements.extend(commit_achievements)
             stats["pattern_detected"] += len(commit_achievements)
 
-        # 3. Generate from code statistics
+        # 3. Generate from code statistics (with language support)
         code_stats_achievements = self.detect_from_code_stats(
             total_commits=project_data.get("total_commits", 0),
             lines_added=project_data.get("lines_added", 0),
             lines_deleted=project_data.get("lines_deleted", 0),
             files_changed=project_data.get("files_changed", 0),
-            commit_categories=project_data.get("commit_categories", {})
+            commit_categories=project_data.get("commit_categories", {}),
+            language=language
         )
         for a in code_stats_achievements:
             a["source_type"] = "code_stats"

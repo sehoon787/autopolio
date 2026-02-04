@@ -131,7 +131,7 @@ class UserDataCollector:
         return data
 
     def _build_base_data(self, user: User, companies: List[Company]) -> Dict[str, Any]:
-        """Build base user data"""
+        """Build base user data with effective values (user input > OAuth default)"""
         # Calculate total experience years
         total_years = 0
         current_company = None
@@ -143,11 +143,46 @@ class UserDataCollector:
                 if not company.end_date:
                     current_company = company.name
 
+        # Calculate effective values (user value if set, otherwise fallback)
+        # Rule: None = use fallback, "" = intentionally empty, value = use value
+        effective_name = self._get_effective_value(user.display_name, user.name)
+        effective_email = self._get_effective_value(user.profile_email, user.email)
+        effective_phone = user.phone if user.phone is not None else ""
+        effective_address = user.address if user.address is not None else ""
+        effective_birthdate = user.birthdate.isoformat() if user.birthdate else ""
+
+        # Calculate age from birthdate
+        age = None
+        birth_year = None
+        birthdate_formatted = ""
+        birthdate_short = ""
+        if user.birthdate:
+            today = datetime.now().date()
+            birth_year = user.birthdate.year
+            age = today.year - birth_year
+            # Adjust if birthday hasn't occurred yet this year
+            if (today.month, today.day) < (user.birthdate.month, user.birthdate.day):
+                age -= 1
+            # Full birthdate formats
+            birthdate_formatted = user.birthdate.strftime("%Y년 %m월 %d일")  # 1990년 05월 15일
+            birthdate_short = user.birthdate.strftime("%Y.%m.%d")  # 1990.05.15
+
+        # Build description field for saramin template (e.g., "1990.05.15 (35세)")
+        description = ""
+        if birthdate_short and age:
+            description = f"{birthdate_short} ({age}세)"
+
         return {
-            "name": user.name,
-            "email": user.email,
-            "phone": "",
-            "address": "",
+            "name": effective_name,
+            "email": effective_email,
+            "phone": effective_phone,
+            "address": effective_address,
+            "birthdate": effective_birthdate,
+            "birthdate_formatted": birthdate_formatted,  # 1990년 05월 15일
+            "birthdate_short": birthdate_short,  # 1990.05.15
+            "birth_year": birth_year,
+            "age": age,
+            "description": description,  # For saramin template compatibility (1990.05.15 (35세))
             "github_url": f"https://github.com/{user.github_username}" if user.github_username else None,
             "photo_url": user.github_avatar_url,
             "profile_image": user.github_avatar_url,
@@ -155,12 +190,20 @@ class UserDataCollector:
             "career_status": "경력" if companies else "신입",
             "current_company": current_company,
             "total_experience_years": round(total_years),
+            "total_experience": f"{round(total_years)}년" if total_years >= 1 else f"{int(total_years * 12)}개월",
+            "is_working": current_company is not None,
             "highest_education": "",
             "education_status": "",
             "desired_salary": "회사내규에 따름",
             "current_salary": "",
             "portfolio_url": f"https://github.com/{user.github_username}" if user.github_username else None,
         }
+
+    def _get_effective_value(self, user_value: str, fallback_value: str) -> str:
+        """Get effective value: user value if not None, otherwise fallback"""
+        if user_value is not None:
+            return user_value
+        return fallback_value or ""
 
     def _build_capabilities(
         self,

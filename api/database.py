@@ -65,6 +65,18 @@ async def init_db():
         if 'gemini_model' not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN gemini_model VARCHAR(100) DEFAULT 'gemini-2.0-flash'"))
 
+        # Add personal info columns (v1.12)
+        if 'display_name' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN display_name VARCHAR(100)"))
+        if 'profile_email' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN profile_email VARCHAR(255)"))
+        if 'phone' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50)"))
+        if 'address' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN address VARCHAR(500)"))
+        if 'birthdate' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN birthdate DATE"))
+
         # Create indexes for foreign keys if they don't exist (v1.9)
         # SQLite automatically creates indexes for PRIMARY KEY but not for FOREIGN KEY
         await conn.execute(text("""
