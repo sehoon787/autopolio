@@ -143,6 +143,7 @@ export default function ProjectsPage() {
     stopPolling,
     activeJobs,
     cancelAnalysis,
+    startAnalysis,
   } = useAnalysisStore()
 
   // View and UI state
@@ -272,26 +273,57 @@ export default function ProjectsPage() {
     onError: () => toast({ title: tc('error'), description: t('statusChangeFailed'), variant: 'destructive' }),
   })
 
-  const batchAnalyzeMutation = useMutation({
-    mutationFn: (projectIds: number[]) => {
-      const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, selectedLLMProvider } = useAppStore.getState()
-      const useCli = aiMode === 'cli' && isElectron()
-      const options: Parameters<typeof githubApi.analyzeBatch>[2] = {}
-      if (useCli) { options.cli_mode = selectedCLI as 'claude_code' | 'gemini_cli'; options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel }
-      else if (selectedLLMProvider) options.llm_provider = selectedLLMProvider
-      return githubApi.analyzeBatch(user!.id, projectIds, options)
-    },
-    onMutate: (projectIds) => setBatchProgress({ current: 0, total: projectIds.length }),
-    onSuccess: (response) => {
-      const { completed, failed, results } = response.data
-      setBatchProgress(null)
-      selection.deselectAll()
-      toast({ title: t('batchAnalysisComplete'), description: t('batchAnalysisResult', { completed, failed }), variant: failed > 0 ? 'destructive' : 'default' })
-      results.filter((r) => !r.success).forEach((r) => console.warn(`[Batch Analysis] ${r.project_name}: ${r.message}`))
-      queryClient.refetchQueries({ queryKey: ['projects'] })
-    },
-    onError: (error: any) => { setBatchProgress(null); toast({ title: t('batchAnalysisError'), description: error?.response?.data?.detail || t('batchAnalysisFailed'), variant: 'destructive' }) },
-  })
+  // Individual batch analysis state
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false)
+
+  // Start individual analyses for each project (to show individual "분석중" status)
+  const handleStartBatchAnalysis = async (projectsToAnalyze: Project[]) => {
+    if (!user?.id || projectsToAnalyze.length === 0) return
+
+    const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, selectedLLMProvider } = useAppStore.getState()
+    const useCli = aiMode === 'cli' && isElectron()
+
+    setIsBatchAnalyzing(true)
+    setBatchProgress({ current: 0, total: projectsToAnalyze.length })
+
+    let completed = 0
+    let failed = 0
+
+    for (const project of projectsToAnalyze) {
+      if (!project.git_url) {
+        failed++
+        continue
+      }
+
+      try {
+        const options: Parameters<typeof startAnalysis>[3] = {}
+        if (useCli) {
+          options.cli_mode = selectedCLI as 'claude_code' | 'gemini_cli'
+          options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+        } else if (selectedLLMProvider) {
+          options.provider = selectedLLMProvider
+        }
+
+        await startAnalysis(user.id, project.git_url, project.id, options)
+        completed++
+      } catch (error: any) {
+        console.warn(`[Batch Analysis] ${project.name}: ${error?.message || 'Failed'}`)
+        failed++
+      }
+
+      setBatchProgress({ current: completed + failed, total: projectsToAnalyze.length })
+    }
+
+    setBatchProgress(null)
+    setIsBatchAnalyzing(false)
+    selection.deselectAll()
+
+    toast({
+      title: t('batchAnalysisStarted'),
+      description: t('batchAnalysisStartedResult', { count: completed }),
+      variant: failed > 0 ? 'destructive' : 'default',
+    })
+  }
 
   // Handlers
   const clearFilters = () => { setFilters({ sort_by: 'is_analyzed,created_at', sort_order: 'asc,desc' }); setSearchInput(''); selection.deselectAll() }
@@ -361,8 +393,8 @@ export default function ProjectsPage() {
 
   const selectedAnalyzableProjects = projects.filter(p => selection.isSelected(p.id) && p.git_url && !p.is_analyzed)
   const pendingProjects = projects.filter((p) => p.git_url && !p.is_analyzed && (p.status === 'pending' || !p.status))
-  const handleBatchAnalyze = () => { if (pendingProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noPendingProjects'), variant: 'destructive' }); return }; batchAnalyzeMutation.mutate(pendingProjects.map((p) => p.id)) }
-  const handleSelectedBatchAnalyze = () => { if (selectedAnalyzableProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noSelectedAnalyzable'), variant: 'destructive' }); return }; batchAnalyzeMutation.mutate(selectedAnalyzableProjects.map((p) => p.id)) }
+  const handleBatchAnalyze = () => { if (pendingProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noPendingProjects'), variant: 'destructive' }); return }; handleStartBatchAnalysis(pendingProjects) }
+  const handleSelectedBatchAnalyze = () => { if (selectedAnalyzableProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noSelectedAnalyzable'), variant: 'destructive' }); return }; handleStartBatchAnalysis(selectedAnalyzableProjects) }
   const handleSelectedBatchDelete = () => { if (selection.selectedCount === 0) { toast({ title: t('noDeleteTarget'), description: t('noSelectedProjects'), variant: 'destructive' }); return }; setIsBatchDeleteDialogOpen(true) }
 
   // Kanban
@@ -385,9 +417,9 @@ export default function ProjectsPage() {
         </div>
         <div className="flex items-center gap-2">
           {viewMode === 'kanban' && pendingProjects.length > 0 && (
-            <Button onClick={handleBatchAnalyze} disabled={batchAnalyzeMutation.isPending} variant="outline">
-              {batchAnalyzeMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-              {batchAnalyzeMutation.isPending ? t('analyzing', { current: batchProgress?.current || 0, total: batchProgress?.total || 0 }) : t('batchAnalysis', { count: pendingProjects.length })}
+            <Button onClick={handleBatchAnalyze} disabled={isBatchAnalyzing} variant="outline">
+              {isBatchAnalyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              {isBatchAnalyzing ? t('analyzing', { current: batchProgress?.current || 0, total: batchProgress?.total || 0 }) : t('batchAnalysis', { count: pendingProjects.length })}
             </Button>
           )}
           <Link to="/github/repos"><Button variant="outline"><Github className="h-4 w-4 mr-2" />{t('importRepos')}</Button></Link>
@@ -454,8 +486,8 @@ export default function ProjectsPage() {
       ) : viewMode === 'list' ? (
         <div className="space-y-4">
           <SelectionActionBar totalCount={projects.length} selectedCount={selection.selectedCount} onSelectAllChange={(selectAll) => selectAll ? selection.selectAll(projects.map(p => p.id)) : selection.deselectAll()} selectAllLabel={t('selectAll')} selectedCountLabel={`(${selection.selectedCount} ${tc('selected')})`}>
-            <Button onClick={handleSelectedBatchAnalyze} disabled={batchAnalyzeMutation.isPending || selectedAnalyzableProjects.length === 0} size="sm">
-              {batchAnalyzeMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}{t('analyze')} ({selectedAnalyzableProjects.length})
+            <Button onClick={handleSelectedBatchAnalyze} disabled={isBatchAnalyzing || selectedAnalyzableProjects.length === 0} size="sm">
+              {isBatchAnalyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}{t('analyze')} ({selectedAnalyzableProjects.length})
             </Button>
             <Button onClick={handleSelectedBatchDelete} disabled={batchDeleteMutation.isPending} size="sm" variant="destructive">
               {batchDeleteMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}{tc('delete')} ({selection.selectedCount})

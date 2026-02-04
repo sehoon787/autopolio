@@ -25,7 +25,93 @@ import {
   FullScreenDialogFooter,
   FullScreenDialogTitle,
 } from '@/components/ui/full-screen-dialog'
-import { ArrowLeft, Save, Eye, Copy, RefreshCw, Maximize2, X } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Copy, RefreshCw, Maximize2, X, ChevronDown, User, Briefcase, FolderKanban } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+
+// Field Item Component - single clickable field
+interface FieldItemProps {
+  field: FieldInfo
+  onInsert: (field: string, isSection?: boolean) => void
+}
+
+function FieldItem({ field, onInsert }: FieldItemProps) {
+  return (
+    <button
+      onClick={() => onInsert(field.field, field.is_section)}
+      className="flex items-center gap-2 text-sm p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded w-full text-left transition-colors"
+    >
+      <Copy className="h-3 w-3 text-gray-400 flex-shrink-0" />
+      <span className="font-mono text-blue-600 dark:text-blue-400 text-xs">
+        {field.is_section ? `{{#${field.field}}}` : `{{${field.field}}}`}
+      </span>
+      <span className="text-gray-500 dark:text-gray-400 text-xs truncate">{field.description}</span>
+    </button>
+  )
+}
+
+// Field Group Component - collapsible group of fields
+interface FieldGroupProps {
+  title: string
+  icon: React.ReactNode
+  fields?: FieldInfo[]
+  subGroups?: { title: string; fields?: FieldInfo[] }[]
+  onInsertField: (field: string, isSection?: boolean) => void
+  defaultOpen?: boolean
+}
+
+function FieldGroup({ title, icon, fields, subGroups, onInsertField, defaultOpen = false }: FieldGroupProps) {
+  const hasFields = fields && fields.length > 0
+  const hasSubGroups = subGroups && subGroups.some(g => g.fields && g.fields.length > 0)
+
+  if (!hasFields && !hasSubGroups) return null
+
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="border rounded-lg">
+      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            {icon}
+          </div>
+          <span className="font-medium">{title}</span>
+        </div>
+        <ChevronDown className="h-4 w-4 text-gray-500 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t">
+        <div className="p-4 space-y-4">
+          {/* Direct fields */}
+          {hasFields && (
+            <div className="grid gap-1">
+              {fields.map((field) => (
+                <FieldItem key={field.field} field={field} onInsert={onInsertField} />
+              ))}
+            </div>
+          )}
+
+          {/* Sub groups */}
+          {hasSubGroups && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {subGroups.map((group) => {
+                if (!group.fields || group.fields.length === 0) return null
+                return (
+                  <div key={group.title} className="space-y-2">
+                    <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-1">
+                      {group.title}
+                    </h5>
+                    <div className="space-y-1">
+                      {group.fields.map((field) => (
+                        <FieldItem key={field.field} field={field} onInsert={onInsertField} />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
 
 export default function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
@@ -223,23 +309,8 @@ export default function TemplateEditor() {
     )
   }
 
-  // Editor Panel Component
-  const EditorPanel = ({ textareaId = 'template-content' }: { textareaId?: string }) => (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-        <h3 className="font-semibold">{t('editor.templateContent')}</h3>
-        <Button variant="outline" size="sm" onClick={handlePreview} disabled={isPreviewLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isPreviewLoading ? 'animate-spin' : ''}`} />
-          {t('editor.previewBtn')}
-        </Button>
-      </div>
-      <div className="flex-1 p-4">
-        <Textarea
-          id={textareaId}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="font-mono text-sm h-full min-h-[500px] resize-none"
-          placeholder={`# {{name}} 이력서
+  // Template content placeholder
+  const templatePlaceholder = `# {{name}} 이력서
 
 ## 경력
 {{#companies}}
@@ -253,16 +324,34 @@ export default function TemplateEditor() {
 ### {{name}}
 - 역할: {{role}}
 - 기술: {{technologies}}
-{{/projects}}`}
+{{/projects}}`
+
+  // Render editor panel inline (not as a separate component to preserve focus)
+  const renderEditorPanel = (textareaId: string) => (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b bg-gray-50 dark:bg-gray-900">
+        <h3 className="font-semibold">{t('editor.templateContent')}</h3>
+        <Button variant="outline" size="sm" onClick={handlePreview} disabled={isPreviewLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isPreviewLoading ? 'animate-spin' : ''}`} />
+          {t('editor.previewBtn')}
+        </Button>
+      </div>
+      <div className="flex-1 p-4">
+        <Textarea
+          id={textareaId}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className="font-mono text-sm h-full min-h-[500px] resize-none"
+          placeholder={templatePlaceholder}
         />
       </div>
     </div>
   )
 
-  // Preview Panel Component
-  const PreviewPanel = () => (
+  // Render preview panel inline
+  const renderPreviewPanel = () => (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 p-4 border-b bg-gray-50">
+      <div className="flex items-center gap-2 p-4 border-b bg-gray-50 dark:bg-gray-900">
         <Eye className="h-5 w-5" />
         <h3 className="font-semibold">{t('preview')}</h3>
       </div>
@@ -277,7 +366,7 @@ export default function TemplateEditor() {
           <TabsContent value="rendered" className="flex-1 overflow-auto">
             {previewHtml ? (
               <div
-                className="prose prose-sm max-w-none p-4 border rounded-lg bg-white overflow-auto h-full"
+                className="prose prose-sm max-w-none p-4 border rounded-lg bg-white dark:bg-gray-950 overflow-auto h-full"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : (
@@ -288,7 +377,7 @@ export default function TemplateEditor() {
           </TabsContent>
 
           <TabsContent value="text" className="flex-1 overflow-auto">
-            <pre className="p-4 border rounded-lg bg-gray-50 overflow-auto h-full text-sm whitespace-pre-wrap">
+            <pre className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900 overflow-auto h-full text-sm whitespace-pre-wrap">
               {previewText || t('editor.noPreview')}
             </pre>
           </TabsContent>
@@ -310,124 +399,75 @@ export default function TemplateEditor() {
     </div>
   )
 
-  // Resizable Editor and Preview Panel
-  const ResizableEditorAndPreview = ({ inFullscreen = false }: { inFullscreen?: boolean }) => (
-    <div className={`border rounded-lg overflow-hidden ${inFullscreen ? 'h-full' : 'h-[600px]'}`}>
-      <ResizablePanelGroup orientation="horizontal">
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <EditorPanel textareaId={inFullscreen ? 'template-content-fullscreen' : 'template-content'} />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <PreviewPanel />
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
-  )
-
-  // Available Fields Component (reusable)
+  // Available Fields Component (reusable) - Grouped by sidebar structure
   const AvailableFieldsPanel = () => (
     <Card>
       <CardHeader>
-        <CardTitle>{t('availableFields')}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          {t('availableFields')}
+          <span className="text-sm font-normal text-gray-500">
+            {t('editor.clickToInsert')}
+          </span>
+        </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* User Fields */}
-          <div>
-            <h4 className="font-medium mb-3">{t('userFields')}</h4>
-            <div className="space-y-2">
-              {fieldsData?.data?.user_fields?.map((field: FieldInfo) => (
-                <button
-                  key={field.field}
-                  onClick={() => insertField(field.field, field.is_section)}
-                  className="flex items-center gap-2 text-sm p-2 hover:bg-gray-100 rounded w-full text-left"
-                >
-                  <Copy className="h-3 w-3 text-gray-400" />
-                  <span className="font-mono text-blue-600">{`{{${field.field}}}`}</span>
-                  <span className="text-gray-500 text-xs">{field.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+      <CardContent className="space-y-3">
+        {/* Group 1: 기본 정보 (User Info) */}
+        <FieldGroup
+          title={t('fieldGroups.basicInfo')}
+          icon={<User className="h-4 w-4 text-primary" />}
+          fields={fieldsData?.data?.user_fields}
+          onInsertField={insertField}
+          defaultOpen={true}
+        />
 
-          {/* Company Fields */}
-          <div>
-            <h4 className="font-medium mb-3">{t('companyFields')}</h4>
-            <div className="space-y-2">
-              {fieldsData?.data?.company_fields?.map((field: FieldInfo) => (
-                <button
-                  key={field.field}
-                  onClick={() => insertField(field.field, field.is_section)}
-                  className="flex items-center gap-2 text-sm p-2 hover:bg-gray-100 rounded w-full text-left"
-                >
-                  <Copy className="h-3 w-3 text-gray-400" />
-                  <span className="font-mono text-blue-600">
-                    {field.is_section ? `{{#${field.field}}}...{{/${field.field}}}` : `{{${field.field}}}`}
-                  </span>
-                  <span className="text-gray-500 text-xs">{field.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Group 2: 이력 관리 (Career Management) - matches sidebar "이력 관리" */}
+        <FieldGroup
+          title={t('fieldGroups.careerManagement')}
+          icon={<Briefcase className="h-4 w-4 text-primary" />}
+          subGroups={[
+            { title: t('companyFields'), fields: fieldsData?.data?.company_fields },
+            { title: t('certificationFields'), fields: fieldsData?.data?.certification_fields },
+            { title: t('awardFields'), fields: fieldsData?.data?.award_fields },
+            { title: t('educationFields'), fields: fieldsData?.data?.education_fields },
+            { title: t('publicationFields'), fields: fieldsData?.data?.publication_fields },
+            { title: t('volunteerActivityFields'), fields: fieldsData?.data?.volunteer_activity_fields },
+          ]}
+          onInsertField={insertField}
+        />
 
-          {/* Project Fields */}
-          <div>
-            <h4 className="font-medium mb-3">{t('projectFields')}</h4>
-            <div className="space-y-2">
-              {fieldsData?.data?.project_fields?.map((field: FieldInfo) => (
-                <button
-                  key={field.field}
-                  onClick={() => insertField(field.field, field.is_section)}
-                  className="flex items-center gap-2 text-sm p-2 hover:bg-gray-100 rounded w-full text-left"
-                >
-                  <Copy className="h-3 w-3 text-gray-400" />
-                  <span className="font-mono text-blue-600">
-                    {field.is_section ? `{{#${field.field}}}...{{/${field.field}}}` : `{{${field.field}}}`}
-                  </span>
-                  <span className="text-gray-500 text-xs">{field.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Achievement Fields */}
-          <div>
-            <h4 className="font-medium mb-3">{t('achievementFields')}</h4>
-            <div className="space-y-2">
-              {fieldsData?.data?.achievement_fields?.map((field: FieldInfo) => (
-                <button
-                  key={field.field}
-                  onClick={() => insertField(field.field, field.is_section)}
-                  className="flex items-center gap-2 text-sm p-2 hover:bg-gray-100 rounded w-full text-left"
-                >
-                  <Copy className="h-3 w-3 text-gray-400" />
-                  <span className="font-mono text-blue-600">
-                    {field.is_section ? `{{#${field.field}}}...{{/${field.field}}}` : `{{${field.field}}}`}
-                  </span>
-                  <span className="text-gray-500 text-xs">{field.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Group 3: 프로젝트 (Projects) - matches sidebar "프로젝트 관리" */}
+        <FieldGroup
+          title={t('fieldGroups.projectManagement')}
+          icon={<FolderKanban className="h-4 w-4 text-primary" />}
+          subGroups={[
+            { title: t('projectFields'), fields: fieldsData?.data?.project_fields },
+            { title: t('achievementFields'), fields: fieldsData?.data?.achievement_fields },
+          ]}
+          onInsertField={insertField}
+        />
 
         {/* Syntax Guide */}
         {fieldsData?.data?.syntax_guide && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium mb-2">{t('editor.syntaxGuide')}</h4>
-            <div className="grid gap-4 md:grid-cols-3 text-sm">
-              <div>
-                <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.simple_field}</span>
-                <span className="text-gray-500 ml-2">- {t('editor.singleField')}</span>
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <h4 className="font-medium mb-2 text-sm">{t('editor.syntaxGuide')}</h4>
+            <div className="grid gap-3 md:grid-cols-3 text-xs">
+              <div className="flex items-center gap-2">
+                <code className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                  {fieldsData.data.syntax_guide.simple_field}
+                </code>
+                <span className="text-gray-500">{t('editor.singleField')}</span>
               </div>
-              <div>
-                <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.section_start}</span>
-                <span className="text-gray-500 ml-2">- {t('editor.sectionStart')}</span>
+              <div className="flex items-center gap-2">
+                <code className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                  {fieldsData.data.syntax_guide.section_start}
+                </code>
+                <span className="text-gray-500">{t('editor.sectionStart')}</span>
               </div>
-              <div>
-                <span className="font-mono text-blue-600">{fieldsData.data.syntax_guide.section_end}</span>
-                <span className="text-gray-500 ml-2">- {t('editor.sectionEnd')}</span>
+              <div className="flex items-center gap-2">
+                <code className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded">
+                  {fieldsData.data.syntax_guide.section_end}
+                </code>
+                <span className="text-gray-500">{t('editor.sectionEnd')}</span>
               </div>
             </div>
           </div>
@@ -495,7 +535,17 @@ export default function TemplateEditor() {
         </Card>
 
         {/* Resizable Editor and Preview */}
-        <ResizableEditorAndPreview />
+        <div className="border rounded-lg overflow-hidden h-[600px]">
+          <ResizablePanelGroup orientation="horizontal">
+            <ResizablePanel defaultSize={50} minSize={30}>
+              {renderEditorPanel('template-content')}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={50} minSize={30}>
+              {renderPreviewPanel()}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
 
         {/* Available Fields */}
         <AvailableFieldsPanel />
@@ -523,7 +573,17 @@ export default function TemplateEditor() {
             </div>
           </FullScreenDialogHeader>
           <FullScreenDialogBody className="p-4">
-            <ResizableEditorAndPreview inFullscreen />
+            <div className="border rounded-lg overflow-hidden h-full">
+              <ResizablePanelGroup orientation="horizontal">
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  {renderEditorPanel('template-content-fullscreen')}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  {renderPreviewPanel()}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
           </FullScreenDialogBody>
           <FullScreenDialogFooter>
             <div className="flex-1">

@@ -29,6 +29,8 @@ import {
   Medal,
   GraduationCap,
   Heart,
+  LogOut,
+  LogIn,
 } from 'lucide-react'
 
 // Type definitions for navigation
@@ -125,7 +127,7 @@ function CollapsibleNavGroup({ group, isAnyChildActive, isOpen, onOpenChange }: 
 
 export default function Layout() {
   const location = useLocation()
-  const { user, isGuest } = useUserStore()
+  const { user, isGuest, logout } = useUserStore()
   const { t } = useTranslation()
   const { initializeTheme } = useThemeStore()
   const navigation = getNavigation(t)
@@ -255,36 +257,49 @@ export default function Layout() {
             {/* User profile */}
             <div className="p-4 pt-2">
               {user ? (
-                <div className="flex items-center gap-3">
-                  {user.github_avatar_url ? (
-                    <img
-                      src={user.github_avatar_url}
-                      alt={user.name}
-                      className="h-10 w-10 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-muted-foreground font-medium">
-                        {user.name?.charAt(0) || 'U'}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.name || 'User'}</p>
-                    {user.github_username && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Github className="h-3 w-3" />
-                        {user.github_username}
-                      </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    {user.github_avatar_url ? (
+                      <img
+                        src={user.github_avatar_url}
+                        alt={user.name}
+                        className="h-10 w-10 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <span className="text-muted-foreground font-medium">
+                          {user.name?.charAt(0) || 'U'}
+                        </span>
+                      </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{user.name || 'User'}</p>
+                      {user.github_username && (
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                          <Github className="h-3 w-3" />
+                          {user.github_username}
+                        </p>
+                      )}
+                    </div>
                   </div>
+                  {/* Logout button */}
+                  <button
+                    onClick={() => {
+                      logout()
+                      window.location.href = '/setup'
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    {t('common:logout')}
+                  </button>
                 </div>
               ) : isGuest ? (
                 <Link
                   to="/setup"
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-md"
                 >
-                  <Github className="h-5 w-5" />
+                  <LogIn className="h-5 w-5" />
                   {t('common:loginToSave')}
                 </Link>
               ) : (
@@ -292,8 +307,8 @@ export default function Layout() {
                   to="/setup"
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 rounded-md"
                 >
-                  <Settings className="h-5 w-5" />
-                  {t('navigation:setup')}
+                  <LogIn className="h-5 w-5" />
+                  {t('common:login')}
                 </Link>
               )}
             </div>

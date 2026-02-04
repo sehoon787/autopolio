@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { Paintbrush, Monitor, Globe, Bell, Bot, User } from 'lucide-react'
+import { Paintbrush, Monitor, Globe, Bell, Bot, User, UserCircle } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUserStore } from '@/stores/userStore'
@@ -12,8 +12,9 @@ import LanguageSection from './sections/LanguageSection'
 import NotificationsSection from './sections/NotificationsSection'
 import LLMSection from './sections/LLMSection'
 import AccountSection from './sections/AccountSection'
+import ProfileSection from './sections/ProfileSection'
 
-type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account'
+type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account' | 'profile'
 
 interface SidebarItem {
   id: SectionId
@@ -22,9 +23,10 @@ interface SidebarItem {
   requiresAuth?: boolean
 }
 
-// Account and AI Providers at top (integration items)
+// Account, Profile and AI Providers at top (integration items)
 const integrationItems: SidebarItem[] = [
   { id: 'account', labelKey: 'sidebar.account', icon: User, requiresAuth: true },
+  { id: 'profile', labelKey: 'sidebar.profile', icon: UserCircle, requiresAuth: true },
   { id: 'llm', labelKey: 'sidebar.aiProviders', icon: Bot },
 ]
 
@@ -65,6 +67,8 @@ export default function SettingsLayout() {
         return <LLMSection />
       case 'account':
         return <AccountSection />
+      case 'profile':
+        return <ProfileSection />
       default:
         return <AppearanceSection />
     }
