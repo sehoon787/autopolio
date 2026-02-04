@@ -5,7 +5,14 @@ from typing import List
 
 from api.database import get_db
 from api.models.user import User
-from api.schemas.user import UserCreate, UserUpdate, UserResponse
+from api.schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    UserProfileUpdate,
+    UserProfileResponse,
+)
+from api.services.profile_service import ProfileService
 
 router = APIRouter()
 
@@ -127,3 +134,42 @@ async def get_user_stats(user_id: int, db: AsyncSession = Depends(get_db)):
         "documents_count": documents_count,
         "github_connected": user.github_token_encrypted is not None,
     }
+
+
+@router.get("/{user_id}/profile", response_model=UserProfileResponse)
+async def get_user_profile(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Get user profile with OAuth defaults and effective values.
+
+    Returns:
+    - User-entered values (can be None or "")
+    - OAuth default values (from primary OAuth identity)
+    - Effective values (user value if set, otherwise OAuth default)
+    """
+    service = ProfileService(db)
+    try:
+        return await service.get_profile(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/{user_id}/profile", response_model=UserProfileResponse)
+async def update_user_profile(
+    user_id: int,
+    data: UserProfileUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user profile.
+
+    Field behavior:
+    - Field not in request: keep current value
+    - Field is "" (empty string): user intentionally cleared the field
+    - Field has value: update to new value
+
+    Note: Profile fields do NOT overwrite OAuth defaults.
+    OAuth data is only stored in OAuthIdentity.raw_data.
+    """
+    service = ProfileService(db)
+    try:
+        return await service.update_profile(user_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

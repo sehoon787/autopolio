@@ -3,10 +3,12 @@ OAuth Service - Business logic for managing OAuth identities
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,6 +16,8 @@ from api.models.user import User
 from api.models.oauth_identity import OAuthIdentity
 from api.services.encryption_service import EncryptionService
 from api.services.oauth.base import OAuthUserInfo
+
+logger = logging.getLogger(__name__)
 
 
 class OAuthService:
@@ -140,7 +144,13 @@ class OAuthService:
             if user_id and existing_identity.user_id != user_id:
                 # This means the OAuth account was previously linked to a different user
                 # For security, we don't automatically switch - the user must disconnect first
-                pass
+                logger.warning(
+                    "[Security] OAuth account (provider=%s, provider_user_id=%s) already linked to user_id=%s, "
+                    "attempted to link to user_id=%s",
+                    provider, user_info.provider_user_id, existing_identity.user_id, user_id
+                )
+                # Return the existing identity - the user sees their existing account
+                # They must disconnect first to link to a different user
 
             await self.db.flush()
             await self.db.refresh(existing_identity)
@@ -178,37 +188,71 @@ class OAuthService:
                 )
                 user = user_result.scalar_one_or_none()
 
-            # Create new user if needed
+            # Create new user if needed (with race condition handling)
             if not user:
-                user = User(
-                    name=user_info.username or user_info.email or "User",
-                    email=user_info.email,
-                )
-                self.db.add(user)
-                await self.db.flush()
-                is_new_user = True
+                try:
+                    user = User(
+                        name=user_info.username or user_info.email or "User",
+                        email=user_info.email,
+                    )
+                    self.db.add(user)
+                    await self.db.flush()
+                    is_new_user = True
+                except IntegrityError:
+                    # Race condition: another request created the user concurrently
+                    logger.info("[OAuth] Race condition detected during user creation, re-fetching user")
+                    await self.db.rollback()
+                    # Re-fetch the user by email or username
+                    if user_info.email:
+                        user_result = await self.db.execute(
+                            select(User).where(User.email == user_info.email)
+                        )
+                        user = user_result.scalar_one_or_none()
+                    if not user and provider == "github":
+                        user_result = await self.db.execute(
+                            select(User).where(User.github_username == user_info.username)
+                        )
+                        user = user_result.scalar_one_or_none()
+                    if not user:
+                        raise ValueError("Could not find or create user after race condition")
 
         # Check if this is the user's first identity (make it primary)
         existing_identities = await self.get_user_identities(user.id)
         is_primary = len(existing_identities) == 0
 
-        # Create the identity
-        identity = OAuthIdentity(
-            user_id=user.id,
-            provider=provider,
-            provider_user_id=user_info.provider_user_id,
-            username=user_info.username,
-            email=user_info.email,
-            avatar_url=user_info.avatar_url,
-            access_token_encrypted=encrypted_token,
-            refresh_token_encrypted=encrypted_refresh,
-            token_expires_at=user_info.token_expires_at,
-            is_primary=is_primary,
-            raw_data=json.dumps(user_info.raw_data) if user_info.raw_data else None,
-        )
-        self.db.add(identity)
-        await self.db.flush()
-        await self.db.refresh(identity)
+        # Create the identity (with race condition handling)
+        try:
+            identity = OAuthIdentity(
+                user_id=user.id,
+                provider=provider,
+                provider_user_id=user_info.provider_user_id,
+                username=user_info.username,
+                email=user_info.email,
+                avatar_url=user_info.avatar_url,
+                access_token_encrypted=encrypted_token,
+                refresh_token_encrypted=encrypted_refresh,
+                token_expires_at=user_info.token_expires_at,
+                is_primary=is_primary,
+                raw_data=json.dumps(user_info.raw_data) if user_info.raw_data else None,
+            )
+            self.db.add(identity)
+            await self.db.flush()
+            await self.db.refresh(identity)
+        except IntegrityError:
+            # Race condition: identity was created by another request
+            logger.info("[OAuth] Race condition detected during identity creation, re-fetching identity")
+            await self.db.rollback()
+            existing_identity = await self.find_identity_by_provider_user(
+                provider, user_info.provider_user_id
+            )
+            if existing_identity:
+                # Update and return the existing identity
+                existing_identity.access_token_encrypted = encrypted_token
+                existing_identity.refresh_token_encrypted = encrypted_refresh
+                existing_identity.updated_at = datetime.utcnow()
+                await self.db.flush()
+                return existing_identity, False
+            raise ValueError("Could not find or create OAuth identity after race condition")
 
         # Update user's GitHub fields for backwards compatibility
         if provider == "github":
@@ -245,15 +289,16 @@ class OAuthService:
                     other.is_primary = True
                     break
 
-        # Clear GitHub fields from user for backwards compatibility
+        # Clear GitHub token but KEEP username/avatar for user identification
+        # When user reconnects, we need github_username to find their existing account
         if provider == "github":
             user_result = await self.db.execute(
                 select(User).where(User.id == user_id)
             )
             user = user_result.scalar_one_or_none()
             if user:
-                user.github_username = None
-                user.github_avatar_url = None
+                # Only clear the token (authentication)
+                # Keep github_username and github_avatar_url for identification
                 user.github_token_encrypted = None
 
         await self.db.delete(identity)

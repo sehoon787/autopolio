@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
@@ -14,8 +14,18 @@ class User(Base):
     github_token_encrypted = Column(Text)  # Encrypted OAuth token
     github_avatar_url = Column(String(500))
 
+    # Personal info fields (NULL = use OAuth default, "" = intentionally empty)
+    display_name = Column(String(100))       # Name for resume (overrides OAuth name)
+    profile_email = Column(String(255))      # Contact email (separate from login email)
+    phone = Column(String(50))               # Phone number
+    address = Column(String(500))            # Address
+    birthdate = Column(Date)                 # Date of birth
+
     # LLM preferences
     preferred_llm = Column(String(50), default="openai")  # "openai", "anthropic", or "gemini"
+
+    # Language preference for analysis results
+    preferred_language = Column(String(10), default="ko")  # "ko" or "en"
 
     # Model preferences per provider
     openai_model = Column(String(100), default="gpt-4-turbo-preview")

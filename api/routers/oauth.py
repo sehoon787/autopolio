@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import BaseModel
 
 from api.database import get_db
@@ -72,8 +73,12 @@ def get_redirect_uri(provider: str, is_electron: bool = False) -> str:
         # Electron uses custom protocol
         return f"autopolio://oauth-callback/{provider}"
     else:
-        # Web uses API callback endpoint (must include /api prefix to match router mount)
-        return f"{settings.api_url}/api/oauth/{provider}/callback"
+        # Use the existing GitHub callback URL for compatibility
+        # This must match the URL registered in GitHub OAuth App settings
+        if provider == "github":
+            return f"{settings.api_url}/api/github/callback"
+        else:
+            return f"{settings.api_url}/api/oauth/{provider}/callback"
 
 
 def get_frontend_redirect_url(
@@ -138,12 +143,21 @@ async def oauth_connect(
     oauth_provider = OAuthProviderFactory.get_provider(provider)
 
     # Build state with user context
-    state_data = {
-        "user_id": user_id,
-        "provider": provider,
-        "redirect_path": redirect_path,
-        "is_electron": is_electron,
-    }
+    # For GitHub, use the same state format as the existing /api/github/callback handler
+    if provider == "github":
+        state_data = {
+            "path": redirect_path,
+            "origin": None,
+            "is_electron": is_electron,
+            "user_id": user_id,
+        }
+    else:
+        state_data = {
+            "user_id": user_id,
+            "provider": provider,
+            "redirect_path": redirect_path,
+            "is_electron": is_electron,
+        }
     state = encode_state(state_data)
 
     # Get redirect URI
@@ -237,6 +251,7 @@ async def oauth_disconnect(
         Success message
     """
     oauth_service = OAuthService(db)
+    disconnected = False
 
     # Check that user has at least one other login method before disconnecting
     identities = await oauth_service.get_user_identities(user_id)
@@ -245,8 +260,25 @@ async def oauth_disconnect(
         # For now, we allow disconnecting the last identity
         pass
 
+    # Try to remove from OAuthIdentity table
     success = await oauth_service.remove_identity(user_id, provider)
-    if not success:
+    if success:
+        disconnected = True
+
+    # For GitHub, clear the token but KEEP github_username for re-connection
+    # github_username is used to identify the user when they reconnect later
+    if provider == "github":
+        from api.models.user import User
+        result = await db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user and user.github_token_encrypted:
+            user.github_token_encrypted = None
+            # IMPORTANT: Keep github_username and github_avatar_url
+            # These are needed to find the existing user when they reconnect
+            # Only the token (authentication) is removed, not the identity
+            disconnected = True
+
+    if not disconnected:
         raise HTTPException(
             status_code=404,
             detail=f"OAuth connection for '{provider}' not found"
