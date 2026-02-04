@@ -173,6 +173,25 @@ class RenderDataRequest(BaseModel):
     summary: Optional[str] = None
     github_url: Optional[str] = None
     portfolio_url: Optional[str] = None
+    address: Optional[str] = None
+
+    # Birthdate info (for saramin template)
+    description: Optional[str] = None  # e.g., "1990.05.15 (35세)" for saramin template
+    birthdate: Optional[str] = None  # ISO format (e.g., "1990-05-15")
+    birthdate_formatted: Optional[str] = None  # e.g., "1990년 05월 15일"
+    birthdate_short: Optional[str] = None  # e.g., "1990.05.15"
+    birth_year: Optional[int] = None
+    age: Optional[int] = None
+
+    # Career info
+    status: Optional[str] = None  # e.g., "경력", "신입"
+    current_company: Optional[str] = None
+    total_experience: Optional[str] = None  # e.g., "3년"
+    is_working: Optional[bool] = None
+    desired_salary: Optional[str] = None
+    current_salary: Optional[str] = None
+    school: Optional[str] = None  # Highest education school name
+    degree: Optional[str] = None  # Highest education degree
 
     # Sections
     experiences: Optional[List[ExperienceData]] = None
