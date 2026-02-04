@@ -10,6 +10,66 @@ from api.config import get_settings
 settings = get_settings()
 
 
+# Multilingual prompt templates
+PROMPTS = {
+    "ko": {
+        "system_resume": "당신은 이력서/포트폴리오 작성을 돕는 전문가입니다.",
+        "system_project_analysis": "당신은 소프트웨어 개발 프로젝트를 분석하는 기술 전문가입니다.",
+        "system_key_tasks": "당신은 이력서/포트폴리오 작성 전문가입니다. 프로젝트의 주요 수행 업무를 구체적이고 기술적으로 작성합니다.",
+        "system_implementation": "당신은 소프트웨어 개발 프로젝트 분석 전문가입니다. 프로젝트의 주요 구현 기능을 카테고리별로 정리합니다.",
+        "system_achievements": "당신은 개발자 이력서 작성 전문가입니다. 프로젝트 성과를 카테고리별로 정리하고, 정량적 수치를 포함한 Before/After 형식으로 작성합니다.",
+        "style_professional": "전문적이고 간결한 어조로 작성하세요.",
+        "style_casual": "친근하고 읽기 쉬운 어조로 작성하세요.",
+        "style_technical": "기술적인 세부사항을 강조하며 작성하세요.",
+        "json_format": "응답은 반드시 JSON 형식으로 작성하세요.",
+        "summary_prompt": "다음 프로젝트 정보를 바탕으로 이력서에 적합한 요약을 작성해주세요.",
+        "commit_summary_prompt": "다음 커밋 메시지들을 분석하고 프로젝트에서 수행한 주요 작업을 2-3문장으로 요약해주세요.",
+        "key_tasks_rules": """**작성 규칙:**
+1. 8~12개의 주요 수행 업무를 작성
+2. 각 업무는 "[기술/프레임워크] 기반 [구체적 작업]" 형식으로 작성
+3. 기술 스택에 있는 기술들을 적극 활용
+4. 구체적인 기능 구현, 시스템 설계, 최적화 등을 포함
+5. 숫자나 특수문자 없이 순수 텍스트로만 작성""",
+        "key_tasks_examples": """**예시:**
+- FastAPI 기반 데이터 분석 파이프라인 6단계 구현
+- TF-IDF 기반 메뉴 자동 분류 시스템 개발 (scikit-learn)
+- PostgreSQL 데이터베이스 설계 및 JPA/Hibernate 최적화
+- Docker + Docker Compose 컨테이너화 및 CI/CD 구축""",
+        "user_edit_context": "\n\n참고: 사용자가 이전에 작성한 내용입니다. 이를 참고하되, 새로운 분석 결과를 반영하여 개선하세요:\n",
+    },
+    "en": {
+        "system_resume": "You are an expert in writing resumes and portfolios.",
+        "system_project_analysis": "You are a technical expert analyzing software development projects.",
+        "system_key_tasks": "You are a resume/portfolio writing expert. Write specific and technical descriptions of key tasks performed in the project.",
+        "system_implementation": "You are a software development project analysis expert. Organize the main implementation features by category.",
+        "system_achievements": "You are a developer resume writing expert. Organize project achievements by category with quantitative metrics in Before/After format.",
+        "style_professional": "Write in a professional and concise tone.",
+        "style_casual": "Write in a friendly and easy-to-read tone.",
+        "style_technical": "Emphasize technical details in your writing.",
+        "json_format": "Response must be in JSON format.",
+        "summary_prompt": "Based on the following project information, write a summary suitable for a resume.",
+        "commit_summary_prompt": "Analyze the following commit messages and summarize the main tasks performed in the project in 2-3 sentences.",
+        "key_tasks_rules": """**Writing Rules:**
+1. Write 8-12 key tasks
+2. Each task should follow the format "[Technology/Framework] based [specific task]"
+3. Actively utilize technologies from the tech stack
+4. Include specific feature implementations, system design, optimizations, etc.
+5. Write in plain text only without numbers or special characters""",
+        "key_tasks_examples": """**Examples:**
+- Implemented 6-stage data analysis pipeline using FastAPI
+- Developed automatic menu classification system using TF-IDF (scikit-learn)
+- Designed PostgreSQL database and optimized JPA/Hibernate queries
+- Containerized with Docker + Docker Compose and set up CI/CD""",
+        "user_edit_context": "\n\nNote: This is what the user previously wrote. Reference this but improve with new analysis:\n",
+    }
+}
+
+
+def get_prompts(language: str = "ko") -> Dict[str, str]:
+    """Get prompts for the specified language, defaulting to Korean."""
+    return PROMPTS.get(language, PROMPTS["ko"])
+
+
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
@@ -188,20 +248,93 @@ class LLMService:
     async def generate_project_summary(
         self,
         project_data: Dict[str, Any],
-        style: str = "professional"
+        style: str = "professional",
+        language: str = "ko"
     ) -> Dict[str, Any]:
         """Generate a summary for a project."""
-        style_instructions = {
-            "professional": "전문적이고 간결한 어조로 작성하세요.",
-            "casual": "친근하고 읽기 쉬운 어조로 작성하세요.",
-            "technical": "기술적인 세부사항을 강조하며 작성하세요."
+        prompts = get_prompts(language)
+
+        style_map = {
+            "professional": prompts["style_professional"],
+            "casual": prompts["style_casual"],
+            "technical": prompts["style_technical"],
         }
 
-        system_prompt = f"""당신은 이력서/포트폴리오 작성을 돕는 전문가입니다.
-{style_instructions.get(style, style_instructions['professional'])}
-응답은 반드시 JSON 형식으로 작성하세요."""
+        system_prompt = f"""{prompts["system_resume"]}
+{style_map.get(style, style_map['professional'])}
+{prompts["json_format"]}"""
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 이력서에 적합한 요약을 작성해주세요.
+        # Build commit categories description
+        commit_categories = project_data.get('commit_categories', {})
+        categories_desc = ""
+        if commit_categories:
+            cat_parts = []
+            if commit_categories.get("feature", 0) > 0:
+                cat_parts.append(f"Features: {commit_categories['feature']}")
+            if commit_categories.get("fix", 0) > 0:
+                cat_parts.append(f"Bug fixes: {commit_categories['fix']}")
+            if commit_categories.get("refactor", 0) > 0:
+                cat_parts.append(f"Refactoring: {commit_categories['refactor']}")
+            if commit_categories.get("docs", 0) > 0:
+                cat_parts.append(f"Docs: {commit_categories['docs']}")
+            if commit_categories.get("test", 0) > 0:
+                cat_parts.append(f"Tests: {commit_categories['test']}")
+            categories_desc = ", ".join(cat_parts)
+
+        # Build code stats description
+        lines_added = project_data.get('lines_added', 0)
+        lines_deleted = project_data.get('lines_deleted', 0)
+        files_changed = project_data.get('files_changed', 0)
+        code_stats_desc = f"+{lines_added:,} / -{lines_deleted:,} lines across {files_changed} files" if lines_added else ""
+
+        # Get key tasks if available
+        key_tasks = project_data.get('key_tasks', [])
+        key_tasks_desc = "\n".join(f"  • {task}" for task in key_tasks[:5]) if key_tasks else ""
+
+        if language == "en":
+            prompt = f"""Based on the following project information, write a DETAILED summary suitable for a resume.
+
+Project Information:
+- Name: {project_data.get('name', 'N/A')}
+- Description: {project_data.get('description', 'N/A')}
+- Role: {project_data.get('role', 'N/A')}
+- Team Size: {project_data.get('team_size', 'N/A')} members
+- Contribution: {project_data.get('contribution_percent', 'N/A')}%
+- Tech Stack: {', '.join(project_data.get('technologies', []))}
+- Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+
+Code Contribution Analysis:
+- Total Commits: {project_data.get('total_commits', 'N/A')}
+- User Commits: {project_data.get('user_commits', 'N/A')}
+- Code Changes: {code_stats_desc or 'N/A'}
+- Commit Categories: {categories_desc or 'N/A'}
+- Commit Summary: {project_data.get('commit_summary', 'N/A')}
+
+Key Tasks Performed:
+{key_tasks_desc or '(Not available)'}
+
+Instructions:
+1. Write a comprehensive summary (4-6 sentences) that highlights:
+   - What the project does and its purpose
+   - Your specific role and key contributions
+   - Technical challenges overcome
+   - Measurable impact or outcomes
+
+2. List 4-5 key features you implemented or contributed to
+
+3. Highlight 3-4 technical achievements or architectural decisions
+
+4. Describe your responsibilities in detail
+
+Respond in the following JSON format:
+{{
+    "summary": "4-6 sentence detailed project summary emphasizing your contributions and impact",
+    "key_features": ["Specific feature 1 with impact", "Specific feature 2", "Specific feature 3", "Specific feature 4"],
+    "technical_highlights": ["Technical achievement 1", "Architectural decision 2", "Performance improvement 3"],
+    "role_description": "Detailed description of responsibilities and leadership"
+}}"""
+        else:
+            prompt = f"""다음 프로젝트 정보를 바탕으로 이력서에 적합한 **상세한** 요약을 작성해주세요.
 
 프로젝트 정보:
 - 이름: {project_data.get('name', 'N/A')}
@@ -212,16 +345,35 @@ class LLMService:
 - 기술 스택: {', '.join(project_data.get('technologies', []))}
 - 기간: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
 
-커밋 분석 (있는 경우):
+코드 기여 분석:
 - 총 커밋: {project_data.get('total_commits', 'N/A')}
+- 내 커밋: {project_data.get('user_commits', 'N/A')}
+- 코드 변경량: {code_stats_desc or 'N/A'}
+- 커밋 유형: {categories_desc or 'N/A'}
 - 커밋 메시지 요약: {project_data.get('commit_summary', 'N/A')}
+
+주요 수행 업무:
+{key_tasks_desc or '(정보 없음)'}
+
+작성 지침:
+1. 포괄적인 요약(4-6문장)을 작성하세요:
+   - 프로젝트의 목적과 기능
+   - 본인의 역할과 핵심 기여
+   - 해결한 기술적 과제
+   - 측정 가능한 성과나 영향
+
+2. 구현하거나 기여한 주요 기능 4-5개 나열
+
+3. 기술적 성과나 아키텍처 결정 3-4개 강조
+
+4. 책임과 역할을 상세히 설명
 
 다음 JSON 형식으로 응답하세요:
 {{
-    "summary": "2-3문장의 프로젝트 요약",
-    "key_features": ["주요 기능 1", "주요 기능 2", "주요 기능 3"],
-    "technical_highlights": ["기술적 특징 1", "기술적 특징 2"],
-    "role_description": "역할에 대한 상세 설명"
+    "summary": "4-6문장의 상세한 프로젝트 요약 (기여와 영향 강조)",
+    "key_features": ["구체적인 기능 1 (영향 포함)", "구체적인 기능 2", "구체적인 기능 3", "구체적인 기능 4"],
+    "technical_highlights": ["기술적 성과 1", "아키텍처 결정 2", "성능 개선 3"],
+    "role_description": "책임과 리더십에 대한 상세 설명"
 }}"""
 
         response, tokens = await self.provider.generate(prompt, system_prompt)
@@ -248,15 +400,26 @@ class LLMService:
 
     async def generate_commit_summary(
         self,
-        commit_messages: List[str]
+        commit_messages: List[str],
+        language: str = "ko"
     ) -> str:
         """Generate a summary of commit messages."""
+        prompts = get_prompts(language)
+
         if not commit_messages:
-            return "커밋 내역이 없습니다."
+            return "No commit history." if language == "en" else "커밋 내역이 없습니다."
 
-        system_prompt = "당신은 개발 프로젝트의 커밋 내역을 분석하는 전문가입니다."
+        if language == "en":
+            system_prompt = "You are an expert in analyzing development project commit history."
+            prompt = f"""Analyze the following commit messages and summarize the main tasks performed in the project in 2-3 sentences.
 
-        prompt = f"""다음 커밋 메시지들을 분석하고 프로젝트에서 수행한 주요 작업을 2-3문장으로 요약해주세요.
+Commit messages:
+{chr(10).join(f'- {msg}' for msg in commit_messages[:30])}
+
+Summary:"""
+        else:
+            system_prompt = "당신은 개발 프로젝트의 커밋 내역을 분석하는 전문가입니다."
+            prompt = f"""다음 커밋 메시지들을 분석하고 프로젝트에서 수행한 주요 작업을 2-3문장으로 요약해주세요.
 
 커밋 메시지:
 {chr(10).join(f'- {msg}' for msg in commit_messages[:30])}
@@ -336,7 +499,10 @@ class LLMService:
     async def generate_key_tasks(
         self,
         project_data: Dict[str, Any],
-        commit_summary: Optional[str] = None
+        commit_summary: Optional[str] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None,
+        code_context: Optional[str] = None
     ) -> List[str]:
         """
         Generate key tasks in numbered format (1), (2), (3)...
@@ -344,15 +510,45 @@ class LLMService:
         Format follows portfolio reference:
         (1) [Framework/Tech] + [Specific Task Description]
         Example: "(1) React + TypeScript 기반 멀티카메라 비디오 어노테이션 UI 개발"
+
+        Args:
+            project_data: Project information
+            commit_summary: Optional commit summary
+            language: Output language ("ko" or "en")
+            user_context: Optional user-edited content to reference
+            code_context: Optional actual code changes for detailed analysis
         """
-        system_prompt = """당신은 이력서/포트폴리오 작성 전문가입니다.
-프로젝트의 주요 수행 업무를 구체적이고 기술적으로 작성합니다.
-각 업무는 반드시 사용된 기술/프레임워크와 구체적인 작업 내용을 포함해야 합니다."""
+        prompts = get_prompts(language)
+        system_prompt = prompts["system_key_tasks"]
 
         technologies = project_data.get('technologies', [])
-        tech_str = ', '.join(technologies) if technologies else '미지정'
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무를 작성해주세요.
+        if language == "en":
+            tech_str = ', '.join(technologies) if technologies else 'Not specified'
+            prompt = f"""Based on the following project information, write the key tasks performed.
+
+Project Information:
+- Name: {project_data.get('name', 'N/A')}
+- Description: {project_data.get('description', 'N/A')}
+- Role: {project_data.get('role', 'N/A')}
+- Tech Stack: {tech_str}
+- Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+
+Code Analysis (if available):
+- Total Commits: {project_data.get('total_commits', 'N/A')}
+- Lines Added: {project_data.get('lines_added', 'N/A')}
+- Commit Summary: {commit_summary or 'N/A'}
+
+{prompts["key_tasks_rules"]}
+
+{prompts["key_tasks_examples"]}
+
+Response Format:
+Respond only with a JSON array. No other explanations.
+["Task 1", "Task 2", "Task 3", ...]"""
+        else:
+            tech_str = ', '.join(technologies) if technologies else '미지정'
+            prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무를 작성해주세요.
 
 프로젝트 정보:
 - 이름: {project_data.get('name', 'N/A')}
@@ -366,24 +562,36 @@ class LLMService:
 - 추가된 라인: {project_data.get('lines_added', 'N/A')}
 - 커밋 요약: {commit_summary or 'N/A'}
 
-**작성 규칙:**
-1. 8~12개의 주요 수행 업무를 작성
-2. 각 업무는 "[기술/프레임워크] 기반 [구체적 작업]" 형식으로 작성
-3. 기술 스택에 있는 기술들을 적극 활용
-4. 구체적인 기능 구현, 시스템 설계, 최적화 등을 포함
-5. 숫자나 특수문자 없이 순수 텍스트로만 작성
+{prompts["key_tasks_rules"]}
 
-**예시:**
-- FastAPI 기반 데이터 분석 파이프라인 6단계 구현
-- TF-IDF 기반 메뉴 자동 분류 시스템 개발 (scikit-learn)
-- PostgreSQL 데이터베이스 설계 및 JPA/Hibernate 최적화
-- Docker + Docker Compose 컨테이너화 및 CI/CD 구축
+{prompts["key_tasks_examples"]}
 - JWT 토큰 기반 인증 시스템 및 리프레시 토큰 관리
 - SSE 스트리밍 기반 실시간 진행 상황 전송 구현
 
 응답 형식:
 반드시 JSON 배열 형식으로만 응답하세요. 다른 설명 없이 배열만 반환하세요.
 ["업무1", "업무2", "업무3", ...]"""
+
+        # Add actual code changes for detailed analysis
+        if code_context:
+            if language == "en":
+                prompt += f"""
+
+Actual Code Changes (analyze to understand specific implementations):
+{code_context}
+
+Based on the code above, identify specific technical implementations and features developed."""
+            else:
+                prompt += f"""
+
+실제 코드 변경 내용 (구체적인 구현 내용을 파악하기 위한 코드):
+{code_context}
+
+위 코드를 분석하여 구체적인 기술 구현 및 개발된 기능을 파악하세요."""
+
+        # Add user context if provided (for re-analysis)
+        if user_context:
+            prompt += prompts["user_edit_context"] + user_context
 
         try:
             response, tokens = await self.provider.generate(
@@ -414,7 +622,9 @@ class LLMService:
     async def generate_implementation_details(
         self,
         project_data: Dict[str, Any],
-        commit_summary: Optional[str] = None
+        commit_summary: Optional[str] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Generate detailed implementation features grouped by category.
@@ -431,15 +641,63 @@ class LLMService:
             },
             ...
         ]
+
+        Args:
+            project_data: Project information
+            commit_summary: Optional commit summary
+            language: Output language ("ko" or "en")
+            user_context: Optional user-edited content to reference
         """
-        system_prompt = """당신은 소프트웨어 개발 프로젝트 분석 전문가입니다.
-프로젝트의 주요 구현 기능을 카테고리별로 정리합니다.
-각 카테고리는 구체적인 세부 기능들을 포함해야 합니다."""
+        prompts = get_prompts(language)
+        system_prompt = prompts["system_implementation"]
 
         technologies = project_data.get('technologies', [])
-        tech_str = ', '.join(technologies) if technologies else '미지정'
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 카테고리별로 정리해주세요.
+        if language == "en":
+            tech_str = ', '.join(technologies) if technologies else 'Not specified'
+            prompt = f"""Based on the following project information, organize the main implementation features by category.
+
+Project Information:
+- Name: {project_data.get('name', 'N/A')}
+- Description: {project_data.get('description', 'N/A')}
+- Role: {project_data.get('role', 'N/A')}
+- Tech Stack: {tech_str}
+
+Code Analysis:
+- Total Commits: {project_data.get('total_commits', 'N/A')}
+- Commit Summary: {commit_summary or 'N/A'}
+
+**Writing Rules:**
+1. Create 3-6 main feature categories
+2. Include 3-5 detailed implementation items per category
+3. Use technically specific descriptions
+4. Choose category names that match project characteristics
+
+**Example Format:**
+[
+  {{
+    "title": "Multiview Workspace",
+    "items": [
+      "Support for 1-10 camera simultaneous visualization",
+      "Synchronized playback system across views",
+      "Individual view zoom/panning controls"
+    ]
+  }},
+  {{
+    "title": "Annotation System",
+    "items": [
+      "Fabric.js Canvas-based graphic rendering",
+      "Bounding Box, Polygon, Keypoint support",
+      "Independent annotation management per view"
+    ]
+  }}
+]
+
+Response Format:
+Respond only with a JSON array."""
+        else:
+            tech_str = ', '.join(technologies) if technologies else '미지정'
+            prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 카테고리별로 정리해주세요.
 
 프로젝트 정보:
 - 이름: {project_data.get('name', 'N/A')}
@@ -480,6 +738,10 @@ class LLMService:
 응답 형식:
 반드시 JSON 배열 형식으로만 응답하세요."""
 
+        # Add user context if provided (for re-analysis)
+        if user_context:
+            prompt += prompts["user_edit_context"] + str(user_context)
+
         try:
             response, tokens = await self.provider.generate(
                 prompt,
@@ -516,7 +778,9 @@ class LLMService:
     async def generate_detailed_achievements(
         self,
         project_data: Dict[str, Any],
-        existing_achievements: Optional[List[Dict[str, Any]]] = None
+        existing_achievements: Optional[List[Dict[str, Any]]] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Generate achievements grouped by category with before/after format.
@@ -534,22 +798,87 @@ class LLMService:
             "기능 확장": [...],
             ...
         }
+
+        Args:
+            project_data: Project information
+            existing_achievements: Optional list of already detected achievements
+            language: Output language ("ko" or "en")
+            user_context: Optional user-edited content to reference
         """
-        system_prompt = """당신은 개발자 이력서 작성 전문가입니다.
-프로젝트 성과를 카테고리별로 정리하고, 정량적 수치를 포함한 Before/After 형식으로 작성합니다.
-성과는 반드시 측정 가능한 수치(%, 배, 건 등)를 포함해야 합니다."""
+        prompts = get_prompts(language)
+        system_prompt = prompts["system_achievements"]
 
         technologies = project_data.get('technologies', [])
-        tech_str = ', '.join(technologies) if technologies else '미지정'
 
-        existing_str = ""
-        if existing_achievements:
-            existing_str = "\n기존에 감지된 성과:\n" + "\n".join(
-                f"- {a.get('metric_name', '')}: {a.get('metric_value', '')}"
-                for a in existing_achievements
-            )
+        if language == "en":
+            tech_str = ', '.join(technologies) if technologies else 'Not specified'
+            existing_str = ""
+            if existing_achievements:
+                existing_str = "\nPreviously detected achievements:\n" + "\n".join(
+                    f"- {a.get('metric_name', '')}: {a.get('metric_value', '')}"
+                    for a in existing_achievements
+                )
 
-        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 정리해주세요.
+            prompt = f"""Based on the following project information, organize the main achievements by category.
+
+Project Information:
+- Name: {project_data.get('name', 'N/A')}
+- Description: {project_data.get('description', 'N/A')}
+- Role: {project_data.get('role', 'N/A')}
+- Tech Stack: {tech_str}
+
+Code Statistics:
+- Total Commits: {project_data.get('total_commits', 'N/A')}
+- Lines Added: {project_data.get('lines_added', 'N/A')}
+- Lines Deleted: {project_data.get('lines_deleted', 'N/A')}
+{existing_str}
+
+**Achievement Categories:**
+- Performance: Processing speed, response time, memory usage improvements
+- Feature: New feature additions, scalability improvements
+- User Experience (UX): UI/UX improvements, accessibility enhancements
+- Code Quality: Refactoring, test coverage, modularization
+- Productivity: Automation, reduced work time
+- Stability: Error reduction, improved availability
+
+**Writing Rules:**
+1. Include only categories relevant to the project
+2. Each achievement must include quantitative metrics (%, times, count, seconds, etc.)
+3. Compare before/after improvements
+4. Use realistic and believable numbers
+
+**Example:**
+{{
+  "Performance": [
+    {{
+      "title": "Export Optimization",
+      "description": "Implemented keyframe-only export for improved data accuracy",
+      "before": "Full frame storage, large file generation",
+      "after": "80% file size reduction, 3-5x speed improvement"
+    }}
+  ],
+  "Feature": [
+    {{
+      "title": "Multiview Simultaneous Labeling",
+      "description": "Expanded from single video to up to 10 cameras",
+      "before": "Single camera support",
+      "after": "1-10 cameras simultaneous support, applicable to various fields"
+    }}
+  ]
+}}
+
+Response Format:
+Respond only with a JSON object."""
+        else:
+            tech_str = ', '.join(technologies) if technologies else '미지정'
+            existing_str = ""
+            if existing_achievements:
+                existing_str = "\n기존에 감지된 성과:\n" + "\n".join(
+                    f"- {a.get('metric_name', '')}: {a.get('metric_value', '')}"
+                    for a in existing_achievements
+                )
+
+            prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 정리해주세요.
 
 프로젝트 정보:
 - 이름: {project_data.get('name', 'N/A')}
@@ -599,6 +928,10 @@ class LLMService:
 
 응답 형식:
 반드시 JSON 객체 형식으로만 응답하세요."""
+
+        # Add user context if provided (for re-analysis)
+        if user_context:
+            prompt += prompts["user_edit_context"] + str(user_context)
 
         try:
             response, tokens = await self.provider.generate(

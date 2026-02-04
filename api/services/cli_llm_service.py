@@ -145,12 +145,17 @@ class CLILLMService:
             raise
 
     async def generate_project_summary(
-        self, project_data: dict, style: Optional[str] = None
+        self, project_data: dict, style: Optional[str] = None, language: str = "ko"
     ) -> dict:
         """
         Generate a project summary using CLI, matching LLMService interface.
+
+        Args:
+            project_data: Project information dictionary
+            style: Style hint (professional, casual, technical)
+            language: Output language ('ko' for Korean, 'en' for English)
         """
-        prompt = self._build_summary_prompt(project_data, style)
+        prompt = self._build_summary_prompt(project_data, style, language)
         content, token_count = await self.generate_with_cli(prompt)
 
         return {
@@ -263,23 +268,98 @@ class CLILLMService:
         return content or raw_output, token_count
 
     def _build_summary_prompt(
-        self, project_data: dict, style: Optional[str] = None
+        self, project_data: dict, style: Optional[str] = None, language: str = "ko"
     ) -> str:
-        """Build a prompt for project summary generation."""
-        style_hint = f" Style: {style}." if style else ""
+        """Build a prompt for project summary generation.
+
+        Args:
+            project_data: Project information dictionary
+            style: Style hint (professional, casual, technical)
+            language: Output language ('ko' for Korean, 'en' for English)
+        """
         techs = ", ".join(project_data.get("technologies", []))
         commits = project_data.get("total_commits", "N/A")
+        user_commits = project_data.get("user_commits", "N/A")
         commit_summary = project_data.get("commit_summary", "")
 
-        return (
-            f"Summarize this software project for a resume/portfolio.{style_hint}\n\n"
-            f"Project: {project_data.get('name', 'Unknown')}\n"
-            f"Description: {project_data.get('description', 'N/A')}\n"
-            f"Role: {project_data.get('role', 'N/A')}\n"
-            f"Team size: {project_data.get('team_size', 'N/A')}\n"
-            f"Technologies: {techs}\n"
-            f"Total commits: {commits}\n"
-            f"Commit summary: {commit_summary[:500] if commit_summary else 'N/A'}\n\n"
-            "Provide a concise professional summary (2-3 paragraphs) highlighting "
-            "key contributions, technical decisions, and impact."
-        )
+        # Build commit categories description
+        commit_categories = project_data.get('commit_categories', {})
+        categories_desc = ""
+        if commit_categories:
+            cat_parts = []
+            if commit_categories.get("feature", 0) > 0:
+                cat_parts.append(f"Features: {commit_categories['feature']}")
+            if commit_categories.get("fix", 0) > 0:
+                cat_parts.append(f"Fixes: {commit_categories['fix']}")
+            if commit_categories.get("refactor", 0) > 0:
+                cat_parts.append(f"Refactoring: {commit_categories['refactor']}")
+            categories_desc = ", ".join(cat_parts)
+
+        # Build code stats description
+        lines_added = project_data.get('lines_added', 0)
+        lines_deleted = project_data.get('lines_deleted', 0)
+        files_changed = project_data.get('files_changed', 0)
+        code_stats = f"+{lines_added:,} / -{lines_deleted:,} lines, {files_changed} files" if lines_added else "N/A"
+
+        # Get key tasks if available
+        key_tasks = project_data.get('key_tasks', [])
+        key_tasks_desc = "\n".join(f"  • {task}" for task in key_tasks[:5]) if key_tasks else ""
+
+        if language == "en":
+            style_hint = f" Style: {style}." if style else ""
+            return (
+                f"Write a DETAILED professional summary of this software project for a resume/portfolio.{style_hint}\n\n"
+                f"Project: {project_data.get('name', 'Unknown')}\n"
+                f"Description: {project_data.get('description', 'N/A')}\n"
+                f"Role: {project_data.get('role', 'N/A')}\n"
+                f"Team size: {project_data.get('team_size', 'N/A')}\n"
+                f"Technologies: {techs}\n"
+                f"Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}\n\n"
+                f"Code Contribution:\n"
+                f"- Total commits: {commits}\n"
+                f"- My commits: {user_commits}\n"
+                f"- Code changes: {code_stats}\n"
+                f"- Commit types: {categories_desc or 'N/A'}\n"
+                f"- Commit summary: {commit_summary[:500] if commit_summary else 'N/A'}\n\n"
+                f"Key Tasks:\n{key_tasks_desc or '(Not available)'}\n\n"
+                "Instructions:\n"
+                "1. Write a comprehensive summary (4-6 sentences) covering:\n"
+                "   - Project purpose and your specific role\n"
+                "   - Key technical contributions and decisions\n"
+                "   - Challenges overcome and measurable impact\n"
+                "2. List 4-5 specific features you implemented\n"
+                "3. Highlight 3-4 technical achievements\n\n"
+                "IMPORTANT: Respond ONLY in English."
+            )
+        else:
+            # Korean (default)
+            style_map = {
+                "professional": "전문적인",
+                "casual": "캐주얼한",
+                "technical": "기술적인",
+            }
+            style_hint = f" 스타일: {style_map.get(style, style)}." if style else ""
+            return (
+                f"이력서/포트폴리오를 위해 이 소프트웨어 프로젝트의 **상세한** 요약을 작성해주세요.{style_hint}\n\n"
+                f"프로젝트: {project_data.get('name', 'Unknown')}\n"
+                f"설명: {project_data.get('description', 'N/A')}\n"
+                f"역할: {project_data.get('role', 'N/A')}\n"
+                f"팀 규모: {project_data.get('team_size', 'N/A')}\n"
+                f"기술 스택: {techs}\n"
+                f"기간: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}\n\n"
+                f"코드 기여:\n"
+                f"- 총 커밋: {commits}\n"
+                f"- 내 커밋: {user_commits}\n"
+                f"- 코드 변경량: {code_stats}\n"
+                f"- 커밋 유형: {categories_desc or 'N/A'}\n"
+                f"- 커밋 요약: {commit_summary[:500] if commit_summary else 'N/A'}\n\n"
+                f"주요 수행 업무:\n{key_tasks_desc or '(정보 없음)'}\n\n"
+                "작성 지침:\n"
+                "1. 포괄적인 요약(4-6문장) 작성:\n"
+                "   - 프로젝트 목적과 본인의 역할\n"
+                "   - 핵심 기술적 기여와 결정\n"
+                "   - 해결한 과제와 측정 가능한 성과\n"
+                "2. 구현한 구체적인 기능 4-5개 나열\n"
+                "3. 기술적 성과 3-4개 강조\n\n"
+                "중요: 반드시 한국어로 응답하세요."
+            )

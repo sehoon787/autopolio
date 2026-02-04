@@ -511,11 +511,13 @@ class PipelineService:
         user: User,
         tech_results: Dict[str, Any]
     ) -> tuple[Dict[str, Any], int]:
-        """Step 5: Generate LLM-based summaries.
+        """Step 5: Use pre-generated summaries from analysis, or generate new ones.
 
-        Performance: Uses parallel summarization for multiple projects.
+        v1.12 Update: AI summaries are now generated during analysis, not pipeline.
+        This step primarily copies summaries from RepoAnalysis to Project.
+        LLM generation is a fallback for projects without analysis.
         """
-        results = {"summaries": [], "tokens_used": 0}
+        results = {"summaries": [], "tokens_used": 0, "copied_from_analysis": 0}
 
         if request.skip_llm_summary:
             await self.task_service.skip_step(
@@ -528,26 +530,7 @@ class PipelineService:
         await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         try:
-            # Initialize LLM service (API or CLI)
-            provider = request.llm_provider or user.preferred_llm
-            cli_mode = getattr(request, 'cli_mode', None)
-            cli_model = getattr(request, 'cli_model', None)
-            if cli_mode:
-                logger.info("Using CLI mode: %s, model: %s", cli_mode, cli_model)
-                llm_service = CLILLMService(cli_mode, model=cli_model)
-            else:
-                # Use user's selected model for the chosen provider
-                user_model = None
-                if provider == "openai":
-                    user_model = getattr(user, 'openai_model', None)
-                elif provider == "anthropic":
-                    user_model = getattr(user, 'anthropic_model', None)
-                elif provider == "gemini":
-                    user_model = getattr(user, 'gemini_model', None)
-                logger.info("Using API mode: provider=%s, model=%s", provider, user_model)
-                llm_service = LLMService(provider, model=user_model)
-
-            # Get projects
+            # Get projects with their repo_analysis
             projects_result = await self.db.execute(
                 select(Project)
                 .where(Project.id.in_(request.project_ids))
@@ -559,14 +542,96 @@ class PipelineService:
             )
             projects = projects_result.scalars().all()
 
-            # Filter projects that need summarization
-            projects_to_summarize = [
-                p for p in projects
-                if not p.ai_summary or request.regenerate_summaries
-            ]
+            # Step 1: Copy summaries from RepoAnalysis to Project (if available)
+            projects_needing_llm = []
+            for project in projects:
+                # Check if we should regenerate or if project already has summary
+                should_generate = (not project.ai_summary) or request.regenerate_summaries
 
-            # Check if all projects already have summaries
-            if not projects_to_summarize:
+                if not should_generate:
+                    results["summaries"].append({
+                        "project_id": project.id,
+                        "summary": {"summary": project.ai_summary, "key_features": project.ai_key_features},
+                        "source": "existing"
+                    })
+                    continue
+
+                # Check if RepoAnalysis has ai_summary (generated during analysis)
+                if project.repo_analysis and project.repo_analysis.ai_summary:
+                    # Copy from RepoAnalysis to Project
+                    project.ai_summary = project.repo_analysis.ai_summary
+                    project.ai_key_features = project.repo_analysis.ai_key_features
+                    results["copied_from_analysis"] += 1
+                    results["summaries"].append({
+                        "project_id": project.id,
+                        "summary": {
+                            "summary": project.repo_analysis.ai_summary,
+                            "key_features": project.repo_analysis.ai_key_features
+                        },
+                        "source": "analysis"
+                    })
+                    logger.info("Copied ai_summary from RepoAnalysis for project %d", project.id)
+                else:
+                    # No summary in RepoAnalysis, need LLM generation
+                    projects_needing_llm.append(project)
+
+            # Step 2: Generate summaries for projects without analysis (fallback)
+            if projects_needing_llm:
+                logger.info("Generating LLM summaries for %d projects without analysis", len(projects_needing_llm))
+
+                # Initialize LLM service
+                provider = request.llm_provider or user.preferred_llm
+                cli_mode = getattr(request, 'cli_mode', None)
+                cli_model = getattr(request, 'cli_model', None)
+                if cli_mode:
+                    logger.info("Using CLI mode: %s, model: %s", cli_mode, cli_model)
+                    llm_service = CLILLMService(cli_mode, model=cli_model)
+                else:
+                    user_model = None
+                    if provider == "openai":
+                        user_model = getattr(user, 'openai_model', None)
+                    elif provider == "anthropic":
+                        user_model = getattr(user, 'anthropic_model', None)
+                    elif provider == "gemini":
+                        user_model = getattr(user, 'gemini_model', None)
+                    logger.info("Using API mode: provider=%s, model=%s", provider, user_model)
+                    llm_service = LLMService(provider, model=user_model)
+
+                # Parallel summarization
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
+                tasks = [
+                    self._generate_single_summary(
+                        semaphore, llm_service, project, request.summary_style
+                    )
+                    for project in projects_needing_llm
+                ]
+
+                summary_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                # Process LLM results
+                for result in summary_results:
+                    if isinstance(result, Exception):
+                        logger.warning("Summary generation exception: %s", result)
+                        continue
+                    if not result.get("success"):
+                        continue
+
+                    project = result["project"]
+                    summary = result["summary"]
+
+                    project.ai_summary = summary.get("summary", "")
+                    project.ai_key_features = summary.get("key_features", [])
+
+                    results["summaries"].append({
+                        "project_id": project.id,
+                        "summary": summary,
+                        "source": "llm"
+                    })
+
+                results["tokens_used"] = llm_service.total_tokens_used
+
+            # Check if all projects were skipped
+            if not results["summaries"] and not projects_needing_llm:
                 results["skipped_projects"] = [p.id for p in projects]
                 await self.task_service.skip_step(
                     task_id, 5, self.STEP_NAMES[4],
@@ -575,42 +640,11 @@ class PipelineService:
                 )
                 return results, 0
 
-            # Parallel summarization with semaphore
-            semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
-            tasks = [
-                self._generate_single_summary(
-                    semaphore, llm_service, project, request.summary_style
-                )
-                for project in projects_to_summarize
-            ]
-
-            summary_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process results
-            for result in summary_results:
-                if isinstance(result, Exception):
-                    logger.warning("Summary generation exception: %s", result)
-                    continue
-                if not result.get("success"):
-                    continue
-
-                project = result["project"]
-                summary = result["summary"]
-
-                # Update project
-                project.ai_summary = summary.get("summary", "")
-                project.ai_key_features = summary.get("key_features", [])
-
-                results["summaries"].append({
-                    "project_id": project.id,
-                    "summary": summary
-                })
-
             await self.db.flush()
-            results["tokens_used"] = llm_service.total_tokens_used
 
         except Exception as e:
             results["error"] = str(e)
+            logger.exception("Step 5 error: %s", e)
 
         await self.task_service.complete_step(task_id, 5, results)
         return results, results.get("tokens_used", 0)
