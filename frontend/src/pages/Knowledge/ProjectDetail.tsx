@@ -74,11 +74,16 @@ export default function ProjectDetailPage() {
     activeJobs,
   } = useAnalysisStore()
 
+  const { i18n } = useTranslation()
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [editFormData, setEditFormData] = useState<Partial<ProjectCreate>>({})
   const [techInput, setTechInput] = useState('')
   const [isOngoing, setIsOngoing] = useState(false)
+  // Initialize analysis language from app language setting
+  const [analysisLanguage, setAnalysisLanguage] = useState<'ko' | 'en'>(
+    i18n.language?.startsWith('ko') ? 'ko' : i18n.language?.startsWith('en') ? 'en' : 'ko'
+  )
 
   const projectId = parseInt(id || '0')
 
@@ -89,6 +94,13 @@ export default function ProjectDetailPage() {
     }
     return () => stopPolling()
   }, [user?.id, startPolling, stopPolling])
+
+  // Set default analysis language from user preference
+  useEffect(() => {
+    if (user?.preferred_language) {
+      setAnalysisLanguage(user.preferred_language as 'ko' | 'en')
+    }
+  }, [user?.preferred_language])
 
   // Refetch data when analysis completes
   useEffect(() => {
@@ -201,7 +213,9 @@ export default function ProjectDetailPage() {
     if (!user?.id || !project?.git_url) return
 
     // Build options based on aiMode
-    const options: Parameters<typeof startAnalysis>[3] = {}
+    const options: Parameters<typeof startAnalysis>[3] = {
+      language: analysisLanguage,  // Pass selected analysis language
+    }
 
     if (aiMode === 'cli' && isElectronApp) {
       // CLI mode (Electron only)
@@ -368,7 +382,47 @@ export default function ProjectDetailPage() {
           </Button>
         )}
         {project.git_url && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Analysis Language Selector */}
+            {!analyzing && (
+              <div className="flex items-center gap-1">
+                <Select
+                  value={analysisLanguage}
+                  onValueChange={(v) => setAnalysisLanguage(v as 'ko' | 'en')}
+                >
+                  <SelectTrigger className="w-[100px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ko">{t('detail.analysisLanguage.korean')}</SelectItem>
+                    <SelectItem value="en">{t('detail.analysisLanguage.english')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" className="max-w-xs">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-medium">{t('detail.analysisLanguage.helpTitle')}</p>
+                      <PopoverClose asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-2">
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </PopoverClose>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{t('detail.analysisLanguage.helpDescription')}</p>
+                    <ul className="text-xs space-y-1 text-muted-foreground">
+                      <li>• {t('detail.analysisLanguage.helpPoint1')}</li>
+                      <li>• {t('detail.analysisLanguage.helpPoint2')}</li>
+                      <li>• {t('detail.analysisLanguage.helpPoint3')}</li>
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
             {analyzing ? (
               <Button
                 variant="destructive"
