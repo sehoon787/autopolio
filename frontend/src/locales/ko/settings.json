@@ -10,7 +10,8 @@
     "notifications": "알림",
     "aiProviders": "AI 제공자",
     "github": "GitHub",
-    "account": "계정"
+    "account": "계정",
+    "profile": "개인정보"
   },
   "appearance": {
     "title": "외관",
@@ -137,6 +138,23 @@
     "description": "계정 프로필 정보입니다",
     "name": "이름",
     "email": "이메일"
+  },
+  "profile": {
+    "title": "개인정보",
+    "description": "이력서 및 포트폴리오에 사용할 연락처 정보를 관리합니다",
+    "displayName": "이름",
+    "displayNamePlaceholder": "홍길동",
+    "displayNameHint": "이력서에 표시될 이름입니다. 소셜로그인 이름이 기본값으로 채워집니다.",
+    "birthdate": "생년월일",
+    "profileEmail": "연락처 이메일",
+    "profileEmailPlaceholder": "example@email.com",
+    "profileEmailHint": "이력서에 표시될 이메일입니다. 로그인 이메일이 기본값으로 채워집니다.",
+    "phone": "전화번호",
+    "address": "주소",
+    "addressPlaceholder": "서울특별시 강남구",
+    "save": "저장",
+    "saved": "저장되었습니다",
+    "saveFailed": "저장 실패"
   },
   "connectedAccounts": {
     "title": "연결된 계정",

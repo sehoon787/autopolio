@@ -16,10 +16,20 @@
   "fullscreen": "Fullscreen",
   "exitFullscreen": "Exit Fullscreen",
   "availableFields": "Available Fields",
+  "fieldGroups": {
+    "basicInfo": "Basic Info",
+    "careerManagement": "Career Management",
+    "projectManagement": "Projects"
+  },
   "userFields": "User Info",
-  "companyFields": "Company Info",
-  "projectFields": "Project Info",
-  "achievementFields": "Achievement Info",
+  "companyFields": "Company",
+  "projectFields": "Project",
+  "achievementFields": "Achievements",
+  "certificationFields": "Certifications",
+  "awardFields": "Awards",
+  "educationFields": "Education",
+  "publicationFields": "Publications",
+  "volunteerActivityFields": "Activities",
   "clickToInsert": "Click to insert",
   "platforms": {
     "saramin_1": "Saramin Basic",
@@ -80,6 +90,7 @@
     "enterTemplateName": "Please enter template name.",
     "previewFailed": "Failed to generate preview",
     "saveFailed": "Failed to save.",
-    "createFailed": "Failed to create."
+    "createFailed": "Failed to create.",
+    "clickToInsert": "Click field to insert"
   }
 }

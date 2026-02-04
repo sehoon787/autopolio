@@ -65,6 +65,8 @@
   "beta": "Beta",
   "guestMode": "Guest Mode",
   "guestModeDescription": "Preview only. Log in to save your data.",
+  "login": "Log in",
+  "logout": "Log out",
   "loginToSave": "Log in",
   "loginNow": "Log in now",
   "export": {

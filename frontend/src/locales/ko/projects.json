@@ -25,6 +25,8 @@
   "batchAnalysisResult": "{{completed}}개 완료, {{failed}}개 실패",
   "batchAnalysisError": "일괄 분석 오류",
   "batchAnalysisFailed": "일괄 분석에 실패했습니다.",
+  "batchAnalysisStarted": "일괄 분석 시작",
+  "batchAnalysisStartedResult": "{{count}}개 프로젝트의 분석이 시작되었습니다. 각 프로젝트에서 진행 상태를 확인하세요.",
   "noAnalysisTarget": "분석 대상 없음",
   "noSelectedAnalyzable": "선택한 프로젝트 중 분석 가능한 항목이 없습니다. (Git URL이 있고 미분석 상태여야 합니다)",
   "noPendingProjects": "분석 대기 중인 프로젝트가 없습니다.",
@@ -129,9 +131,19 @@
     },
     "analyzeHelp": {
       "description": "레포지토리를 분석하면 GitHub에서 최신 데이터를 가져와 모든 분석 결과를 업데이트합니다.",
-      "point1": "재분석 시 GitHub 레포지토리에서 모든 내용을 새로 생성합니다",
+      "point1": "재분석 시 사용자가 편집한 내용을 AI가 참고하여 더 나은 결과를 생성합니다",
       "point2": "직접 수정한 내용은 별도로 저장되어 보존됩니다",
       "point3": "재분석 후에도 수정된 내용이 계속 표시됩니다"
+    },
+    "analysisLanguage": {
+      "label": "분석 언어",
+      "korean": "한국어",
+      "english": "English",
+      "helpTitle": "분석 언어 설정",
+      "helpDescription": "AI가 분석 결과를 생성할 때 사용할 언어를 선택합니다.",
+      "helpPoint1": "선택한 언어로 주요 수행 업무, 구현 상세 등이 생성됩니다",
+      "helpPoint2": "기본값은 설정 > 언어에서 지정한 언어입니다",
+      "helpPoint3": "여기서 선택한 언어는 이번 분석에만 적용됩니다"
     },
     "editor": {
       "modified": "수정됨",

@@ -16,10 +16,20 @@
   "fullscreen": "전체화면",
   "exitFullscreen": "전체화면 종료",
   "availableFields": "사용 가능한 필드",
+  "fieldGroups": {
+    "basicInfo": "기본 정보",
+    "careerManagement": "이력 관리",
+    "projectManagement": "프로젝트"
+  },
   "userFields": "사용자 정보",
-  "companyFields": "회사 정보",
-  "projectFields": "프로젝트 정보",
-  "achievementFields": "성과 정보",
+  "companyFields": "회사",
+  "projectFields": "프로젝트",
+  "achievementFields": "성과",
+  "certificationFields": "자격증",
+  "awardFields": "수상경력",
+  "educationFields": "학력",
+  "publicationFields": "저술/논문",
+  "volunteerActivityFields": "봉사/활동",
   "clickToInsert": "클릭하여 삽입",
   "platforms": {
     "saramin_1": "사람인 기본형",
@@ -80,6 +90,7 @@
     "enterTemplateName": "템플릿 이름을 입력하세요.",
     "previewFailed": "미리보기 생성 실패",
     "saveFailed": "저장에 실패했습니다.",
-    "createFailed": "생성에 실패했습니다."
+    "createFailed": "생성에 실패했습니다.",
+    "clickToInsert": "필드를 클릭하면 삽입됩니다"
   }
 }

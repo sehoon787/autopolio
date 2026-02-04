@@ -65,6 +65,8 @@
   "beta": "베타",
   "guestMode": "게스트 모드",
   "guestModeDescription": "미리보기만 가능합니다. 데이터를 저장하려면 로그인하세요.",
+  "login": "로그인",
+  "logout": "로그아웃",
   "loginToSave": "로그인",
   "loginNow": "지금 로그인",
   "export": {

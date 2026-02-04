@@ -10,7 +10,8 @@
     "notifications": "Notifications",
     "aiProviders": "AI Providers",
     "github": "GitHub",
-    "account": "Account"
+    "account": "Account",
+    "profile": "Personal Info"
   },
   "appearance": {
     "title": "Appearance",
@@ -137,6 +138,23 @@
     "description": "Your account profile information",
     "name": "Name",
     "email": "Email"
+  },
+  "profile": {
+    "title": "Personal Information",
+    "description": "Manage contact information for resumes and portfolios",
+    "displayName": "Display Name",
+    "displayNamePlaceholder": "John Doe",
+    "displayNameHint": "Name displayed on your resume. Your social login name is used as default.",
+    "birthdate": "Date of Birth",
+    "profileEmail": "Contact Email",
+    "profileEmailPlaceholder": "example@email.com",
+    "profileEmailHint": "Email displayed on your resume. Your login email is used as default.",
+    "phone": "Phone Number",
+    "address": "Address",
+    "addressPlaceholder": "City, State/Province",
+    "save": "Save",
+    "saved": "Profile saved",
+    "saveFailed": "Save failed"
   },
   "connectedAccounts": {
     "title": "Connected Accounts",

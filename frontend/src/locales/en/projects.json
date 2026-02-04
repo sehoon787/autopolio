@@ -25,6 +25,8 @@
   "batchAnalysisResult": "{{completed}} completed, {{failed}} failed",
   "batchAnalysisError": "Batch Analysis Error",
   "batchAnalysisFailed": "Batch analysis failed.",
+  "batchAnalysisStarted": "Batch Analysis Started",
+  "batchAnalysisStartedResult": "Analysis started for {{count}} projects. Check progress in each project.",
   "noAnalysisTarget": "No Analysis Target",
   "noSelectedAnalyzable": "No analyzable projects among selected. (Must have Git URL and not analyzed)",
   "noPendingProjects": "No projects waiting to be analyzed.",
@@ -129,9 +131,19 @@
     },
     "analyzeHelp": {
       "description": "Analyzing the repository retrieves the latest data from GitHub to update all analysis results.",
-      "point1": "Re-analysis regenerates everything from the GitHub repository",
+      "point1": "Re-analysis uses your edits as context to generate better results",
       "point2": "Your manual edits are stored separately and preserved",
       "point3": "Edited content will continue to be displayed after re-analysis"
+    },
+    "analysisLanguage": {
+      "label": "Analysis Language",
+      "korean": "한국어",
+      "english": "English",
+      "helpTitle": "Analysis Language Setting",
+      "helpDescription": "Select the language for AI to generate analysis results.",
+      "helpPoint1": "Key tasks, implementation details, etc. will be generated in the selected language",
+      "helpPoint2": "Default is the language set in Settings > Language",
+      "helpPoint3": "Language selected here applies only to this analysis"
     },
     "editor": {
       "modified": "Modified",
