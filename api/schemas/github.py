@@ -75,10 +75,19 @@ class RepoAnalysisResponse(BaseModel):
     development_timeline: Optional[List[Dict[str, Any]]] = None  # [{period, title, activities}]
     tech_stack_versions: Optional[Dict[str, List[str]]] = None  # {Frontend: [...], Backend: [...]}
     detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None  # {category: [{title, description}]}
+    # AI-generated summary (v1.12)
+    ai_summary: Optional[str] = None
+    ai_key_features: Optional[List[str]] = None
+    # User's code contributions context (v1.12)
+    user_code_contributions: Optional[Dict[str, Any]] = None
     analyzed_at: datetime
     # LLM usage tracking (v1.8)
     provider: Optional[str] = None
     token_usage: Optional[int] = None
+    # Auto-calculated contribution percent (v1.12)
+    suggested_contribution_percent: Optional[int] = None
+    # Language used for analysis (v1.12)
+    analysis_language: str = "ko"  # "ko" or "en"
 
     class Config:
         from_attributes = True
@@ -192,9 +201,16 @@ class EffectiveAnalysisResponse(BaseModel):
     development_timeline: Optional[List[Dict[str, Any]]] = None
     tech_stack_versions: Optional[Dict[str, List[str]]] = None
     detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None
+    # AI-generated summary (v1.12)
+    ai_summary: Optional[str] = None
+    ai_key_features: Optional[List[str]] = None
     analyzed_at: datetime
     # Edit status
     edit_status: EditStatus
+    # Auto-calculated contribution percent (v1.12)
+    suggested_contribution_percent: Optional[int] = None
+    # Language used for analysis (v1.12)
+    analysis_language: str = "ko"  # "ko" or "en"
 
     class Config:
         from_attributes = True
@@ -205,21 +221,28 @@ class EffectiveAnalysisResponse(BaseModel):
 class DetailedCommit(BaseModel):
     """Detailed commit information with Conventional Commit parsing."""
     sha: str
-    short_sha: str
+    short_sha: Optional[str] = None  # Will be derived from sha if not provided
     message: str
     full_message: Optional[str] = None
     author: str
     author_email: Optional[str] = None
     date: datetime
-    commit_type: str  # feat, fix, refactor, docs, test, chore, perf, style, other
-    type_label: str  # Human-readable label
+    commit_type: str = "other"  # feat, fix, refactor, docs, test, chore, perf, style, other
+    type_label: str = "Other"  # Human-readable label
     scope: Optional[str] = None
-    description: str
+    description: Optional[str] = None  # Will be derived from message if not provided
     is_breaking: bool = False
     files_changed: int = 0
     lines_added: int = 0
     lines_deleted: int = 0
     work_areas: List[str] = []  # ["frontend", "backend", "tests", ...]
+
+    def model_post_init(self, __context) -> None:
+        """Fill in derived fields after model initialization."""
+        if self.short_sha is None and self.sha:
+            object.__setattr__(self, 'short_sha', self.sha[:7])
+        if self.description is None and self.message:
+            object.__setattr__(self, 'description', self.message.split('\n')[0][:100])
 
 
 class ContributorSummary(BaseModel):
@@ -308,6 +331,8 @@ class AnalysisJobStatus(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
+    token_usage: Optional[int] = None  # Total tokens used in LLM calls
+    llm_provider: Optional[str] = None  # LLM provider used
 
     class Config:
         from_attributes = True

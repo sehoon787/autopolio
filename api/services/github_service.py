@@ -20,6 +20,40 @@ from api.services.technology_detection_service import TechnologyDetectionService
 
 logger = logging.getLogger(__name__)
 
+
+async def _call_llm_generate(
+    llm_service,
+    prompt: str,
+    system_prompt: str = "",
+    max_tokens: int = 1000,
+    temperature: float = 0.3
+) -> Tuple[str, int]:
+    """
+    Call LLM generate method, handling both LLMService (has provider) and CLILLMService.
+
+    Args:
+        llm_service: Either LLMService or CLILLMService instance
+        prompt: The prompt to send to the LLM
+        system_prompt: System prompt for context
+        max_tokens: Maximum tokens in response
+        temperature: Temperature for generation
+
+    Returns:
+        Tuple of (response text, token count)
+    """
+    if hasattr(llm_service, 'provider'):
+        # API-based LLM service (OpenAI, Anthropic, Gemini)
+        return await llm_service.provider.generate(
+            prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+    else:
+        # CLI-based LLM service (Claude Code CLI, Gemini CLI)
+        full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+        return await llm_service.generate_with_cli(full_prompt)
+
 # Concurrency limits for parallel operations
 MAX_CONCURRENT_FILE_CHECKS = 15  # GitHub API parallel file checks
 MAX_CONCURRENT_COMMIT_DETAILS = 10  # Commit details fetching
@@ -455,11 +489,40 @@ class GitHubService:
 
         return all_commits
 
-    async def get_commit_details(self, git_url: str, sha: str) -> Dict[str, Any]:
-        """Get detailed information for a specific commit including stats."""
+    async def get_commit_details(
+        self,
+        git_url: str,
+        sha: str,
+        include_patch: bool = False
+    ) -> Dict[str, Any]:
+        """Get detailed information for a specific commit including stats.
+
+        Args:
+            git_url: Repository URL
+            sha: Commit SHA
+            include_patch: If True, include code diff (patch) for each file
+        """
         owner, repo = self._parse_repo_url(git_url)
         try:
             commit = await self._request("GET", f"/repos/{owner}/{repo}/commits/{sha}")
+            files_data = []
+            for f in commit.get("files", [])[:20]:  # Limit files per commit
+                file_info = {
+                    "filename": f["filename"],
+                    "additions": f.get("additions", 0),
+                    "deletions": f.get("deletions", 0),
+                    "status": f.get("status", "modified")
+                }
+                # Include patch if requested and not too large
+                if include_patch and "patch" in f:
+                    patch = f["patch"]
+                    # Limit patch size to avoid huge context
+                    if len(patch) <= 2000:
+                        file_info["patch"] = patch
+                    else:
+                        file_info["patch"] = patch[:2000] + "\n... (truncated)"
+                files_data.append(file_info)
+
             return {
                 "sha": commit["sha"],
                 "message": commit["commit"]["message"],
@@ -468,15 +531,7 @@ class GitHubService:
                 "additions": commit.get("stats", {}).get("additions", 0),
                 "deletions": commit.get("stats", {}).get("deletions", 0),
                 "files_changed": len(commit.get("files", [])),
-                "files": [
-                    {
-                        "filename": f["filename"],
-                        "additions": f.get("additions", 0),
-                        "deletions": f.get("deletions", 0),
-                        "status": f.get("status", "modified")
-                    }
-                    for f in commit.get("files", [])[:20]  # Limit files per commit
-                ]
+                "files": files_data
             }
         except httpx.HTTPStatusError:
             return {"sha": sha, "additions": 0, "deletions": 0, "files_changed": 0}
@@ -1140,12 +1195,59 @@ class GitHubService:
         self,
         project_data: Dict[str, Any],
         analysis_data: Dict[str, Any],
-        llm
+        llm,
+        language: str = "ko",
+        code_context: Optional[str] = None
     ) -> Tuple[List[Dict], int]:
         """Generate implementation details using LLM."""
         import json
 
-        implementation_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 분석해주세요.
+        # Build code context section
+        code_section = ""
+        if code_context:
+            if language == "en":
+                code_section = f"""
+
+Actual Code Changes (analyze to understand specific implementations):
+{code_context}
+
+"""
+            else:
+                code_section = f"""
+
+실제 코드 변경 내용 (구체적인 구현 내용 파악용):
+{code_context}
+
+"""
+
+        if language == "en":
+            implementation_prompt = f"""Analyze the following project information and identify the main implementation features.
+
+Project: {project_data.get('name', 'N/A')}
+Description: {project_data.get('description', 'N/A')}
+Role: {project_data.get('role', 'N/A')}
+
+Commit message summary:
+{analysis_data.get('commit_messages_summary', 'N/A')[:1500]}
+
+Tech stack: {', '.join(analysis_data.get('detected_technologies', [])[:15])}
+Commit categories: {analysis_data.get('commit_categories', {})}
+{code_section}
+Write 3-5 main implementation features in JSON format. Each feature should be specific and related to actual development work:
+[
+  {{
+    "title": "Feature title",
+    "items": [
+      "Specific implementation detail 1: including technical specifics",
+      "Specific implementation detail 2: specify technologies used"
+    ]
+  }}
+]
+
+Return only JSON."""
+            system_prompt = "You are a technical expert analyzing software projects. Structure the actual implemented features based on commit messages, tech stack, and code changes."
+        else:
+            implementation_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 분석해주세요.
 
 프로젝트: {project_data.get('name', 'N/A')}
 설명: {project_data.get('description', 'N/A')}
@@ -1156,7 +1258,7 @@ class GitHubService:
 
 기술 스택: {', '.join(analysis_data.get('detected_technologies', [])[:15])}
 커밋 카테고리: {analysis_data.get('commit_categories', {})}
-
+{code_section}
 JSON 형식으로 3-5개의 주요 구현 기능을 작성해주세요. 각 기능은 실제 개발 업무와 관련된 구체적인 내용이어야 합니다:
 [
   {{
@@ -1169,11 +1271,13 @@ JSON 형식으로 3-5개의 주요 구현 기능을 작성해주세요. 각 기�
 ]
 
 JSON만 반환하세요."""
+            system_prompt = "당신은 소프트웨어 프로젝트를 분석하는 기술 전문가입니다. 커밋 메시지, 기술 스택, 그리고 코드 변경 내용을 바탕으로 실제 구현된 기능을 구조화합니다."
 
         try:
-            impl_response, impl_tokens = await llm.provider.generate(
+            impl_response, impl_tokens = await _call_llm_generate(
+                llm,
                 implementation_prompt,
-                system_prompt="당신은 소프트웨어 프로젝트를 분석하는 기술 전문가입니다. 커밋 메시지와 기술 스택을 바탕으로 실제 구현된 기능을 구조화합니다.",
+                system_prompt=system_prompt,
                 max_tokens=2000,
                 temperature=0.3
             )
@@ -1193,7 +1297,9 @@ JSON만 반환하세요."""
         self,
         project_data: Dict[str, Any],
         analysis_data: Dict[str, Any],
-        llm
+        llm,
+        language: str = "ko",
+        code_context: Optional[str] = None
     ) -> Tuple[List[Dict], int]:
         """Generate development timeline using LLM."""
         import json
@@ -1201,7 +1307,30 @@ JSON만 반환하세요."""
         start_date = project_data.get('start_date', '')
         end_date = project_data.get('end_date', '')
 
-        timeline_prompt = f"""다음 프로젝트 정보를 바탕으로 개발 타임라인을 작성해주세요.
+        if language == "en":
+            timeline_prompt = f"""Create a development timeline based on the following project information.
+
+Project: {project_data.get('name', 'N/A')}
+Period: {start_date} ~ {end_date or 'In Progress'}
+Commit message summary:
+{analysis_data.get('commit_messages_summary', 'N/A')[:1500]}
+
+Commit categories: {analysis_data.get('commit_categories', {})}
+Total commits: {analysis_data.get('total_commits', 0)}
+
+Write a chronological development timeline in 2-4 phases in JSON format:
+[
+  {{
+    "period": "YYYY-MM ~ MM (e.g., 2024-01 ~ 02)",
+    "title": "Phase title (e.g., Basic Infrastructure Setup)",
+    "activities": ["Activity 1", "Activity 2", "Activity 3"]
+  }}
+]
+
+Return only JSON."""
+            system_prompt = "You are an expert in analyzing software development project timelines."
+        else:
+            timeline_prompt = f"""다음 프로젝트 정보를 바탕으로 개발 타임라인을 작성해주세요.
 
 프로젝트: {project_data.get('name', 'N/A')}
 기간: {start_date} ~ {end_date or '진행중'}
@@ -1221,11 +1350,13 @@ JSON 형식으로 시간순 개발 타임라인을 2-4개 단계로 작성해주
 ]
 
 JSON만 반환하세요."""
+            system_prompt = "당신은 소프트웨어 개발 프로젝트의 타임라인을 분석하는 전문가입니다."
 
         try:
-            timeline_response, timeline_tokens = await llm.provider.generate(
+            timeline_response, timeline_tokens = await _call_llm_generate(
+                llm,
                 timeline_prompt,
-                system_prompt="당신은 소프트웨어 개발 프로젝트의 타임라인을 분석하는 전문가입니다.",
+                system_prompt=system_prompt,
                 max_tokens=1500,
                 temperature=0.3
             )
@@ -1245,12 +1376,45 @@ JSON만 반환하세요."""
         self,
         project_data: Dict[str, Any],
         analysis_data: Dict[str, Any],
-        llm
+        llm,
+        language: str = "ko",
+        code_context: Optional[str] = None
     ) -> Tuple[Dict, int]:
         """Generate detailed achievements using LLM."""
         import json
 
-        achievements_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 분석해주세요.
+        if language == "en":
+            achievements_prompt = f"""Analyze the following project information and organize achievements by category.
+
+Project: {project_data.get('name', 'N/A')}
+Description: {project_data.get('description', 'N/A')}
+Commit message summary:
+{analysis_data.get('commit_messages_summary', 'N/A')[:1500]}
+
+Code statistics:
+- Lines added: {analysis_data.get('lines_added', 0)}
+- Lines deleted: {analysis_data.get('lines_deleted', 0)}
+- Files changed: {analysis_data.get('files_changed', 0)}
+
+Commit categories: {analysis_data.get('commit_categories', {})}
+
+Write achievements by category in JSON format. Each achievement should include specific metrics or comparisons:
+{{
+  "New Features": [
+    {{"title": "Feature title", "description": "Improvement or new value compared to before"}}
+  ],
+  "Performance Improvement": [
+    {{"title": "Improvement item", "description": "Numerical improvement (e.g., 80% improvement, 3x faster)"}}
+  ],
+  "Code Quality": [
+    {{"title": "Quality improvement", "description": "Refactoring, test additions, etc."}}
+  ]
+}}
+
+Return only JSON. Use empty arrays for categories that don't apply."""
+            system_prompt = "You are an expert in analyzing software project achievements. Extract quantitative achievements based on commit history and code statistics."
+        else:
+            achievements_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 분석해주세요.
 
 프로젝트: {project_data.get('name', 'N/A')}
 설명: {project_data.get('description', 'N/A')}
@@ -1278,11 +1442,13 @@ JSON 형식으로 성과를 카테고리별로 작성해주세요. 각 성과는
 }}
 
 JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세요."""
+            system_prompt = "당신은 소프트웨어 프로젝트의 성과를 분석하는 전문가입니다. 커밋 히스토리와 코드 통계를 바탕으로 정량적인 성과를 추출합니다."
 
         try:
-            achievements_response, achievements_tokens = await llm.provider.generate(
+            achievements_response, achievements_tokens = await _call_llm_generate(
+                llm,
                 achievements_prompt,
-                system_prompt="당신은 소프트웨어 프로젝트의 성과를 분석하는 전문가입니다. 커밋 히스토리와 코드 통계를 바탕으로 정량적인 성과를 추출합니다.",
+                system_prompt=system_prompt,
                 max_tokens=1500,
                 temperature=0.3
             )
@@ -1302,11 +1468,20 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
         self,
         project_data: Dict[str, Any],
         analysis_data: Dict[str, Any],
-        llm_service=None
+        llm_service=None,
+        language: str = "ko",
+        code_contributions: Optional[Dict[str, Any]] = None
     ) -> Tuple[Dict[str, Any], int]:
         """Generate detailed content using LLM.
 
         Performance: Uses parallel LLM calls (3 calls in ~10-15 seconds instead of 30-40 seconds).
+
+        Args:
+            project_data: Project information
+            analysis_data: Analysis data (commits, tech stack, etc.)
+            llm_service: Optional LLM service instance
+            language: Output language ("ko" or "en")
+            code_contributions: Optional user's code contributions with patches
 
         Returns:
             Tuple of (result dict, total tokens used)
@@ -1326,7 +1501,7 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             if llm_service is None:
                 llm_service = LLMService(settings.llm_provider)
             llm = llm_service
-            logger.info("Using LLM service: %s", type(llm).__name__)
+            logger.info("Using LLM service: %s, language: %s", type(llm).__name__, language)
             if hasattr(llm, 'provider_name'):
                 logger.debug("Provider name: %s", llm.provider_name)
         except ValueError as e:
@@ -1336,11 +1511,24 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
 
         result = {}
 
+        # Build code context from contributions for more detailed analysis
+        code_context = None
+        if code_contributions and code_contributions.get("contributions"):
+            code_snippets = []
+            for contrib in code_contributions["contributions"][:10]:
+                commit_info = f"Commit: {contrib['message']}"
+                for file_info in contrib.get("files", [])[:3]:
+                    if file_info.get("patch"):
+                        code_snippets.append(f"{commit_info}\nFile: {file_info['filename']}\n{file_info['patch'][:500]}")
+            if code_snippets:
+                code_context = "\n\n---\n\n".join(code_snippets[:5])
+                logger.info("[DetailedContent] Including %d code snippets in context", len(code_snippets[:5]))
+
         # Execute all LLM calls in parallel for better performance
         tasks = [
-            self._generate_implementation_details(project_data, analysis_data, llm),
-            self._generate_development_timeline(project_data, analysis_data, llm),
-            self._generate_detailed_achievements(project_data, analysis_data, llm),
+            self._generate_implementation_details(project_data, analysis_data, llm, language, code_context),
+            self._generate_development_timeline(project_data, analysis_data, llm, language, code_context),
+            self._generate_detailed_achievements(project_data, analysis_data, llm, language, code_context),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1374,6 +1562,57 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             result["detailed_achievements"] = {}
 
         return result, total_tokens
+
+    # ============ Contribution Calculation Methods ============
+
+    def calculate_contribution_percent(
+        self,
+        user_commits: int,
+        total_commits: int,
+        user_lines_added: int,
+        total_lines_added: int,
+        work_areas: Optional[List[str]] = None
+    ) -> int:
+        """
+        Calculate weighted contribution percentage.
+
+        Weights:
+        - Commit count: 40%
+        - Lines of code: 40%
+        - Work area diversity: 20%
+
+        Args:
+            user_commits: Number of commits by the user
+            total_commits: Total commits in the repository
+            user_lines_added: Lines added by the user
+            total_lines_added: Total lines added in the repository
+            work_areas: List of work areas the user contributed to
+
+        Returns:
+            Contribution percentage (0-100)
+        """
+        # Commit score (40%)
+        commit_score = 0
+        if total_commits > 0:
+            commit_score = (user_commits / total_commits) * 100
+
+        # Line score (40%)
+        line_score = 0
+        if total_lines_added > 0:
+            line_score = (user_lines_added / total_lines_added) * 100
+
+        # Work area diversity score (20%)
+        # Max 7 areas: frontend, backend, tests, devops, docs, database, config
+        area_score = 0
+        if work_areas:
+            area_count = len(work_areas)
+            area_score = min(area_count * 15, 100)  # ~15% per area, max 100%
+
+        # Weighted average
+        weighted = (commit_score * 0.4) + (line_score * 0.4) + (area_score * 0.2)
+
+        # Clamp to 0-100 range
+        return min(max(round(weighted), 0), 100)
 
     # ============ Extended Analysis Methods ============
 
@@ -1600,14 +1839,21 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             commit_types[parsed["type"]] += 1
 
             # Build detailed commit info
+            full_message = commit["commit"]["message"]
+            short_message = full_message.split('\n')[0][:100]
             detailed_commits.append({
-                "sha": commit["sha"][:7],
-                "message": commit["commit"]["message"].split('\n')[0][:100],
+                "sha": commit["sha"],
+                "short_sha": commit["sha"][:7],
+                "message": short_message,
+                "full_message": full_message if len(full_message) > 100 else None,
                 "author": commit["commit"]["author"]["name"],
+                "author_email": commit["commit"]["author"].get("email"),
                 "date": commit["commit"]["author"]["date"],
                 "commit_type": parsed["type"],
                 "type_label": parsed["type_label"],
                 "scope": parsed["scope"],
+                "description": parsed.get("description") or short_message,
+                "is_breaking": parsed.get("is_breaking", False),
                 "files_changed": result.get("files_changed", 0),
                 "lines_added": result.get("additions", 0),
                 "lines_deleted": result.get("deletions", 0),
@@ -1641,6 +1887,163 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             "detailed_commits": detailed_commits[:MAX_DETAILED_COMMITS],  # Limit stored commits
             "commit_types": dict(commit_types),
         }
+
+    async def get_user_code_contributions(
+        self,
+        git_url: str,
+        username: str,
+        max_commits: int = 30,
+        max_total_patch_size: int = 50000
+    ) -> Dict[str, Any]:
+        """Get user's significant code contributions with actual code diffs for LLM analysis.
+
+        This method collects the user's commits with their actual code changes (patches)
+        to provide context for LLM-based analysis of what the user implemented.
+
+        Args:
+            git_url: GitHub repository URL
+            username: GitHub username to analyze
+            max_commits: Maximum number of commits to analyze
+            max_total_patch_size: Maximum total patch size in characters
+
+        Returns:
+            Dict with:
+                - contributions: List of commits with code diffs
+                - summary: Statistics about the contributions
+                - technologies: Detected technologies from the code
+        """
+        logger.info(f"Collecting code contributions for {username} from {git_url}")
+
+        # Get commits by this user
+        commits = await self.get_commits(
+            git_url,
+            author=username,
+            per_page=100,
+            max_pages=1
+        )
+
+        if not commits:
+            return {
+                "username": username,
+                "contributions": [],
+                "summary": {
+                    "total_commits": 0,
+                    "analyzed_commits": 0,
+                    "lines_added": 0,
+                    "lines_deleted": 0,
+                    "files_changed": 0,
+                },
+                "technologies": [],
+                "work_areas": [],
+            }
+
+        # Select significant commits (prioritize feature commits and larger changes)
+        commits_to_analyze = commits[:max_commits]
+
+        # Get detailed info with patches (parallel)
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_COMMIT_DETAILS)
+        tasks = [
+            self._get_commit_details_with_patch(semaphore, git_url, c["sha"])
+            for c in commits_to_analyze
+        ]
+        detailed_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        contributions: List[Dict[str, Any]] = []
+        total_additions = 0
+        total_deletions = 0
+        all_files: List[str] = []
+        current_patch_size = 0
+
+        for i, result in enumerate(detailed_results):
+            if isinstance(result, Exception):
+                continue
+
+            commit = commits_to_analyze[i]
+            message = commit["commit"]["message"]
+
+            # Parse conventional commit type
+            parsed = self._parse_conventional_commit(message)
+
+            # Calculate patch size for this commit
+            commit_patches = []
+            commit_patch_size = 0
+            for f in result.get("files", []):
+                patch = f.get("patch", "")
+                filename = f.get("filename", "")
+                all_files.append(filename)
+
+                # Only include patch if we haven't exceeded the limit
+                if current_patch_size + len(patch) <= max_total_patch_size:
+                    if patch:
+                        commit_patches.append({
+                            "filename": filename,
+                            "additions": f.get("additions", 0),
+                            "deletions": f.get("deletions", 0),
+                            "status": f.get("status", "modified"),
+                            "patch": patch
+                        })
+                        commit_patch_size += len(patch)
+
+            current_patch_size += commit_patch_size
+
+            # Build contribution entry
+            contribution = {
+                "sha": commit["sha"][:7],
+                "message": message.split('\n')[0][:200],  # First line, limited
+                "full_message": message[:500] if len(message) <= 500 else message[:500] + "...",
+                "author": commit["commit"]["author"]["name"],
+                "date": commit["commit"]["author"]["date"],
+                "commit_type": parsed["type"],
+                "type_label": parsed["type_label"],
+                "scope": parsed["scope"],
+                "stats": {
+                    "additions": result.get("additions", 0),
+                    "deletions": result.get("deletions", 0),
+                    "files_changed": result.get("files_changed", 0),
+                },
+                "files": commit_patches,
+            }
+
+            contributions.append(contribution)
+            total_additions += result.get("additions", 0)
+            total_deletions += result.get("deletions", 0)
+
+            # Stop if we've reached the patch size limit
+            if current_patch_size >= max_total_patch_size:
+                logger.info(f"Reached patch size limit at commit {i+1}/{len(commits_to_analyze)}")
+                break
+
+        # Detect work areas and technologies
+        work_areas = self._detect_work_areas(all_files)
+        technologies = self._detect_technologies_from_files(all_files)
+
+        return {
+            "username": username,
+            "contributions": contributions,
+            "summary": {
+                "total_commits": len(commits),
+                "analyzed_commits": len(contributions),
+                "lines_added": total_additions,
+                "lines_deleted": total_deletions,
+                "files_changed": len(set(all_files)),
+            },
+            "technologies": technologies,
+            "work_areas": work_areas,
+        }
+
+    async def _get_commit_details_with_patch(
+        self,
+        semaphore: asyncio.Semaphore,
+        git_url: str,
+        sha: str
+    ) -> Dict[str, Any]:
+        """Get commit details with patch, with semaphore for rate limiting."""
+        async with semaphore:
+            try:
+                return await self.get_commit_details(git_url, sha, include_patch=True)
+            except Exception as e:
+                logger.warning(f"Failed to get commit details for {sha}: {e}")
+                return {"sha": sha, "additions": 0, "deletions": 0, "files": []}
 
     def _detect_technologies_from_files(self, file_paths: List[str]) -> List[str]:
         """Detect technologies based on file paths and extensions.
