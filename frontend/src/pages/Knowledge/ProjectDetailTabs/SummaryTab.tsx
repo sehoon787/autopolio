@@ -157,16 +157,30 @@ export function SummaryTab({
           <CardHeader>
             <CardTitle>{t('detail.summary.achievements')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {(final?.achievements || project.achievements || []).map((ach: any, index: number) => (
-              <div key={index} className="border-l-4 border-amber-400 pl-4 py-2">
-                <div className="font-semibold text-gray-900">[ {ach.metric_name} ]</div>
-                {ach.description && <p className="text-sm text-gray-600 mt-1">{ach.description}</p>}
-                {ach.metric_value && (
-                  <div className="text-amber-600 font-medium mt-1">▶ {ach.metric_value}</div>
-                )}
-              </div>
-            ))}
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(final?.achievements || project.achievements || []).map((ach: any, index: number) => (
+                <div
+                  key={index}
+                  className="relative bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100"
+                >
+                  {/* 카테고리 제목 */}
+                  <h4 className="text-base font-bold text-amber-800 mb-2">
+                    {ach.metric_name}
+                  </h4>
+                  {/* 설명 */}
+                  {ach.description && (
+                    <p className="text-sm font-semibold text-gray-700 leading-relaxed">{ach.description}</p>
+                  )}
+                  {/* 수치 */}
+                  {ach.metric_value && (
+                    <div className="mt-3 pt-2 border-t border-amber-200">
+                      <span className="text-lg font-bold text-amber-700">{ach.metric_value}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       ) : null}

@@ -219,34 +219,34 @@ export function BasicInfoTab({
         </CardHeader>
         <CardContent>
           {project.achievements?.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
               {project.achievements.map((achievement: any) => (
-                <div key={achievement.id} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-100">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-amber-100 rounded-full p-2 mt-0.5">
-                      <Trophy className="h-4 w-4 text-amber-600" />
+                <div
+                  key={achievement.id}
+                  className="relative bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100"
+                >
+                  {/* 카테고리 제목 */}
+                  <h4 className="text-base font-bold text-amber-800 mb-2">
+                    {achievement.metric_name}
+                  </h4>
+                  {/* 설명 */}
+                  {achievement.description && (
+                    <p className="text-sm font-semibold text-gray-700 leading-relaxed">{achievement.description}</p>
+                  )}
+                  {/* 성과 수치 */}
+                  {achievement.metric_value && (
+                    <div className="mt-3 pt-2 border-t border-amber-200">
+                      <span className="text-lg font-bold text-amber-700">{achievement.metric_value}</span>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{achievement.metric_name}</h4>
-                      {achievement.description && (
-                        <p className="text-gray-600 mt-1 text-sm">{achievement.description}</p>
-                      )}
-                      {achievement.metric_value && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-amber-600 font-medium">▶</span>
-                          <span className="text-lg font-bold text-amber-700">{achievement.metric_value}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 text-gray-500">
+            <div className="text-center py-8 text-gray-500">
               <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>{t('detail.basicInfo.noAchievements')}</p>
-              <p className="text-sm mt-1">{t('detail.basicInfo.analyzeForAchievements')}</p>
+              <p className="font-medium">{t('detail.basicInfo.noAchievements')}</p>
+              <p className="text-sm mt-1 text-gray-400">{t('detail.basicInfo.analyzeForAchievements')}</p>
             </div>
           )}
         </CardContent>
