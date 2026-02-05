@@ -18,12 +18,11 @@ env/
 *.db
 *.sqlite
 
-# Data directory (except platform templates)
+# Data directory
 data/*
+# Include platform templates (system templates for git clone)
 !data/platform_templates/
-data/platform_templates/*
-!data/platform_templates/logos/
-!data/platform_templates/*.html
+!data/platform_templates/**
 
 # Generated documents
 result/

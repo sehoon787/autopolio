@@ -16,6 +16,7 @@ from api.config import get_settings
 from api.database import init_db, close_db, AsyncSessionLocal
 from api.routers import users, github, templates, pipeline, documents, llm, platforms, lookup, oauth
 from api.services.platform_template_service import PlatformTemplateService
+from api.services.template_init_service import init_system_templates
 from api.routers.knowledge import companies, projects, achievements, credentials
 
 settings = get_settings()
@@ -50,16 +51,23 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.result_dir, exist_ok=True)
     await init_db()
 
-    # Auto-refresh system templates on startup (always update from files)
+    # Auto-initialize system templates on startup
     try:
         async with AsyncSessionLocal() as session:
-            service = PlatformTemplateService(session)
-            templates = await service.refresh_system_templates()
-            if templates:
-                logging.info(f"Refreshed {len(templates)} system platform templates")
+            # Initialize platform templates (HTML-based: saramin, remember, jumpit, wanted)
+            platform_service = PlatformTemplateService(session)
+            platform_templates = await platform_service.refresh_system_templates()
+            if platform_templates:
+                logging.info(f"Refreshed {len(platform_templates)} system platform templates")
+
+            # Initialize document templates (Markdown-based: 경력기술서, 이력서, 노션 포트폴리오)
+            doc_templates_created = await init_system_templates(session)
+            if doc_templates_created > 0:
+                logging.info(f"Created {doc_templates_created} system document templates")
+
             await session.commit()
     except Exception as e:
-        logging.warning(f"Failed to refresh system templates: {e}")
+        logging.warning(f"Failed to initialize system templates: {e}")
 
     yield
     # Shutdown
