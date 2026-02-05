@@ -43,6 +43,7 @@ export interface UserProfile {
   phone: string | null
   address: string | null
   birthdate: string | null
+  profile_photo_url: string | null  // Uploaded resume photo
 
   // OAuth default values
   oauth_defaults: OAuthDefaults
@@ -51,6 +52,30 @@ export interface UserProfile {
   effective_name: string
   effective_email: string | null
   effective_avatar_url: string | null
+  effective_photo_url: string | null  // profile_photo_url or github_avatar_url
+}
+
+// Generation options types
+export interface GenerationOptions {
+  // AI Analysis settings
+  default_summary_style: string  // professional, casual, technical
+  default_analysis_language: string  // ko, en
+  default_analysis_scope: string  // quick, standard, detailed
+  // Document generation settings (used in Generate page)
+  default_output_format: string  // docx, pdf, md
+  default_include_achievements: boolean
+  default_include_tech_stack: boolean
+}
+
+export interface GenerationOptionsUpdate {
+  // AI Analysis settings
+  default_summary_style?: string
+  default_analysis_language?: string
+  default_analysis_scope?: string
+  // Document generation settings
+  default_output_format?: string
+  default_include_achievements?: boolean
+  default_include_tech_stack?: boolean
 }
 
 export const usersApi = {
@@ -73,4 +98,25 @@ export const usersApi = {
 
   updateProfile: (id: number, data: UserProfileUpdate) =>
     apiClient.put<UserProfile>(`/users/${id}/profile`, data),
+
+  // Generation options API
+  getGenerationOptions: (id: number) =>
+    apiClient.get<GenerationOptions>(`/users/${id}/generation-options`),
+
+  updateGenerationOptions: (id: number, data: GenerationOptionsUpdate) =>
+    apiClient.put<GenerationOptions>(`/users/${id}/generation-options`, data),
+
+  // Photo API
+  uploadPhoto: (id: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    // Don't set Content-Type header manually - axios will set it with correct boundary
+    return apiClient.post<{ success: boolean; photo_url: string; filename: string }>(
+      `/users/${id}/photo`,
+      formData
+    )
+  },
+
+  deletePhoto: (id: number) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/users/${id}/photo`),
 }

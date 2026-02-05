@@ -22,6 +22,33 @@ class UserUpdate(BaseModel):
     preferred_language: Optional[str] = None  # "ko" or "en"
 
 
+class GenerationOptionsUpdate(BaseModel):
+    """Update generation options preferences"""
+    # AI Analysis settings
+    default_summary_style: Optional[str] = None  # professional, casual, technical
+    default_analysis_language: Optional[str] = None  # ko, en
+    default_analysis_scope: Optional[str] = None  # quick, standard, detailed
+    # Document generation settings (stored for reference, but used in Generate page)
+    default_output_format: Optional[str] = None  # docx, pdf, md
+    default_include_achievements: Optional[bool] = None
+    default_include_tech_stack: Optional[bool] = None
+
+
+class GenerationOptionsResponse(BaseModel):
+    """Generation options response"""
+    # AI Analysis settings
+    default_summary_style: str = "professional"
+    default_analysis_language: str = "ko"
+    default_analysis_scope: str = "standard"
+    # Document generation settings
+    default_output_format: str = "docx"
+    default_include_achievements: bool = True
+    default_include_tech_stack: bool = True
+
+    class Config:
+        from_attributes = True
+
+
 class UserResponse(UserBase):
     id: int
     github_avatar_url: Optional[str] = None
@@ -51,6 +78,7 @@ class UserProfileUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     birthdate: Optional[date] = None
+    # profile_photo_url is updated via separate upload endpoint
 
 
 class UserProfileResponse(BaseModel):
@@ -61,6 +89,7 @@ class UserProfileResponse(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     birthdate: Optional[date] = None
+    profile_photo_url: Optional[str] = None  # Profile photo for resume
 
     # OAuth default values
     oauth_defaults: OAuthDefaults
@@ -69,6 +98,7 @@ class UserProfileResponse(BaseModel):
     effective_name: str
     effective_email: Optional[str] = None
     effective_avatar_url: Optional[str] = None
+    effective_photo_url: Optional[str] = None  # profile_photo_url or github_avatar_url
 
     class Config:
         from_attributes = True

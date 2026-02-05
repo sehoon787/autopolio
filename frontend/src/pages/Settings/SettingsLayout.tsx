@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { Paintbrush, Monitor, Globe, Bell, Bot, User, UserCircle } from 'lucide-react'
+import { Paintbrush, Monitor, Globe, Bell, Bot, User, UserCircle, Sparkles } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUserStore } from '@/stores/userStore'
@@ -13,8 +14,9 @@ import NotificationsSection from './sections/NotificationsSection'
 import LLMSection from './sections/LLMSection'
 import AccountSection from './sections/AccountSection'
 import ProfileSection from './sections/ProfileSection'
+import GenerationOptionsSection from './sections/GenerationOptionsSection'
 
-type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account' | 'profile'
+type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account' | 'profile' | 'generation'
 
 interface SidebarItem {
   id: SectionId
@@ -23,10 +25,11 @@ interface SidebarItem {
   requiresAuth?: boolean
 }
 
-// Account, Profile and AI Providers at top (integration items)
+// Account, Profile, AI Analysis and AI Providers at top (integration items)
 const integrationItems: SidebarItem[] = [
   { id: 'account', labelKey: 'sidebar.account', icon: User, requiresAuth: true },
   { id: 'profile', labelKey: 'sidebar.profile', icon: UserCircle, requiresAuth: true },
+  { id: 'generation', labelKey: 'sidebar.aiAnalysis', icon: Sparkles, requiresAuth: true },
   { id: 'llm', labelKey: 'sidebar.aiProviders', icon: Bot },
 ]
 
@@ -41,10 +44,20 @@ const generalItems: SidebarItem[] = [
 export default function SettingsLayout() {
   const { t } = useTranslation('settings')
   const { user } = useUserStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isLoggedIn = !!user
 
-  // Default to 'account' if logged in, otherwise 'llm'
-  const [activeSection, setActiveSection] = useState<SectionId>(isLoggedIn ? 'account' : 'llm')
+  // Get section from URL or default to 'account' if logged in, otherwise 'llm'
+  const sectionFromUrl = searchParams.get('section') as SectionId | null
+  const defaultSection = isLoggedIn ? 'account' : 'llm'
+  const [activeSection, setActiveSection] = useState<SectionId>(sectionFromUrl || defaultSection)
+
+  // Update active section from URL param
+  useEffect(() => {
+    if (sectionFromUrl && sectionFromUrl !== activeSection) {
+      setActiveSection(sectionFromUrl)
+    }
+  }, [sectionFromUrl])
 
   // Update active section if user logs out while on account section
   useEffect(() => {
@@ -52,6 +65,12 @@ export default function SettingsLayout() {
       setActiveSection('llm')
     }
   }, [isLoggedIn, activeSection])
+
+  // Update URL when section changes
+  const handleSectionChange = (section: SectionId) => {
+    setActiveSection(section)
+    setSearchParams({ section })
+  }
 
   const renderSection = () => {
     switch (activeSection) {
@@ -69,6 +88,8 @@ export default function SettingsLayout() {
         return <AccountSection />
       case 'profile':
         return <ProfileSection />
+      case 'generation':
+        return <GenerationOptionsSection />
       default:
         return <AppearanceSection />
     }
@@ -83,7 +104,7 @@ export default function SettingsLayout() {
     return (
       <button
         key={item.id}
-        onClick={() => setActiveSection(item.id)}
+        onClick={() => handleSectionChange(item.id)}
         className={cn(
           'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors',
           'hover:bg-accent hover:text-accent-foreground',

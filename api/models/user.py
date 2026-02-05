@@ -20,12 +20,21 @@ class User(Base):
     phone = Column(String(50))               # Phone number
     address = Column(String(500))            # Address
     birthdate = Column(Date)                 # Date of birth
+    profile_photo_url = Column(String(500))  # Profile photo path (for resume/portfolio)
 
     # LLM preferences
     preferred_llm = Column(String(50), default="openai")  # "openai", "anthropic", or "gemini"
 
     # Language preference for analysis results
     preferred_language = Column(String(10), default="ko")  # "ko" or "en"
+
+    # Document generation preferences
+    default_summary_style = Column(String(50), default="professional")  # professional, casual, technical
+    default_output_format = Column(String(10), default="docx")  # docx, pdf, md
+    default_include_achievements = Column(String(5), default="true")  # "true" or "false" (SQLite bool workaround)
+    default_include_tech_stack = Column(String(5), default="true")  # "true" or "false"
+    default_skip_llm_summary = Column(String(5), default="false")  # "true" or "false"
+    default_regenerate_summaries = Column(String(5), default="false")  # "true" or "false"
 
     # Model preferences per provider
     openai_model = Column(String(100), default="gpt-4-turbo-preview")
