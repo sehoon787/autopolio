@@ -16,20 +16,36 @@ from sqlalchemy.orm import selectinload
 from api.models.user import User
 from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
+from api.models.achievement import ProjectAchievement
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.services.report_base import ReportBaseService
+from api.services.docx_styles import DocxStyler, DocxStyleConfig, DEFAULT_DOCX_STYLE
 from api.config import get_settings
 
 settings = get_settings()
+
+# Code contribution keywords to filter out (not a real achievement)
+CODE_CONTRIBUTION_KEYWORDS = ["코드 기여", "Code Contribution", "code contribution"]
+
+
+def filter_achievements(achievements: List[ProjectAchievement]) -> List[ProjectAchievement]:
+    """Filter out code contribution achievements (lines added/deleted is not a real achievement)."""
+    if not achievements:
+        return []
+    return [
+        a for a in achievements
+        if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
+    ]
 
 
 class ExportService(ReportBaseService):
     """Service for exporting project reports to Markdown and Word formats"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, style_config: Optional[DocxStyleConfig] = None):
         super().__init__(db)
         self.result_dir = settings.result_dir
+        self.styler = DocxStyler(style_config or DEFAULT_DOCX_STYLE)
 
     def _generate_toc(self, projects_data: List[Dict]) -> str:
         """Generate table of contents"""
@@ -74,8 +90,19 @@ class ExportService(ReportBaseService):
         lines.append("")
         return "\n".join(lines)
 
-    def _generate_project_section_summary(self, data: Dict, idx: int) -> str:
-        """Generate a summary project section with key tasks and achievements (요약 형식)"""
+    def _generate_project_section_summary(
+        self,
+        data: Dict,
+        idx: int,
+        include_code_stats: bool = False
+    ) -> str:
+        """Generate a summary project section with key tasks and achievements (요약 형식)
+
+        Args:
+            data: Project data dict
+            idx: Project index
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
+        """
         project = data["project"]
         analysis = data["analysis"]
         edits = data.get("edits")
@@ -109,7 +136,7 @@ class ExportService(ReportBaseService):
 
         # Achievements section
         detailed_achievements = self._get_effective_detailed_achievements(analysis, edits)
-        achievements = project.achievements if project.achievements else []
+        achievements = filter_achievements(project.achievements)
 
         has_achievements = (detailed_achievements and isinstance(detailed_achievements, dict)) or bool(achievements)
         if has_achievements:
@@ -159,8 +186,8 @@ class ExportService(ReportBaseService):
                             lines.append(f"  - {ach.description}")
                     lines.append("")
 
-        # Code statistics (if available)
-        if analysis:
+        # Code statistics (if available and requested)
+        if include_code_stats and analysis:
             lines.append("### 3. 코드 기여 통계")
             lines.append("")
             lines.append(f"- **총 커밋**: {analysis.total_commits or 0}개")
@@ -175,8 +202,19 @@ class ExportService(ReportBaseService):
         lines.append("")
         return "\n".join(lines)
 
-    def _generate_project_section_detailed(self, data: Dict, idx: int) -> str:
-        """Generate a detailed project section (상세 형식) - DETAILED_COMPLETION_REPORT style"""
+    def _generate_project_section_detailed(
+        self,
+        data: Dict,
+        idx: int,
+        include_code_stats: bool = False
+    ) -> str:
+        """Generate a detailed project section (상세 형식) - DETAILED_COMPLETION_REPORT style
+
+        Args:
+            data: Project data dict
+            idx: Project index
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
+        """
         project = data["project"]
         analysis = data["analysis"]
         edits = data.get("edits")
@@ -194,10 +232,10 @@ class ExportService(ReportBaseService):
             repo_name = project.git_url.split("/")[-1].replace(".git", "") if project.git_url else project.name
             lines.append(f"- **저장소**: {repo_name}")
             lines.append(f"- **GitHub**: {project.git_url}")
-        if analysis:
+        if include_code_stats and analysis:
             lines.append(f"- **커밋**: {analysis.total_commits or 0}개")
         lines.append(f"- **기간**: {self._format_date_range(project.start_date, project.end_date)}")
-        if analysis:
+        if include_code_stats and analysis:
             lines.append(f"- **코드 변경량**: {analysis.lines_added or 0:,} 라인 추가, {analysis.lines_deleted or 0:,} 라인 삭제")
         if project.description:
             lines.append(f"- **프로젝트 성격**: {project.description[:100]}")
@@ -277,7 +315,7 @@ class ExportService(ReportBaseService):
 
         # Achievements
         detailed_achievements = self._get_effective_detailed_achievements(analysis, edits)
-        achievements = project.achievements if project.achievements else []
+        achievements = filter_achievements(project.achievements)
 
         if detailed_achievements or achievements:
             lines.append("### 주요 성과")
@@ -324,8 +362,19 @@ class ExportService(ReportBaseService):
         lines.append("")
         return "\n".join(lines)
 
-    def _generate_project_section_final(self, data: Dict, idx: int) -> str:
-        """Generate a final project section (상세 요약 형식) - FINAL_PROJECT_REPORT style"""
+    def _generate_project_section_final(
+        self,
+        data: Dict,
+        idx: int,
+        include_code_stats: bool = False
+    ) -> str:
+        """Generate a final project section (상세 요약 형식) - FINAL_PROJECT_REPORT style
+
+        Args:
+            data: Project data dict
+            idx: Project index
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
+        """
         project = data["project"]
         analysis = data["analysis"]
         edits = data.get("edits")
@@ -342,7 +391,7 @@ class ExportService(ReportBaseService):
         if project.git_url:
             lines.append(f"- **GitHub**: {project.git_url}")
         lines.append(f"- **기간**: {self._format_date_range(project.start_date, project.end_date)}")
-        if analysis:
+        if include_code_stats and analysis:
             lines.append(f"- **커밋**: {analysis.total_commits or 0}개 | **코드 변경**: +{analysis.lines_added or 0:,} / -{analysis.lines_deleted or 0:,}")
         if project.description:
             lines.append(f"- **소개**: {project.description[:150]}")
@@ -390,7 +439,7 @@ class ExportService(ReportBaseService):
 
         # Achievements (compact)
         detailed_achievements = self._get_effective_detailed_achievements(analysis, edits)
-        achievements = project.achievements if project.achievements else []
+        achievements = filter_achievements(project.achievements)
 
         if detailed_achievements or achievements:
             lines.append("### 성과")
@@ -460,7 +509,11 @@ class ExportService(ReportBaseService):
         lines.extend(["", "---", ""])
         return lines
 
-    async def generate_summary_report(self, user_id: int) -> str:
+    async def generate_summary_report(
+        self,
+        user_id: int,
+        include_code_stats: bool = False
+    ) -> str:
         """
         Generate summary report (요약) - PROJECT_PERFORMANCE_SUMMARY.md style
 
@@ -471,7 +524,11 @@ class ExportService(ReportBaseService):
         - Per-project sections with:
           - 주요 수행 업무 (key tasks) in (1), (2), (3) format
           - 프로젝트 성과 (achievements by category)
-          - 코드 기여 통계
+          - 코드 기여 통계 (optional, disabled by default)
+
+        Args:
+            user_id: User ID
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
         """
         projects_data, user = await self._get_analyzed_projects(user_id)
 
@@ -492,11 +549,15 @@ class ExportService(ReportBaseService):
 
         # Add project sections (summary format)
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._generate_project_section_summary(data, idx))
+            lines.append(self._generate_project_section_summary(data, idx, include_code_stats))
 
         return "\n".join(lines)
 
-    async def generate_detailed_report(self, user_id: int) -> str:
+    async def generate_detailed_report(
+        self,
+        user_id: int,
+        include_code_stats: bool = False
+    ) -> str:
         """
         Generate detailed report (상세) - DETAILED_COMPLETION_REPORT style
 
@@ -505,11 +566,16 @@ class ExportService(ReportBaseService):
         - Table of contents
         - Overview statistics
         - Per-project sections with:
-          - 프로젝트 개요 (저장소, GitHub, 커밋, 기간, 코드 변경량)
+          - 프로젝트 개요 (저장소, GitHub, 기간)
+          - 코드 기여 통계 (optional - 커밋, 코드 변경량)
           - 기술 스택 (카테고리별)
           - 주요 구현 기능 (상세)
           - 개발 타임라인
           - 주요 성과 (카테고리별)
+
+        Args:
+            user_id: User ID
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
         """
         projects_data, user = await self._get_analyzed_projects(user_id)
 
@@ -530,11 +596,15 @@ class ExportService(ReportBaseService):
 
         # Add project sections (detailed format)
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._generate_project_section_detailed(data, idx))
+            lines.append(self._generate_project_section_detailed(data, idx, include_code_stats))
 
         return "\n".join(lines)
 
-    async def generate_final_report(self, user_id: int) -> str:
+    async def generate_final_report(
+        self,
+        user_id: int,
+        include_code_stats: bool = False
+    ) -> str:
         """
         Generate final report (상세 요약) - FINAL_PROJECT_REPORT style
 
@@ -544,10 +614,15 @@ class ExportService(ReportBaseService):
         - Overview statistics
         - Per-project sections with:
           - 프로젝트 개요 (간략)
+          - 코드 기여 통계 (optional - 커밋, 코드 변경)
           - 기술 스택 (한 줄)
           - 주요 구현 기능 (상위 3개)
           - 주요 수행 업무 (상위 8개)
           - 성과 (상위 카테고리)
+
+        Args:
+            user_id: User ID
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
         """
         projects_data, user = await self._get_analyzed_projects(user_id)
 
@@ -568,22 +643,32 @@ class ExportService(ReportBaseService):
 
         # Add project sections (final format - concise)
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._generate_project_section_final(data, idx))
+            lines.append(self._generate_project_section_final(data, idx, include_code_stats))
 
         return "\n".join(lines)
 
     # Alias for backward compatibility
-    async def generate_performance_summary_report(self, user_id: int) -> str:
+    async def generate_performance_summary_report(
+        self,
+        user_id: int,
+        include_code_stats: bool = False
+    ) -> str:
         """Alias for generate_summary_report (backward compatibility)"""
-        return await self.generate_summary_report(user_id)
+        return await self.generate_summary_report(user_id, include_code_stats)
 
-    async def export_to_markdown(self, user_id: int, report_type: str = "summary") -> tuple[str, str]:
+    async def export_to_markdown(
+        self,
+        user_id: int,
+        report_type: str = "summary",
+        include_code_stats: bool = False
+    ) -> tuple[str, str]:
         """
         Export report to Markdown file
 
         Args:
             user_id: User ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             Tuple of (file_path, content)
@@ -591,13 +676,13 @@ class ExportService(ReportBaseService):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         if report_type == "detailed":
-            content = await self.generate_detailed_report(user_id)
+            content = await self.generate_detailed_report(user_id, include_code_stats)
             filename = f"PROJECT_DETAILED_REPORT_{timestamp}.md"
         elif report_type == "final":
-            content = await self.generate_final_report(user_id)
+            content = await self.generate_final_report(user_id, include_code_stats)
             filename = f"PROJECT_FINAL_REPORT_{timestamp}.md"
         else:  # summary (default)
-            content = await self.generate_summary_report(user_id)
+            content = await self.generate_summary_report(user_id, include_code_stats)
             filename = f"PROJECT_SUMMARY_REPORT_{timestamp}.md"
 
         os.makedirs(self.result_dir, exist_ok=True)
@@ -608,31 +693,41 @@ class ExportService(ReportBaseService):
 
         return str(file_path), content
 
-    async def export_to_docx(self, user_id: int, report_type: str = "summary") -> str:
+    async def export_to_docx(
+        self,
+        user_id: int,
+        report_type: str = "summary",
+        include_code_stats: bool = False
+    ) -> str:
         """
-        Export report to Word document
+        Export report to Word document with proper styling
+
+        Uses DocxStyler for consistent formatting:
+        - Title (대제목): 24pt, bold, black
+        - Heading1 (중제목): 18pt, bold, black
+        - Heading2 (소제목): 14pt, bold, black
+        - Normal text: 11pt, black
 
         Args:
             user_id: User ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             File path to generated DOCX
         """
         from docx import Document
-        from docx.shared import Pt, Inches
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         if report_type == "detailed":
-            content = await self.generate_detailed_report(user_id)
+            content = await self.generate_detailed_report(user_id, include_code_stats)
             filename = f"PROJECT_DETAILED_REPORT_{timestamp}.docx"
         elif report_type == "final":
-            content = await self.generate_final_report(user_id)
+            content = await self.generate_final_report(user_id, include_code_stats)
             filename = f"PROJECT_FINAL_REPORT_{timestamp}.docx"
         else:  # summary (default)
-            content = await self.generate_summary_report(user_id)
+            content = await self.generate_summary_report(user_id, include_code_stats)
             filename = f"PROJECT_SUMMARY_REPORT_{timestamp}.docx"
 
         os.makedirs(self.result_dir, exist_ok=True)
@@ -640,64 +735,52 @@ class ExportService(ReportBaseService):
 
         doc = Document()
 
-        # Set default font
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Malgun Gothic'
-        font.size = Pt(11)
+        # Set up document styles (removes colors, sets fonts)
+        self.styler.setup_document(doc)
 
-        # Parse markdown and convert to DOCX
+        # Parse markdown and convert to DOCX with proper styling
         lines = content.split('\n')
         for line in lines:
             stripped = line.strip()
 
             if stripped.startswith('# '):
-                para = doc.add_heading(stripped[2:], level=1)
+                # Title (대제목) - 24pt
+                self.styler.add_title(doc, stripped[2:], center=False)
             elif stripped.startswith('## '):
-                para = doc.add_heading(stripped[3:], level=2)
+                # Heading1 (중제목) - 18pt
+                self.styler.add_heading1(doc, stripped[3:])
             elif stripped.startswith('### '):
-                para = doc.add_heading(stripped[4:], level=3)
+                # Heading2 (소제목) - 14pt
+                self.styler.add_heading2(doc, stripped[4:])
             elif stripped.startswith('#### '):
-                para = doc.add_paragraph()
-                run = para.add_run(stripped[5:])
-                run.bold = True
+                # Heading3 (소소제목) - 12pt
+                self.styler.add_heading3(doc, stripped[5:])
             elif stripped.startswith('- **') and '**:' in stripped:
                 # Key-value pair like "- **기간**: 2024.01 ~ 2024.06"
-                para = doc.add_paragraph(style='List Bullet')
-                # Parse bold text
                 match = re.match(r'- \*\*(.+?)\*\*:?\s*(.*)', stripped)
                 if match:
-                    run = para.add_run(match.group(1))
-                    run.bold = True
-                    if match.group(2):
-                        para.add_run(f": {match.group(2)}")
+                    self.styler.add_key_value(doc, match.group(1), match.group(2), as_bullet=True)
                 else:
-                    para.add_run(stripped[2:])
+                    self.styler.add_bullet(doc, stripped[2:])
             elif stripped.startswith('- '):
-                para = doc.add_paragraph(stripped[2:], style='List Bullet')
+                self.styler.add_bullet(doc, stripped[2:])
             elif stripped.startswith('(') and ')' in stripped[:5]:
                 # Numbered item like "(1) 내용"
-                para = doc.add_paragraph(stripped)
+                self.styler.add_paragraph(doc, stripped)
             elif stripped.startswith('**[') and ']**' in stripped:
                 # Bold section title like "**[ Export 최적화 ]**"
-                para = doc.add_paragraph()
                 title = re.search(r'\*\*\[\s*(.+?)\s*\]\*\*', stripped)
                 if title:
-                    run = para.add_run(f"[ {title.group(1)} ]")
-                    run.bold = True
+                    self.styler.add_section_title(doc, f"[ {title.group(1)} ]")
                 else:
-                    run = para.add_run(stripped.replace('**', ''))
-                    run.bold = True
+                    self.styler.add_bold_text(doc, stripped.replace('**', ''))
             elif stripped.startswith('**') and stripped.endswith('**'):
-                para = doc.add_paragraph()
-                run = para.add_run(stripped[2:-2])
-                run.bold = True
+                self.styler.add_bold_text(doc, stripped[2:-2])
             elif stripped.startswith('|'):
                 # Table row - simplified handling
-                para = doc.add_paragraph(stripped)
-                para.style = 'Normal'
+                self.styler.add_paragraph(doc, stripped)
             elif stripped == '---':
-                doc.add_paragraph()  # Add spacing
+                self.styler.add_spacing(doc)
             elif stripped:
                 # Handle inline bold
                 para = doc.add_paragraph()
@@ -706,19 +789,31 @@ class ExportService(ReportBaseService):
                     if part.startswith('**') and part.endswith('**'):
                         run = para.add_run(part[2:-2])
                         run.bold = True
+                        run.font.size = self.styler.config.normal.pt_size
+                        run.font.name = self.styler.config.font_name
+                        run.font.color.rgb = self.styler.config.normal.rgb_color
                     else:
-                        para.add_run(part)
+                        run = para.add_run(part)
+                        run.font.size = self.styler.config.normal.pt_size
+                        run.font.name = self.styler.config.font_name
+                        run.font.color.rgb = self.styler.config.normal.rgb_color
 
         doc.save(file_path)
         return str(file_path)
 
-    async def get_export_preview(self, user_id: int, report_type: str = "summary") -> Dict[str, Any]:
+    async def get_export_preview(
+        self,
+        user_id: int,
+        report_type: str = "summary",
+        include_code_stats: bool = False
+    ) -> Dict[str, Any]:
         """
         Get preview data for export
 
         Args:
             user_id: User ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             Dict with project count, preview content, etc.
@@ -726,11 +821,11 @@ class ExportService(ReportBaseService):
         projects_data, user = await self._get_analyzed_projects(user_id)
 
         if report_type == "detailed":
-            content = await self.generate_detailed_report(user_id)
+            content = await self.generate_detailed_report(user_id, include_code_stats)
         elif report_type == "final":
-            content = await self.generate_final_report(user_id)
+            content = await self.generate_final_report(user_id, include_code_stats)
         else:  # summary (default)
-            content = await self.generate_summary_report(user_id)
+            content = await self.generate_summary_report(user_id, include_code_stats)
 
         # Calculate stats
         total_commits = sum(
@@ -745,7 +840,7 @@ class ExportService(ReportBaseService):
 
         has_achievements = any(
             self._get_effective_detailed_achievements(data["analysis"], data.get("edits")) or
-            (data["project"].achievements and len(data["project"].achievements) > 0)
+            len(filter_achievements(data["project"].achievements)) > 0
             for data in projects_data
         )
 
@@ -814,7 +909,8 @@ class ExportService(ReportBaseService):
     async def generate_single_project_report(
         self,
         project_id: int,
-        report_type: str = "summary"
+        report_type: str = "summary",
+        include_code_stats: bool = False
     ) -> str:
         """
         Generate a report for a single project
@@ -822,6 +918,7 @@ class ExportService(ReportBaseService):
         Args:
             project_id: Project ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             Markdown content
@@ -844,18 +941,19 @@ class ExportService(ReportBaseService):
 
         # Add project section based on report type
         if report_type == "detailed":
-            lines.append(self._generate_project_section_detailed(data, 1).replace("## 1. ", "## "))
+            lines.append(self._generate_project_section_detailed(data, 1, include_code_stats).replace("## 1. ", "## "))
         elif report_type == "final":
-            lines.append(self._generate_project_section_final(data, 1).replace("## 1. ", "## "))
+            lines.append(self._generate_project_section_final(data, 1, include_code_stats).replace("## 1. ", "## "))
         else:  # summary
-            lines.append(self._generate_project_section_summary(data, 1).replace("## 1. ", "## "))
+            lines.append(self._generate_project_section_summary(data, 1, include_code_stats).replace("## 1. ", "## "))
 
         return "\n".join(lines)
 
     async def export_single_project_to_markdown(
         self,
         project_id: int,
-        report_type: str = "summary"
+        report_type: str = "summary",
+        include_code_stats: bool = False
     ) -> tuple[str, str]:
         """
         Export single project report to Markdown file
@@ -863,6 +961,7 @@ class ExportService(ReportBaseService):
         Args:
             project_id: Project ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             Tuple of (file_path, content)
@@ -870,7 +969,7 @@ class ExportService(ReportBaseService):
         data = await self._get_single_project(project_id)
         project = data["project"]
 
-        content = await self.generate_single_project_report(project_id, report_type)
+        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         safe_name = re.sub(r'[^\w\s-]', '', project.name).strip().replace(' ', '_')[:30]
@@ -887,25 +986,32 @@ class ExportService(ReportBaseService):
     async def export_single_project_to_docx(
         self,
         project_id: int,
-        report_type: str = "summary"
+        report_type: str = "summary",
+        include_code_stats: bool = False
     ) -> str:
         """
-        Export single project report to Word document
+        Export single project report to Word document with proper styling
+
+        Uses DocxStyler for consistent formatting:
+        - Title (대제목): 24pt, bold, black
+        - Heading1 (중제목): 18pt, bold, black
+        - Heading2 (소제목): 14pt, bold, black
+        - Normal text: 11pt, black
 
         Args:
             project_id: Project ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             File path to generated DOCX
         """
         from docx import Document
-        from docx.shared import Pt
 
         data = await self._get_single_project(project_id)
         project = data["project"]
 
-        content = await self.generate_single_project_report(project_id, report_type)
+        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         safe_name = re.sub(r'[^\w\s-]', '', project.name).strip().replace(' ', '_')[:30]
@@ -916,56 +1022,46 @@ class ExportService(ReportBaseService):
 
         doc = Document()
 
-        # Set default font
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Malgun Gothic'
-        font.size = Pt(11)
+        # Set up document styles (removes colors, sets fonts)
+        self.styler.setup_document(doc)
 
-        # Parse markdown and convert to DOCX (reuse existing logic)
+        # Parse markdown and convert to DOCX with proper styling
         lines = content.split('\n')
         for line in lines:
             stripped = line.strip()
 
             if stripped.startswith('# '):
-                doc.add_heading(stripped[2:], level=1)
+                # Title (대제목) - 24pt
+                self.styler.add_title(doc, stripped[2:], center=False)
             elif stripped.startswith('## '):
-                doc.add_heading(stripped[3:], level=2)
+                # Heading1 (중제목) - 18pt
+                self.styler.add_heading1(doc, stripped[3:])
             elif stripped.startswith('### '):
-                doc.add_heading(stripped[4:], level=3)
+                # Heading2 (소제목) - 14pt
+                self.styler.add_heading2(doc, stripped[4:])
             elif stripped.startswith('#### '):
-                para = doc.add_paragraph()
-                run = para.add_run(stripped[5:])
-                run.bold = True
+                # Heading3 (소소제목) - 12pt
+                self.styler.add_heading3(doc, stripped[5:])
             elif stripped.startswith('- **') and '**:' in stripped:
-                para = doc.add_paragraph(style='List Bullet')
                 match = re.match(r'- \*\*(.+?)\*\*:?\s*(.*)', stripped)
                 if match:
-                    run = para.add_run(match.group(1))
-                    run.bold = True
-                    if match.group(2):
-                        para.add_run(f": {match.group(2)}")
+                    self.styler.add_key_value(doc, match.group(1), match.group(2), as_bullet=True)
                 else:
-                    para.add_run(stripped[2:])
+                    self.styler.add_bullet(doc, stripped[2:])
             elif stripped.startswith('- '):
-                doc.add_paragraph(stripped[2:], style='List Bullet')
+                self.styler.add_bullet(doc, stripped[2:])
             elif stripped.startswith('(') and ')' in stripped[:5]:
-                doc.add_paragraph(stripped)
+                self.styler.add_paragraph(doc, stripped)
             elif stripped.startswith('**[') and ']**' in stripped:
-                para = doc.add_paragraph()
                 title = re.search(r'\*\*\[\s*(.+?)\s*\]\*\*', stripped)
                 if title:
-                    run = para.add_run(f"[ {title.group(1)} ]")
-                    run.bold = True
+                    self.styler.add_section_title(doc, f"[ {title.group(1)} ]")
                 else:
-                    run = para.add_run(stripped.replace('**', ''))
-                    run.bold = True
+                    self.styler.add_bold_text(doc, stripped.replace('**', ''))
             elif stripped.startswith('**') and stripped.endswith('**'):
-                para = doc.add_paragraph()
-                run = para.add_run(stripped[2:-2])
-                run.bold = True
+                self.styler.add_bold_text(doc, stripped[2:-2])
             elif stripped == '---':
-                doc.add_paragraph()
+                self.styler.add_spacing(doc)
             elif stripped:
                 para = doc.add_paragraph()
                 parts = re.split(r'(\*\*.+?\*\*)', stripped)
@@ -973,8 +1069,14 @@ class ExportService(ReportBaseService):
                     if part.startswith('**') and part.endswith('**'):
                         run = para.add_run(part[2:-2])
                         run.bold = True
+                        run.font.size = self.styler.config.normal.pt_size
+                        run.font.name = self.styler.config.font_name
+                        run.font.color.rgb = self.styler.config.normal.rgb_color
                     else:
-                        para.add_run(part)
+                        run = para.add_run(part)
+                        run.font.size = self.styler.config.normal.pt_size
+                        run.font.name = self.styler.config.font_name
+                        run.font.color.rgb = self.styler.config.normal.rgb_color
 
         doc.save(file_path)
         return str(file_path)
@@ -982,7 +1084,8 @@ class ExportService(ReportBaseService):
     async def get_single_project_preview(
         self,
         project_id: int,
-        report_type: str = "summary"
+        report_type: str = "summary",
+        include_code_stats: bool = False
     ) -> Dict[str, Any]:
         """
         Get preview data for single project export
@@ -990,6 +1093,7 @@ class ExportService(ReportBaseService):
         Args:
             project_id: Project ID
             report_type: "detailed", "final", or "summary"
+            include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, etc.)
 
         Returns:
             Dict with project info, preview content, etc.
@@ -999,13 +1103,13 @@ class ExportService(ReportBaseService):
         analysis = data["analysis"]
         edits = data.get("edits")
 
-        content = await self.generate_single_project_report(project_id, report_type)
+        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
 
         total_commits = analysis.total_commits if analysis else 0
         has_key_tasks = bool(self._get_effective_key_tasks(analysis, edits))
         has_achievements = bool(
             self._get_effective_detailed_achievements(analysis, edits) or
-            (project.achievements and len(project.achievements) > 0)
+            len(filter_achievements(project.achievements)) > 0
         )
 
         return {

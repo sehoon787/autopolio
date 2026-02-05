@@ -194,6 +194,7 @@ async def get_performance_summary_for_project(
 async def get_export_preview(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -204,10 +205,12 @@ async def get_export_preview(
     - "detailed": 상세 - Full DETAILED_COMPLETION_REPORT style with project overview, tech stack, implementation details, timeline, achievements
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style with key info and top achievements
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style with key tasks and achievements
+
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits) in the report
     """
     export_service = ExportService(db)
     try:
-        preview = await export_service.get_export_preview(user_id, report_type)
+        preview = await export_service.get_export_preview(user_id, report_type, include_code_stats)
         return preview
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -221,6 +224,7 @@ async def get_export_preview(
 async def export_to_markdown(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -231,11 +235,13 @@ async def export_to_markdown(
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style with key tasks and achievements
 
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
+
     Returns file path and download URL.
     """
     export_service = ExportService(db)
     try:
-        file_path, content = await export_service.export_to_markdown(user_id, report_type)
+        file_path, content = await export_service.export_to_markdown(user_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
         return {
             "success": True,
@@ -257,6 +263,7 @@ async def export_to_markdown(
 async def export_to_docx(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -267,11 +274,13 @@ async def export_to_docx(
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style with key tasks and achievements
 
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
+
     Returns file path and download URL.
     """
     export_service = ExportService(db)
     try:
-        file_path = await export_service.export_to_docx(user_id, report_type)
+        file_path = await export_service.export_to_docx(user_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
         return {
             "success": True,
@@ -321,6 +330,7 @@ async def download_export_file(filename: str):
 async def get_single_project_export_preview(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -330,10 +340,12 @@ async def get_single_project_export_preview(
     - "detailed": 상세 - Full DETAILED_COMPLETION_REPORT style
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style
+
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
     export_service = ExportService(db)
     try:
-        preview = await export_service.get_single_project_preview(project_id, report_type)
+        preview = await export_service.get_single_project_preview(project_id, report_type, include_code_stats)
         return preview
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -347,6 +359,7 @@ async def get_single_project_export_preview(
 async def export_single_project_to_markdown(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -356,10 +369,12 @@ async def export_single_project_to_markdown(
     - "detailed": 상세 - Full DETAILED_COMPLETION_REPORT style
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style
+
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
     export_service = ExportService(db)
     try:
-        file_path, content = await export_service.export_single_project_to_markdown(project_id, report_type)
+        file_path, content = await export_service.export_single_project_to_markdown(project_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
         return {
             "success": True,
@@ -381,6 +396,7 @@ async def export_single_project_to_markdown(
 async def export_single_project_to_docx(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
+    include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -390,10 +406,12 @@ async def export_single_project_to_docx(
     - "detailed": 상세 - Full DETAILED_COMPLETION_REPORT style
     - "final": 상세 요약 - Concise FINAL_PROJECT_REPORT style
     - "summary": 요약 - PROJECT_PERFORMANCE_SUMMARY style
+
+    include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
     export_service = ExportService(db)
     try:
-        file_path = await export_service.export_single_project_to_docx(project_id, report_type)
+        file_path = await export_service.export_single_project_to_docx(project_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
         return {
             "success": True,
@@ -537,10 +555,11 @@ async def delete_document(document_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
 
     # Delete file if exists
-    if os.path.exists(document.file_path):
+    if document.file_path and os.path.exists(document.file_path):
         os.remove(document.file_path)
 
     await db.delete(document)
+    await db.flush()  # Ensure delete is staged for commit
 
 
 @router.put("/{document_id}/archive")
