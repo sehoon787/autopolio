@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -111,6 +113,16 @@ app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
 app.include_router(platforms.router, prefix="/api/platforms", tags=["Platforms"])
 app.include_router(lookup.router, prefix="/api", tags=["Lookup"])
 app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Log validation errors for debugging."""
+    logging.error(f"Validation error for {request.method} {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
 
 
 @app.get("/")

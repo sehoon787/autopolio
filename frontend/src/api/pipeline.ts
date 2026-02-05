@@ -16,15 +16,13 @@ export interface PipelineRunRequest {
   company_ids?: number[]
   template_id: number
   output_format?: string
-  skip_github_analysis?: boolean
-  skip_llm_summary?: boolean
-  regenerate_summaries?: boolean
+  // Auto-analyze unanalyzed projects before generation
+  auto_analyze?: boolean
   document_name?: string
   include_achievements?: boolean
   include_tech_stack?: boolean
+  // LLM settings (for auto-analysis)
   llm_provider?: string
-  summary_style?: string
-  // CLI mode settings
   cli_mode?: 'claude_code' | 'gemini_cli'
   cli_model?: string
 }

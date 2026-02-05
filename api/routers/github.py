@@ -516,6 +516,11 @@ async def analyze_repository(
         if not analysis_language:
             analysis_language = getattr(user, 'preferred_language', 'ko') or 'ko'
 
+        # Get summary style from request or user's default setting
+        summary_style = request.summary_style
+        if not summary_style:
+            summary_style = getattr(user, 'default_summary_style', 'professional') or 'professional'
+
         project_id = request.project_id
         if project_id:
             proj_result = await db.execute(
@@ -825,7 +830,7 @@ async def analyze_repository(
                 }
                 summary_result = await llm_service.generate_project_summary(
                     summary_project_data,
-                    style="professional",
+                    style=summary_style,
                     language=analysis_language
                 )
                 if summary_result:

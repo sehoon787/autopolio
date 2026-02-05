@@ -7,6 +7,7 @@ from datetime import date
 
 from api.database import get_db
 from api.models.project import Project, Technology, ProjectTechnology
+from api.models.achievement import ProjectAchievement
 from api.models.user import User
 from api.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse,
@@ -14,6 +15,17 @@ from api.schemas.project import (
 )
 
 router = APIRouter()
+
+# Code contribution keywords to filter out (not a real achievement)
+CODE_CONTRIBUTION_KEYWORDS = ["코드 기여", "Code Contribution", "code contribution"]
+
+
+def filter_achievements(achievements: List[ProjectAchievement]) -> List[ProjectAchievement]:
+    """Filter out code contribution achievements (lines added/deleted is not a real achievement)."""
+    return [
+        a for a in achievements
+        if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
+    ]
 
 
 async def get_or_create_technology(
@@ -170,7 +182,7 @@ async def get_projects(
                 {"id": pt.technology.id, "name": pt.technology.name, "category": pt.technology.category}
                 for pt in project.technologies
             ],
-            "achievements": project.achievements
+            "achievements": filter_achievements(project.achievements)
         }
         projects_response.append(project_dict)
 
@@ -229,7 +241,7 @@ async def get_project(
             {"id": pt.technology.id, "name": pt.technology.name, "category": pt.technology.category}
             for pt in project.technologies
         ],
-        "achievements": project.achievements
+        "achievements": filter_achievements(project.achievements)
     }
 
 
@@ -388,7 +400,7 @@ async def update_project(
             {"id": pt.technology.id, "name": pt.technology.name, "category": pt.technology.category}
             for pt in project.technologies
         ],
-        "achievements": project.achievements
+        "achievements": filter_achievements(project.achievements)
     }
 
 

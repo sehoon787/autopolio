@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -40,9 +40,11 @@ const stepIcons = [
 
 export default function PipelinePage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { currentTaskId, status, setStatus, reset } = usePipelineStore()
   const { trackTokenUsage, incrementLLMCallCount } = useUsageStore()
   const usageTrackedRef = useRef<string | null>(null) // Track which task's usage has been recorded
+  const documentsInvalidatedRef = useRef<string | null>(null) // Track if documents cache was invalidated
   const [pollErrorCount, setPollErrorCount] = useState(0)
   const [pollingStopped, setPollingStopped] = useState(false)
 
@@ -133,6 +135,20 @@ export default function PipelinePage() {
       }
     }
   }, [status?.status, status?.result, currentTaskId, trackTokenUsage, incrementLLMCallCount])
+
+  // Invalidate documents cache when pipeline completes (only once per task)
+  useEffect(() => {
+    if (status?.status === 'completed' && status.result && currentTaskId) {
+      // Only invalidate once per task
+      if (documentsInvalidatedRef.current === currentTaskId) {
+        return
+      }
+      documentsInvalidatedRef.current = currentTaskId
+
+      // Invalidate documents cache so the Documents page shows the new document
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    }
+  }, [status?.status, status?.result, currentTaskId, queryClient])
 
   useEffect(() => {
     if (!currentTaskId) {

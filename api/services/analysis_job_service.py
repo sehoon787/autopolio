@@ -369,6 +369,7 @@ async def run_background_analysis(
     options = options or {}
     total_tokens = 0
     language = options.get("language", "ko")  # Default to Korean
+    summary_style = options.get("summary_style", "professional")  # Default to professional
 
     logger.info("[BackgroundAnalysis] Options: %s", options)
     logger.info("[BackgroundAnalysis] Analysis language: %s", language)
@@ -659,7 +660,7 @@ async def run_background_analysis(
 
                         summary_result = await llm_service.generate_project_summary(
                             summary_project_data,
-                            style="professional",
+                            style=summary_style,
                             language=language
                         )
                         if summary_result:

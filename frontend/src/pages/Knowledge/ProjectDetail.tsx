@@ -507,6 +507,7 @@ export default function ProjectDetailPage() {
             project={project}
             analysis={analysis}
             final={final}
+            detailed={detailed}
             editStatus={analysis?.edit_status}
             t={t}
             onSaveKeyTasks={async (items) => {

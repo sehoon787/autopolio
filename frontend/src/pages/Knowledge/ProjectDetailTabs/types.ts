@@ -17,6 +17,7 @@ export interface SummaryTabProps {
   project: any
   analysis: EffectiveRepoAnalysis | undefined
   final: FinalReportData | undefined
+  detailed: DetailedReportData | undefined
   editStatus?: EditStatus
   t: (key: string, options?: any) => string
   onSaveKeyTasks: (items: string[]) => Promise<void>

@@ -76,6 +76,14 @@ async def init_db():
             await conn.execute(text("ALTER TABLE users ADD COLUMN address VARCHAR(500)"))
         if 'birthdate' not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN birthdate DATE"))
+        if 'profile_photo_url' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN profile_photo_url VARCHAR(500)"))
+
+        # Add AI analysis settings columns (v1.12)
+        if 'default_analysis_language' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN default_analysis_language VARCHAR(10) DEFAULT 'ko'"))
+        if 'default_analysis_scope' not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN default_analysis_scope VARCHAR(20) DEFAULT 'standard'"))
 
         # Create indexes for foreign keys if they don't exist (v1.9)
         # SQLite automatically creates indexes for PRIMARY KEY but not for FOREIGN KEY

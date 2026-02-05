@@ -14,9 +14,9 @@ export const ANALYSIS_TIMEOUT = 300000
 const apiClient = axios.create({
   baseURL: '/api',
   timeout: DEFAULT_TIMEOUT,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Don't set default Content-Type - let axios set it automatically based on request data
+  // For JSON requests, axios will set it to application/json
+  // For FormData requests, axios will set it to multipart/form-data with correct boundary
 })
 
 // Dynamic base URL interceptor for Electron/Web dual mode

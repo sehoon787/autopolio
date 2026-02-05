@@ -51,6 +51,7 @@ class RepoAnalysisRequest(BaseModel):
     """Request to analyze a GitHub repository."""
     git_url: str
     project_id: Optional[int] = None  # Associate with existing project
+    summary_style: Optional[str] = None  # "professional", "casual", "technical" - uses user default if not specified
 
 
 class RepoAnalysisResponse(BaseModel):

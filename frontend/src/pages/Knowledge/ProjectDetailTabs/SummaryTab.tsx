@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
 import { EditableList } from '@/components/EditableList'
-import { Code, FileText, Sparkles, Pencil } from 'lucide-react'
+import { Code, FileText, Sparkles, Pencil, Trophy } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { SummaryTabProps } from './types'
 
@@ -12,6 +12,7 @@ export function SummaryTab({
   project,
   analysis,
   final,
+  detailed,
   editStatus,
   t,
   onSaveKeyTasks,
@@ -151,36 +152,33 @@ export function SummaryTab({
         </Card>
       )}
 
-      {/* 성과 */}
-      {(final?.achievements?.length || project.achievements?.length) ? (
+      {/* 성과 - 카테고리별 그룹화 + 제목 리스트 (상세 분석 요약) */}
+      {detailed?.detailed_achievements && Object.keys(detailed.detailed_achievements).length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t('detail.summary.achievements')}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              {t('detail.summary.achievements')}
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(final?.achievements || project.achievements || []).map((ach: any, index: number) => (
-                <div
-                  key={index}
-                  className="relative bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100"
-                >
-                  {/* 카테고리 제목 */}
-                  <h4 className="text-base font-bold text-amber-800 mb-2">
-                    {ach.metric_name}
+          <CardContent className="space-y-5">
+            {Object.entries(detailed.detailed_achievements).map(([category, achievements]) => (
+              achievements.length > 0 && (
+                <div key={category} className="bg-amber-50 dark:bg-amber-950/30 rounded-xl p-5 border-2 border-amber-300 shadow-sm">
+                  <h4 className="text-lg font-bold text-amber-800 dark:text-amber-300 mb-3 pb-2 border-b border-amber-200 dark:border-amber-700">
+                    {category}
                   </h4>
-                  {/* 설명 */}
-                  {ach.description && (
-                    <p className="text-sm font-semibold text-gray-700 leading-relaxed">{ach.description}</p>
-                  )}
-                  {/* 수치 */}
-                  {ach.metric_value && (
-                    <div className="mt-3 pt-2 border-t border-amber-200">
-                      <span className="text-lg font-bold text-amber-700">{ach.metric_value}</span>
-                    </div>
-                  )}
+                  <ul className="space-y-2.5">
+                    {achievements.map((ach: any, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <span className="text-amber-600 dark:text-amber-400 font-bold text-lg leading-6 flex-shrink-0">•</span>
+                        <span className="text-gray-900 dark:text-gray-100 leading-relaxed font-medium">{ach.title}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
-            </div>
+              )
+            ))}
           </CardContent>
         </Card>
       ) : null}

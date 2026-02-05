@@ -258,7 +258,10 @@ export default function Layout() {
             <div className="p-4 pt-2">
               {user ? (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3">
+                  <Link
+                    to="/settings?section=profile"
+                    className="flex items-center gap-3 p-2 -m-2 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  >
                     {user.github_avatar_url ? (
                       <img
                         src={user.github_avatar_url}
@@ -281,7 +284,7 @@ export default function Layout() {
                         </p>
                       )}
                     </div>
-                  </div>
+                  </Link>
                   {/* Logout button */}
                   <button
                     onClick={() => {

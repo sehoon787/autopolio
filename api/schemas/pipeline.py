@@ -23,18 +23,15 @@ class PipelineRunRequest(BaseModel):
     output_format: str = "docx"  # docx, pdf, md
 
     # Pipeline options
-    skip_github_analysis: bool = False
-    skip_llm_summary: bool = False
-    regenerate_summaries: bool = False
+    auto_analyze: bool = False  # Auto-analyze unanalyzed projects before generation
 
     # Output settings
     document_name: Optional[str] = None
     include_achievements: bool = True
     include_tech_stack: bool = True
 
-    # LLM settings
+    # LLM settings (for auto-analysis)
     llm_provider: Optional[str] = None  # Override user preference
-    summary_style: str = "professional"  # professional, casual, technical
     cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli' for CLI execution
     cli_model: Optional[str] = None  # Model name for CLI execution (e.g., 'claude-sonnet-4-20250514')
 

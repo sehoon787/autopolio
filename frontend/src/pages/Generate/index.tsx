@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -25,7 +25,9 @@ import { useSelection } from '@/hooks/useSelection'
 import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
 import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
-import { Play, FolderKanban } from 'lucide-react'
+import { usersApi } from '@/api/users'
+import { Play, FolderKanban, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function GeneratePage() {
   const { t } = useTranslation()
@@ -40,13 +42,30 @@ export default function GeneratePage() {
   const [outputFormat, setOutputFormat] = useState<string>('docx')
   const [documentName, setDocumentName] = useState<string>('')
   const [options, setOptions] = useState({
-    skipGitHubAnalysis: false,
-    skipLlmSummary: false,
-    regenerateSummaries: false,
     includeAchievements: true,
     includeTechStack: true,
   })
-  const [summaryStyle, setSummaryStyle] = useState<string>('professional')
+  const [optionsLoaded, setOptionsLoaded] = useState(false)
+
+  // Load user's default generation options from settings
+  const { data: generationOptionsData } = useQuery({
+    queryKey: ['generation-options', user?.id],
+    queryFn: () => usersApi.getGenerationOptions(user!.id),
+    enabled: !!user?.id,
+  })
+
+  // Apply user's default options when loaded
+  useEffect(() => {
+    if (generationOptionsData?.data && !optionsLoaded) {
+      const opts = generationOptionsData.data
+      setOutputFormat(opts.default_output_format || 'docx')
+      setOptions({
+        includeAchievements: opts.default_include_achievements ?? true,
+        includeTechStack: opts.default_include_tech_stack ?? true,
+      })
+      setOptionsLoaded(true)
+    }
+  }, [generationOptionsData, optionsLoaded])
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects', user?.id],
@@ -71,6 +90,11 @@ export default function GeneratePage() {
 
   const projects = projectsData?.data?.projects || []
   const templates = templatesData?.data?.templates || []
+
+  // Check if any selected project is not analyzed
+  const selectedProjects = projects.filter(p => selection.isSelected(p.id))
+  const unanalyzedProjects = selectedProjects.filter(p => !p.is_analyzed)
+  const hasUnanalyzedProjects = unanalyzedProjects.length > 0
 
   const handleSubmit = () => {
     if (selection.selectedCount === 0) {
@@ -98,12 +122,10 @@ export default function GeneratePage() {
       template_id: parseInt(templateId),
       output_format: outputFormat,
       document_name: documentName || undefined,
-      skip_github_analysis: options.skipGitHubAnalysis,
-      skip_llm_summary: options.skipLlmSummary,
-      regenerate_summaries: options.regenerateSummaries,
       include_achievements: options.includeAchievements,
       include_tech_stack: options.includeTechStack,
-      summary_style: summaryStyle,
+      // Auto-analyze unanalyzed projects before generation
+      auto_analyze: hasUnanalyzedProjects,
       ...llmSettings,
     }
 
@@ -153,6 +175,7 @@ export default function GeneratePage() {
                         <span className="font-medium">{project.name}</span>
                         {project.is_analyzed && <Badge variant="success" className="text-xs">{t('generate:analyzed')}</Badge>}
                         {project.ai_summary && <Badge variant="secondary" className="text-xs">{t('generate:aiSummary')}</Badge>}
+                        {!project.is_analyzed && <Badge variant="outline" className="text-xs">{t('generate:notAnalyzed')}</Badge>}
                       </div>
                       {project.short_description && (
                         <p className="text-sm text-muted-foreground truncate">{project.short_description}</p>
@@ -177,6 +200,16 @@ export default function GeneratePage() {
             <p className="text-sm text-muted-foreground mt-4">
               {t('generate:projectsSelected', { count: selection.selectedCount })}
             </p>
+
+            {/* Warning for unanalyzed projects */}
+            {hasUnanalyzedProjects && (
+              <Alert className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t('generate:unanalyzedWarning', { count: unanalyzedProjects.length })}
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
@@ -231,19 +264,6 @@ export default function GeneratePage() {
               <CardTitle>{t('generate:generationOptions')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t('generate:summaryStyle')}</Label>
-                <Select value={summaryStyle} onValueChange={setSummaryStyle}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="professional">{t('generate:styles.professional')}</SelectItem>
-                    <SelectItem value="casual">{t('generate:styles.casual')}</SelectItem>
-                    <SelectItem value="technical">{t('generate:styles.technical')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -260,22 +280,6 @@ export default function GeneratePage() {
                     onCheckedChange={(c) => setOptions({ ...options, includeTechStack: !!c })}
                   />
                   <Label htmlFor="includeTechStack">{t('generate:options.includeTechStack')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="regenerateSummaries"
-                    checked={options.regenerateSummaries}
-                    onCheckedChange={(c) => setOptions({ ...options, regenerateSummaries: !!c })}
-                  />
-                  <Label htmlFor="regenerateSummaries">{t('generate:options.regenerateSummaries')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="skipLlmSummary"
-                    checked={options.skipLlmSummary}
-                    onCheckedChange={(c) => setOptions({ ...options, skipLlmSummary: !!c })}
-                  />
-                  <Label htmlFor="skipLlmSummary">{t('generate:options.skipLlmSummary')}</Label>
                 </div>
               </div>
             </CardContent>

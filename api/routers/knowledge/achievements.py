@@ -26,6 +26,10 @@ class AutoDetectResponse(BaseModel):
     message: str
 
 
+# Code contribution keywords to filter out (not a real achievement)
+CODE_CONTRIBUTION_KEYWORDS = ["코드 기여", "Code Contribution", "code contribution"]
+
+
 @router.get("", response_model=List[AchievementResponse])
 async def get_achievements(
     project_id: int = Query(..., description="Project ID"),
@@ -33,7 +37,7 @@ async def get_achievements(
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all achievements for a project."""
+    """Get all achievements for a project (excludes code contribution achievements)."""
     # Verify project belongs to user
     project_result = await db.execute(
         select(Project).where(Project.id == project_id, Project.user_id == user_id)
@@ -49,7 +53,14 @@ async def get_achievements(
     query = query.order_by(ProjectAchievement.display_order)
 
     result = await db.execute(query)
-    return result.scalars().all()
+    achievements = result.scalars().all()
+
+    # Filter out code contribution achievements (lines added/deleted is not a real achievement)
+    filtered = [
+        a for a in achievements
+        if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
+    ]
+    return filtered
 
 
 @router.get("/{achievement_id}", response_model=AchievementResponse)
