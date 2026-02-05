@@ -197,16 +197,6 @@ class PipelineService:
         """
         results = {"analyses": [], "skipped": []}
 
-        if request.skip_github_analysis:
-            # All projects skipped by user request
-            results["skipped"] = request.project_ids
-            await self.task_service.skip_step(
-                task_id, 1, self.STEP_NAMES[0],
-                reason="user_skipped",
-                result=results
-            )
-            return results
-
         await self.task_service.start_step(task_id, 1, self.STEP_NAMES[0])
 
         # Get projects with git URLs
@@ -223,12 +213,17 @@ class PipelineService:
             github_service = GitHubService(token)
 
             # Filter projects that need analysis
+            # Only analyze unanalyzed projects if auto_analyze is true
             projects_to_analyze = []
             for project in projects:
-                if project.is_analyzed and not request.regenerate_summaries:
+                if project.is_analyzed:
                     results["skipped"].append(project.id)
-                else:
+                elif request.auto_analyze:
+                    # Auto-analyze unanalyzed projects
                     projects_to_analyze.append(project)
+                else:
+                    # Skip unanalyzed projects if auto_analyze is false
+                    results["skipped"].append(project.id)
 
             if projects_to_analyze:
                 # Parallel analysis with semaphore
@@ -519,14 +514,6 @@ class PipelineService:
         """
         results = {"summaries": [], "tokens_used": 0, "copied_from_analysis": 0}
 
-        if request.skip_llm_summary:
-            await self.task_service.skip_step(
-                task_id, 5, self.STEP_NAMES[4],
-                reason="user_skipped",
-                result=results
-            )
-            return results, 0
-
         await self.task_service.start_step(task_id, 5, self.STEP_NAMES[4])
 
         try:
@@ -545,10 +532,8 @@ class PipelineService:
             # Step 1: Copy summaries from RepoAnalysis to Project (if available)
             projects_needing_llm = []
             for project in projects:
-                # Check if we should regenerate or if project already has summary
-                should_generate = (not project.ai_summary) or request.regenerate_summaries
-
-                if not should_generate:
+                # If project already has AI summary, use it
+                if project.ai_summary:
                     results["summaries"].append({
                         "project_id": project.id,
                         "summary": {"summary": project.ai_summary, "key_features": project.ai_key_features},
@@ -597,11 +582,14 @@ class PipelineService:
                     logger.info("Using API mode: provider=%s, model=%s", provider, user_model)
                     llm_service = LLMService(provider, model=user_model)
 
+                # Get user's summary style preference
+                summary_style = getattr(user, 'default_summary_style', 'professional') or 'professional'
+
                 # Parallel summarization
                 semaphore = asyncio.Semaphore(MAX_CONCURRENT_LLM_SUMMARY)
                 tasks = [
                     self._generate_single_summary(
-                        semaphore, llm_service, project, request.summary_style
+                        semaphore, llm_service, project, summary_style
                     )
                     for project in projects_needing_llm
                 ]
@@ -689,15 +677,82 @@ class PipelineService:
         )
         projects = projects_result.scalars().all()
 
-        # Prepare template data
+        # Get repo analyses for key_tasks and detailed_achievements
+        from api.models.repo_analysis_edits import RepoAnalysisEdits
+        project_key_tasks = {}
+        project_achievements_data = {}  # Stores summary_list and detailed_list
+
+        for p in projects:
+            analysis_result = await self.db.execute(
+                select(RepoAnalysis).where(RepoAnalysis.project_id == p.id)
+            )
+            analysis = analysis_result.scalar_one_or_none()
+            if analysis:
+                # Check for user edits first
+                edits_result = await self.db.execute(
+                    select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+                )
+                edits = edits_result.scalar_one_or_none()
+
+                # Get key_tasks (with edits priority)
+                if edits and edits.key_tasks_modified and edits.key_tasks:
+                    project_key_tasks[p.id] = edits.key_tasks
+                elif analysis.key_tasks:
+                    project_key_tasks[p.id] = analysis.key_tasks
+                else:
+                    project_key_tasks[p.id] = []
+
+                # Get detailed_achievements and convert to list formats
+                effective_detailed_achievements = None
+                if edits and edits.detailed_achievements_modified and edits.detailed_achievements:
+                    effective_detailed_achievements = edits.detailed_achievements
+                elif analysis.detailed_achievements:
+                    effective_detailed_achievements = analysis.detailed_achievements
+
+                # Convert dict format to list format for DocxGenerator
+                summary_list = []
+                detailed_list = []
+                if effective_detailed_achievements and isinstance(effective_detailed_achievements, dict):
+                    for category, items in effective_detailed_achievements.items():
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, dict):
+                                    title = item.get("title", "")
+                                    description = item.get("description", "")
+                                    if title:
+                                        summary_list.append({
+                                            "category": category,
+                                            "title": title,
+                                        })
+                                        detailed_list.append({
+                                            "category": category,
+                                            "title": title,
+                                            "description": description,
+                                        })
+
+                project_achievements_data[p.id] = {
+                    "summary_list": summary_list,
+                    "detailed_list": detailed_list,
+                }
+            else:
+                project_key_tasks[p.id] = []
+                project_achievements_data[p.id] = {"summary_list": [], "detailed_list": []}
+
+        # Prepare template data with all user profile fields
         template_data = self.document_service.prepare_template_data(
             user_data={
-                "name": user.name,
-                "email": user.email,
+                # Basic info
+                "name": user.display_name or user.name,
+                "email": user.profile_email or user.email,
                 "github_username": user.github_username,
+                # Personal info
+                "phone": user.phone or "",
+                "address": user.address or "",
+                "birthdate": str(user.birthdate) if user.birthdate else "",
             },
             companies=[
                 {
+                    "id": c.id,  # Include ID for project-company lookup
                     "name": c.name,
                     "position": c.position,
                     "department": c.department,
@@ -710,6 +765,7 @@ class PipelineService:
             ],
             projects=[
                 {
+                    "company_id": p.company_id,  # For company info enrichment
                     "name": p.name,
                     "short_description": p.short_description,
                     "description": p.description,
@@ -720,6 +776,8 @@ class PipelineService:
                     "team_size": p.team_size,
                     "contribution_percent": p.contribution_percent,
                     "technologies": [pt.technology.name for pt in p.technologies],
+                    "key_tasks": project_key_tasks.get(p.id, []),
+                    # Basic achievements from ProjectAchievement model
                     "achievements": [
                         {
                             "metric_name": a.metric_name,
@@ -728,6 +786,9 @@ class PipelineService:
                         }
                         for a in p.achievements
                     ] if request.include_achievements else [],
+                    # Summary/Detailed achievements from RepoAnalysis.detailed_achievements
+                    "achievements_summary_list": project_achievements_data.get(p.id, {}).get("summary_list", []) if request.include_achievements else [],
+                    "achievements_detailed_list": project_achievements_data.get(p.id, {}).get("detailed_list", []) if request.include_achievements else [],
                     "links": p.links or {}
                 }
                 for p in projects
@@ -738,6 +799,7 @@ class PipelineService:
             "template_id": template.id,
             "template_name": template.name,
             "template_content": template.template_content,
+            "template_platform": template.platform,  # For specialized document generation
             "data": template_data,
             "output_format": request.output_format
         }
@@ -762,7 +824,8 @@ class PipelineService:
             template_content=mapping_results["template_content"],
             data=mapping_results["data"],
             output_format=request.output_format,
-            document_name=document_name
+            document_name=document_name,
+            template_platform=mapping_results.get("template_platform")
         )
 
         # Save document record
@@ -777,9 +840,9 @@ class PipelineService:
             included_companies=request.company_ids,
             generation_settings={
                 "llm_provider": request.llm_provider,
-                "summary_style": request.summary_style,
                 "include_achievements": request.include_achievements,
-                "include_tech_stack": request.include_tech_stack
+                "include_tech_stack": request.include_tech_stack,
+                "auto_analyze": request.auto_analyze
             },
             status="completed"
         )

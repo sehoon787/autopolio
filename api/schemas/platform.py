@@ -121,6 +121,10 @@ class ProjectData(BaseModel):
     - team_size: Number of team members on the project
     - implementation_details: List of dicts with categorized implementation details.
       Expected format: [{"title": "Backend Development", "items": ["FastAPI setup", ...]}, ...]
+    - achievements_summary_list: List of summary achievements (title only, no description).
+      Expected format: [{"category": "성능 개선", "title": "응답 시간 40% 단축"}]
+    - achievements_detailed_list: List of detailed achievements with category.
+      Expected format: [{"category": "성능 개선", "title": "응답 시간 40% 단축", "description": "..."}]
     """
     name: str
     company_name: Optional[str] = None
@@ -135,6 +139,8 @@ class ProjectData(BaseModel):
     has_key_tasks: bool = False
     team_size: Optional[int] = None
     implementation_details: Optional[List[Dict[str, Any]]] = None
+    achievements_summary_list: Optional[List[Dict[str, Any]]] = None  # [{category, title}] - DEFAULT
+    achievements_detailed_list: Optional[List[Dict[str, Any]]] = None  # [{category, title, description}]
     has_achievements: bool = False
 
 

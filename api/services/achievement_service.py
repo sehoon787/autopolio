@@ -208,6 +208,10 @@ class AchievementService:
     ) -> List[Dict[str, Any]]:
         """Generate achievements from code statistics.
 
+        Note: Code line counts (lines added/deleted) are NOT included as achievements
+        because writing/deleting many lines of code is not a meaningful achievement.
+        Only commit category-based achievements (features, bug fixes, refactoring) are generated.
+
         Args:
             language: Output language ("ko" for Korean, "en" for English)
         """
@@ -216,14 +220,6 @@ class AchievementService:
         # Translations for achievements
         translations = {
             "ko": {
-                "code_contribution": "코드 기여",
-                "refactoring_desc": "코드 리팩토링 및 최적화 수행",
-                "large_scale_desc": "대규모 기능 개발 및 아키텍처 구축",
-                "major_feature_desc": "주요 기능 개발 및 모듈 구현",
-                "maintenance_desc": "기능 추가 및 유지보수",
-                "existing_codebase": "기존 코드베이스",
-                "net_lines_added": "순 {net_lines:,}줄 추가, {files_changed}개 파일 수정",
-                "evidence_format": "추가: {lines_added:,}줄, 삭제: {lines_deleted:,}줄, 파일: {files_changed}개",
                 "feature_dev": "기능 개발",
                 "features_count": "{count}개 기능",
                 "feature_ratio_desc": "프로젝트 전체 커밋의 {ratio}% 차지",
@@ -235,14 +231,6 @@ class AchievementService:
                 "refactor_desc": "코드 품질 및 유지보수성 향상",
             },
             "en": {
-                "code_contribution": "Code Contribution",
-                "refactoring_desc": "Code refactoring and optimization",
-                "large_scale_desc": "Large-scale feature development and architecture design",
-                "major_feature_desc": "Major feature development and module implementation",
-                "maintenance_desc": "Feature additions and maintenance",
-                "existing_codebase": "Existing codebase",
-                "net_lines_added": "Net {net_lines:,} lines added, {files_changed} files modified",
-                "evidence_format": "Added: {lines_added:,} lines, Deleted: {lines_deleted:,} lines, Files: {files_changed}",
                 "feature_dev": "Feature Development",
                 "features_count": "{count} features",
                 "feature_ratio_desc": "{ratio}% of all project commits",
@@ -256,32 +244,6 @@ class AchievementService:
         }
 
         t = translations.get(language, translations["ko"])
-
-        # Code contribution achievement with meaningful description
-        if lines_added > 0:
-            net_lines = lines_added - lines_deleted
-            refactor_ratio = round((lines_deleted / lines_added) * 100) if lines_added > 0 else 0
-
-            # Determine contribution type
-            if refactor_ratio > 50:
-                description = t["refactoring_desc"]
-            elif net_lines > 5000:
-                description = t["large_scale_desc"]
-            elif net_lines > 1000:
-                description = t["major_feature_desc"]
-            else:
-                description = t["maintenance_desc"]
-
-            achievements.append({
-                "metric_name": t["code_contribution"],
-                "metric_value": f"+{lines_added:,} / -{lines_deleted:,} lines",
-                "description": description,
-                "before_value": t["existing_codebase"],
-                "after_value": t["net_lines_added"].format(net_lines=net_lines, files_changed=files_changed),
-                "category": "contribution",
-                "evidence": t["evidence_format"].format(lines_added=lines_added, lines_deleted=lines_deleted, files_changed=files_changed),
-                "source": "code_stats"
-            })
 
         # Feature commits ratio with context
         if commit_categories:

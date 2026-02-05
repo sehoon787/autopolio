@@ -10,12 +10,18 @@ Supports platform-specific export formats:
 
 import os
 import re
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 from datetime import datetime
 from pathlib import Path
 
 from api.schemas.platform import RenderDataRequest
 from api.config import get_settings
+from api.services.docx_styles import DocxStyler, DocxStyleConfig, DEFAULT_DOCX_STYLE
+
+try:
+    import chevron
+except ImportError:
+    chevron = None
 
 settings = get_settings()
 
@@ -59,8 +65,13 @@ DOMAIN_CATEGORIES = {
 class TemplateExporter:
     """Handles exporting templates to various formats"""
 
-    def __init__(self, result_dir: Path = None):
+    def __init__(
+        self,
+        result_dir: Path = None,
+        style_config: Optional[DocxStyleConfig] = None
+    ):
         self.result_dir = result_dir or Path(settings.result_dir)
+        self.styler = DocxStyler(style_config or DEFAULT_DOCX_STYLE)
 
     def generate_filename(self, platform_key: str, name: str, ext: str) -> str:
         """Generate a safe filename with timestamp"""
@@ -104,10 +115,15 @@ class TemplateExporter:
         data: RenderDataRequest,
         platform_key: str
     ) -> str:
-        """Export to Word document"""
+        """Export to Word document with proper styling
+
+        Uses DocxStyler for consistent formatting:
+        - Title (대제목): 24pt, bold, black
+        - Heading1 (중제목): 18pt, bold, black
+        - Heading2 (소제목): 14pt, bold, black
+        - Normal text: 11pt, black
+        """
         from docx import Document
-        from docx.shared import Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
 
         filename = self.generate_filename(platform_key, data.name, "docx")
         os.makedirs(self.result_dir, exist_ok=True)
@@ -115,22 +131,14 @@ class TemplateExporter:
 
         doc = Document()
 
-        # Set default font
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Malgun Gothic'
-        font.size = Pt(11)
+        # Set up document styles (removes colors, sets fonts)
+        self.styler.setup_document(doc)
 
-        # Header
-        title = doc.add_heading(data.name or "이력서", level=0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # Header - Title (대제목)
+        self.styler.add_title(doc, data.name or "이력서")
 
         if data.desired_position:
-            subtitle = doc.add_paragraph()
-            subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = subtitle.add_run(data.desired_position)
-            run.bold = True
-            run.font.size = Pt(14)
+            self.styler.add_subtitle(doc, data.desired_position)
 
         # Contact info
         contact_parts = []
@@ -141,90 +149,119 @@ class TemplateExporter:
         if data.github_url:
             contact_parts.append(data.github_url)
 
-        if contact_parts:
-            contact_para = doc.add_paragraph(" | ".join(contact_parts))
-            contact_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        doc.add_paragraph()
+        self.styler.add_contact_info(doc, contact_parts)
+        self.styler.add_spacing(doc)
 
         # Summary
         if data.summary:
-            doc.add_heading("자기소개", level=1)
-            doc.add_paragraph(data.summary)
+            self.styler.add_heading1(doc, "자기소개")
+            self.styler.add_paragraph(doc, data.summary)
 
         # Experience
         if data.experiences:
-            doc.add_heading("경력사항", level=1)
+            self.styler.add_heading1(doc, "경력사항")
             for exp in data.experiences:
-                p = doc.add_paragraph()
-                run = p.add_run(exp.company_name)
-                run.bold = True
+                # Company name as heading2 (소제목)
                 period = f" ({exp.start_date or ''} ~ {exp.end_date or '현재'})"
-                p.add_run(period)
+                self.styler.add_heading2(doc, f"{exp.company_name}{period}")
+
+                # Build context for Mustache rendering
+                exp_context = {
+                    "company_name": exp.company_name,
+                    "position": exp.position,
+                    "start_date": exp.start_date,
+                    "end_date": exp.end_date,
+                    "description": exp.description,
+                    "achievements": exp.achievements,
+                }
 
                 if exp.position:
-                    doc.add_paragraph(exp.position, style='List Bullet')
+                    self.styler.add_bullet(doc, exp.position)
                 if exp.description:
-                    doc.add_paragraph(exp.description)
+                    # Clean any Mustache syntax from description
+                    clean_desc = self._render_or_clean_mustache(exp.description, exp_context)
+                    if clean_desc:
+                        self.styler.add_paragraph(doc, clean_desc)
                 if exp.achievements:
                     for ach in exp.achievements:
-                        doc.add_paragraph(ach, style='List Bullet')
+                        # Clean any Mustache syntax from achievements
+                        clean_ach = self._render_or_clean_mustache(ach, exp_context)
+                        if clean_ach:
+                            self.styler.add_bullet(doc, clean_ach)
 
         # Projects
         if data.projects:
-            doc.add_heading("프로젝트", level=1)
+            self.styler.add_heading1(doc, "프로젝트")
             for proj in data.projects:
-                p = doc.add_paragraph()
-                run = p.add_run(proj.name)
-                run.bold = True
+                # Project name as heading2 (소제목)
                 period = f" ({proj.start_date or ''} ~ {proj.end_date or '현재'})"
-                p.add_run(period)
+                self.styler.add_heading2(doc, f"{proj.name}{period}")
+
+                # Build context for Mustache rendering
+                proj_context = {
+                    "name": proj.name,
+                    "company_name": proj.company_name,
+                    "start_date": proj.start_date,
+                    "end_date": proj.end_date,
+                    "description": proj.description,
+                    "role": proj.role,
+                    "technologies": proj.technologies,
+                    "achievements": proj.achievements,
+                }
 
                 if proj.company_name:
-                    doc.add_paragraph(f"소속: {proj.company_name}")
+                    self.styler.add_paragraph(doc, f"소속: {proj.company_name}")
                 if proj.description:
-                    doc.add_paragraph(proj.description)
+                    # Clean any Mustache syntax from description
+                    clean_desc = self._render_or_clean_mustache(proj.description, proj_context)
+                    if clean_desc:
+                        self.styler.add_paragraph(doc, clean_desc)
                 if proj.role:
-                    doc.add_paragraph(f"역할: {proj.role}")
+                    # Clean any Mustache syntax from role
+                    clean_role = self._render_or_clean_mustache(proj.role, proj_context)
+                    if clean_role:
+                        self.styler.add_paragraph(doc, f"역할: {clean_role}")
                 if proj.technologies:
-                    doc.add_paragraph(f"기술: {', '.join(proj.technologies)}")
-                if proj.achievements:
-                    for ach in proj.achievements:
-                        doc.add_paragraph(ach, style='List Bullet')
+                    self.styler.add_paragraph(doc, f"기술: {', '.join(proj.technologies)}")
+                # Use achievements_summary_list (from detailed_achievements) as default, fall back to achievements
+                achievements_list = self._get_achievements_list({
+                    "achievements_summary_list": proj.achievements_summary_list,
+                    "achievements_detailed_list": proj.achievements_detailed_list,
+                    "achievements": proj.achievements,
+                })
+                if achievements_list:
+                    for ach in achievements_list:
+                        # Clean any Mustache syntax from achievements
+                        clean_ach = self._render_or_clean_mustache(ach, proj_context)
+                        if clean_ach:
+                            self.styler.add_bullet(doc, clean_ach)
 
         # Skills
         if data.skills:
-            doc.add_heading("기술 스택", level=1)
+            self.styler.add_heading1(doc, "기술 스택")
             skills = data.skills
             if skills.languages:
-                doc.add_paragraph(f"Languages: {', '.join(skills.languages)}")
+                self.styler.add_key_value(doc, "Languages", ", ".join(skills.languages))
             if skills.frameworks:
-                doc.add_paragraph(f"Frameworks: {', '.join(skills.frameworks)}")
+                self.styler.add_key_value(doc, "Frameworks", ", ".join(skills.frameworks))
             if skills.databases:
-                doc.add_paragraph(f"Databases: {', '.join(skills.databases)}")
+                self.styler.add_key_value(doc, "Databases", ", ".join(skills.databases))
             if skills.tools:
-                doc.add_paragraph(f"Tools: {', '.join(skills.tools)}")
+                self.styler.add_key_value(doc, "Tools", ", ".join(skills.tools))
 
         # Education
         if data.educations:
-            doc.add_heading("학력", level=1)
+            self.styler.add_heading1(doc, "학력")
             for edu in data.educations:
-                p = doc.add_paragraph()
-                run = p.add_run(edu.school_name)
-                run.bold = True
-                if edu.major:
-                    p.add_run(f" - {edu.major}")
                 period = f" ({edu.start_date or ''} ~ {edu.end_date or ''})"
-                p.add_run(period)
+                major_str = f" - {edu.major}" if edu.major else ""
+                self.styler.add_heading2(doc, f"{edu.school_name}{major_str}{period}")
 
         # Certifications
         if data.certifications:
-            doc.add_heading("자격증", level=1)
+            self.styler.add_heading1(doc, "자격증")
             for cert in data.certifications:
-                doc.add_paragraph(
-                    f"{cert.name} ({cert.issuer or ''}) - {cert.date or ''}",
-                    style='List Bullet'
-                )
+                self.styler.add_bullet(doc, f"{cert.name} ({cert.issuer or ''}) - {cert.date or ''}")
 
         doc.save(file_path)
         return str(file_path)
@@ -296,6 +333,8 @@ class TemplateExporter:
                     "key_tasks_list": proj.key_tasks_list or [],
                     "team_size": proj.team_size,
                     "implementation_details": proj.implementation_details or [],
+                    "achievements_summary_list": proj.achievements_summary_list or [],  # [{category, title}]
+                    "achievements_detailed_list": proj.achievements_detailed_list or [],  # [{category, title, description}]
                 }
                 for proj in data.projects
             ]
@@ -378,25 +417,31 @@ class TemplateExporter:
         return self._export_unified_docx(data, platform_key)
 
     def _export_unified_docx(self, data: dict, platform_key: str) -> str:
-        """Unified Word format for all platforms
+        """Unified Word format for all platforms with proper styling
 
         Structure:
         - 경력: Company-based with domain-categorized skills
         - 경력기술서: Detailed project information
+
+        Styling:
+        - Title (대제목): 24pt, bold, black
+        - Heading1 (중제목): 18pt, bold, black
+        - Heading2 (소제목): 14pt, bold, black
+        - Normal text: 11pt, black
         """
         from docx import Document
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
 
         filename = self.generate_filename(platform_key, data.get("name", "user"), "docx")
         os.makedirs(self.result_dir, exist_ok=True)
         file_path = self.result_dir / filename
 
         doc = Document()
-        self._setup_document_styles(doc)
 
-        # Header
-        title = doc.add_heading(data.get("name", "이력서"), level=0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # Set up document styles (removes colors, sets fonts)
+        self.styler.setup_document(doc)
+
+        # Header - Title (대제목)
+        self.styler.add_title(doc, data.get("name", "이력서"))
 
         # Contact info
         self._add_contact_info_docx(doc, data)
@@ -410,7 +455,7 @@ class TemplateExporter:
         # === Part 1: 경력 ===
         if experiences or projects:
             heading_text = f"경력 (총 {total_years}년)" if total_years else "경력"
-            doc.add_heading(heading_text, level=1)
+            self.styler.add_heading1(doc, heading_text)
 
             company_projects = self._group_projects_by_company(projects)
 
@@ -423,24 +468,21 @@ class TemplateExporter:
                 duration = exp.get("duration", "")
                 description = exp.get("description", "")
 
-                # Company header
-                p = doc.add_paragraph()
-                run = p.add_run(company_name)
-                run.bold = True
-                run.font.size = doc.styles['Normal'].font.size
+                # Company header (소제목)
+                self.styler.add_heading2(doc, company_name)
 
                 if position:
-                    doc.add_paragraph(position)
+                    self.styler.add_paragraph(doc, position)
 
                 period_str = f"{start_date} ~ {end_date if end_date else ''}"
                 if is_current:
                     period_str += " 재직중" if not end_date else ""
                 if duration:
                     period_str += f" ({duration})"
-                doc.add_paragraph(period_str)
+                self.styler.add_paragraph(doc, period_str)
 
                 if description:
-                    doc.add_paragraph(f"- 주요 직무: {description}")
+                    self.styler.add_bullet(doc, f"주요 직무: {description}")
 
                 # Domain skills
                 company_projs = company_projects.get(company_name, [])
@@ -451,35 +493,31 @@ class TemplateExporter:
                     if not domain_data.get("technologies") and not domain_data.get("implementations"):
                         continue
 
-                    p = doc.add_paragraph()
-                    run = p.add_run(f"{domain_idx}. {domain_name}")
-                    run.bold = True
+                    self.styler.add_bold_text(doc, f"{domain_idx}. {domain_name}")
 
                     if domain_data.get("technologies"):
-                        doc.add_paragraph("주요 사용 기술")
+                        self.styler.add_paragraph(doc, "주요 사용 기술")
                         for tech_line in domain_data["technologies"]:
-                            doc.add_paragraph(f"- {tech_line}")
+                            self.styler.add_bullet(doc, tech_line)
 
                     if domain_data.get("implementations"):
-                        doc.add_paragraph("구현 내용")
+                        self.styler.add_paragraph(doc, "구현 내용")
                         for impl in domain_data["implementations"]:
-                            doc.add_paragraph(f"- {impl}")
+                            self.styler.add_bullet(doc, impl)
 
                     if domain_data.get("databases"):
-                        doc.add_paragraph("DB")
+                        self.styler.add_paragraph(doc, "DB")
                         for db_line in domain_data["databases"]:
-                            doc.add_paragraph(f"- {db_line}")
+                            self.styler.add_bullet(doc, db_line)
 
                     domain_idx += 1
 
-                doc.add_paragraph()
+                self.styler.add_spacing(doc)
 
             # Side projects
             side_projects = company_projects.get(None, []) + company_projects.get("", []) + company_projects.get("사이드 프로젝트", [])
             if side_projects:
-                p = doc.add_paragraph()
-                run = p.add_run("사이드 프로젝트")
-                run.bold = True
+                self.styler.add_heading2(doc, "사이드 프로젝트")
 
                 skills_by_domain = self._categorize_skills_by_domain_detailed(side_projects)
 
@@ -488,18 +526,16 @@ class TemplateExporter:
                     if not domain_data.get("implementations"):
                         continue
 
-                    p = doc.add_paragraph()
-                    run = p.add_run(f"{domain_idx}. {domain_name}")
-                    run.bold = True
+                    self.styler.add_bold_text(doc, f"{domain_idx}. {domain_name}")
 
                     for impl in domain_data["implementations"]:
-                        doc.add_paragraph(f"- {impl}")
+                        self.styler.add_bullet(doc, impl)
 
                     domain_idx += 1
 
         # === Part 2: 경력기술서 ===
         if projects:
-            doc.add_heading("경력기술서", level=1)
+            self.styler.add_heading1(doc, "경력기술서")
 
             for idx, proj in enumerate(projects, 1):
                 self._add_project_detail_unified_docx(doc, proj, idx)
@@ -507,19 +543,8 @@ class TemplateExporter:
         doc.save(file_path)
         return str(file_path)
 
-    def _setup_document_styles(self, doc) -> None:
-        """Setup document styles for Word export"""
-        from docx.shared import Pt
-
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Malgun Gothic'
-        font.size = Pt(11)
-
     def _add_contact_info_docx(self, doc, data: dict) -> None:
-        """Add contact info to Word document"""
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-
+        """Add contact info to Word document using styler"""
         contact_parts = []
         if data.get("email"):
             contact_parts.append(data["email"])
@@ -528,65 +553,76 @@ class TemplateExporter:
         if data.get("github_url"):
             contact_parts.append(data["github_url"])
 
-        if contact_parts:
-            contact_para = doc.add_paragraph(" | ".join(contact_parts))
-            contact_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        doc.add_paragraph()
+        self.styler.add_contact_info(doc, contact_parts)
+        self.styler.add_spacing(doc)
 
     def _add_project_detail_unified_docx(self, doc, proj: dict, idx: int) -> None:
-        """Add project in unified format to Word document"""
-        # Project header
-        p = doc.add_paragraph()
-        run = p.add_run(f"[프로젝트 {idx}]")
-        run.bold = True
+        """Add project in unified format to Word document using styler
 
-        doc.add_paragraph(f"프로젝트명: {proj.get('name', '')}")
+        Note: Uses _render_or_clean_mustache to handle any Mustache template
+        syntax that may be in the text fields (e.g., {{key_tasks}}, {{#achievements}})
+        """
+        # Project header (소소제목)
+        self.styler.add_section_title(doc, f"[프로젝트 {idx}]")
+
+        self.styler.add_key_value(doc, "프로젝트명", proj.get('name', ''))
 
         company = proj.get("company_name") or proj.get("company")
         if company:
-            doc.add_paragraph(f"연계/소속회사: {company}")
+            self.styler.add_key_value(doc, "연계/소속회사", company)
         else:
-            doc.add_paragraph("연계/소속회사: 사이드 프로젝트")
+            self.styler.add_key_value(doc, "연계/소속회사", "사이드 프로젝트")
 
         end_date = proj.get("end_date") or "진행중"
-        doc.add_paragraph(f"기간: {proj.get('start_date', '')} ~ {end_date}")
+        self.styler.add_key_value(doc, "기간", f"{proj.get('start_date', '')} ~ {end_date}")
 
         role = proj.get("role")
         if role:
-            doc.add_paragraph(f"주요 업무: {role}")
+            # Clean any Mustache syntax from role
+            clean_role = self._render_or_clean_mustache(role, proj)
+            if clean_role:
+                self.styler.add_key_value(doc, "주요 업무", clean_role)
 
         # 주요 구현 기능 (최대 8개)
         key_tasks = self._get_key_tasks_list(proj)
         if key_tasks:
-            doc.add_paragraph("주요 구현 기능:")
+            self.styler.add_paragraph(doc, "주요 구현 기능:")
             for task in key_tasks[:8]:
-                doc.add_paragraph(f"• {task}")
+                # Clean any Mustache syntax from each task
+                clean_task = self._render_or_clean_mustache(task, proj)
+                if clean_task:
+                    self.styler.add_bullet(doc, clean_task)
 
         # 기술 스택
         tech = proj.get("technologies")
         if tech:
             tech_str = tech if isinstance(tech, str) else ", ".join(tech)
-            doc.add_paragraph(f"기술 스택: {tech_str}")
+            self.styler.add_key_value(doc, "기술 스택", tech_str)
 
         # 개발 인원
         team_size = proj.get("team_size")
         if team_size:
-            doc.add_paragraph(f"개발 인원: {team_size}")
+            self.styler.add_key_value(doc, "개발 인원", str(team_size))
 
-        # 상세 내용 (원문 그대로)
+        # 상세 내용 - clean any Mustache template syntax
         description = proj.get("description", "")
         if description:
-            doc.add_paragraph(f"상세 내용: {description}")
+            # Render or clean Mustache syntax from description
+            clean_description = self._render_or_clean_mustache(description, proj)
+            if clean_description:
+                self.styler.add_key_value(doc, "상세 내용", clean_description)
 
         # 성과 (최대 4개)
         achievements = self._get_achievements_list(proj)
         if achievements:
-            doc.add_paragraph("성과:")
+            self.styler.add_paragraph(doc, "성과:")
             for ach in achievements[:4]:
-                doc.add_paragraph(f"• {ach}")
+                # Clean any Mustache syntax from each achievement
+                clean_ach = self._render_or_clean_mustache(ach, proj)
+                if clean_ach:
+                    self.styler.add_bullet(doc, clean_ach)
 
-        doc.add_paragraph()
+        self.styler.add_spacing(doc)
 
     def generate_markdown_from_dict(
         self,
@@ -759,6 +795,72 @@ class TemplateExporter:
 
     # ==================== Helper Methods ====================
 
+    def _render_or_clean_mustache(self, text: str, context: dict = None) -> str:
+        """Render Mustache template syntax or clean it from text
+
+        Handles cases like:
+        - {{key_tasks}} -> renders with context or removes
+        - {{#achievements}}...{{/achievements}} -> renders loop or removes section
+
+        Args:
+            text: Text that may contain Mustache syntax
+            context: Data context for rendering (e.g., project dict)
+
+        Returns:
+            Cleaned text with Mustache syntax rendered or removed
+        """
+        if not text:
+            return ""
+
+        # Check if text contains Mustache syntax
+        if "{{" not in text:
+            return text
+
+        # Try to render with chevron if available and context provided
+        if chevron and context:
+            try:
+                rendered = chevron.render(text, context)
+                # Clean up any remaining empty lines from unresolved sections
+                lines = [line for line in rendered.split('\n') if line.strip()]
+                return '\n'.join(lines)
+            except Exception:
+                pass
+
+        # Fallback: Remove Mustache syntax patterns
+        import re
+
+        # Remove section blocks: {{#section}}...{{/section}} (including multiline)
+        result = re.sub(r'\{\{[#^]\w+\}\}.*?\{\{/\w+\}\}', '', text, flags=re.DOTALL)
+
+        # Remove unclosed/malformed section blocks: {{#section}}... or {{/section}}
+        result = re.sub(r'\{\{[#^/]\w+\}\}', '', result)
+
+        # Remove single variables: {{variable}}, {{&variable}}, {{{variable}}}
+        result = re.sub(r'\{{2,3}[&]?\w+\}{2,3}', '', result)
+
+        # Remove partial includes: {{>partial}}
+        result = re.sub(r'\{\{>\w+\}\}', '', result)
+
+        # Remove any remaining {{ or }} fragments
+        result = re.sub(r'\{\{[^}]*\}?\}?', '', result)
+
+        # Clean up lines that only have bullet points or headers without content
+        lines = []
+        for line in result.split('\n'):
+            stripped = line.strip()
+            # Skip empty lines and lines with only bullet point markers
+            if stripped and stripped not in ['•', '-', '*', '####', '###', '##', '#']:
+                # Skip lines that are just headers with no following content
+                if stripped.startswith('#') and ':' not in stripped and len(stripped) < 50:
+                    continue
+                lines.append(line)
+
+        # Clean up multiple consecutive empty lines
+        result = '\n'.join(lines)
+        result = re.sub(r'\n\s*\n\s*\n', '\n\n', result)
+
+        return result.strip()
+
     def _append_contact_info(self, lines: list, data: dict) -> None:
         """Append contact information to lines"""
         contact = []
@@ -797,6 +899,9 @@ class TemplateExporter:
         상세 내용: ...
         성과:
         • ...
+
+        Note: Uses _render_or_clean_mustache to handle any Mustache template
+        syntax that may be in the text fields (e.g., {{key_tasks}}, {{#achievements}})
         """
         lines.append(f"[프로젝트 {idx}]")
         lines.append(f"프로젝트명: {proj.get('name', '')}")
@@ -812,14 +917,20 @@ class TemplateExporter:
 
         role = proj.get("role")
         if role:
-            lines.append(f"주요 업무: {role}")
+            # Clean any Mustache syntax from role
+            clean_role = self._render_or_clean_mustache(role, proj)
+            if clean_role:
+                lines.append(f"주요 업무: {clean_role}")
 
         # 주요 구현 기능 (최대 8개)
         key_tasks = self._get_key_tasks_list(proj)
         if key_tasks:
             lines.append("주요 구현 기능:")
             for task in key_tasks[:8]:
-                lines.append(f"• {task}")
+                # Clean any Mustache syntax from each task
+                clean_task = self._render_or_clean_mustache(task, proj)
+                if clean_task:
+                    lines.append(f"• {clean_task}")
 
         # 기술 스택
         tech = proj.get("technologies")
@@ -832,17 +943,23 @@ class TemplateExporter:
         if team_size:
             lines.append(f"개발 인원: {team_size}")
 
-        # 상세 내용 (원문 그대로)
+        # 상세 내용 - clean any Mustache template syntax
         description = proj.get("description", "")
         if description:
-            lines.append(f"상세 내용: {description}")
+            # Render or clean Mustache syntax from description
+            clean_description = self._render_or_clean_mustache(description, proj)
+            if clean_description:
+                lines.append(f"상세 내용: {clean_description}")
 
         # 성과 (최대 4개)
         achievements = self._get_achievements_list(proj)
         if achievements:
             lines.append("성과:")
             for ach in achievements[:4]:
-                lines.append(f"• {ach}")
+                # Clean any Mustache syntax from each achievement
+                clean_ach = self._render_or_clean_mustache(ach, proj)
+                if clean_ach:
+                    lines.append(f"• {clean_ach}")
 
         lines.append("")
 
@@ -856,25 +973,84 @@ class TemplateExporter:
                             for t in key_tasks_str.split("\n") if t.strip()]
         return key_tasks
 
-    def _get_achievements_list(self, proj: dict) -> List[str]:
-        """Extract achievements as a list of strings"""
-        achievements = proj.get("achievements")
-        if isinstance(achievements, str):
-            return [a.strip().lstrip("•").lstrip("-").strip()
-                    for a in achievements.split("\n") if a.strip()]
-        elif isinstance(achievements, list):
+    def _get_achievements_list(self, proj: dict, use_detailed: bool = False) -> List[str]:
+        """Extract achievements as a list of strings
+
+        Args:
+            proj: Project dictionary
+            use_detailed: If True, use achievements_detailed_list (with descriptions)
+                         If False (default), use achievements_summary_list (title only)
+
+        Priority order (DEFAULT = Summary):
+        1. achievements_summary_list (from RepoAnalysis.detailed_achievements) - title only, no description
+        2. achievements_basic_list (from ProjectAchievement) - metric_name: metric_value
+
+        Returns formatted strings like:
+        - Summary: "[새로운 기능 추가] UI 개선"
+        - Detailed: "[새로운 기능 추가] UI 개선 - 접이식 문서 메뉴 추가, 사용자 경험 개선"
+        """
+        # If detailed is requested, use achievements_detailed_list first
+        if use_detailed:
+            detailed_list = proj.get("achievements_detailed_list", [])
+            if detailed_list and isinstance(detailed_list, list):
+                result = []
+                for ach in detailed_list:
+                    if isinstance(ach, dict):
+                        category = ach.get("category", "")
+                        title = ach.get("title", "")
+                        description = ach.get("description", "")
+
+                        if title:
+                            if category:
+                                line = f"[{category}] {title}"
+                            else:
+                                line = title
+                            # Add description if available
+                            if description:
+                                line += f" - {description}"
+                            result.append(line)
+                if result:
+                    return result
+
+        # Priority 1: Use achievements_summary_list (from detailed_achievements) - DEFAULT
+        # Format: [{category, title}] - NO description
+        summary_list = proj.get("achievements_summary_list", [])
+        if summary_list and isinstance(summary_list, list):
             result = []
-            for ach in achievements:
+            for ach in summary_list:
                 if isinstance(ach, dict):
-                    metric = ach.get("metric_name", ach.get("title", ""))
-                    value = ach.get("metric_value", ach.get("description", ""))
+                    category = ach.get("category", "")
+                    title = ach.get("title", "")
+
+                    if title:
+                        if category:
+                            line = f"[{category}] {title}"
+                        else:
+                            line = title
+                        result.append(line)
+            if result:
+                return result
+
+        # Priority 2: Use achievements_basic_list (from ProjectAchievement)
+        basic_list = proj.get("achievements_basic_list", [])
+        if basic_list and isinstance(basic_list, list):
+            result = []
+            for ach in basic_list:
+                if isinstance(ach, dict):
+                    metric = ach.get("metric_name", "")
+                    value = ach.get("metric_value", "")
                     if metric and value:
                         result.append(f"{metric}: {value}")
                     elif metric:
                         result.append(metric)
-                elif isinstance(ach, str):
-                    result.append(ach.strip().lstrip("•").lstrip("-").strip())
-            return result
+            if result:
+                return result
+
+        # Fallback: Use achievements string
+        achievements = proj.get("achievements")
+        if isinstance(achievements, str):
+            return [a.strip().lstrip("•").lstrip("-").strip()
+                    for a in achievements.split("\n") if a.strip()]
         return []
 
     def _group_projects_by_company(self, projects: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
