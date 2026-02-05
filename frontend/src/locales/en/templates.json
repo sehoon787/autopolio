@@ -32,11 +32,9 @@
   "volunteerActivityFields": "Activities",
   "clickToInsert": "Click to insert",
   "platforms": {
-    "saramin_1": "Saramin Basic",
-    "saramin_2": "Saramin Detailed",
-    "saramin_3": "Saramin Portfolio",
-    "wanted": "Wanted",
-    "remember": "Remember",
+    "career_description": "Career Description",
+    "career_description_no_personal": "Career Description (No Personal Info)",
+    "resume": "Resume",
     "notion": "Notion",
     "custom": "Custom"
   },
@@ -92,5 +90,23 @@
     "saveFailed": "Failed to save.",
     "createFailed": "Failed to create.",
     "clickToInsert": "Click field to insert"
+  },
+  "styleSettings": {
+    "title": "Style Settings",
+    "description": "Configure font sizes for generated Word documents",
+    "fontName": "Font",
+    "fontNamePlaceholder": "e.g., Arial, Times New Roman",
+    "titleSize": "Title (Main Title)",
+    "titleSizeDesc": "Document title size",
+    "heading1Size": "Heading 1 (Major Sections)",
+    "heading1SizeDesc": "e.g., Experience, Projects",
+    "heading2Size": "Heading 2 (Sub-sections)",
+    "heading2SizeDesc": "e.g., Company Name, Project Name",
+    "heading3Size": "Heading 3 (Minor Sections)",
+    "heading3SizeDesc": "Subsections within projects",
+    "normalSize": "Normal Text (Body)",
+    "normalSizeDesc": "Regular paragraph text",
+    "pt": "pt",
+    "reset": "Reset to Defaults"
   }
 }

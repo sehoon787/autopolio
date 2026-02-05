@@ -92,6 +92,7 @@
     "exporting": "Exporting...",
     "success": "Export completed",
     "failed": "Export failed",
-    "error": "An error occurred during export"
+    "error": "An error occurred during export",
+    "includeCodeStats": "Include code contribution statistics (lines added/deleted, commits)"
   }
 }

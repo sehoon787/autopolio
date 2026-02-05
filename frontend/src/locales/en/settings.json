@@ -11,7 +11,8 @@
     "aiProviders": "AI Providers",
     "github": "GitHub",
     "account": "Account",
-    "profile": "Personal Info"
+    "profile": "Personal Info",
+    "aiAnalysis": "AI Settings"
   },
   "appearance": {
     "title": "Appearance",
@@ -142,6 +143,18 @@
   "profile": {
     "title": "Personal Information",
     "description": "Manage contact information for resumes and portfolios",
+    "photo": "Profile Photo",
+    "uploadPhoto": "Upload Photo",
+    "deletePhoto": "Delete Photo",
+    "photoHint": "Upload a photo for your resume. JPG, PNG, GIF, WebP format, max 5MB",
+    "photoUploaded": "Photo uploaded",
+    "photoUploadFailed": "Photo upload failed",
+    "photoDeleted": "Photo deleted",
+    "photoDeleteFailed": "Photo delete failed",
+    "photoTooLarge": "File is too large. Maximum size is 5MB.",
+    "cancelPhoto": "Cancel",
+    "cancelDelete": "Cancel Delete",
+    "photoChangesPending": "Click save to apply",
     "displayName": "Display Name",
     "displayNamePlaceholder": "John Doe",
     "displayNameHint": "Name displayed on your resume. Your social login name is used as default.",
@@ -209,5 +222,33 @@
     "completeDesc": "Setup is complete",
     "skip": "Skip for now",
     "start": "Get Started"
+  },
+  "generationOptions": {
+    "title": "AI Analysis Settings",
+    "description": "Manage AI settings applied to project analysis",
+    "loginRequired": "Login required",
+    "saved": "Settings saved",
+    "analysisSettings": "Analysis Options",
+    "analysisSettingsDesc": "These settings are applied when analyzing projects with AI",
+    "summaryStyle": "Summary Style",
+    "summaryStyleDesc": "Select the writing style for AI project analysis",
+    "analysisLanguage": "Analysis Language",
+    "analysisLanguageDesc": "Select the language for AI analysis results",
+    "analysisScope": "Analysis Scope",
+    "analysisScopeDesc": "Select the depth and detail level of analysis",
+    "styles": {
+      "professional": "Professional",
+      "casual": "Casual",
+      "technical": "Technical"
+    },
+    "languages": {
+      "ko": "Korean",
+      "en": "English"
+    },
+    "scopes": {
+      "quick": "Quick Analysis",
+      "standard": "Standard Analysis",
+      "detailed": "Detailed Analysis"
+    }
   }
 }

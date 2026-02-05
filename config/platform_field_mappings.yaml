@@ -145,10 +145,32 @@ section_fields:
         required: false
 
       - name: achievements
-        type: list
-        label: 주요 성과
-        label_en: Achievements
+        type: textarea
+        label: 성과 (상세 형식 - 기본값)
+        label_en: Achievements (Detailed - Default)
         required: false
+        description: "전후 비교와 설명이 포함된 상세 성과"
+
+      - name: achievements_summary
+        type: textarea
+        label: 성과 (요약 형식)
+        label_en: Achievements (Summary)
+        required: false
+        description: "간단한 지표: 수치 형식"
+
+      - name: achievements_detailed
+        type: textarea
+        label: 성과 (상세 형식)
+        label_en: Achievements (Detailed)
+        required: false
+        description: "설명, 전후 비교 포함 상세 형식"
+
+      - name: achievements_list
+        type: list
+        label: 성과 목록 (반복 섹션)
+        label_en: Achievements List (Iteration)
+        required: false
+        description: "템플릿에서 {{#achievements_list}}로 반복 가능"
 
   skills:
     label: 기술스택

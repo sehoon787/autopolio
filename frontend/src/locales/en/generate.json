@@ -14,17 +14,9 @@
   "documentName": "Document Name (optional)",
   "autoGenerate": "Auto-generate",
   "generationOptions": "Generation Options",
-  "summaryStyle": "Summary Style",
-  "styles": {
-    "professional": "Professional",
-    "casual": "Casual",
-    "technical": "Technical"
-  },
   "options": {
     "includeAchievements": "Include Achievements",
-    "includeTechStack": "Include Tech Stack",
-    "regenerateSummaries": "Regenerate AI Summaries",
-    "skipLlmSummary": "Skip AI Summary"
+    "includeTechStack": "Include Tech Stack"
   },
   "startGeneration": "Start Generation",
   "generating": "Generating...",
@@ -33,5 +25,7 @@
   "selectProjectError": "Please select at least one project.",
   "selectTemplateError": "Please select a template.",
   "analyzed": "Analyzed",
-  "aiSummary": "AI Summary"
+  "aiSummary": "AI Summary",
+  "notAnalyzed": "Not Analyzed",
+  "unanalyzedWarning": "{{count}} selected project(s) are not analyzed. They will be automatically analyzed before document generation."
 }

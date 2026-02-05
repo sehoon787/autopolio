@@ -598,10 +598,16 @@
                                 {{#technologies}}<div><strong>기술 스택:</strong> {{technologies}}</div>{{/technologies}}
                                 {{#team_size}}<div><strong>개발 인원:</strong> {{team_size}}</div>{{/team_size}}
                                 {{#description}}<div style="margin-top: 8px;"><strong>상세 내용:</strong> {{description}}</div>{{/description}}
-                                {{#achievements}}
+                                {{#has_achievements}}
                                 <div style="margin-top: 8px;"><strong>성과:</strong></div>
-                                <div style="margin-left: 16px; white-space: pre-wrap;">{{achievements}}</div>
-                                {{/achievements}}
+                                <div style="margin-left: 16px;">
+                                    {{#achievements_summary_list}}
+                                    <div style="margin-bottom: 6px;">
+                                        <div><strong style="color: #4876EF;">[{{category}}]</strong> {{title}}</div>
+                                    </div>
+                                    {{/achievements_summary_list}}
+                                </div>
+                                {{/has_achievements}}
                             </div>
                         </div>
                         {{/projects}}

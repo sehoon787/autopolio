@@ -14,17 +14,9 @@
   "documentName": "문서명 (선택)",
   "autoGenerate": "자동 생성",
   "generationOptions": "생성 옵션",
-  "summaryStyle": "요약 스타일",
-  "styles": {
-    "professional": "전문적",
-    "casual": "친근한",
-    "technical": "기술 중심"
-  },
   "options": {
     "includeAchievements": "성과 포함",
-    "includeTechStack": "기술 스택 포함",
-    "regenerateSummaries": "AI 요약 재생성",
-    "skipLlmSummary": "AI 요약 건너뛰기"
+    "includeTechStack": "기술 스택 포함"
   },
   "startGeneration": "문서 생성 시작",
   "generating": "실행 중...",
@@ -33,5 +25,7 @@
   "selectProjectError": "최소 1개의 프로젝트를 선택해주세요.",
   "selectTemplateError": "템플릿을 선택해주세요.",
   "analyzed": "분석됨",
-  "aiSummary": "AI 요약"
+  "aiSummary": "AI 요약",
+  "notAnalyzed": "미분석",
+  "unanalyzedWarning": "선택된 {{count}}개 프로젝트가 아직 분석되지 않았습니다. 문서 생성 전 자동으로 분석됩니다."
 }

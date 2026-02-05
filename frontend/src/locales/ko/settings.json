@@ -11,7 +11,8 @@
     "aiProviders": "AI 제공자",
     "github": "GitHub",
     "account": "계정",
-    "profile": "개인정보"
+    "profile": "개인정보",
+    "aiAnalysis": "AI 설정"
   },
   "appearance": {
     "title": "외관",
@@ -142,6 +143,18 @@
   "profile": {
     "title": "개인정보",
     "description": "이력서 및 포트폴리오에 사용할 연락처 정보를 관리합니다",
+    "photo": "프로필 사진",
+    "uploadPhoto": "사진 업로드",
+    "deletePhoto": "사진 삭제",
+    "photoHint": "이력서에 사용할 사진을 업로드하세요. JPG, PNG, GIF, WebP 형식, 최대 5MB",
+    "photoUploaded": "사진이 업로드되었습니다",
+    "photoUploadFailed": "사진 업로드 실패",
+    "photoDeleted": "사진이 삭제되었습니다",
+    "photoDeleteFailed": "사진 삭제 실패",
+    "photoTooLarge": "파일 크기가 너무 큽니다. 최대 5MB까지 가능합니다.",
+    "cancelPhoto": "취소",
+    "cancelDelete": "삭제 취소",
+    "photoChangesPending": "저장 버튼을 눌러 반영하세요",
     "displayName": "이름",
     "displayNamePlaceholder": "홍길동",
     "displayNameHint": "이력서에 표시될 이름입니다. 소셜로그인 이름이 기본값으로 채워집니다.",
@@ -209,5 +222,33 @@
     "completeDesc": "설정이 완료되었습니다",
     "skip": "나중에 하기",
     "start": "시작하기"
+  },
+  "generationOptions": {
+    "title": "AI 분석 설정",
+    "description": "프로젝트 분석에 적용되는 AI 설정을 관리합니다",
+    "loginRequired": "로그인이 필요합니다",
+    "saved": "설정이 저장되었습니다",
+    "analysisSettings": "분석 옵션",
+    "analysisSettingsDesc": "프로젝트 분석 시 적용되는 설정입니다",
+    "summaryStyle": "요약 스타일",
+    "summaryStyleDesc": "AI가 프로젝트를 분석하는 문체를 선택합니다",
+    "analysisLanguage": "분석 언어",
+    "analysisLanguageDesc": "AI 분석 결과가 작성되는 언어를 선택합니다",
+    "analysisScope": "분석 범위",
+    "analysisScopeDesc": "분석의 깊이와 상세도를 선택합니다",
+    "styles": {
+      "professional": "전문적",
+      "casual": "캐주얼",
+      "technical": "기술적"
+    },
+    "languages": {
+      "ko": "한국어",
+      "en": "영어"
+    },
+    "scopes": {
+      "quick": "빠른 분석",
+      "standard": "표준 분석",
+      "detailed": "상세 분석"
+    }
   }
 }
