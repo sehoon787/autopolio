@@ -15,6 +15,7 @@ from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
 from api.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse, TemplateListResponse
 from api.services.document_service import DocumentService
+from api.services.user_data_collector import UserDataCollector
 
 router = APIRouter()
 settings = get_settings()
@@ -69,7 +70,7 @@ async def get_templates(
     # Exclude platform-specific templates unless explicitly requested
     # These templates are now available via /platforms endpoint with HTML rendering
     if not include_platform_templates:
-        platform_specific = ["saramin_1", "saramin_2", "wanted", "remember"]
+        platform_specific = ["saramin", "remember", "jumpit"]
         query = query.where(not_(Template.platform.in_(platform_specific)))
 
     query = query.order_by(Template.is_system.desc(), Template.name)
@@ -122,10 +123,52 @@ async def get_available_fields():
             {"field": "technologies", "description": "기술 스택", "example": "FastAPI, React", "parent": "projects"},
         ],
         "achievement_fields": [
-            {"field": "achievements", "description": "성과 목록 (프로젝트 내 반복)", "is_section": True, "parent": "projects"},
-            {"field": "metric_name", "description": "성과 지표명", "example": "성능 향상", "parent": "achievements"},
-            {"field": "metric_value", "description": "성과 수치", "example": "40% 개선", "parent": "achievements"},
-            {"field": "description", "description": "성과 설명", "example": "API 최적화", "parent": "achievements"},
+            # === 3 LEVELS OF ACHIEVEMENT FORMAT ===
+            # 1. 기본 (Basic): From ProjectAchievement model - simple metric_name: metric_value
+            # 2. 요약 (Summary): From RepoAnalysis.detailed_achievements - titles grouped by category (DEFAULT)
+            # 3. 상세 (Detailed): From RepoAnalysis.detailed_achievements - full title + description
+
+            # === STRING FORMATS (use directly in template) ===
+            # Default field - uses Summary format (요약)
+            {"field": "achievements", "description": "성과 (요약 형식 - 기본값)", "example": "**[성능 개선]**\n• 캐싱 전략 도입\n• API 응답 최적화\n\n**[신규 기능]**\n• 대시보드 개발", "parent": "projects", "level": "default"},
+
+            # Level 1: 기본 (Basic) - From ProjectAchievement model
+            {"field": "achievements_basic", "description": "성과 (기본 형식) - 지표명: 수치만", "example": "• 기능 개발: 16개 기능\n• 버그 수정: 8건 해결", "parent": "projects", "level": "basic"},
+
+            # Level 2: 요약 (Summary) - From detailed_achievements (titles only)
+            {"field": "achievements_summary", "description": "성과 (요약 형식) - 카테고리별 제목", "example": "**[성능 개선]**\n• 캐싱 전략 도입\n• API 응답 최적화", "parent": "projects", "level": "summary"},
+
+            # Level 3: 상세 (Detailed) - From detailed_achievements (full)
+            {"field": "achievements_detailed", "description": "성과 (상세 형식) - 제목 + 설명", "example": "**[성능 개선]**\n• **캐싱 전략 도입**\n  Redis 캐싱으로 40% 성능 향상", "parent": "projects", "level": "detailed"},
+
+            # Conditional field
+            {"field": "has_achievements", "description": "성과 유무 (조건문용)", "example": "true/false", "parent": "projects"},
+
+            # === LIST FORMATS (for iteration with {{#list}}...{{/list}}) ===
+            # Default list - uses Summary format
+            {"field": "achievements_list", "description": "성과 목록 (요약 - 기본값)", "is_section": True, "parent": "projects", "level": "default"},
+
+            # Level 1: 기본 (Basic) list
+            {"field": "achievements_basic_list", "description": "성과 목록 (기본 형식)", "is_section": True, "parent": "projects", "level": "basic"},
+
+            # Level 2: 요약 (Summary) list
+            {"field": "achievements_summary_list", "description": "성과 목록 (요약 형식)", "is_section": True, "parent": "projects", "level": "summary"},
+
+            # Level 3: 상세 (Detailed) list
+            {"field": "achievements_detailed_list", "description": "성과 목록 (상세 형식)", "is_section": True, "parent": "projects", "level": "detailed"},
+
+            # === LIST ITEM FIELDS (available in all list formats) ===
+            {"field": "title", "description": "성과 제목", "example": "캐싱 전략 도입", "parent": "achievements_*_list"},
+            {"field": "category", "description": "성과 카테고리", "example": "성능 개선", "parent": "achievements_*_list"},
+            {"field": "description", "description": "성과 설명 (상세 형식만)", "example": "Redis 캐싱으로 40% 성능 향상", "parent": "achievements_*_list"},
+            {"field": "has_description", "description": "설명 유무", "example": "true/false", "parent": "achievements_*_list"},
+
+            # === LEGACY FIELDS (for backwards compatibility with Basic format) ===
+            {"field": "metric_name", "description": "성과 지표명 (기본 형식)", "example": "기능 개발", "parent": "achievements_basic_list"},
+            {"field": "metric_value", "description": "성과 수치 (기본 형식)", "example": "16개 기능", "parent": "achievements_basic_list"},
+            {"field": "before_value", "description": "개선 전 상태 (기본 형식)", "example": "평균 2초", "parent": "achievements_basic_list"},
+            {"field": "after_value", "description": "개선 후 상태 (기본 형식)", "example": "평균 0.5초", "parent": "achievements_basic_list"},
+            {"field": "has_before_after", "description": "전후 비교 유무 (기본 형식)", "example": "true/false", "parent": "achievements_basic_list"},
         ],
         "certification_fields": [
             {"field": "certifications", "description": "자격증 목록 (반복 섹션)", "is_section": True},
@@ -173,13 +216,50 @@ async def get_available_fields():
             "simple_field": "{{field_name}}",
             "section_start": "{{#section_name}}",
             "section_end": "{{/section_name}}",
-            "example": """{{#projects}}
+            "conditional": "{{#has_field}}내용{{/has_field}}",
+            "achievement_levels": {
+                "description": "성과는 3가지 레벨로 제공됩니다. 기본값은 '요약' 형식입니다.",
+                "basic": "achievements_basic - 지표명: 수치 (예: 기능 개발: 16개 기능)",
+                "summary": "achievements (기본값), achievements_summary - 카테고리별 제목 목록",
+                "detailed": "achievements_detailed - 제목 + 상세 설명"
+            },
+            "example_basic": """{{#projects}}
 ### {{name}}
-- 역할: {{role}}
-- 기술: {{technologies}}
-{{#achievements}}
-- {{metric_name}}: {{metric_value}}
-{{/achievements}}
+**성과 (기본)**
+{{achievements_basic}}
+{{/projects}}""",
+            "example_summary": """{{#projects}}
+### {{name}}
+**성과 (요약 - 기본값)**
+{{achievements}}
+{{/projects}}""",
+            "example_detailed": """{{#projects}}
+### {{name}}
+**성과 (상세)**
+{{achievements_detailed}}
+{{/projects}}""",
+            "example_summary_list": """{{#projects}}
+### {{name}}
+**성과 (요약 목록)**
+{{#achievements_summary_list}}
+- **{{title}}** ({{category}})
+{{/achievements_summary_list}}
+{{/projects}}""",
+            "example_detailed_list": """{{#projects}}
+### {{name}}
+**성과 (상세 목록)**
+{{#achievements_detailed_list}}
+- **{{title}}** ({{category}})
+  {{#has_description}}{{description}}{{/has_description}}
+{{/achievements_detailed_list}}
+{{/projects}}""",
+            "example_basic_list": """{{#projects}}
+### {{name}}
+**성과 (기본 목록)**
+{{#achievements_basic_list}}
+- **{{metric_name}}**: {{metric_value}}
+  {{#has_before_after}}▶ {{before_value}} → {{after_value}}{{/has_before_after}}
+{{/achievements_basic_list}}
 {{/projects}}"""
         }
     }
@@ -204,74 +284,72 @@ async def preview_template(
     sample_data = request.sample_data or {}
 
     if user_id and not sample_data:
-        # Use real user data
-        user_result = await db.execute(select(User).where(User.id == user_id))
-        user = user_result.scalar_one_or_none()
+        # Use UserDataCollector for proper data priority (user-entered > OAuth defaults)
+        try:
+            collector = UserDataCollector(db)
+            collected_data = await collector.collect(user_id)
 
-        if user:
-            # Get companies
-            companies_result = await db.execute(
-                select(Company).where(Company.user_id == user_id).limit(3)
-            )
-            companies = companies_result.scalars().all()
-
-            # Get projects with technologies and achievements
-            projects_result = await db.execute(
-                select(Project)
-                .where(Project.user_id == user_id)
-                .options(
-                    selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                    selectinload(Project.achievements)
-                )
-                .limit(5)
-            )
-            projects = projects_result.scalars().all()
-
+            # Map collected data to sample_data format for template rendering
             sample_data = {
-                "name": user.name or "사용자명",
-                "email": user.email or "user@example.com",
-                "github_username": user.github_username or "github_user",
-                "summary": "경험이 풍부한 개발자입니다.",
-                "skills": ", ".join(list(set(
-                    tech.technology.name
-                    for p in projects
-                    for tech in p.technologies
-                ))[:10]) or "React, Python, FastAPI",
+                "name": collected_data.get("name", "사용자명"),
+                "email": collected_data.get("email", "user@example.com"),
+                "phone": collected_data.get("phone", ""),
+                "address": collected_data.get("address", ""),
+                "birthdate": collected_data.get("birthdate", ""),
+                "github_username": collected_data.get("github_url", "").replace("https://github.com/", "") if collected_data.get("github_url") else "",
+                "github_url": collected_data.get("github_url", ""),
+                "photo_url": collected_data.get("photo_url", ""),
+                "summary": collected_data.get("introduction", "") or "경험이 풍부한 개발자입니다.",
+                "skills": ", ".join(collected_data.get("skills", [])) if collected_data.get("skills") else "React, Python, FastAPI",
                 "companies": [
                     {
-                        "name": c.name,
-                        "position": c.position or "개발자",
-                        "department": c.department or "",
-                        "start_date": str(c.start_date) if c.start_date else "2020.01",
-                        "end_date": str(c.end_date) if c.end_date else "현재",
-                        "description": c.description or "소프트웨어 개발"
+                        "name": exp.get("company_name", ""),
+                        "position": exp.get("position", "개발자"),
+                        "department": exp.get("department", ""),
+                        "start_date": exp.get("start_date", "2020.01"),
+                        "end_date": exp.get("end_date", "") or "현재",
+                        "description": exp.get("description", "소프트웨어 개발")
                     }
-                    for c in companies
+                    for exp in collected_data.get("experiences", [])
                 ],
                 "projects": [
                     {
-                        "name": p.name,
-                        "short_description": p.short_description or "",
-                        "description": p.description or p.ai_summary or "프로젝트 설명",
-                        "role": p.role or "개발자",
-                        "team_size": p.team_size or 3,
-                        "contribution_percent": p.contribution_percent or 50,
-                        "start_date": str(p.start_date) if p.start_date else "2023.01",
-                        "end_date": str(p.end_date) if p.end_date else "2023.06",
-                        "technologies": ", ".join([t.technology.name for t in p.technologies][:5]) or "React, Node.js",
-                        "achievements": [
-                            {
-                                "metric_name": a.metric_name,
-                                "metric_value": a.metric_value,
-                                "description": a.description or ""
-                            }
-                            for a in p.achievements[:3]
-                        ],
-                        "links": p.links or {}
+                        "name": p.get("name", ""),
+                        "short_description": p.get("description", "")[:100] if p.get("description") else "",
+                        "description": p.get("description", "") or "프로젝트 설명",
+                        "role": p.get("role", "개발자"),
+                        "team_size": p.get("team_size", 3),
+                        "contribution_percent": 50,
+                        "start_date": p.get("start_date", "2023.01"),
+                        "end_date": p.get("end_date", "") or "2023.06",
+                        "technologies": p.get("technologies", "") or "React, Node.js",
+                        "achievements": p.get("achievements_list", []),
+                        # Use achievements_summary_list as default (title only, no description)
+                        "achievements_summary_list": p.get("achievements_summary_list", []),
+                        # Also pass detailed list for templates that need description
+                        "achievements_detailed_list": p.get("achievements_detailed_list", []),
+                        "has_achievements": p.get("has_achievements", False),
+                        "key_tasks": p.get("key_tasks", ""),
+                        "links": {}
                     }
-                    for p in projects
-                ]
+                    for p in collected_data.get("projects", [])[:5]
+                ],
+                # Include credentials
+                "certifications": collected_data.get("certifications", []),
+                "awards": collected_data.get("awards", []),
+                "educations": collected_data.get("educations", []),
+                "publications": collected_data.get("publications", []),
+                "volunteer_activities": collected_data.get("volunteer_activities", []),
+                # Boolean flags for conditionals
+                "has_certifications": collected_data.get("has_certifications", False),
+                "has_awards": collected_data.get("has_awards", False),
+                "has_educations": collected_data.get("has_educations", False),
+                "has_publications": collected_data.get("has_publications", False),
+                "has_volunteer_activities": collected_data.get("has_volunteer_activities", False),
             }
+        except ValueError:
+            # User not found, will use default sample data
+            pass
 
     # Default sample data if nothing provided
     if not sample_data:
@@ -309,6 +387,40 @@ async def preview_template(
                             "description": "API 응답 시간 최적화"
                         }
                     ],
+                    "achievements_summary_list": [
+                        {
+                            "category": "성능 향상",
+                            "title": "40% 개선"
+                        },
+                        {
+                            "category": "기능 개발",
+                            "title": "주문 시스템 구축"
+                        },
+                        {
+                            "category": "코드 품질",
+                            "title": "테스트 커버리지 85%"
+                        }
+                    ],
+                    "achievements_detailed_list": [
+                        {
+                            "category": "성능 향상",
+                            "title": "40% 개선",
+                            "description": "API 응답 시간 최적화",
+                            "has_description": True
+                        },
+                        {
+                            "category": "기능 개발",
+                            "title": "주문 시스템 구축",
+                            "description": "실시간 재고 관리 및 결제 시스템 구현",
+                            "has_description": True
+                        },
+                        {
+                            "category": "코드 품질",
+                            "title": "테스트 커버리지 85%",
+                            "description": "",
+                            "has_description": False
+                        }
+                    ],
                     "links": {"github": "https://github.com/example"}
                 }
             ]
@@ -322,7 +434,79 @@ async def preview_template(
     # Simple template rendering (Mustache-like)
     preview_text = template_content
 
-    # Replace simple fields
+    # Handle sections FIRST (before simple field replacement)
+    # This is critical because we need to find the original section text
+    section_pattern = r'\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}'
+
+    def render_section_item(item_text: str, item_data: dict) -> str:
+        """Render a single section item with boolean and nested list handling."""
+        result = item_text
+
+        # First handle boolean conditionals (e.g., {{#has_description}}...{{/has_description}})
+        for key, value in item_data.items():
+            if isinstance(value, bool):
+                bool_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                if value:
+                    result = re.sub(bool_pattern, r'\1', result, flags=re.DOTALL)
+                else:
+                    result = re.sub(bool_pattern, '', result, flags=re.DOTALL)
+
+        # Handle nested list sections (e.g., achievements_detailed_list inside projects)
+        for key, value in item_data.items():
+            if isinstance(value, list) and value and isinstance(value[0], dict):
+                nested_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                nested_match = re.search(nested_pattern, result, flags=re.DOTALL)
+                if nested_match:
+                    nested_template = nested_match.group(1)
+                    nested_output = []
+                    for nested_item in value:
+                        nested_text = render_section_item(nested_template, nested_item)
+                        # Replace simple placeholders
+                        for nkey, nvalue in nested_item.items():
+                            if not isinstance(nvalue, (list, dict, bool)):
+                                nested_text = nested_text.replace(f"{{{{{nkey}}}}}", str(nvalue) if nvalue else "")
+                        nested_output.append(nested_text.strip())
+                    result = re.sub(nested_pattern, '\n'.join(nested_output), result, flags=re.DOTALL)
+
+        # Replace simple field placeholders
+        for key, value in item_data.items():
+            if isinstance(value, list):
+                if value and not isinstance(value[0], dict):
+                    value = ", ".join(str(v) for v in value)
+                else:
+                    continue  # Already handled above
+            elif isinstance(value, bool):
+                continue  # Already handled above
+            result = result.replace(f"{{{{{key}}}}}", str(value) if value else "")
+
+        return result
+
+    # Process sections FIRST (must happen before simple field replacement)
+    # Process multiple times to handle nested sections
+    for _ in range(3):  # Handle up to 3 levels of nesting
+        section_matches = list(re.finditer(section_pattern, preview_text, re.DOTALL))
+        if not section_matches:
+            break
+        for match in section_matches:
+            section_name = match.group(1)
+            section_template = match.group(2)
+
+            if section_name in sample_data and isinstance(sample_data[section_name], list):
+                section_output = []
+                for item in sample_data[section_name]:
+                    item_text = render_section_item(section_template, item)
+                    section_output.append(item_text)
+                preview_text = preview_text.replace(match.group(0), "".join(section_output), 1)
+            elif section_name in sample_data and isinstance(sample_data[section_name], bool):
+                # Handle boolean conditional sections
+                if sample_data[section_name]:
+                    preview_text = preview_text.replace(match.group(0), section_template, 1)
+                else:
+                    preview_text = preview_text.replace(match.group(0), "", 1)
+            else:
+                preview_text = preview_text.replace(match.group(0), f"[{section_name} 항목 없음]", 1)
+
+    # NOW replace simple fields (after section processing)
     for field in fields_used:
         if field.startswith('#') or field.startswith('/'):
             continue
@@ -330,33 +514,6 @@ async def preview_template(
         if isinstance(value, (list, dict)):
             value = str(value)
         preview_text = preview_text.replace(f"{{{{{field}}}}}", str(value))
-
-    # Handle sections (simplified - just show first item)
-    section_pattern = r'\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}'
-    for match in re.finditer(section_pattern, template_content, re.DOTALL):
-        section_name = match.group(1)
-        section_template = match.group(2)
-
-        if section_name in sample_data and isinstance(sample_data[section_name], list):
-            section_output = []
-            for item in sample_data[section_name]:
-                item_text = section_template
-                for key, value in item.items():
-                    if isinstance(value, list):
-                        # Handle nested lists (like achievements)
-                        if value and isinstance(value[0], dict):
-                            nested_items = []
-                            for nested in value:
-                                nested_text = " / ".join(f"{v}" for v in nested.values() if v)
-                                nested_items.append(f"- {nested_text}")
-                            value = "\n".join(nested_items)
-                        else:
-                            value = ", ".join(str(v) for v in value)
-                    item_text = item_text.replace(f"{{{{{key}}}}}", str(value) if value else "")
-                section_output.append(item_text)
-            preview_text = preview_text.replace(match.group(0), "".join(section_output))
-        else:
-            preview_text = preview_text.replace(match.group(0), f"[{section_name} 항목 없음]")
 
     # Convert markdown to HTML for preview
     try:
@@ -510,245 +667,544 @@ async def delete_template(template_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/init-system-templates")
-async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
-    """Initialize system templates (admin only)."""
-    # Check if system templates already exist
+async def initialize_system_templates(
+    force_update: bool = False,
+    db: AsyncSession = Depends(get_db)
+):
+    """Initialize or update system templates (admin only).
+
+    Args:
+        force_update: If True, update existing templates with latest content from code.
+    """
+    # Get existing system templates
     result = await db.execute(select(Template).where(Template.is_system == 1))
-    if result.scalars().first():
-        return {"message": "System templates already initialized"}
+    existing_templates = {t.platform: t for t in result.scalars().all()}
+
+    if existing_templates and not force_update:
+        return {"message": "System templates already initialized. Use force_update=true to update."}
 
     system_templates = [
         {
-            "name": "사람인 기본형",
-            "description": "사람인 플랫폼용 기본 이력서 템플릿",
-            "platform": "saramin_1",
+            "name": "경력기술서",
+            "description": "인적사항, 학력, 경력, 프로젝트를 포함한 상세 경력기술서",
+            "platform": "career_description",
             "output_format": "docx",
-            "sections": ["summary", "experience", "projects", "skills"],
-            "max_projects": 5,
-            "template_content": """# {{name}} 이력서
+            "sections": ["personal_info", "education", "experience", "projects", "skills", "certifications", "awards"],
+            "max_projects": 20,
+            "template_content": """# 경력기술서
 
-## 기본 정보
-- 이름: {{name}}
-- 이메일: {{email}}
-- GitHub: {{github_username}}
-
-## 경력 사항
-{{#companies}}
-### {{name}}
-- 직책: {{position}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 설명: {{description}}
-{{/companies}}
-
-## 프로젝트
-{{#projects}}
-### {{name}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 역할: {{role}}
-- 기술스택: {{technologies}}
-- 설명: {{description}}
-{{/projects}}
-
-## 기술 스택
-{{skills}}
-
-{{#has_educations}}
-## 학력
-{{#educations}}
-- **{{school_name}}** - {{degree}} {{major}} ({{period}}){{#gpa}} | 학점: {{gpa}}{{/gpa}}
-{{/educations}}
-{{/has_educations}}
-
-{{#has_certifications}}
-## 자격증
-{{#certifications}}
-- **{{name}}** - {{issuer}} ({{issue_date}})
-{{/certifications}}
-{{/has_certifications}}
-
-{{#has_awards}}
-## 수상이력
-{{#awards}}
-- **{{name}}** - {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
-{{/awards}}
-{{/has_awards}}
-"""
-        },
-        {
-            "name": "사람인 상세형",
-            "description": "사람인 플랫폼용 상세 이력서 템플릿 (성과 포함)",
-            "platform": "saramin_2",
-            "output_format": "docx",
-            "sections": ["summary", "experience", "projects", "achievements", "skills"],
-            "max_projects": 10,
-            "template_content": """# {{name}} 이력서 (상세)
-
-## 기본 정보
-- 이름: {{name}}
-- 이메일: {{email}}
-- GitHub: {{github_username}}
-
-## 경력 사항
-{{#companies}}
-### {{name}}
-- 직책: {{position}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 설명: {{description}}
-{{/companies}}
-
-## 프로젝트
-{{#projects}}
-### {{name}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 역할: {{role}}
-- 팀 규모: {{team_size}}명
-- 기여도: {{contribution_percent}}%
-- 기술스택: {{technologies}}
-- 설명: {{description}}
-
-#### 주요 성과
-{{#achievements}}
-- {{metric_name}}: {{metric_value}} - {{description}}
-{{/achievements}}
-{{/projects}}
-
-## 기술 스택
-{{skills}}
-
-{{#has_educations}}
-## 학력
-{{#educations}}
-- **{{school_name}}** - {{degree}} {{major}} ({{period}}){{#gpa}} | 학점: {{gpa}}{{/gpa}}
-{{/educations}}
-{{/has_educations}}
-
-{{#has_certifications}}
-## 자격증
-{{#certifications}}
-- **{{name}}** - {{issuer}} ({{issue_date}})
-{{/certifications}}
-{{/has_certifications}}
-
-{{#has_awards}}
-## 수상이력
-{{#awards}}
-- **{{name}}** - {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
-{{/awards}}
-{{/has_awards}}
-
-{{#has_publications}}
-## 논문/저술
-{{#publications}}
-- **{{title}}** - {{authors}} | {{publisher}} ({{publication_date}})
-{{/publications}}
-{{/has_publications}}
-
-{{#has_volunteer_activities}}
-## 봉사/대외활동
-{{#volunteer_activities}}
-- **{{name}}** - {{organization}} ({{period}}){{#role}} | 역할: {{role}}{{/role}}{{#hours}} | {{hours}}시간{{/hours}}
-{{/volunteer_activities}}
-{{/has_volunteer_activities}}
-"""
-        },
-        {
-            "name": "원티드",
-            "description": "원티드 플랫폼용 이력서 템플릿",
-            "platform": "wanted",
-            "output_format": "docx",
-            "sections": ["summary", "experience", "projects", "achievements"],
-            "max_projects": 10,
-            "template_content": """# {{name}}
-
-## 소개
+## {{name}}
 {{summary}}
 
-## 경력
-{{#companies}}
-### {{name}} | {{position}}
-{{start_date}} - {{end_date}}
-{{description}}
-{{/companies}}
+---
 
-## 프로젝트
-{{#projects}}
-### {{name}}
-{{start_date}} - {{end_date}}
+## 인적사항
 
-{{description}}
+| 항목 | 내용 |
+|------|------|
+| 성명 | {{name}} |
+| 생년월일 | {{birthdate}} |
+| 주소 | {{address}} |
+| 연락처 | {{phone}} |
+| 이메일 | {{email}} |
 
-**주요 성과**
-{{#achievements}}
-- {{metric_name}}: {{metric_value}}
-{{/achievements}}
-
-**사용 기술**: {{technologies}}
-{{/projects}}
+---
 
 {{#has_educations}}
-## 학력
+## 학력사항
+
 {{#educations}}
 ### {{school_name}}
-{{degree}} {{major}} | {{period}}{{#gpa}} | 학점: {{gpa}}{{/gpa}}
+| 항목 | 내용 |
+|------|------|
+| 학교명 | {{school_name}} |
+| 입학일/졸업일 | {{period}} |
+| 전공 | {{major}} |
+{{#gpa}}| 학점 | {{gpa}} |{{/gpa}}
+
 {{/educations}}
 {{/has_educations}}
 
-{{#has_certifications}}
-## 자격증
-{{#certifications}}
-- {{name}} | {{issuer}} ({{issue_date}})
-{{/certifications}}
-{{/has_certifications}}
+---
 
-{{#has_awards}}
-## 수상이력
-{{#awards}}
-- {{name}} | {{issuer}} ({{award_date}})
-{{/awards}}
-{{/has_awards}}
+{{#has_research_experiences}}
+## 연구실 경력
 
-{{#has_publications}}
-## 논문/저술
-{{#publications}}
-- {{title}} | {{publisher}} ({{publication_date}})
-{{/publications}}
-{{/has_publications}}
+{{#research_experiences}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 연구실명 | {{name}} |
+| 기간 | {{period}} |
+| 연구 분야 | {{field}} |
 
-{{#has_volunteer_activities}}
-## 봉사/대외활동
-{{#volunteer_activities}}
-- {{name}} | {{organization}} ({{period}})
-{{/volunteer_activities}}
-{{/has_volunteer_activities}}
-"""
-        },
-        {
-            "name": "리멤버",
-            "description": "리멤버 플랫폼용 간략 이력서 템플릿",
-            "platform": "remember",
-            "output_format": "docx",
-            "sections": ["summary", "experience", "projects"],
-            "max_projects": 8,
-            "max_characters": 3000,
-            "template_content": """# {{name}}
-{{position}} | {{company}}
+{{/research_experiences}}
+{{/has_research_experiences}}
 
-## 경력 요약
+---
+
+## 경력사항
+
 {{#companies}}
-- {{name}} ({{start_date}} - {{end_date}}): {{position}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{name}} |
+| 입사일/퇴사일 | {{start_date}} ~ {{end_date}} |
+| 소속부서/직급 | {{department}} / {{position}} |
+| 직무 | {{description}} |
+
 {{/companies}}
 
+---
+
+{{#has_freelance_experiences}}
+## 프리랜서 경력
+
+{{#freelance_experiences}}
+### {{company}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{company}} |
+| 기간 | {{period}} |
+| 소속부서/직급 | {{department}} |
+| 직무 | {{description}} |
+
+{{/freelance_experiences}}
+{{/has_freelance_experiences}}
+
+---
+
+## 기술스택
+
+| 분류 | 기술 |
+|------|------|
+| Programming Languages | {{programming_languages}} |
+| Framework/Library | {{frameworks}} |
+| Infra (DevOps) | {{devops}} |
+| Tooling | {{tooling}} |
+| Database | {{databases}} |
+
+---
+
 ## 주요 프로젝트
+
 {{#projects}}
-- {{name}}: {{short_description}}
+### {{name}}
+**{{company_name}} / {{department}} / {{position}}**
+
+- **기간**: {{start_date}} ~ {{end_date}}
+- **역할**: {{role}}
+- **기술 스택**: {{technologies}}
+
+{{description}}
+
+**주요 구현 기능**
+{{#key_tasks}}
+- {{.}}
+{{/key_tasks}}
+
+{{#has_achievements}}
+**성과**
+{{#achievements_summary_list}}
+- **[{{category}}] {{title}}**
+{{/achievements_summary_list}}
+{{/has_achievements}}
+
+---
 {{/projects}}
 
 {{#has_certifications}}
-## 자격증
+## 자격사항
+
 {{#certifications}}
-- {{name}} ({{issue_date}})
+- **{{name}}** - {{issuer}} ({{issue_date}})
 {{/certifications}}
 {{/has_certifications}}
+
+---
+
+{{#has_awards}}
+## 수상내역
+
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}})
+{{/awards}}
+{{/has_awards}}
+
+---
+
+{{#has_trainings}}
+## 교육사항
+
+{{#trainings}}
+- **{{name}}** ({{period}})
+  {{description}}
+{{/trainings}}
+{{/has_trainings}}
+
+---
+
+{{#has_others}}
+## 기타사항
+
+{{#others}}
+**{{category}}**
+{{content}}
+
+{{/others}}
+{{/has_others}}
+"""
+        },
+        {
+            "name": "경력기술서 (인적사항X)",
+            "description": "인적사항을 제외한 경력기술서 (회사 제출용)",
+            "platform": "career_description_no_personal",
+            "output_format": "docx",
+            "sections": ["education", "experience", "projects", "skills", "certifications", "awards"],
+            "max_projects": 20,
+            "template_content": """# 경력기술서
+
+## {{name}}
+
+---
+
+{{#has_educations}}
+## 학력사항
+
+{{#educations}}
+### {{school_name}}
+| 항목 | 내용 |
+|------|------|
+| 학교명 | {{school_name}} |
+| 입학일/졸업일 | {{period}} |
+| 전공 | {{major}} |
+{{#gpa}}| 학점 | {{gpa}} |{{/gpa}}
+
+{{/educations}}
+{{/has_educations}}
+
+---
+
+{{#has_research_experiences}}
+## 연구실 경력
+
+{{#research_experiences}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 연구실명 | {{name}} |
+| 기간 | {{period}} |
+| 연구 분야 | {{field}} |
+
+{{/research_experiences}}
+{{/has_research_experiences}}
+
+---
+
+## 경력사항
+
+{{#companies}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{name}} |
+| 입사일/퇴사일 | {{start_date}} ~ {{end_date}} |
+| 소속부서/직급 | {{department}} / {{position}} |
+| 직무 | {{description}} |
+
+{{/companies}}
+
+---
+
+{{#has_freelance_experiences}}
+## 프리랜서 경력
+
+{{#freelance_experiences}}
+### {{company}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{company}} |
+| 기간 | {{period}} |
+| 소속부서/직급 | {{department}} |
+| 직무 | {{description}} |
+
+{{/freelance_experiences}}
+{{/has_freelance_experiences}}
+
+---
+
+## 기술스택
+
+| 분류 | 기술 |
+|------|------|
+| Programming Languages | {{programming_languages}} |
+| Framework/Library | {{frameworks}} |
+| Infra (DevOps) | {{devops}} |
+| Tooling | {{tooling}} |
+| Database | {{databases}} |
+
+---
+
+## 주요 프로젝트
+
+{{#projects}}
+### {{name}}
+**{{company_name}} / {{department}} / {{position}}**
+
+- **기간**: {{start_date}} ~ {{end_date}}
+- **역할**: {{role}}
+- **기술 스택**: {{technologies}}
+
+{{description}}
+
+**주요 구현 기능**
+{{#key_tasks}}
+- {{.}}
+{{/key_tasks}}
+
+{{#has_achievements}}
+**성과**
+{{#achievements_summary_list}}
+- **[{{category}}] {{title}}**
+{{/achievements_summary_list}}
+{{/has_achievements}}
+
+---
+{{/projects}}
+
+{{#has_certifications}}
+## 자격사항
+
+{{#certifications}}
+- **{{name}}** - {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+---
+
+{{#has_awards}}
+## 수상내역
+
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}})
+{{/awards}}
+{{/has_awards}}
+
+---
+
+{{#has_trainings}}
+## 교육사항
+
+{{#trainings}}
+- **{{name}}** ({{period}})
+  {{description}}
+{{/trainings}}
+{{/has_trainings}}
+
+---
+
+{{#has_others}}
+## 기타사항
+
+{{#others}}
+**{{category}}**
+{{content}}
+
+{{/others}}
+{{/has_others}}
+"""
+        },
+        {
+            "name": "이력서",
+            "description": "인적사항, 연봉정보, 학력, 경력, 프로젝트, 자기소개를 포함한 종합 이력서",
+            "platform": "resume",
+            "output_format": "docx",
+            "sections": ["personal_info", "salary_info", "education", "experience", "projects", "skills", "certifications", "awards", "self_introduction"],
+            "max_projects": 20,
+            "template_content": """# 이력서
+
+## {{name}}
+{{summary}}
+
+---
+
+**현재연봉**: {{current_salary}}
+**희망연봉**: {{desired_salary}}
+**이직사유**: {{job_change_reason}}
+**입사 가능일**: {{available_date}}
+
+---
+
+## 인적사항
+
+| 항목 | 내용 |
+|------|------|
+| 성명 | {{name}} |
+| 생년월일 | {{birthdate}} |
+| 주소 | {{address}} |
+| 연락처 | {{phone}} |
+| 이메일 | {{email}} |
+
+---
+
+{{#has_educations}}
+## 학력사항
+
+{{#educations}}
+### {{school_name}}
+| 항목 | 내용 |
+|------|------|
+| 학교명 | {{school_name}} |
+| 입학일/졸업일 | {{period}} |
+| 전공 | {{major}} |
+{{#gpa}}| 학점 | {{gpa}} |{{/gpa}}
+
+{{/educations}}
+{{/has_educations}}
+
+---
+
+{{#has_research_experiences}}
+## 연구실 경력
+
+{{#research_experiences}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 연구실명 | {{name}} |
+| 기간 | {{period}} |
+| 연구 분야 | {{field}} |
+
+{{/research_experiences}}
+{{/has_research_experiences}}
+
+---
+
+## 경력사항
+
+{{#companies}}
+### {{name}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{name}} |
+| 입사일/퇴사일 | {{start_date}} ~ {{end_date}} |
+| 소속부서/직급 | {{department}} / {{position}} |
+| 직무 | {{description}} |
+
+{{/companies}}
+
+---
+
+{{#has_freelance_experiences}}
+## 프리랜서 경력
+
+{{#freelance_experiences}}
+### {{company}}
+| 항목 | 내용 |
+|------|------|
+| 회사명 | {{company}} |
+| 기간 | {{period}} |
+| 소속부서/직급 | {{department}} |
+| 직무 | {{description}} |
+
+{{/freelance_experiences}}
+{{/has_freelance_experiences}}
+
+---
+
+## 기술스택
+
+| 분류 | 기술 |
+|------|------|
+| Programming Languages | {{programming_languages}} |
+| Framework/Library | {{frameworks}} |
+| Infra (DevOps) | {{devops}} |
+| Tooling | {{tooling}} |
+| Database | {{databases}} |
+
+---
+
+## 주요 프로젝트
+
+{{#projects}}
+### {{name}}
+**{{company_name}} / {{department}} / {{position}}**
+
+- **기간**: {{start_date}} ~ {{end_date}}
+- **역할**: {{role}}
+- **기술 스택**: {{technologies}}
+
+{{description}}
+
+**주요 구현 기능**
+{{#key_tasks}}
+- {{.}}
+{{/key_tasks}}
+
+{{#has_achievements}}
+**성과**
+{{#achievements_summary_list}}
+- **[{{category}}] {{title}}**
+{{/achievements_summary_list}}
+{{/has_achievements}}
+
+---
+{{/projects}}
+
+{{#has_certifications}}
+## 자격사항
+
+{{#certifications}}
+- **{{name}}** - {{issuer}} ({{issue_date}})
+{{/certifications}}
+{{/has_certifications}}
+
+---
+
+{{#has_awards}}
+## 수상내역
+
+{{#awards}}
+- **{{name}}** - {{issuer}} ({{award_date}})
+{{/awards}}
+{{/has_awards}}
+
+---
+
+{{#has_trainings}}
+## 교육사항
+
+{{#trainings}}
+- **{{name}}** ({{period}})
+  {{description}}
+{{/trainings}}
+{{/has_trainings}}
+
+---
+
+{{#has_others}}
+## 기타사항
+
+{{#others}}
+**{{category}}**
+{{content}}
+
+{{/others}}
+{{/has_others}}
+
+---
+
+## 자기소개
+
+### 지원 동기
+{{motivation}}
+
+### 업무 수행 역량
+{{competencies}}
+
+### 성격 및 가치관
+{{personality}}
 """
         },
         {
@@ -787,10 +1243,12 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 **🛠 기술 스택**
 {{technologies}}
 
+{{#has_achievements}}
 **📊 성과**
-{{#achievements}}
-| {{metric_name}} | {{metric_value}} |
-{{/achievements}}
+{{#achievements_summary_list}}
+- **[{{category}}] {{title}}**
+{{/achievements_summary_list}}
+{{/has_achievements}}
 
 **🔗 링크**
 {{#links}}
@@ -851,211 +1309,32 @@ async def initialize_system_templates(db: AsyncSession = Depends(get_db)):
 - GitHub: [{{github_username}}](https://github.com/{{github_username}})
 """
         },
-        {
-            "name": "일반 이력서 (Word)",
-            "description": "플랫폼에 종속되지 않는 범용 Word 이력서 템플릿",
-            "platform": "general_docx",
-            "output_format": "docx",
-            "sections": ["summary", "experience", "projects", "achievements", "skills"],
-            "max_projects": 10,
-            "template_content": """# {{name}} 이력서
-
-## 기본 정보
-- 이름: {{name}}
-- 이메일: {{email}}
-- GitHub: {{github_username}}
-
-## 자기소개
-{{summary}}
-
-## 경력 사항
-{{#companies}}
-### {{name}}
-- 직책: {{position}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 주요 업무: {{description}}
-{{/companies}}
-
-## 프로젝트
-{{#projects}}
-### {{name}}
-- 기간: {{start_date}} ~ {{end_date}}
-- 역할: {{role}}
-- 기술 스택: {{technologies}}
-- 설명: {{description}}
-
-#### 주요 구현 기능
-{{key_tasks}}
-
-#### 성과
-{{#achievements}}
-- {{metric_name}}: {{metric_value}}
-{{/achievements}}
-{{/projects}}
-
-## 기술 스택
-{{skills}}
-
-{{#has_educations}}
-## 학력
-{{#educations}}
-### {{school_name}}
-- 학위: {{degree}} {{major}}
-- 기간: {{period}}
-{{#gpa}}- 학점: {{gpa}}{{/gpa}}
-{{/educations}}
-{{/has_educations}}
-
-{{#has_certifications}}
-## 자격증
-{{#certifications}}
-- **{{name}}** - {{issuer}} ({{issue_date}})
-{{/certifications}}
-{{/has_certifications}}
-
-{{#has_awards}}
-## 수상이력
-{{#awards}}
-- **{{name}}** - {{issuer}} ({{award_date}})
-{{#description}}  - {{description}}{{/description}}
-{{/awards}}
-{{/has_awards}}
-
-{{#has_publications}}
-## 논문/저술
-{{#publications}}
-- **{{title}}**
-  - 저자: {{authors}}
-  - 출판: {{publisher}} ({{publication_date}})
-{{/publications}}
-{{/has_publications}}
-
-{{#has_volunteer_activities}}
-## 봉사/대외활동
-{{#volunteer_activities}}
-- **{{name}}** - {{organization}} ({{period}})
-{{#role}}  - 역할: {{role}}{{/role}}
-{{#hours}}  - 봉사시간: {{hours}}시간{{/hours}}
-{{/volunteer_activities}}
-{{/has_volunteer_activities}}
-"""
-        },
-        {
-            "name": "일반 이력서 (Markdown)",
-            "description": "플랫폼에 종속되지 않는 범용 Markdown 이력서 템플릿",
-            "platform": "general_md",
-            "output_format": "md",
-            "sections": ["summary", "experience", "projects", "achievements", "skills"],
-            "max_projects": 10,
-            "template_content": """# {{name}}
-
-> {{summary}}
-
----
-
-## 💼 경력
-
-{{#companies}}
-### {{name}}
-**{{position}}** | {{start_date}} - {{end_date}}
-
-{{description}}
-
-{{/companies}}
-
----
-
-## 🚀 프로젝트
-
-{{#projects}}
-### {{name}}
-**{{role}}** | {{start_date}} - {{end_date}}
-
-{{description}}
-
-**기술 스택:** {{technologies}}
-
-**주요 구현 기능:**
-{{key_tasks}}
-
-**성과:**
-{{#achievements}}
-- {{metric_name}}: {{metric_value}}
-{{/achievements}}
-
----
-{{/projects}}
-
-## 🛠 기술 스택
-{{skills}}
-
----
-
-{{#has_educations}}
-## 🎓 학력
-
-{{#educations}}
-### {{school_name}}
-**{{degree}} {{major}}** | {{period}}{{#gpa}} | 학점: {{gpa}}{{/gpa}}
-
-{{/educations}}
-{{/has_educations}}
-
-{{#has_certifications}}
-## 📜 자격증
-
-{{#certifications}}
-- **{{name}}** | {{issuer}} ({{issue_date}})
-{{/certifications}}
-
-{{/has_certifications}}
-
-{{#has_awards}}
-## 🏆 수상이력
-
-{{#awards}}
-- **{{name}}** | {{issuer}} ({{award_date}}){{#description}} - {{description}}{{/description}}
-{{/awards}}
-
-{{/has_awards}}
-
-{{#has_publications}}
-## 📚 논문/저술
-
-{{#publications}}
-- **{{title}}** | {{authors}} | {{publisher}} ({{publication_date}})
-{{/publications}}
-
-{{/has_publications}}
-
-{{#has_volunteer_activities}}
-## 🤝 봉사/대외활동
-
-{{#volunteer_activities}}
-- **{{name}}** | {{organization}} ({{period}}){{#role}} | {{role}}{{/role}}
-{{/volunteer_activities}}
-
-{{/has_volunteer_activities}}
-
----
-
-## 📫 연락처
-- Email: {{email}}
-- GitHub: [{{github_username}}](https://github.com/{{github_username}})
-"""
-        },
     ]
 
+    created_count = 0
+    updated_count = 0
+
     for tmpl_data in system_templates:
-        template = Template(
-            user_id=None,
-            is_system=1,
-            **tmpl_data
-        )
-        db.add(template)
+        platform = tmpl_data.get("platform")
+        existing = existing_templates.get(platform)
+
+        if existing and force_update:
+            # Update existing template
+            for key, value in tmpl_data.items():
+                setattr(existing, key, value)
+            updated_count += 1
+        elif not existing:
+            # Create new template
+            template = Template(
+                user_id=None,
+                is_system=1,
+                **tmpl_data
+            )
+            db.add(template)
+            created_count += 1
 
     await db.flush()
-    return {"message": f"Initialized {len(system_templates)} system templates"}
+    return {"message": f"Created {created_count}, updated {updated_count} system templates"}
 
 
 @router.post("/{template_id}/clone", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)

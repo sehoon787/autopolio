@@ -25,7 +25,7 @@ import {
   FullScreenDialogFooter,
   FullScreenDialogTitle,
 } from '@/components/ui/full-screen-dialog'
-import { ArrowLeft, Save, Eye, Copy, RefreshCw, Maximize2, X, ChevronDown, User, Briefcase, FolderKanban } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Copy, RefreshCw, Maximize2, X, ChevronDown, User, Briefcase, FolderKanban, Type, RotateCcw } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 // Field Item Component - single clickable field
@@ -125,6 +125,18 @@ export default function TemplateEditor() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [content, setContent] = useState('')
+
+  // Style settings state with defaults matching docx_styles.py
+  const defaultStyleSettings = {
+    font_name: 'Malgun Gothic',
+    title_size: 24,
+    heading1_size: 18,
+    heading2_size: 14,
+    heading3_size: 12,
+    normal_size: 11,
+  }
+  const [styleSettings, setStyleSettings] = useState(defaultStyleSettings)
+
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewText, setPreviewText] = useState('')
   const [fieldsUsed, setFieldsUsed] = useState<string[]>([])
@@ -151,6 +163,13 @@ export default function TemplateEditor() {
       setName(template.name)
       setDescription(template.description || '')
       setContent(template.template_content || '')
+      // Load style settings or use defaults
+      if (template.style_settings) {
+        setStyleSettings({
+          ...defaultStyleSettings,
+          ...template.style_settings,
+        })
+      }
     }
   }, [templateData])
 
@@ -242,12 +261,30 @@ export default function TemplateEditor() {
       return
     }
 
-    const data = { name, description, template_content: content }
+    const data = {
+      name,
+      description,
+      template_content: content,
+      style_settings: styleSettings,
+    }
     if (templateId && templateId !== 'new') {
       updateMutation.mutate(data)
     } else {
       createMutation.mutate(data)
     }
+  }
+
+  // Reset style settings to defaults
+  const handleResetStyles = () => {
+    setStyleSettings(defaultStyleSettings)
+  }
+
+  // Update a single style setting
+  const updateStyleSetting = (key: keyof typeof defaultStyleSettings, value: string | number) => {
+    setStyleSettings(prev => ({
+      ...prev,
+      [key]: typeof defaultStyleSettings[key] === 'number' ? Number(value) : value,
+    }))
   }
 
   // Insert field at cursor position
@@ -529,6 +566,132 @@ export default function TemplateEditor() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('editor.descriptionPlaceholder')}
                 />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Style Settings */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Type className="h-5 w-5 text-primary" />
+                <CardTitle>{t('styleSettings.title')}</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleResetStyles}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                {t('styleSettings.reset')}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">{t('styleSettings.description')}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {/* Font Name */}
+              <div className="space-y-2">
+                <Label htmlFor="font-name">{t('styleSettings.fontName')}</Label>
+                <Input
+                  id="font-name"
+                  value={styleSettings.font_name}
+                  onChange={(e) => updateStyleSetting('font_name', e.target.value)}
+                  placeholder={t('styleSettings.fontNamePlaceholder')}
+                />
+              </div>
+
+              {/* Title Size */}
+              <div className="space-y-2">
+                <Label htmlFor="title-size">
+                  {t('styleSettings.titleSize')}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({styleSettings.title_size}{t('styleSettings.pt')})
+                  </span>
+                </Label>
+                <Input
+                  id="title-size"
+                  type="number"
+                  min={10}
+                  max={48}
+                  value={styleSettings.title_size}
+                  onChange={(e) => updateStyleSetting('title_size', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('styleSettings.titleSizeDesc')}</p>
+              </div>
+
+              {/* Heading 1 Size */}
+              <div className="space-y-2">
+                <Label htmlFor="heading1-size">
+                  {t('styleSettings.heading1Size')}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({styleSettings.heading1_size}{t('styleSettings.pt')})
+                  </span>
+                </Label>
+                <Input
+                  id="heading1-size"
+                  type="number"
+                  min={10}
+                  max={36}
+                  value={styleSettings.heading1_size}
+                  onChange={(e) => updateStyleSetting('heading1_size', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('styleSettings.heading1SizeDesc')}</p>
+              </div>
+
+              {/* Heading 2 Size */}
+              <div className="space-y-2">
+                <Label htmlFor="heading2-size">
+                  {t('styleSettings.heading2Size')}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({styleSettings.heading2_size}{t('styleSettings.pt')})
+                  </span>
+                </Label>
+                <Input
+                  id="heading2-size"
+                  type="number"
+                  min={10}
+                  max={24}
+                  value={styleSettings.heading2_size}
+                  onChange={(e) => updateStyleSetting('heading2_size', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('styleSettings.heading2SizeDesc')}</p>
+              </div>
+
+              {/* Heading 3 Size */}
+              <div className="space-y-2">
+                <Label htmlFor="heading3-size">
+                  {t('styleSettings.heading3Size')}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({styleSettings.heading3_size}{t('styleSettings.pt')})
+                  </span>
+                </Label>
+                <Input
+                  id="heading3-size"
+                  type="number"
+                  min={10}
+                  max={18}
+                  value={styleSettings.heading3_size}
+                  onChange={(e) => updateStyleSetting('heading3_size', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('styleSettings.heading3SizeDesc')}</p>
+              </div>
+
+              {/* Normal Text Size */}
+              <div className="space-y-2">
+                <Label htmlFor="normal-size">
+                  {t('styleSettings.normalSize')}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({styleSettings.normal_size}{t('styleSettings.pt')})
+                  </span>
+                </Label>
+                <Input
+                  id="normal-size"
+                  type="number"
+                  min={8}
+                  max={14}
+                  value={styleSettings.normal_size}
+                  onChange={(e) => updateStyleSetting('normal_size', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('styleSettings.normalSizeDesc')}</p>
               </div>
             </div>
           </CardContent>

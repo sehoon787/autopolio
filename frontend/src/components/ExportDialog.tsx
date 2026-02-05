@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
 import { exportApi, ExportReportType, ExportPreviewResponse, SingleProjectExportPreviewResponse } from '@/api/documents'
 import type { AxiosResponse } from 'axios'
@@ -42,6 +43,7 @@ export function ExportDialog({ open, onOpenChange, projectId, projectName }: Exp
   const { user } = useUserStore()
   const [reportType, setReportType] = useState<ExportReportType>('summary')
   const [exportFormat, setExportFormat] = useState<'markdown' | 'docx'>('markdown')
+  const [includeCodeStats, setIncludeCodeStats] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
   const isSingleProject = !!projectId
@@ -50,11 +52,11 @@ export function ExportDialog({ open, onOpenChange, projectId, projectName }: Exp
   type PreviewResponse = AxiosResponse<ExportPreviewResponse | SingleProjectExportPreviewResponse>
   const { data: previewData, isLoading: isLoadingPreview } = useQuery<PreviewResponse>({
     queryKey: isSingleProject
-      ? ['export-preview-project', projectId, reportType]
-      : ['export-preview', user?.id, reportType],
+      ? ['export-preview-project', projectId, reportType, includeCodeStats]
+      : ['export-preview', user?.id, reportType, includeCodeStats],
     queryFn: () => isSingleProject
-      ? exportApi.getSingleProjectPreview(projectId!, reportType)
-      : exportApi.getPreview(user!.id, reportType),
+      ? exportApi.getSingleProjectPreview(projectId!, reportType, includeCodeStats)
+      : exportApi.getPreview(user!.id, reportType, includeCodeStats),
     enabled: open && (isSingleProject ? !!projectId : !!user?.id),
   })
 
@@ -63,15 +65,15 @@ export function ExportDialog({ open, onOpenChange, projectId, projectName }: Exp
     mutationFn: async () => {
       if (isSingleProject) {
         if (exportFormat === 'markdown') {
-          return exportApi.exportSingleProjectToMarkdown(projectId!, reportType)
+          return exportApi.exportSingleProjectToMarkdown(projectId!, reportType, includeCodeStats)
         } else {
-          return exportApi.exportSingleProjectToDocx(projectId!, reportType)
+          return exportApi.exportSingleProjectToDocx(projectId!, reportType, includeCodeStats)
         }
       } else {
         if (exportFormat === 'markdown') {
-          return exportApi.exportToMarkdown(user!.id, reportType)
+          return exportApi.exportToMarkdown(user!.id, reportType, includeCodeStats)
         } else {
-          return exportApi.exportToDocx(user!.id, reportType)
+          return exportApi.exportToDocx(user!.id, reportType, includeCodeStats)
         }
       }
     },
@@ -309,6 +311,21 @@ export function ExportDialog({ open, onOpenChange, projectId, projectName }: Exp
                 </Label>
               </div>
             </RadioGroup>
+          </div>
+
+          {/* Include Code Statistics Option */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="includeCodeStats"
+              checked={includeCodeStats}
+              onCheckedChange={(checked) => setIncludeCodeStats(checked === true)}
+            />
+            <Label
+              htmlFor="includeCodeStats"
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('export.includeCodeStats')}
+            </Label>
           </div>
 
           {/* Preview Toggle */}

@@ -289,30 +289,33 @@ export const exportApi = {
    * Get preview data for export (all projects)
    * @param userId User ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  getPreview: (userId: number, reportType: ExportReportType = 'summary') =>
+  getPreview: (userId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.get<ExportPreviewResponse>('/documents/export/preview', {
-      params: { user_id: userId, report_type: reportType }
+      params: { user_id: userId, report_type: reportType, include_code_stats: includeCodeStats }
     }),
 
   /**
    * Export to Markdown file (all projects)
    * @param userId User ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  exportToMarkdown: (userId: number, reportType: ExportReportType = 'summary') =>
+  exportToMarkdown: (userId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.post<ExportResponse>('/documents/export/markdown', null, {
-      params: { user_id: userId, report_type: reportType }
+      params: { user_id: userId, report_type: reportType, include_code_stats: includeCodeStats }
     }),
 
   /**
    * Export to Word document (all projects)
    * @param userId User ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  exportToDocx: (userId: number, reportType: ExportReportType = 'summary') =>
+  exportToDocx: (userId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.post<ExportResponse>('/documents/export/docx', null, {
-      params: { user_id: userId, report_type: reportType }
+      params: { user_id: userId, report_type: reportType, include_code_stats: includeCodeStats }
     }),
 
   /**
@@ -327,29 +330,32 @@ export const exportApi = {
    * Get preview data for single project export
    * @param projectId Project ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  getSingleProjectPreview: (projectId: number, reportType: ExportReportType = 'summary') =>
+  getSingleProjectPreview: (projectId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.get<SingleProjectExportPreviewResponse>(`/documents/export/project/${projectId}/preview`, {
-      params: { report_type: reportType }
+      params: { report_type: reportType, include_code_stats: includeCodeStats }
     }),
 
   /**
    * Export single project to Markdown file
    * @param projectId Project ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  exportSingleProjectToMarkdown: (projectId: number, reportType: ExportReportType = 'summary') =>
+  exportSingleProjectToMarkdown: (projectId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.post<ExportResponse>(`/documents/export/project/${projectId}/markdown`, null, {
-      params: { report_type: reportType }
+      params: { report_type: reportType, include_code_stats: includeCodeStats }
     }),
 
   /**
    * Export single project to Word document
    * @param projectId Project ID
    * @param reportType "detailed" | "final" | "summary"
+   * @param includeCodeStats Whether to include code statistics (lines added/deleted, commits)
    */
-  exportSingleProjectToDocx: (projectId: number, reportType: ExportReportType = 'summary') =>
+  exportSingleProjectToDocx: (projectId: number, reportType: ExportReportType = 'summary', includeCodeStats: boolean = false) =>
     apiClient.post<ExportResponse>(`/documents/export/project/${projectId}/docx`, null, {
-      params: { report_type: reportType }
+      params: { report_type: reportType, include_code_stats: includeCodeStats }
     }),
 }

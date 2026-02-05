@@ -2,14 +2,18 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosResponse } from 'axios'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { templatesApi } from '@/api/templates'
+import { templatesApi, Template } from '@/api/templates'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { FileText, Upload, Trash2, Edit, Copy, Plus } from 'lucide-react'
+
+// Type for the query data (Axios response structure)
+type TemplatesQueryData = AxiosResponse<{ templates: Template[]; total: number }>
 
 export default function TemplatesPage() {
   const navigate = useNavigate()
@@ -27,25 +31,59 @@ export default function TemplatesPage() {
   const initMutation = useMutation({
     mutationFn: () => templatesApi.initSystemTemplates(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] })
+      queryClient.invalidateQueries({ queryKey: ['templates', user?.id] })
       toast({ title: t('initialized') })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => templatesApi.delete(id),
+    onMutate: async (deletedId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['templates', user?.id] })
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<TemplatesQueryData>(['templates', user?.id])
+
+      // Optimistically update using updater function (React Query v5 recommended pattern)
+      queryClient.setQueryData<TemplatesQueryData>(['templates', user?.id], (oldData) => {
+        if (!oldData?.data?.templates) return oldData
+        const newTemplates = oldData.data.templates.filter((t) => t.id !== deletedId)
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            templates: newTemplates,
+            total: newTemplates.length,
+          },
+        }
+      })
+
+      return { previousData }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] })
       toast({ title: t('deleted') })
     },
-    onError: () => toast({ title: tc('error'), description: t('deleteError'), variant: 'destructive' }),
+    onError: (_err, _deletedId, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['templates', user?.id], context.previousData)
+      }
+      toast({ title: tc('error'), description: t('deleteError'), variant: 'destructive' })
+    },
+    onSettled: () => {
+      // Small delay to ensure server has finished processing before refetch
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['templates', user?.id] })
+      }, 200)
+    },
   })
 
   const cloneMutation = useMutation({
     mutationFn: ({ templateId, newName }: { templateId: number; newName?: string }) =>
       templatesApi.clone(templateId, user!.id, newName),
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] })
+      queryClient.invalidateQueries({ queryKey: ['templates', user?.id] })
       toast({ title: t('cloned') })
       // Navigate to edit the cloned template
       navigate(`/templates/${response.data.id}/edit`)
@@ -80,7 +118,7 @@ export default function TemplatesPage() {
 
     try {
       await templatesApi.upload(user.id, file, name)
-      queryClient.invalidateQueries({ queryKey: ['templates'] })
+      queryClient.invalidateQueries({ queryKey: ['templates', user?.id] })
       toast({ title: t('uploaded') })
     } catch {
       toast({ title: tc('error'), description: t('uploadError'), variant: 'destructive' })
