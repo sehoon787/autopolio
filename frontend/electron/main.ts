@@ -8,6 +8,7 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import crypto from 'crypto'
 import { fileURLToPath } from 'url'
 import serve from 'electron-serve'
 
@@ -37,6 +38,28 @@ const MAX_BACKEND_RESTARTS = 3
 
 // PID file for tracking backend process
 const getPidFilePath = () => path.join(app.getPath('userData'), 'backend.pid')
+
+// Per-install secret key for token encryption
+const getSecretKeyPath = () => path.join(app.getPath('userData'), 'secret.key')
+
+/**
+ * Get or create a unique SECRET_KEY for this Electron installation.
+ * Stored in userData directory so each install has its own encryption key.
+ * If the existing token was encrypted with the default key, syncGitHubCLI
+ * in App.tsx will re-acquire the token via `gh auth token` and re-encrypt
+ * with this new key automatically.
+ */
+function getOrCreateSecretKey(): string {
+  const keyPath = getSecretKeyPath()
+  if (fs.existsSync(keyPath)) {
+    const key = fs.readFileSync(keyPath, 'utf8').trim()
+    if (key.length >= 32) return key
+  }
+  const newKey = crypto.randomBytes(32).toString('base64')
+  fs.writeFileSync(keyPath, newKey, { mode: 0o600 })
+  console.log('[Main] Generated new SECRET_KEY at', keyPath)
+  return newKey
+}
 
 // Main window reference
 let mainWindow: BrowserWindow | null = null
@@ -416,6 +439,7 @@ function startPythonBackend(): Promise<void> {
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
+        SECRET_KEY: getOrCreateSecretKey(),
       },
       shell: true,  // Needed for Windows
     })

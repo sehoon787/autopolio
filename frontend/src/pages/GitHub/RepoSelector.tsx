@@ -13,7 +13,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useSelection } from '@/hooks/useSelection'
 import { githubApi, GitHubRepo } from '@/api/github'
+import { usersApi } from '@/api/users'
 import { projectsApi } from '@/api/knowledge'
+import { isElectron } from '@/lib/electron'
 import {
   Github,
   Search,
@@ -39,6 +41,7 @@ export default function RepoSelector() {
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
+  const [isAutoSyncing, setIsAutoSyncing] = useState(false)
 
   // Step 1: Check GitHub connection status FIRST
   const {
@@ -76,6 +79,42 @@ export default function RepoSelector() {
       }
     }
   }, [githubStatus, user, setUser])
+
+  // Electron auto-sync: if CLI is authenticated, sync token to backend automatically
+  useEffect(() => {
+    if (!isElectron() || !window.electron || isConnected || statusLoading || isAutoSyncing) return
+
+    const autoSync = async () => {
+      setIsAutoSyncing(true)
+      try {
+        const cliStatus = await window.electron!.getGitHubCLIStatus()
+        if (!cliStatus.authenticated || !cliStatus.username) return
+
+        const tokenResult = await window.electron!.getGitHubToken()
+        if (!tokenResult.success || !tokenResult.token) return
+
+        let userId = user?.id
+        if (!userId) {
+          const response = await usersApi.create({
+            name: cliStatus.username,
+            github_username: cliStatus.username,
+          })
+          setUser(response.data)
+          localStorage.setItem('user_id', String(response.data.id))
+          userId = response.data.id
+        }
+
+        await githubApi.saveToken(userId, tokenResult.token)
+        queryClient.invalidateQueries({ queryKey: ['github-status'] })
+        queryClient.invalidateQueries({ queryKey: ['github-repos'] })
+      } catch (error) {
+        console.error('[RepoSelector] Auto-sync failed:', error)
+      } finally {
+        setIsAutoSyncing(false)
+      }
+    }
+    autoSync()
+  }, [isConnected, statusLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 2: Only fetch repos if GitHub is connected AND token is valid
   const { data: reposData, isLoading: reposLoading, isFetching: reposFetching, isError: reposError, refetch } = useQuery({
@@ -274,6 +313,23 @@ export default function RepoSelector() {
 
   // Render: Not connected
   if (!isConnected) {
+    // Electron: show syncing state while auto-syncing from GitHub CLI
+    if (isAutoSyncing) {
+      return (
+        <div className="max-w-4xl mx-auto">
+          <Card>
+            <CardContent className="py-12 text-center">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+              <h2 className="text-xl font-semibold mb-2">GitHub CLI {t('checkingConnection')}</h2>
+              <p className="text-gray-500">
+                {t('connectionRequiredDesc')}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
     return (
       <div className="max-w-4xl mx-auto">
         <Card>
