@@ -6,6 +6,7 @@ import { test, expect } from '@playwright/test'
 import {
   createTestUser,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_COMPANY, TEST_PROJECT } from '../fixtures/test-data'
@@ -69,13 +70,23 @@ test.describe('Onboarding Flow', () => {
 test.describe('First Company Creation', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should prompt to create first company', async ({ page }) => {
@@ -118,13 +129,23 @@ test.describe('First Company Creation', () => {
 test.describe('First Project Creation', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should prompt to create first project', async ({ page }) => {
@@ -169,13 +190,23 @@ test.describe('First Project Creation', () => {
 test.describe('Dashboard After Onboarding', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should show dashboard with stats', async ({ page }) => {

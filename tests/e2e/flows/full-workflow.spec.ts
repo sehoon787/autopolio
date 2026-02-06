@@ -9,6 +9,7 @@ import {
   createTestProject,
   initPlatformTemplates,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_COMPANY, TEST_PROJECT, TEST_ACHIEVEMENT } from '../fixtures/test-data'
@@ -16,14 +17,24 @@ import { TEST_COMPANY, TEST_PROJECT, TEST_ACHIEVEMENT } from '../fixtures/test-d
 test.describe('Complete Portfolio Workflow', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    await initPlatformTemplates(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      await initPlatformTemplates(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should complete full workflow from company to export', async ({ page }) => {
@@ -125,13 +136,23 @@ test.describe('Complete Portfolio Workflow', () => {
 test.describe('GitHub Analysis Workflow', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should create project with git URL and analyze', async ({ page }) => {
@@ -171,14 +192,24 @@ test.describe('GitHub Analysis Workflow', () => {
 test.describe('Template Customization Workflow', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id)
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id)
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should clone and customize template', async ({ page }) => {
@@ -223,23 +254,33 @@ test.describe('Template Customization Workflow', () => {
 test.describe('Multi-Project Document Generation', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company = await createTestCompany(request, user.id)
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company = await createTestCompany(request, user.id)
 
-    // Create multiple projects
-    const project1 = await createTestProject(request, user.id, company.id, {
-      name: `Multi Project 1 ${Date.now()}`,
-    })
-    const project2 = await createTestProject(request, user.id, undefined, {
-      name: `Multi Project 2 ${Date.now()}`,
-    })
+      // Create multiple projects
+      const project1 = await createTestProject(request, user.id, company.id, {
+        name: `Multi Project 1 ${Date.now()}`,
+      })
+      const project2 = await createTestProject(request, user.id, undefined, {
+        name: `Multi Project 2 ${Date.now()}`,
+      })
 
-    testContext = { user, company, project: project1 }
+      testContext = { user, company, project: project1 }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should generate document with multiple projects', async ({ page }) => {
