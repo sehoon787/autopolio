@@ -19,6 +19,9 @@ import { getCLIToolManager } from './services/cli-tool-manager.js'
 import { getAgentProcessManager } from './services/agent-process-manager.js'
 import type { CLIType, CLIStartConfig, OutputData, CLIStatus } from './types/cli.js'
 
+// Import Python environment manager
+import { getPythonEnvManager } from './services/python-env-manager.js'
+
 console.log('[Main] CLI modules imported successfully')
 
 // Custom protocol for OAuth callback
@@ -391,7 +394,7 @@ async function killExistingBackend(): Promise<void> {
 
 function startPythonBackend(): Promise<void> {
   return new Promise(async (resolve) => {
-    console.log('Checking if backend is running...')
+    console.log('[Backend] Checking if backend is running...')
 
     // Kill any existing zombie processes first
     await killExistingBackend()
@@ -400,48 +403,68 @@ function startPythonBackend(): Promise<void> {
     try {
       const response = await fetch(`${BACKEND_URL}/health`)
       if (response.ok) {
-        console.log('Backend is already running')
+        console.log('[Backend] Backend is already running')
         resolve()
         return
       }
     } catch {
-      console.log('Backend not detected, attempting to start...')
+      console.log('[Backend] Backend not detected, attempting to start...')
     }
 
-    // Find the project root (where api/ folder is)
-    const projectRoot = isDev
-      ? path.resolve(__dirname, '../..')  // electron/main.ts -> frontend -> project root
-      : path.resolve(process.resourcesPath)
+    // Initialize Python environment manager
+    const pythonEnvManager = getPythonEnvManager()
+    const envStatus = await pythonEnvManager.initialize()
 
-    console.log(`Starting backend from: ${projectRoot}`)
+    if (!envStatus.ready) {
+      console.error('[Backend] Python environment not ready:', envStatus.error)
+      resolve()
+      return
+    }
 
-    // Use virtual environment Python if it exists, otherwise fall back to system python
-    const venvPython = process.platform === 'win32'
-      ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
-      : path.join(projectRoot, '.venv', 'bin', 'python')
+    console.log('[Backend] Python environment ready:')
+    console.log(`  - Python: ${envStatus.pythonPath}`)
+    console.log(`  - Site packages: ${envStatus.sitePackagesPath || '(system)'}`)
+    console.log(`  - Backend: ${envStatus.backendPath}`)
+    console.log(`  - Using bundled: ${envStatus.usingBundled}`)
 
-    const systemPython = process.platform === 'win32' ? 'python' : 'python3'
+    // Get Python command and environment
+    const { command: pythonCommand } = pythonEnvManager.getPythonCommand()
+    const pythonEnv = pythonEnvManager.getPythonEnv()
+    const projectRoot = pythonEnvManager.getProjectRoot()
 
-    // Check if venv Python exists
-    const fs = await import('fs')
-    const pythonPath = fs.existsSync(venvPython) ? venvPython : systemPython
-    console.log(`Using Python: ${pythonPath}`)
+    // For packaged app, set up paths for config and data
+    let additionalEnv: Record<string, string> = {}
+    if (app.isPackaged) {
+      // In packaged app, config and data are in extraResources
+      additionalEnv = {
+        AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'backend-config'),
+        AUTOPOLIO_DATA_DIR: path.join(process.resourcesPath, 'backend-data'),
+        // Database should be in user data directory (writable)
+        DATABASE_URL: `sqlite:///${path.join(app.getPath('userData'), 'autopolio.db')}`,
+      }
+    }
 
-    pythonProcess = spawn(pythonPath, [
+    console.log(`[Backend] Starting backend from: ${projectRoot}`)
+    console.log(`[Backend] Using Python: ${pythonCommand}`)
+
+    // Build uvicorn arguments
+    const uvicornArgs = [
       '-m', 'uvicorn',
       'api.main:app',
       '--host', '127.0.0.1',
       '--port', String(BACKEND_PORT),
       // In dev mode, limit --reload to only watch 'api' folder to reduce WatchFiles overhead
       ...(isDev ? ['--reload', '--reload-dir', 'api'] : []),
-    ], {
+    ]
+
+    pythonProcess = spawn(pythonCommand, uvicornArgs, {
       cwd: projectRoot,
       env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
+        ...pythonEnv,
+        ...additionalEnv,
         SECRET_KEY: getOrCreateSecretKey(),
       },
-      shell: true,  // Needed for Windows
+      shell: process.platform === 'win32',  // Needed for Windows
     })
 
     // Save PID for tracking
@@ -453,7 +476,7 @@ function startPythonBackend(): Promise<void> {
 
     pythonProcess.stdout?.on('data', (data) => {
       const output = data.toString()
-      console.log(`Backend: ${output}`)
+      console.log(`[Backend] stdout: ${output}`)
       if (!started && output.includes('Uvicorn running')) {
         started = true
         backendRestartCount = 0  // Reset restart counter on successful start
@@ -463,7 +486,7 @@ function startPythonBackend(): Promise<void> {
 
     pythonProcess.stderr?.on('data', (data) => {
       const output = data.toString()
-      console.error(`Backend: ${output}`)
+      console.log(`[Backend] stderr: ${output}`)
       // Uvicorn logs to stderr
       if (!started && output.includes('Uvicorn running')) {
         started = true
@@ -473,7 +496,7 @@ function startPythonBackend(): Promise<void> {
     })
 
     pythonProcess.on('error', (error) => {
-      console.error('Failed to start backend:', error)
+      console.error('[Backend] Failed to start backend:', error)
       // Still resolve to allow the app to show error state
       resolve()
     })
@@ -499,7 +522,7 @@ function startPythonBackend(): Promise<void> {
     // Timeout: resolve anyway after 15 seconds
     setTimeout(() => {
       if (!started) {
-        console.log('Backend startup timed out, continuing anyway...')
+        console.log('[Backend] Startup timed out, continuing anyway...')
         resolve()
       }
     }, 15000)

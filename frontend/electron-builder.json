@@ -12,7 +12,36 @@
     "electron/**/*.js",
     "package.json"
   ],
-  "extraResources": [],
+  "extraResources": [
+    {
+      "from": "../api",
+      "to": "backend",
+      "filter": [
+        "**/*",
+        "!**/__pycache__",
+        "!**/*.pyc",
+        "!**/*.pyo",
+        "!**/.git",
+        "!**/tests",
+        "!**/.pytest_cache"
+      ]
+    },
+    {
+      "from": "../config",
+      "to": "backend-config",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../data/platform_templates",
+      "to": "backend-data/platform_templates",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../data/templates",
+      "to": "backend-data/templates",
+      "filter": ["**/*"]
+    }
+  ],
   "win": {
     "target": [
       {
@@ -21,7 +50,17 @@
       }
     ],
     "icon": "build/icon.ico",
-    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
+    "extraResources": [
+      {
+        "from": "python-runtime/win32-x64/python",
+        "to": "python"
+      },
+      {
+        "from": "python-runtime/win32-x64/site-packages",
+        "to": "site-packages"
+      }
+    ]
   },
   "nsis": {
     "oneClick": false,
@@ -46,7 +85,17 @@
     "category": "public.app-category.productivity",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "hardenedRuntime": true,
-    "gatekeeperAssess": false
+    "gatekeeperAssess": false,
+    "extraResources": [
+      {
+        "from": "python-runtime/${os}-${arch}/python",
+        "to": "python"
+      },
+      {
+        "from": "python-runtime/${os}-${arch}/site-packages",
+        "to": "site-packages"
+      }
+    ]
   },
   "dmg": {
     "contents": [
@@ -79,7 +128,17 @@
     ],
     "icon": "build/icons",
     "category": "Office",
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "extraResources": [
+      {
+        "from": "python-runtime/linux-x64/python",
+        "to": "python"
+      },
+      {
+        "from": "python-runtime/linux-x64/site-packages",
+        "to": "site-packages"
+      }
+    ]
   },
   "publish": null
 }
