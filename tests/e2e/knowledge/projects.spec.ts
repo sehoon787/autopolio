@@ -8,6 +8,7 @@ import {
   createTestCompany,
   createTestProject,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { SELECTORS, TEST_PROJECT, TEST_PERSONAL_PROJECT } from '../fixtures/test-data'
@@ -15,14 +16,24 @@ import { SELECTORS, TEST_PROJECT, TEST_PERSONAL_PROJECT } from '../fixtures/test
 test.describe('Projects CRUD', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company = await createTestCompany(request, user.id)
-    testContext = { user, company }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company = await createTestCompany(request, user.id)
+      testContext = { user, company }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display projects list page', async ({ page }) => {
@@ -177,13 +188,23 @@ test.describe('Projects CRUD', () => {
 test.describe('Projects with Technologies', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display technology badges', async ({ page, request }) => {
@@ -210,24 +231,34 @@ test.describe('Projects with Technologies', () => {
 test.describe('Projects Filtering', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company = await createTestCompany(request, user.id)
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company = await createTestCompany(request, user.id)
 
-    // Create various projects
-    await createTestProject(request, user.id, company.id, {
-      name: 'Filter Test Company Project',
-    })
-    await createTestProject(request, user.id, undefined, {
-      name: 'Filter Test Personal Project',
-      project_type: 'personal',
-    })
+      // Create various projects
+      await createTestProject(request, user.id, company.id, {
+        name: 'Filter Test Company Project',
+      })
+      await createTestProject(request, user.id, undefined, {
+        name: 'Filter Test Personal Project',
+        project_type: 'personal',
+      })
 
-    testContext = { user, company }
+      testContext = { user, company }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should filter projects by type', async ({ page }) => {

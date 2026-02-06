@@ -7,6 +7,7 @@ import {
   createTestUser,
   createTestCompany,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { SELECTORS, TEST_COMPANY } from '../fixtures/test-data'
@@ -14,13 +15,23 @@ import { SELECTORS, TEST_COMPANY } from '../fixtures/test-data'
 test.describe('Companies CRUD', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display companies list page', async ({ page }) => {
@@ -153,22 +164,32 @@ test.describe('Companies CRUD', () => {
 test.describe('Companies Timeline View', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company1 = await createTestCompany(request, user.id, {
-      name: 'Timeline Company 1',
-      start_date: '2020-01-01',
-      end_date: '2022-12-31',
-    })
-    const company2 = await createTestCompany(request, user.id, {
-      name: 'Timeline Company 2',
-      start_date: '2023-01-01',
-    })
-    testContext = { user, company: company2 }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company1 = await createTestCompany(request, user.id, {
+        name: 'Timeline Company 1',
+        start_date: '2020-01-01',
+        end_date: '2022-12-31',
+      })
+      const company2 = await createTestCompany(request, user.id, {
+        name: 'Timeline Company 2',
+        start_date: '2023-01-01',
+      })
+      testContext = { user, company: company2 }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display timeline view', async ({ page }) => {

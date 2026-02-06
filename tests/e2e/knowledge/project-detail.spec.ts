@@ -8,6 +8,7 @@ import {
   createTestCompany,
   createTestProject,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_ACHIEVEMENT } from '../fixtures/test-data'
@@ -15,20 +16,30 @@ import { TEST_ACHIEVEMENT } from '../fixtures/test-data'
 test.describe('Project Detail Page', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company = await createTestCompany(request, user.id)
-    const project = await createTestProject(request, user.id, company.id, {
-      name: `Detail Test Project ${Date.now()}`,
-      description: 'A comprehensive test project',
-      role: 'Lead Developer',
-      technologies: ['Python', 'FastAPI', 'React', 'PostgreSQL'],
-    })
-    testContext = { user, company, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company = await createTestCompany(request, user.id)
+      const project = await createTestProject(request, user.id, company.id, {
+        name: `Detail Test Project ${Date.now()}`,
+        description: 'A comprehensive test project',
+        role: 'Lead Developer',
+        technologies: ['Python', 'FastAPI', 'React', 'PostgreSQL'],
+      })
+      testContext = { user, company, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display project details', async ({ page }) => {
@@ -92,16 +103,26 @@ test.describe('Project Detail Page', () => {
 test.describe('Project Achievements', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Achievement Test Project ${Date.now()}`,
-    })
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Achievement Test Project ${Date.now()}`,
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should add an achievement to project', async ({ page }) => {
@@ -174,17 +195,27 @@ test.describe('Project Achievements', () => {
 test.describe('Project Analysis Results', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Analysis Test Project ${Date.now()}`,
-      git_url: 'https://github.com/facebook/react',
-    })
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Analysis Test Project ${Date.now()}`,
+        git_url: 'https://github.com/facebook/react',
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should show analysis section for project with git URL', async ({ page }) => {
