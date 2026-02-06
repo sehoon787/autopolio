@@ -110,6 +110,8 @@ test.describe('GitHub API Integration Tests', () => {
   })
 
   test('Detect technologies in repository via API', async ({ request }) => {
+    test.setTimeout(60000) // 60 seconds for API calls
+    
     const connected = await isGitHubConnected(request)
     if (!connected) {
       test.skip()
@@ -118,7 +120,8 @@ test.describe('GitHub API Integration Tests', () => {
 
     // Get first repo
     const reposResponse = await request.get(`${API_URL}/api/github/repos`, {
-      params: { user_id: GITHUB_USER_ID }
+      params: { user_id: GITHUB_USER_ID },
+      timeout: 30000
     })
     const repos = (await reposResponse.json()).repos || await reposResponse.json()
     if (!repos.length) {
@@ -128,7 +131,8 @@ test.describe('GitHub API Integration Tests', () => {
 
     const gitUrl = repos[0].html_url || repos[0].clone_url
     const response = await request.get(`${API_URL}/api/github/detect-technologies`, {
-      params: { user_id: GITHUB_USER_ID, git_url: gitUrl }
+      params: { user_id: GITHUB_USER_ID, git_url: gitUrl },
+      timeout: 45000
     })
 
     expect(response.ok()).toBeTruthy()
@@ -269,6 +273,8 @@ test.describe('GitHub UI Workflow', () => {
   })
 
   test('Import repo and navigate to project detail', async ({ page, request }) => {
+    test.setTimeout(60000) // 60 seconds for full flow
+    
     const connected = await isGitHubConnected(request)
     if (!connected) {
       test.skip()
@@ -278,7 +284,8 @@ test.describe('GitHub UI Workflow', () => {
     // First create a project with git_url via API
     const timestamp = Date.now()
     const reposResponse = await request.get(`${API_URL}/api/github/repos`, {
-      params: { user_id: GITHUB_USER_ID }
+      params: { user_id: GITHUB_USER_ID },
+      timeout: 30000
     })
     const repos = (await reposResponse.json()).repos
     if (!repos?.length) {
@@ -296,7 +303,8 @@ test.describe('GitHub UI Workflow', () => {
         project_type: 'personal',
         git_url: repoUrl,
         start_date: '2024-01-01'
-      }
+      },
+      timeout: 30000
     })
     const project = await projectResponse.json()
 
@@ -322,10 +330,14 @@ test.describe('GitHub UI Workflow', () => {
       // At least one indicator that the project with git URL is displayed
       expect(hasAnalyze || hasGithubLink || hasGitUrl).toBeTruthy()
     } finally {
-      // Cleanup
-      await request.delete(`${API_URL}/api/knowledge/projects/${project.id}`, {
-        params: { user_id: GITHUB_USER_ID }
-      })
+      // Cleanup - wrap in try-catch to avoid context disposed errors
+      try {
+        await request.delete(`${API_URL}/api/knowledge/projects/${project.id}`, {
+          params: { user_id: GITHUB_USER_ID }
+        })
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   })
 })
