@@ -73,13 +73,16 @@ export class CLIToolManager {
     }
     /**
      * Refresh all CLI statuses
+     * Note: github_cli is handled separately via main.ts GitHub CLI handlers
      */
     async refreshAll() {
         const claude = await this.refreshCLI('claude_code');
         const gemini = await this.refreshCLI('gemini_cli');
+        const github = await this.refreshCLI('github_cli');
         return {
             claude_code: claude,
             gemini_cli: gemini,
+            github_cli: github,
         };
     }
     /**
@@ -768,6 +771,11 @@ export class CLIToolManager {
                 executable: 'gemini',
                 npmPackage: '@google/gemini-cli',
             },
+            github_cli: {
+                name: 'GitHub CLI',
+                executable: 'gh',
+                npmPackage: '', // Not an npm package
+            },
         };
         return configs[tool];
     }
@@ -779,6 +787,16 @@ export class CLIToolManager {
             }
             return 'curl -fsSL https://claude.ai/install.sh | bash';
         }
+        // GitHub CLI uses OS package managers
+        if (tool === 'github_cli') {
+            if (isWindows) {
+                return 'winget install --id GitHub.cli';
+            }
+            if (isMacOS) {
+                return 'brew install gh';
+            }
+            return 'sudo apt install gh'; // Linux
+        }
         // Gemini CLI still uses npm
         const config = this.getConfig(tool);
         return `npm install -g ${config.npmPackage}`;
@@ -787,6 +805,16 @@ export class CLIToolManager {
         // Claude Code uses its own update command
         if (tool === 'claude_code') {
             return 'claude update';
+        }
+        // GitHub CLI uses OS package managers for updates
+        if (tool === 'github_cli') {
+            if (isWindows) {
+                return 'winget upgrade --id GitHub.cli';
+            }
+            if (isMacOS) {
+                return 'brew upgrade gh';
+            }
+            return 'sudo apt update && sudo apt upgrade gh';
         }
         // Gemini CLI uses npm update (same as install)
         return null;

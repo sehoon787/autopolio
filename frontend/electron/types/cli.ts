@@ -8,7 +8,7 @@
 // CLI Types
 // ============================================================================
 
-export type CLIType = 'claude_code' | 'gemini_cli'
+export type CLIType = 'claude_code' | 'gemini_cli' | 'github_cli'
 
 export interface CLIStatus {
   tool: CLIType
@@ -170,6 +170,53 @@ export const CLI_CONFIGS: Record<CLIType, CLIConfig> = {
     docsUrl: 'https://ai.google.dev/gemini-cli',
     changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
   },
+  github_cli: {
+    tool: 'github_cli',
+    name: 'GitHub CLI',
+    executable: 'gh',
+    npmPackage: '', // Not an npm package, installed via OS package managers
+    docsUrl: 'https://cli.github.com/',
+    changelogUrl: 'https://github.com/cli/cli/releases',
+  },
+}
+
+// ============================================================================
+// GitHub CLI Types
+// ============================================================================
+
+export interface GitHubCLIStatus {
+  installed: boolean
+  version: string | null
+  path: string | null
+  authenticated: boolean
+  username: string | null
+  scopes: string[]
+  install_command: string
+}
+
+export interface GitHubDeviceCodeResult {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  expires_in: number
+  interval: number
+}
+
+export interface GitHubAuthResult {
+  success: boolean
+  username?: string
+  token?: string
+  error?: string
+}
+
+export interface GitHubAuthProgress {
+  status: 'pending' | 'polling' | 'success' | 'error' | 'cancelled'
+  device_code?: string
+  user_code?: string
+  verification_uri?: string
+  message?: string
+  username?: string
+  error?: string
 }
 
 // ============================================================================

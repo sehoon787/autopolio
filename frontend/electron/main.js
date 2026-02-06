@@ -31,6 +31,8 @@ const getPidFilePath = () => path.join(app.getPath('userData'), 'backend.pid');
 let mainWindow = null;
 // Cached CLI status (prefetched at app start)
 let cachedCLIStatus = { claude: null, gemini: null };
+// Cached GitHub CLI path (found during detection)
+let cachedGitHubCLIPath = null;
 /**
  * Prefetch CLI status in background at app startup.
  * Results are cached and served instantly by IPC handlers.
@@ -702,6 +704,389 @@ ipcMain.on('cli:unsubscribe', (event, sessionId) => {
             unsubscribe();
             subscriptions.delete(sessionId);
         }
+    }
+});
+// ============================================================================
+// IPC Handlers - GitHub CLI (Device Code Flow)
+// ============================================================================
+// Track active GitHub auth process
+let activeGitHubAuthProcess = null;
+// Device code pattern from gh CLI output
+const DEVICE_CODE_PATTERN = /(?:one-time code|verification code|code):\s*([A-Z0-9]{4}[-\s][A-Z0-9]{4})/i;
+const DEVICE_URL_PATTERN = /https:\/\/github\.com\/login\/device/i;
+/**
+ * Known installation paths for GitHub CLI on different platforms
+ */
+const GITHUB_CLI_PATHS = {
+    win32: [
+        'C:\\Program Files\\GitHub CLI\\gh.exe', // winget / official installer
+        'C:\\Program Files (x86)\\GitHub CLI\\gh.exe', // 32-bit installer
+        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'gh', 'bin', 'gh.exe'), // user install
+        path.join(os.homedir(), 'scoop', 'shims', 'gh.exe'), // scoop
+    ],
+    darwin: [
+        '/opt/homebrew/bin/gh', // Apple Silicon Homebrew
+        '/usr/local/bin/gh', // Intel Mac Homebrew
+    ],
+    linux: [
+        '/usr/bin/gh',
+        '/usr/local/bin/gh',
+        path.join(os.homedir(), '.local', 'bin', 'gh'),
+    ],
+};
+/**
+ * Detect GitHub CLI (gh) installation
+ */
+async function detectGitHubCLI() {
+    const result = {
+        installed: false,
+        version: null,
+        path: null,
+        authenticated: false,
+        username: null,
+        scopes: [],
+    };
+    const { execSync } = await import('child_process');
+    // Helper to run gh command with a specific path
+    const runGhCommand = (ghPath, args) => {
+        try {
+            return execSync(`"${ghPath}" ${args}`, { encoding: 'utf8', timeout: 10000 }).trim();
+        }
+        catch {
+            return null;
+        }
+    };
+    try {
+        let ghPath = null;
+        // First, try to find gh in PATH
+        try {
+            if (process.platform === 'win32') {
+                const whereOutput = execSync('where gh', { encoding: 'utf8', timeout: 5000 }).trim();
+                ghPath = whereOutput.split('\n')[0];
+                console.log('[GitHub CLI] Found in PATH:', ghPath);
+            }
+            else {
+                const whichOutput = execSync('which gh', { encoding: 'utf8', timeout: 5000 }).trim();
+                ghPath = whichOutput;
+                console.log('[GitHub CLI] Found in PATH:', ghPath);
+            }
+        }
+        catch {
+            console.log('[GitHub CLI] gh not found in PATH, checking known locations...');
+        }
+        // If not found in PATH, check known installation paths
+        if (!ghPath) {
+            const platform = process.platform;
+            const knownPaths = GITHUB_CLI_PATHS[platform] || [];
+            for (const candidatePath of knownPaths) {
+                if (fs.existsSync(candidatePath)) {
+                    console.log('[GitHub CLI] Found at known path:', candidatePath);
+                    ghPath = candidatePath;
+                    break;
+                }
+            }
+        }
+        // If still not found, return not installed
+        if (!ghPath) {
+            console.log('[GitHub CLI] Not found in any known location');
+            return result;
+        }
+        // Get version using the found path
+        const versionOutput = runGhCommand(ghPath, '--version');
+        if (versionOutput) {
+            const versionMatch = versionOutput.match(/gh version ([\d.]+)/);
+            if (versionMatch) {
+                result.installed = true;
+                result.version = versionMatch[1];
+                result.path = ghPath;
+                console.log('[GitHub CLI] Version:', result.version);
+            }
+        }
+        if (!result.installed) {
+            return result;
+        }
+        // Cache the found path for other functions to use
+        cachedGitHubCLIPath = ghPath;
+        // Check authentication status using the found path
+        try {
+            // gh auth status outputs to stderr, need to capture it
+            const authOutput = execSync(`"${ghPath}" auth status 2>&1`, { encoding: 'utf8', timeout: 10000 });
+            // Check if authenticated
+            if (authOutput.includes('Logged in to') || authOutput.includes('✓')) {
+                result.authenticated = true;
+                // Extract username from auth status
+                const usernameMatch = authOutput.match(/Logged in to github\.com account (\S+)/i)
+                    || authOutput.match(/Logged in to github\.com as (\S+)/i)
+                    || authOutput.match(/account (\S+) \(/i);
+                if (usernameMatch) {
+                    result.username = usernameMatch[1].replace(/[()]/g, '');
+                }
+                // Extract scopes
+                const scopesMatch = authOutput.match(/Token scopes:?\s*['"]?([^'">\n]+)/i);
+                if (scopesMatch) {
+                    result.scopes = scopesMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+                }
+            }
+        }
+        catch (authError) {
+            // Not authenticated or error checking auth
+            const errorMessage = authError instanceof Error ? authError.message : String(authError);
+            console.log('[GitHub CLI] Auth check failed:', errorMessage);
+            // If the error message contains login info, it might still be authenticated
+            if (errorMessage.includes('Logged in to')) {
+                result.authenticated = true;
+                const usernameMatch = errorMessage.match(/Logged in to github\.com account (\S+)/i)
+                    || errorMessage.match(/account (\S+) \(/i);
+                if (usernameMatch) {
+                    result.username = usernameMatch[1].replace(/[()]/g, '');
+                }
+            }
+        }
+        console.log('[GitHub CLI] Detection result:', result);
+        return result;
+    }
+    catch (error) {
+        console.error('[GitHub CLI] Detection error:', error);
+        return result;
+    }
+}
+ipcMain.handle('github-cli:status', async () => {
+    console.log('[IPC] github-cli:status called');
+    try {
+        const status = await detectGitHubCLI();
+        // Determine install command based on platform
+        let install_command = '';
+        if (process.platform === 'win32') {
+            install_command = 'winget install --id GitHub.cli';
+        }
+        else if (process.platform === 'darwin') {
+            install_command = 'brew install gh';
+        }
+        else {
+            install_command = 'sudo apt install gh  # or: sudo dnf install gh';
+        }
+        return {
+            ...status,
+            install_command,
+        };
+    }
+    catch (error) {
+        console.error('[IPC] github-cli:status error:', error);
+        return {
+            installed: false,
+            version: null,
+            path: null,
+            authenticated: false,
+            username: null,
+            scopes: [],
+            install_command: process.platform === 'win32' ? 'winget install --id GitHub.cli' : 'brew install gh',
+        };
+    }
+});
+/**
+ * Get the GitHub CLI path (from cache or detect)
+ */
+async function getGitHubCLIPath() {
+    if (cachedGitHubCLIPath) {
+        return cachedGitHubCLIPath;
+    }
+    // Detect if not cached
+    const status = await detectGitHubCLI();
+    return status.path;
+}
+/**
+ * Start GitHub OAuth via Device Code Flow using gh CLI
+ */
+ipcMain.handle('github-cli:start-auth', async () => {
+    console.log('[IPC] github-cli:start-auth called');
+    // Cancel any existing auth process
+    if (activeGitHubAuthProcess) {
+        activeGitHubAuthProcess.kill();
+        activeGitHubAuthProcess = null;
+    }
+    // Get the gh CLI path
+    const ghPath = await getGitHubCLIPath();
+    if (!ghPath) {
+        console.error('[GitHub Auth] gh CLI not found');
+        return { success: false, error: 'GitHub CLI not installed' };
+    }
+    return new Promise((resolve) => {
+        let output = '';
+        let deviceCode = null;
+        let browserOpened = false;
+        // Use gh auth login with web flow
+        const args = ['auth', 'login', '--web', '--scopes', 'repo,read:user'];
+        console.log('[GitHub Auth] Starting:', ghPath, args.join(' '));
+        activeGitHubAuthProcess = spawn(ghPath, args, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: false, // Don't use shell since we have the full path
+        });
+        const tryExtractAndOpenBrowser = async () => {
+            // Look for device code in output
+            const codeMatch = output.match(DEVICE_CODE_PATTERN);
+            if (codeMatch && !deviceCode) {
+                deviceCode = codeMatch[1].replace(' ', '-');
+                console.log('[GitHub Auth] Device code extracted:', deviceCode);
+                // Send device code to renderer immediately
+                if (mainWindow) {
+                    mainWindow.webContents.send('github-cli:device-code', {
+                        device_code: deviceCode,
+                        user_code: deviceCode,
+                        verification_uri: 'https://github.com/login/device',
+                    });
+                }
+                // Open browser using Electron's shell (bypasses macOS restrictions)
+                if (!browserOpened && output.match(DEVICE_URL_PATTERN)) {
+                    browserOpened = true;
+                    try {
+                        await shell.openExternal('https://github.com/login/device');
+                        console.log('[GitHub Auth] Browser opened for device flow');
+                    }
+                    catch (browserError) {
+                        console.error('[GitHub Auth] Failed to open browser:', browserError);
+                    }
+                }
+            }
+        };
+        activeGitHubAuthProcess.stdout?.on('data', (data) => {
+            output += data.toString();
+            console.log('[GitHub Auth] stdout:', data.toString().trim());
+            tryExtractAndOpenBrowser();
+        });
+        activeGitHubAuthProcess.stderr?.on('data', (data) => {
+            output += data.toString();
+            console.log('[GitHub Auth] stderr:', data.toString().trim());
+            tryExtractAndOpenBrowser();
+        });
+        activeGitHubAuthProcess.on('close', async (code) => {
+            console.log('[GitHub Auth] Process exited with code:', code);
+            activeGitHubAuthProcess = null;
+            if (code === 0) {
+                // Auth successful - get user info
+                try {
+                    const { execSync } = await import('child_process');
+                    const authStatus = execSync(`"${ghPath}" auth status 2>&1`, { encoding: 'utf8', timeout: 5000 });
+                    let username = null;
+                    const usernameMatch = authStatus.match(/Logged in to github\.com account (\S+)/i)
+                        || authStatus.match(/Logged in to github\.com as (\S+)/i)
+                        || authStatus.match(/account (\S+) \(/i);
+                    if (usernameMatch) {
+                        username = usernameMatch[1].replace(/[()]/g, '');
+                    }
+                    // Get the token for API calls
+                    let token = null;
+                    try {
+                        token = execSync(`"${ghPath}" auth token`, { encoding: 'utf8', timeout: 5000 }).trim();
+                    }
+                    catch {
+                        console.log('[GitHub Auth] Could not get token, will use gh CLI for API calls');
+                    }
+                    resolve({
+                        success: true,
+                        username,
+                        token,
+                    });
+                    // Notify renderer of success
+                    if (mainWindow) {
+                        mainWindow.webContents.send('github-cli:auth-complete', {
+                            success: true,
+                            username,
+                            token,
+                        });
+                    }
+                }
+                catch (error) {
+                    console.error('[GitHub Auth] Failed to get auth info after login:', error);
+                    resolve({
+                        success: true,
+                        username: null,
+                        token: null,
+                    });
+                }
+            }
+            else {
+                resolve({
+                    success: false,
+                    error: `Authentication failed (exit code: ${code})`,
+                });
+                if (mainWindow) {
+                    mainWindow.webContents.send('github-cli:auth-complete', {
+                        success: false,
+                        error: `Authentication failed (exit code: ${code})`,
+                    });
+                }
+            }
+        });
+        activeGitHubAuthProcess.on('error', (error) => {
+            console.error('[GitHub Auth] Process error:', error);
+            activeGitHubAuthProcess = null;
+            resolve({
+                success: false,
+                error: error.message,
+            });
+        });
+        // Return initial status while auth is in progress
+        setTimeout(() => {
+            if (deviceCode) {
+                resolve({
+                    success: true,
+                    pending: true,
+                    device_code: deviceCode,
+                    verification_uri: 'https://github.com/login/device',
+                });
+            }
+        }, 3000);
+    });
+});
+/**
+ * Cancel ongoing GitHub auth
+ */
+ipcMain.handle('github-cli:cancel-auth', async () => {
+    console.log('[IPC] github-cli:cancel-auth called');
+    if (activeGitHubAuthProcess) {
+        activeGitHubAuthProcess.kill();
+        activeGitHubAuthProcess = null;
+        return { success: true };
+    }
+    return { success: true, message: 'No active auth process' };
+});
+/**
+ * Logout from GitHub CLI
+ */
+ipcMain.handle('github-cli:logout', async () => {
+    console.log('[IPC] github-cli:logout called');
+    try {
+        const ghPath = await getGitHubCLIPath();
+        if (!ghPath) {
+            return { success: false, error: 'GitHub CLI not found' };
+        }
+        const { execSync } = await import('child_process');
+        execSync(`"${ghPath}" auth logout --hostname github.com`, { encoding: 'utf8', timeout: 10000, input: 'Y\n' });
+        return { success: true };
+    }
+    catch (error) {
+        console.error('[GitHub CLI] Logout error:', error);
+        // Even if logout fails, it might already be logged out
+        return { success: true };
+    }
+});
+/**
+ * Get GitHub token from gh CLI (for API calls)
+ */
+ipcMain.handle('github-cli:get-token', async () => {
+    console.log('[IPC] github-cli:get-token called');
+    try {
+        const ghPath = await getGitHubCLIPath();
+        if (!ghPath) {
+            return { success: false, error: 'GitHub CLI not found' };
+        }
+        const { execSync } = await import('child_process');
+        const token = execSync(`"${ghPath}" auth token`, { encoding: 'utf8', timeout: 5000 }).trim();
+        return { success: true, token };
+    }
+    catch (error) {
+        console.error('[GitHub CLI] Get token error:', error);
+        return { success: false, error: 'Not authenticated or token not available' };
     }
 });
 // ============================================================================

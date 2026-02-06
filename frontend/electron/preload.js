@@ -103,6 +103,39 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('cli:output', handler)
     return () => ipcRenderer.removeListener('cli:output', handler)
   },
+
+  // ============================================================================
+  // GitHub CLI APIs (Device Code Flow)
+  // ============================================================================
+
+  // Get GitHub CLI status (installed, authenticated, username, etc.)
+  getGitHubCLIStatus: () => ipcRenderer.invoke('github-cli:status'),
+
+  // Start GitHub OAuth via Device Code Flow
+  startGitHubAuth: () => ipcRenderer.invoke('github-cli:start-auth'),
+
+  // Cancel ongoing GitHub auth
+  cancelGitHubAuth: () => ipcRenderer.invoke('github-cli:cancel-auth'),
+
+  // Logout from GitHub CLI
+  logoutGitHub: () => ipcRenderer.invoke('github-cli:logout'),
+
+  // Get GitHub token (for API calls)
+  getGitHubToken: () => ipcRenderer.invoke('github-cli:get-token'),
+
+  // Subscribe to GitHub auth device code event
+  onGitHubDeviceCode: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('github-cli:device-code', handler)
+    return () => ipcRenderer.removeListener('github-cli:device-code', handler)
+  },
+
+  // Subscribe to GitHub auth completion event
+  onGitHubAuthComplete: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('github-cli:auth-complete', handler)
+    return () => ipcRenderer.removeListener('github-cli:auth-complete', handler)
+  },
 })
 
 console.log('[Preload] Electron APIs exposed to window.electron')

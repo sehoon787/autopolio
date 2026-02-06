@@ -20,6 +20,14 @@ export const CLI_CONFIGS = {
         docsUrl: 'https://ai.google.dev/gemini-cli',
         changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
     },
+    github_cli: {
+        tool: 'github_cli',
+        name: 'GitHub CLI',
+        executable: 'gh',
+        npmPackage: '', // Not an npm package, installed via OS package managers
+        docsUrl: 'https://cli.github.com/',
+        changelogUrl: 'https://github.com/cli/cli/releases',
+    },
 };
 // ============================================================================
 // Platform Constants
