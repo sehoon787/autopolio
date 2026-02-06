@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,12 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { publicationsApi, Publication, PublicationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
 import { Plus, Pencil, Trash2, FileText, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
+import { useCrudOperations } from '@/hooks/useCrudOperations'
+import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
 
 const PUBLICATION_TYPES = [
   { value: 'journal', label: 'credentials:publications.types.journal' },
@@ -38,112 +37,64 @@ const PUBLICATION_TYPES = [
   { value: 'other', label: 'credentials:publications.types.other' },
 ]
 
-type SortOption = 'dateDesc' | 'dateAsc' | 'nameAsc' | 'nameDesc' | 'manual'
+// Initial form data for publications
+const INITIAL_FORM_DATA: PublicationCreate = {
+  title: '',
+  authors: '',
+  publication_type: '',
+  publisher: '',
+  publication_date: '',
+  doi: '',
+  url: '',
+  description: '',
+}
+
+// Map item to form data for editing
+const itemToFormData = (item: Publication): PublicationCreate => ({
+  title: item.title,
+  authors: item.authors || '',
+  publication_type: item.publication_type || '',
+  publisher: item.publisher || '',
+  publication_date: item.publication_date || '',
+  doi: item.doi || '',
+  url: item.url || '',
+  description: item.description || '',
+})
+
+// Clean form data before submit (convert empty strings to undefined)
+const cleanFormData = (data: PublicationCreate): PublicationCreate => ({
+  title: data.title,
+  authors: data.authors || undefined,
+  publication_type: data.publication_type || undefined,
+  publisher: data.publisher || undefined,
+  publication_date: data.publication_date || undefined,
+  doi: data.doi || undefined,
+  url: data.url || undefined,
+  description: data.description || undefined,
+})
 
 export function PublicationsTab() {
   const { t } = useTranslation()
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
   const { user } = useUserStore()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<Publication | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('dateDesc')
-  const [formData, setFormData] = useState<PublicationCreate>({
-    title: '',
-    authors: '',
-    publication_type: '',
-    publisher: '',
-    publication_date: '',
-    doi: '',
-    url: '',
-    description: '',
+
+  // CRUD operations hook
+  const crud = useCrudOperations<Publication, PublicationCreate>({
+    queryKey: 'publications',
+    api: publicationsApi,
+    i18nKey: 'publications',
+    initialFormData: INITIAL_FORM_DATA,
+    itemToFormData,
+    cleanFormData,
   })
 
-  const { data: itemsData, isLoading } = useQuery({
-    queryKey: ['publications', user?.id],
-    queryFn: () => publicationsApi.getAll(user!.id),
-    enabled: !!user?.id,
+  // Sortable list hook
+  const sort = useSortableList({
+    items: crud.items,
+    queryKey: 'publications',
+    reorderApi: publicationsApi.reorder,
+    dateConfig: { dateField: 'publication_date' },
+    getItemName: (item) => item.title || '',
   })
-
-  const createMutation = useMutation({
-    mutationFn: (data: PublicationCreate) => publicationsApi.create(user!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      setIsDialogOpen(false)
-      resetForm()
-      toast({ title: t('credentials:publications.added') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<PublicationCreate> }) =>
-      publicationsApi.update(user!.id, id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      setIsDialogOpen(false)
-      setEditingItem(null)
-      resetForm()
-      toast({ title: t('credentials:publications.updated') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => publicationsApi.delete(user!.id, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      toast({ title: t('credentials:publications.deleted') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      authors: '',
-      publication_type: '',
-      publisher: '',
-      publication_date: '',
-      doi: '',
-      url: '',
-      description: '',
-    })
-  }
-
-  const handleEdit = (item: Publication) => {
-    setEditingItem(item)
-    setFormData({
-      title: item.title,
-      authors: item.authors || '',
-      publication_type: item.publication_type || '',
-      publisher: item.publisher || '',
-      publication_date: item.publication_date || '',
-      doi: item.doi || '',
-      url: item.url || '',
-      description: item.description || '',
-    })
-    setIsDialogOpen(true)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanedData: PublicationCreate = {
-      title: formData.title,
-      authors: formData.authors || undefined,
-      publication_type: formData.publication_type || undefined,
-      publisher: formData.publisher || undefined,
-      publication_date: formData.publication_date || undefined,
-      doi: formData.doi || undefined,
-      url: formData.url || undefined,
-      description: formData.description || undefined,
-    }
-    if (editingItem) {
-      updateMutation.mutate({ id: editingItem.id, data: cleanedData })
-    } else {
-      createMutation.mutate(cleanedData)
-    }
-  }
 
   const getTypeLabel = (type: string | null) => {
     if (!type) return null
@@ -160,83 +111,41 @@ export function PublicationsTab() {
     }
   }
 
-  // Sort items based on selected option
-  const sortedItems = [...(itemsData?.data || [])].sort((a, b) => {
-    switch (sortBy) {
-      case 'dateDesc':
-        return (b.publication_date || '').localeCompare(a.publication_date || '')
-      case 'dateAsc':
-        return (a.publication_date || '').localeCompare(b.publication_date || '')
-      case 'nameAsc':
-        return a.title.localeCompare(b.title)
-      case 'nameDesc':
-        return b.title.localeCompare(a.title)
-      case 'manual':
-      default:
-        return a.display_order - b.display_order
-    }
-  })
-  const items = sortedItems
-
-  const reorderMutation = useMutation({
-    mutationFn: (itemIds: number[]) => publicationsApi.reorder(user!.id, itemIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index - 1]
-    newItems[index - 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
-  const handleMoveDown = (index: number) => {
-    if (index === items.length - 1) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index + 1]
-    newItems[index + 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
   return (
     <div className="space-y-4">
+      {/* Header with sort and add button */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="dateDesc">{t('credentials:sort.dateDesc')}</SelectItem>
-              <SelectItem value="dateAsc">{t('credentials:sort.dateAsc')}</SelectItem>
-              <SelectItem value="nameAsc">{t('credentials:sort.nameAsc')}</SelectItem>
-              <SelectItem value="nameDesc">{t('credentials:sort.nameDesc')}</SelectItem>
-              <SelectItem value="manual">{t('credentials:sort.manual')}</SelectItem>
+              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
+              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
+              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
+              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
+              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { resetForm(); setEditingItem(null); setIsDialogOpen(true) }}>
+        <Button onClick={crud.handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('credentials:publications.add')}
         </Button>
       </div>
 
-      {isLoading ? (
+      {/* Content */}
+      {crud.isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
-      ) : items.length === 0 ? (
+      ) : sort.sortedItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('credentials:publications.empty')}</h3>
             <p className="text-muted-foreground mb-4">{t('credentials:publications.emptyDesc')}</p>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={crud.handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
               {t('credentials:publications.addFirst')}
             </Button>
@@ -244,7 +153,7 @@ export function PublicationsTab() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {items.map((item, index) => (
+          {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -303,7 +212,6 @@ export function PublicationsTab() {
                     {item.description && (
                       <p className="text-muted-foreground mt-3">{item.description}</p>
                     )}
-                    {/* Attachment link (compact) */}
                     {item.attachment_path && (
                       <div className="mt-2">
                         <AttachmentUpload
@@ -319,13 +227,13 @@ export function PublicationsTab() {
                     )}
                   </div>
                   <div className="flex gap-1">
-                    {sortBy === 'manual' && (
+                    {sort.sortBy === 'manual' && (
                       <>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveUp(index)}
+                          disabled={index === 0 || sort.isReordering}
                           title={t('credentials:sort.moveUp')}
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -333,25 +241,21 @@ export function PublicationsTab() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === items.length - 1 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveDown(index)}
+                          disabled={index === sort.sortedItems.length - 1 || sort.isReordering}
                           title={t('credentials:sort.moveDown')}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                    <Button variant="ghost" size="icon" onClick={() => crud.handleEdit(item)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (confirm(t('credentials:confirmDelete'))) {
-                          deleteMutation.mutate(item.id)
-                        }
-                      }}
+                      onClick={() => crud.handleDelete(item.id)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -363,20 +267,21 @@ export function PublicationsTab() {
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Dialog */}
+      <Dialog open={crud.isDialogOpen} onOpenChange={crud.setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingItem ? t('credentials:publications.edit') : t('credentials:publications.new')}
+              {crud.editingItem ? t('credentials:publications.edit') : t('credentials:publications.new')}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={crud.handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">{t('credentials:publications.title')} *</Label>
               <Input
                 id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                value={crud.formData.title}
+                onChange={(e) => crud.setFormData(prev => ({ ...prev, title: e.target.value }))}
                 required
               />
             </div>
@@ -385,16 +290,16 @@ export function PublicationsTab() {
                 <Label htmlFor="authors">{t('credentials:publications.authors')}</Label>
                 <Input
                   id="authors"
-                  value={formData.authors}
-                  onChange={(e) => setFormData({ ...formData, authors: e.target.value })}
+                  value={crud.formData.authors}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, authors: e.target.value }))}
                   placeholder={t('credentials:publications.authorsPlaceholder')}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="publication_type">{t('credentials:publications.type')}</Label>
                 <Select
-                  value={formData.publication_type || ''}
-                  onValueChange={(value) => setFormData({ ...formData, publication_type: value })}
+                  value={crud.formData.publication_type || ''}
+                  onValueChange={(value) => crud.setFormData(prev => ({ ...prev, publication_type: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('credentials:publications.selectType')} />
@@ -414,8 +319,8 @@ export function PublicationsTab() {
                 <Label htmlFor="publisher">{t('credentials:publications.publisher')}</Label>
                 <Input
                   id="publisher"
-                  value={formData.publisher}
-                  onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
+                  value={crud.formData.publisher}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, publisher: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -423,8 +328,8 @@ export function PublicationsTab() {
                 <Input
                   id="publication_date"
                   type="date"
-                  value={formData.publication_date || ''}
-                  onChange={(e) => setFormData({ ...formData, publication_date: e.target.value })}
+                  value={crud.formData.publication_date || ''}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, publication_date: e.target.value }))}
                 />
               </div>
             </div>
@@ -433,8 +338,8 @@ export function PublicationsTab() {
                 <Label htmlFor="doi">DOI</Label>
                 <Input
                   id="doi"
-                  value={formData.doi}
-                  onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
+                  value={crud.formData.doi}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, doi: e.target.value }))}
                   placeholder="10.1000/xyz123"
                 />
               </div>
@@ -443,8 +348,8 @@ export function PublicationsTab() {
                 <Input
                   id="url"
                   type="url"
-                  value={formData.url}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                  value={crud.formData.url}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, url: e.target.value }))}
                   placeholder="https://"
                 />
               </div>
@@ -453,33 +358,32 @@ export function PublicationsTab() {
               <Label htmlFor="description">{t('credentials:publications.description')}</Label>
               <Textarea
                 id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={crud.formData.description}
+                onChange={(e) => crud.setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
                 placeholder={t('credentials:publications.descriptionPlaceholder')}
               />
             </div>
-            {/* Attachment upload (only in edit mode) */}
-            {editingItem && (
+            {crud.editingItem && (
               <div className="space-y-2">
                 <Label>{t('credentials:attachment.title')}</Label>
                 <AttachmentUpload
                   userId={user!.id}
                   credentialType="publications"
-                  credentialId={editingItem.id}
-                  attachmentPath={editingItem.attachment_path}
-                  attachmentName={editingItem.attachment_name}
-                  attachmentSize={editingItem.attachment_size}
+                  credentialId={crud.editingItem.id}
+                  attachmentPath={crud.editingItem.attachment_path}
+                  attachmentName={crud.editingItem.attachment_name}
+                  attachmentSize={crud.editingItem.attachment_size}
                   mode="full"
                 />
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => crud.setIsDialogOpen(false)}>
                 {t('common:cancel')}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingItem ? t('common:edit') : t('common:add')}
+              <Button type="submit" disabled={crud.isCreating || crud.isUpdating}>
+                {crud.editingItem ? t('common:edit') : t('common:add')}
               </Button>
             </DialogFooter>
           </form>

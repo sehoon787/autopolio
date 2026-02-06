@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
@@ -29,6 +29,7 @@ import { formatDate } from '@/lib/utils'
 import { Plus, Pencil, Trash2, GraduationCap, Globe, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { UniversityAutocomplete, UniversityInfoDisplay, MajorAutocomplete } from '@/components/Autocomplete'
+import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
 
 // Academic degree options (formal education)
 const ACADEMIC_DEGREE_OPTIONS = [
@@ -66,7 +67,21 @@ interface FormData extends EducationCreate {
   school_web_page?: string
 }
 
-type SortOption = 'dateDesc' | 'dateAsc' | 'nameAsc' | 'nameDesc' | 'manual'
+const INITIAL_FORM_DATA: FormData = {
+  school_name: '',
+  major: '',
+  degree: '',
+  start_date: '',
+  end_date: '',
+  graduation_status: '',
+  gpa: '',
+  description: '',
+  school_country: '',
+  school_country_code: '',
+  school_state: '',
+  school_domain: '',
+  school_web_page: '',
+}
 
 export function AcademicEducationTab() {
   const { t } = useTranslation()
@@ -75,23 +90,9 @@ export function AcademicEducationTab() {
   const { user } = useUserStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Education | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('dateDesc')
-  const [formData, setFormData] = useState<FormData>({
-    school_name: '',
-    major: '',
-    degree: '',
-    start_date: '',
-    end_date: '',
-    graduation_status: '',
-    gpa: '',
-    description: '',
-    school_country: '',
-    school_country_code: '',
-    school_state: '',
-    school_domain: '',
-    school_web_page: '',
-  })
+  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA)
 
+  // Query
   const { data: itemsData, isLoading } = useQuery({
     queryKey: ['educations', user?.id],
     queryFn: () => educationsApi.getAll(user!.id),
@@ -99,53 +100,23 @@ export function AcademicEducationTab() {
   })
 
   // Filter only academic education items
-  const filteredItems = (itemsData?.data || []).filter(
-    (item) => ACADEMIC_DEGREE_OPTIONS.some((opt) => opt.value === item.degree) || !item.degree
+  const items = useMemo(() => 
+    (itemsData?.data || []).filter(
+      (item) => ACADEMIC_DEGREE_OPTIONS.some((opt) => opt.value === item.degree) || !item.degree
+    ),
+    [itemsData?.data]
   )
 
-  // Sort items based on selected option
-  const items = [...filteredItems].sort((a, b) => {
-    switch (sortBy) {
-      case 'dateDesc':
-        return (b.start_date || '').localeCompare(a.start_date || '')
-      case 'dateAsc':
-        return (a.start_date || '').localeCompare(b.start_date || '')
-      case 'nameAsc':
-        return a.school_name.localeCompare(b.school_name)
-      case 'nameDesc':
-        return b.school_name.localeCompare(a.school_name)
-      case 'manual':
-      default:
-        return a.display_order - b.display_order
-    }
+  // Sortable list hook
+  const sort = useSortableList({
+    items,
+    queryKey: 'educations',
+    reorderApi: educationsApi.reorder,
+    dateConfig: { dateField: 'start_date' },
+    getItemName: (item) => item.school_name || '',
   })
 
-  const reorderMutation = useMutation({
-    mutationFn: (itemIds: number[]) => educationsApi.reorder(user!.id, itemIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['educations'] })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index - 1]
-    newItems[index - 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
-  const handleMoveDown = (index: number) => {
-    if (index === items.length - 1) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index + 1]
-    newItems[index + 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
+  // Mutations
   const createMutation = useMutation({
     mutationFn: (data: EducationCreate) => educationsApi.create(user!.id, data),
     onSuccess: () => {
@@ -179,25 +150,18 @@ export function AcademicEducationTab() {
     onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
   })
 
-  const resetForm = () => {
-    setFormData({
-      school_name: '',
-      major: '',
-      degree: '',
-      start_date: '',
-      end_date: '',
-      graduation_status: '',
-      gpa: '',
-      description: '',
-      school_country: '',
-      school_country_code: '',
-      school_state: '',
-      school_domain: '',
-      school_web_page: '',
-    })
-  }
+  // Actions
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA)
+  }, [])
 
-  const handleEdit = (item: Education) => {
+  const handleCreate = useCallback(() => {
+    resetForm()
+    setEditingItem(null)
+    setIsDialogOpen(true)
+  }, [resetForm])
+
+  const handleEdit = useCallback((item: Education) => {
     setEditingItem(item)
     setFormData({
       school_name: item.school_name,
@@ -215,9 +179,9 @@ export function AcademicEducationTab() {
       school_web_page: item.school_web_page || '',
     })
     setIsDialogOpen(true)
-  }
+  }, [])
 
-  const handleUniversitySelect = (university: UniversityResult) => {
+  const handleUniversitySelect = useCallback((university: UniversityResult) => {
     setFormData((prev) => ({
       ...prev,
       school_name: university.name,
@@ -227,9 +191,9 @@ export function AcademicEducationTab() {
       school_domain: university.domain || '',
       school_web_page: university.web_page || '',
     }))
-  }
+  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     const isEnrolled = formData.graduation_status === 'enrolled'
     const cleanedData: EducationCreate = {
@@ -253,7 +217,13 @@ export function AcademicEducationTab() {
     } else {
       createMutation.mutate(cleanedData)
     }
-  }
+  }, [formData, editingItem, createMutation, updateMutation])
+
+  const handleDelete = useCallback((id: number) => {
+    if (confirm(t('credentials:confirmDelete'))) {
+      deleteMutation.mutate(id)
+    }
+  }, [deleteMutation, t])
 
   const getDegreeLabel = (degree: string | null) => {
     if (!degree) return null
@@ -269,16 +239,11 @@ export function AcademicEducationTab() {
 
   const getGraduationStatusBadgeVariant = (status: string | null) => {
     switch (status) {
-      case 'graduated':
-        return 'default'
-      case 'enrolled':
-        return 'success'
-      case 'completed':
-        return 'secondary'
-      case 'withdrawn':
-        return 'outline'
-      default:
-        return 'secondary'
+      case 'graduated': return 'default'
+      case 'enrolled': return 'success'
+      case 'completed': return 'secondary'
+      case 'withdrawn': return 'outline'
+      default: return 'secondary'
     }
   }
 
@@ -297,43 +262,39 @@ export function AcademicEducationTab() {
 
   return (
     <div className="space-y-4">
+      {/* Header with sort and add button */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="dateDesc">{t('credentials:sort.dateDesc')}</SelectItem>
-              <SelectItem value="dateAsc">{t('credentials:sort.dateAsc')}</SelectItem>
-              <SelectItem value="nameAsc">{t('credentials:sort.nameAsc')}</SelectItem>
-              <SelectItem value="nameDesc">{t('credentials:sort.nameDesc')}</SelectItem>
-              <SelectItem value="manual">{t('credentials:sort.manual')}</SelectItem>
+              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
+              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
+              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
+              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
+              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button
-          onClick={() => {
-            resetForm()
-            setEditingItem(null)
-            setIsDialogOpen(true)
-          }}
-        >
+        <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('credentials:academicEducation.add')}
         </Button>
       </div>
 
+      {/* Content */}
       {isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
-      ) : items.length === 0 ? (
+      ) : sort.sortedItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <GraduationCap className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('credentials:academicEducation.empty')}</h3>
             <p className="text-muted-foreground mb-4">{t('credentials:academicEducation.emptyDesc')}</p>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
               {t('credentials:academicEducation.addFirst')}
             </Button>
@@ -341,7 +302,7 @@ export function AcademicEducationTab() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {items.map((item, index) => (
+          {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -423,13 +384,13 @@ export function AcademicEducationTab() {
                     )}
                   </div>
                   <div className="flex gap-1">
-                    {sortBy === 'manual' && (
+                    {sort.sortBy === 'manual' && (
                       <>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveUp(index)}
+                          disabled={index === 0 || sort.isReordering}
                           title={t('credentials:sort.moveUp')}
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -437,8 +398,8 @@ export function AcademicEducationTab() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === items.length - 1 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveDown(index)}
+                          disabled={index === sort.sortedItems.length - 1 || sort.isReordering}
                           title={t('credentials:sort.moveDown')}
                         >
                           <ChevronDown className="h-4 w-4" />
@@ -451,11 +412,7 @@ export function AcademicEducationTab() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (confirm(t('credentials:confirmDelete'))) {
-                          deleteMutation.mutate(item.id)
-                        }
-                      }}
+                      onClick={() => handleDelete(item.id)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -467,6 +424,7 @@ export function AcademicEducationTab() {
         </div>
       )}
 
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -484,8 +442,8 @@ export function AcademicEducationTab() {
                 <Select
                   value={formData.degree || ''}
                   onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
+                    setFormData(prev => ({
+                      ...prev,
                       degree: value,
                       // Clear university metadata when changing degree type
                       school_country: '',
@@ -493,7 +451,7 @@ export function AcademicEducationTab() {
                       school_state: '',
                       school_domain: '',
                       school_web_page: '',
-                    })
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -513,12 +471,12 @@ export function AcademicEducationTab() {
                 <Select
                   value={formData.graduation_status || ''}
                   onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
+                    setFormData(prev => ({
+                      ...prev,
                       graduation_status: value,
                       // Clear end_date if enrolled
-                      end_date: value === 'enrolled' ? '' : formData.end_date,
-                    })
+                      end_date: value === 'enrolled' ? '' : prev.end_date,
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -541,7 +499,7 @@ export function AcademicEducationTab() {
                 {showUniversityAutocomplete ? (
                   <UniversityAutocomplete
                     value={formData.school_name}
-                    onChange={(name) => setFormData({ ...formData, school_name: name })}
+                    onChange={(name) => setFormData(prev => ({ ...prev, school_name: name }))}
                     onSelect={handleUniversitySelect}
                     placeholder={t('credentials:academicEducation.schoolNamePlaceholder')}
                   />
@@ -549,7 +507,7 @@ export function AcademicEducationTab() {
                   <Input
                     id="school_name"
                     value={formData.school_name}
-                    onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
                     placeholder={t('credentials:academicEducation.schoolName')}
                     required
                   />
@@ -560,14 +518,14 @@ export function AcademicEducationTab() {
                 {showUniversityAutocomplete ? (
                   <MajorAutocomplete
                     value={formData.major || ''}
-                    onChange={(name) => setFormData({ ...formData, major: name })}
+                    onChange={(name) => setFormData(prev => ({ ...prev, major: name }))}
                     placeholder={t('credentials:academicEducation.major')}
                   />
                 ) : (
                   <Input
                     id="major"
                     value={formData.major}
-                    onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, major: e.target.value }))}
                     placeholder={t('credentials:academicEducation.major')}
                   />
                 )}
@@ -591,7 +549,7 @@ export function AcademicEducationTab() {
                 <Input
                   id="gpa"
                   value={formData.gpa}
-                  onChange={(e) => setFormData({ ...formData, gpa: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, gpa: e.target.value }))}
                   placeholder="3.5/4.0"
                 />
               </div>
@@ -605,7 +563,7 @@ export function AcademicEducationTab() {
                   type="date"
                   value={formData.start_date || ''}
                   max={formData.end_date || undefined}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -615,7 +573,7 @@ export function AcademicEducationTab() {
                   type="date"
                   value={formData.end_date || ''}
                   min={formData.start_date || undefined}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
                   disabled={isEnrolled}
                 />
                 {isEnrolled && (
@@ -631,7 +589,7 @@ export function AcademicEducationTab() {
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
                 placeholder={t('credentials:academicEducation.descriptionPlaceholder')}
               />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
@@ -27,6 +27,7 @@ import { publicationsApi, Publication, PublicationCreate } from '@/api/credentia
 import { formatDate } from '@/lib/utils'
 import { Plus, Pencil, Trash2, ScrollText, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
+import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
 
 const PATENT_OFFICES = [
   { value: 'KR', label: 'credentials:publications.patentOffices.KR' },
@@ -60,7 +61,51 @@ interface PatentFormData {
   description: string
 }
 
-type SortOption = 'dateDesc' | 'dateAsc' | 'nameAsc' | 'nameDesc' | 'manual'
+const INITIAL_FORM_DATA: PatentFormData = {
+  title: '',
+  patent_office: '',
+  application_number: '',
+  registration_number: '',
+  filing_date: '',
+  publication_date: '',
+  grant_date: '',
+  status: '',
+  applicant: '',
+  inventors: '',
+  description: '',
+}
+
+// Parse stored patent data from publication fields
+const parsePatentData = (item: Publication): PatentFormData => {
+  const doiParts = (item.doi || '').split('|')
+  const dateParts = (item.publication_date || '').split('|')
+
+  return {
+    title: item.title,
+    patent_office: item.url || '',
+    application_number: doiParts[0] || '',
+    registration_number: doiParts[1] || '',
+    status: doiParts[2] || '',
+    filing_date: dateParts[0] || '',
+    publication_date: dateParts[1] || '',
+    grant_date: dateParts[2] || '',
+    applicant: item.publisher || '',
+    inventors: item.authors || '',
+    description: item.description || '',
+  }
+}
+
+// Pack patent form data into publication fields
+const packPatentData = (formData: PatentFormData): PublicationCreate => ({
+  title: formData.title,
+  publication_type: 'patent',
+  doi: [formData.application_number, formData.registration_number, formData.status].join('|'),
+  url: formData.patent_office || undefined,
+  publisher: formData.applicant || undefined,
+  authors: formData.inventors || undefined,
+  publication_date: [formData.filing_date, formData.publication_date, formData.grant_date].join('|'),
+  description: formData.description || undefined,
+})
 
 export function PatentsTab() {
   const { t } = useTranslation()
@@ -69,21 +114,9 @@ export function PatentsTab() {
   const { user } = useUserStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Publication | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('dateDesc')
-  const [formData, setFormData] = useState<PatentFormData>({
-    title: '',
-    patent_office: '',
-    application_number: '',
-    registration_number: '',
-    filing_date: '',
-    publication_date: '',
-    grant_date: '',
-    status: '',
-    applicant: '',
-    inventors: '',
-    description: '',
-  })
+  const [formData, setFormData] = useState<PatentFormData>(INITIAL_FORM_DATA)
 
+  // Query
   const { data: itemsData, isLoading } = useQuery({
     queryKey: ['publications', user?.id],
     queryFn: () => publicationsApi.getAll(user!.id),
@@ -91,33 +124,31 @@ export function PatentsTab() {
   })
 
   // Filter only patent items
-  const filteredItems = (itemsData?.data || []).filter(
-    (item) => item.publication_type === 'patent'
+  const items = useMemo(() => 
+    (itemsData?.data || []).filter((item) => item.publication_type === 'patent'),
+    [itemsData?.data]
   )
 
-  // Sort items
-  const items = [...filteredItems].sort((a, b) => {
-    switch (sortBy) {
-      case 'dateDesc':
-        return (b.publication_date || '').localeCompare(a.publication_date || '')
-      case 'dateAsc':
-        return (a.publication_date || '').localeCompare(b.publication_date || '')
-      case 'nameAsc':
-        return a.title.localeCompare(b.title)
-      case 'nameDesc':
-        return b.title.localeCompare(a.title)
-      case 'manual':
-      default:
-        return a.display_order - b.display_order
-    }
+  // Sortable list hook with custom date getter for patents
+  const sort = useSortableList({
+    items,
+    queryKey: 'publications',
+    reorderApi: publicationsApi.reorder,
+    dateConfig: { dateField: 'publication_date' },
+    getItemName: (item) => item.title || '',
+    getItemDate: (item) => {
+      const dateParts = (item.publication_date || '').split('|')
+      return dateParts[0] || ''
+    },
   })
 
+  // Mutations
   const createMutation = useMutation({
     mutationFn: (data: PublicationCreate) => publicationsApi.create(user!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['publications'] })
       setIsDialogOpen(false)
-      resetForm()
+      setFormData(INITIAL_FORM_DATA)
       toast({ title: t('credentials:patents.added') })
     },
     onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
@@ -130,7 +161,7 @@ export function PatentsTab() {
       queryClient.invalidateQueries({ queryKey: ['publications'] })
       setIsDialogOpen(false)
       setEditingItem(null)
-      resetForm()
+      setFormData(INITIAL_FORM_DATA)
       toast({ title: t('credentials:patents.updated') })
     },
     onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
@@ -145,99 +176,34 @@ export function PatentsTab() {
     onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
   })
 
-  const reorderMutation = useMutation({
-    mutationFn: (itemIds: number[]) => publicationsApi.reorder(user!.id, itemIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
+  // Actions
+  const handleCreate = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA)
+    setEditingItem(null)
+    setIsDialogOpen(true)
+  }, [])
 
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index - 1]
-    newItems[index - 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
-  const handleMoveDown = (index: number) => {
-    if (index === items.length - 1) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index + 1]
-    newItems[index + 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      patent_office: '',
-      application_number: '',
-      registration_number: '',
-      filing_date: '',
-      publication_date: '',
-      grant_date: '',
-      status: '',
-      applicant: '',
-      inventors: '',
-      description: '',
-    })
-  }
-
-  // Parse stored patent data from publication fields
-  const parsePatentData = (item: Publication): PatentFormData => {
-    // We store patent-specific data in existing publication fields:
-    // - doi: application_number|registration_number|status
-    // - url: patent_office
-    // - publisher: applicant
-    // - authors: inventors
-    // - publication_date: filing_date|publication_date|grant_date
-    const doiParts = (item.doi || '').split('|')
-    const dateParts = (item.publication_date || '').split('|')
-
-    return {
-      title: item.title,
-      patent_office: item.url || '',
-      application_number: doiParts[0] || '',
-      registration_number: doiParts[1] || '',
-      status: doiParts[2] || '',
-      filing_date: dateParts[0] || '',
-      publication_date: dateParts[1] || '',
-      grant_date: dateParts[2] || '',
-      applicant: item.publisher || '',
-      inventors: item.authors || '',
-      description: item.description || '',
-    }
-  }
-
-  const handleEdit = (item: Publication) => {
+  const handleEdit = useCallback((item: Publication) => {
     setEditingItem(item)
     setFormData(parsePatentData(item))
     setIsDialogOpen(true)
-  }
+  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    // Pack patent data into publication fields
-    const cleanedData: PublicationCreate = {
-      title: formData.title,
-      publication_type: 'patent',
-      doi: [formData.application_number, formData.registration_number, formData.status].join('|'),
-      url: formData.patent_office || undefined,
-      publisher: formData.applicant || undefined,
-      authors: formData.inventors || undefined,
-      publication_date: [formData.filing_date, formData.publication_date, formData.grant_date].join('|'),
-      description: formData.description || undefined,
-    }
+    const cleanedData = packPatentData(formData)
     if (editingItem) {
       updateMutation.mutate({ id: editingItem.id, data: cleanedData })
     } else {
       createMutation.mutate(cleanedData)
     }
-  }
+  }, [formData, editingItem, createMutation, updateMutation])
+
+  const handleDelete = useCallback((id: number) => {
+    if (confirm(t('credentials:confirmDelete'))) {
+      deleteMutation.mutate(id)
+    }
+  }, [deleteMutation, t])
 
   const getPatentOfficeLabel = (code: string | null) => {
     if (!code) return null
@@ -264,37 +230,39 @@ export function PatentsTab() {
 
   return (
     <div className="space-y-4">
+      {/* Header with sort and add button */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="dateDesc">{t('credentials:sort.dateDesc')}</SelectItem>
-              <SelectItem value="dateAsc">{t('credentials:sort.dateAsc')}</SelectItem>
-              <SelectItem value="nameAsc">{t('credentials:sort.nameAsc')}</SelectItem>
-              <SelectItem value="nameDesc">{t('credentials:sort.nameDesc')}</SelectItem>
-              <SelectItem value="manual">{t('credentials:sort.manual')}</SelectItem>
+              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
+              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
+              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
+              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
+              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { resetForm(); setEditingItem(null); setIsDialogOpen(true) }}>
+        <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('credentials:patents.add')}
         </Button>
       </div>
 
+      {/* Content */}
       {isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
-      ) : items.length === 0 ? (
+      ) : sort.sortedItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <ScrollText className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('credentials:patents.empty')}</h3>
             <p className="text-muted-foreground mb-4">{t('credentials:patents.emptyDesc')}</p>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
               {t('credentials:patents.addFirst')}
             </Button>
@@ -302,7 +270,7 @@ export function PatentsTab() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {items.map((item, index) => {
+          {sort.sortedItems.map((item, index) => {
             const patentData = parsePatentData(item)
             return (
               <Card key={item.id}>
@@ -359,13 +327,13 @@ export function PatentsTab() {
                       )}
                     </div>
                     <div className="flex gap-1">
-                      {sortBy === 'manual' && (
+                      {sort.sortBy === 'manual' && (
                         <>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleMoveUp(index)}
-                            disabled={index === 0 || reorderMutation.isPending}
+                            onClick={() => sort.handleMoveUp(index)}
+                            disabled={index === 0 || sort.isReordering}
                             title={t('credentials:sort.moveUp')}
                           >
                             <ChevronUp className="h-4 w-4" />
@@ -373,8 +341,8 @@ export function PatentsTab() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleMoveDown(index)}
-                            disabled={index === items.length - 1 || reorderMutation.isPending}
+                            onClick={() => sort.handleMoveDown(index)}
+                            disabled={index === sort.sortedItems.length - 1 || sort.isReordering}
                             title={t('credentials:sort.moveDown')}
                           >
                             <ChevronDown className="h-4 w-4" />
@@ -387,11 +355,7 @@ export function PatentsTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm(t('credentials:confirmDelete'))) {
-                            deleteMutation.mutate(item.id)
-                          }
-                        }}
+                        onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -404,6 +368,7 @@ export function PatentsTab() {
         </div>
       )}
 
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -417,7 +382,7 @@ export function PatentsTab() {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder={t('credentials:patents.titlePlaceholder')}
                 required
               />
@@ -428,7 +393,7 @@ export function PatentsTab() {
                 <Label htmlFor="patent_office">{t('credentials:patents.patentOffice')}</Label>
                 <Select
                   value={formData.patent_office || ''}
-                  onValueChange={(value) => setFormData({ ...formData, patent_office: value })}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, patent_office: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('credentials:patents.selectPatentOffice')} />
@@ -446,7 +411,7 @@ export function PatentsTab() {
                 <Label htmlFor="status">{t('credentials:patents.status.label')}</Label>
                 <Select
                   value={formData.status || ''}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('credentials:patents.selectStatus')} />
@@ -468,7 +433,7 @@ export function PatentsTab() {
                 <Input
                   id="application_number"
                   value={formData.application_number}
-                  onChange={(e) => setFormData({ ...formData, application_number: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, application_number: e.target.value }))}
                   placeholder={t('credentials:patents.applicationNumberPlaceholder')}
                 />
               </div>
@@ -477,7 +442,7 @@ export function PatentsTab() {
                 <Input
                   id="registration_number"
                   value={formData.registration_number}
-                  onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, registration_number: e.target.value }))}
                   placeholder={t('credentials:patents.registrationNumberPlaceholder')}
                 />
               </div>
@@ -490,7 +455,7 @@ export function PatentsTab() {
                   id="filing_date"
                   type="date"
                   value={formData.filing_date || ''}
-                  onChange={(e) => setFormData({ ...formData, filing_date: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, filing_date: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -499,7 +464,7 @@ export function PatentsTab() {
                   id="publication_date"
                   type="date"
                   value={formData.publication_date || ''}
-                  onChange={(e) => setFormData({ ...formData, publication_date: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, publication_date: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -508,7 +473,7 @@ export function PatentsTab() {
                   id="grant_date"
                   type="date"
                   value={formData.grant_date || ''}
-                  onChange={(e) => setFormData({ ...formData, grant_date: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, grant_date: e.target.value }))}
                 />
               </div>
             </div>
@@ -519,7 +484,7 @@ export function PatentsTab() {
                 <Input
                   id="applicant"
                   value={formData.applicant}
-                  onChange={(e) => setFormData({ ...formData, applicant: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, applicant: e.target.value }))}
                   placeholder={t('credentials:patents.applicantPlaceholder')}
                 />
               </div>
@@ -528,7 +493,7 @@ export function PatentsTab() {
                 <Input
                   id="inventors"
                   value={formData.inventors}
-                  onChange={(e) => setFormData({ ...formData, inventors: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, inventors: e.target.value }))}
                   placeholder={t('credentials:patents.inventorsPlaceholder')}
                 />
               </div>
@@ -539,7 +504,7 @@ export function PatentsTab() {
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
                 placeholder={t('credentials:patents.descriptionPlaceholder')}
               />

@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,7 +11,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { certificationsApi, Certification, CertificationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
@@ -27,187 +24,99 @@ import {
 } from '@/components/ui/select'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { CertificationAutocomplete } from '@/components/Autocomplete'
+import { useCrudOperations } from '@/hooks/useCrudOperations'
+import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
 
-type SortOption = 'dateDesc' | 'dateAsc' | 'nameAsc' | 'nameDesc' | 'manual'
+// Initial form data for certifications
+const INITIAL_FORM_DATA: CertificationCreate = {
+  name: '',
+  issuer: '',
+  issue_date: '',
+  expiry_date: '',
+  credential_id: '',
+  credential_url: '',
+  description: '',
+}
+
+// Map item to form data for editing
+const itemToFormData = (item: Certification): CertificationCreate => ({
+  name: item.name,
+  issuer: item.issuer || '',
+  issue_date: item.issue_date || '',
+  expiry_date: item.expiry_date || '',
+  credential_id: item.credential_id || '',
+  credential_url: item.credential_url || '',
+  description: item.description || '',
+})
+
+// Clean form data before submit (convert empty strings to undefined)
+const cleanFormData = (data: CertificationCreate): CertificationCreate => ({
+  name: data.name,
+  issuer: data.issuer || undefined,
+  issue_date: data.issue_date || undefined,
+  expiry_date: data.expiry_date || undefined,
+  credential_id: data.credential_id || undefined,
+  credential_url: data.credential_url || undefined,
+  description: data.description || undefined,
+})
 
 export function CertificationsTab() {
   const { t } = useTranslation()
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
   const { user } = useUserStore()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<Certification | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('dateDesc')
-  const [formData, setFormData] = useState<CertificationCreate>({
-    name: '',
-    issuer: '',
-    issue_date: '',
-    expiry_date: '',
-    credential_id: '',
-    credential_url: '',
-    description: '',
+
+  // CRUD operations hook
+  const crud = useCrudOperations<Certification, CertificationCreate>({
+    queryKey: 'certifications',
+    api: certificationsApi,
+    i18nKey: 'certifications',
+    initialFormData: INITIAL_FORM_DATA,
+    itemToFormData,
+    cleanFormData,
   })
 
-  const { data: itemsData, isLoading } = useQuery({
-    queryKey: ['certifications', user?.id],
-    queryFn: () => certificationsApi.getAll(user!.id),
-    enabled: !!user?.id,
+  // Sortable list hook
+  const sort = useSortableList({
+    items: crud.items,
+    queryKey: 'certifications',
+    reorderApi: certificationsApi.reorder,
+    dateConfig: { dateField: 'issue_date' },
   })
-
-  const createMutation = useMutation({
-    mutationFn: (data: CertificationCreate) => certificationsApi.create(user!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certifications'] })
-      setIsDialogOpen(false)
-      resetForm()
-      toast({ title: t('credentials:certifications.added') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<CertificationCreate> }) =>
-      certificationsApi.update(user!.id, id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certifications'] })
-      setIsDialogOpen(false)
-      setEditingItem(null)
-      resetForm()
-      toast({ title: t('credentials:certifications.updated') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => certificationsApi.delete(user!.id, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certifications'] })
-      toast({ title: t('credentials:certifications.deleted') })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      issuer: '',
-      issue_date: '',
-      expiry_date: '',
-      credential_id: '',
-      credential_url: '',
-      description: '',
-    })
-  }
-
-  const handleEdit = (item: Certification) => {
-    setEditingItem(item)
-    setFormData({
-      name: item.name,
-      issuer: item.issuer || '',
-      issue_date: item.issue_date || '',
-      expiry_date: item.expiry_date || '',
-      credential_id: item.credential_id || '',
-      credential_url: item.credential_url || '',
-      description: item.description || '',
-    })
-    setIsDialogOpen(true)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanedData: CertificationCreate = {
-      name: formData.name,
-      issuer: formData.issuer || undefined,
-      issue_date: formData.issue_date || undefined,
-      expiry_date: formData.expiry_date || undefined,
-      credential_id: formData.credential_id || undefined,
-      credential_url: formData.credential_url || undefined,
-      description: formData.description || undefined,
-    }
-    if (editingItem) {
-      updateMutation.mutate({ id: editingItem.id, data: cleanedData })
-    } else {
-      createMutation.mutate(cleanedData)
-    }
-  }
-
-  // Sort items based on selected option
-  const sortedItems = [...(itemsData?.data || [])].sort((a, b) => {
-    switch (sortBy) {
-      case 'dateDesc':
-        return (b.issue_date || '').localeCompare(a.issue_date || '')
-      case 'dateAsc':
-        return (a.issue_date || '').localeCompare(b.issue_date || '')
-      case 'nameAsc':
-        return a.name.localeCompare(b.name)
-      case 'nameDesc':
-        return b.name.localeCompare(a.name)
-      case 'manual':
-      default:
-        return a.display_order - b.display_order
-    }
-  })
-  const items = sortedItems
-
-  const reorderMutation = useMutation({
-    mutationFn: (itemIds: number[]) => certificationsApi.reorder(user!.id, itemIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certifications'] })
-    },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
-  })
-
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index - 1]
-    newItems[index - 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
-
-  const handleMoveDown = (index: number) => {
-    if (index === items.length - 1) return
-    const newItems = [...items]
-    const temp = newItems[index]
-    newItems[index] = newItems[index + 1]
-    newItems[index + 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }
 
   return (
     <div className="space-y-4">
+      {/* Header with sort and add button */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="dateDesc">{t('credentials:sort.dateDesc')}</SelectItem>
-              <SelectItem value="dateAsc">{t('credentials:sort.dateAsc')}</SelectItem>
-              <SelectItem value="nameAsc">{t('credentials:sort.nameAsc')}</SelectItem>
-              <SelectItem value="nameDesc">{t('credentials:sort.nameDesc')}</SelectItem>
-              <SelectItem value="manual">{t('credentials:sort.manual')}</SelectItem>
+              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
+              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
+              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
+              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
+              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { resetForm(); setEditingItem(null); setIsDialogOpen(true) }}>
+        <Button onClick={crud.handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('credentials:certifications.add')}
         </Button>
       </div>
 
-      {isLoading ? (
+      {/* Content */}
+      {crud.isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
-      ) : items.length === 0 ? (
+      ) : sort.sortedItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Medal className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('credentials:certifications.empty')}</h3>
             <p className="text-muted-foreground mb-4">{t('credentials:certifications.emptyDesc')}</p>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={crud.handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
               {t('credentials:certifications.addFirst')}
             </Button>
@@ -215,7 +124,7 @@ export function CertificationsTab() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {items.map((item, index) => (
+          {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -251,7 +160,6 @@ export function CertificationsTab() {
                     {item.description && (
                       <p className="text-muted-foreground mt-3">{item.description}</p>
                     )}
-                    {/* Attachment link (compact) */}
                     {item.attachment_path && (
                       <div className="mt-2">
                         <AttachmentUpload
@@ -267,13 +175,13 @@ export function CertificationsTab() {
                     )}
                   </div>
                   <div className="flex gap-1">
-                    {sortBy === 'manual' && (
+                    {sort.sortBy === 'manual' && (
                       <>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveUp(index)}
+                          disabled={index === 0 || sort.isReordering}
                           title={t('credentials:sort.moveUp')}
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -281,25 +189,21 @@ export function CertificationsTab() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === items.length - 1 || reorderMutation.isPending}
+                          onClick={() => sort.handleMoveDown(index)}
+                          disabled={index === sort.sortedItems.length - 1 || sort.isReordering}
                           title={t('credentials:sort.moveDown')}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                    <Button variant="ghost" size="icon" onClick={() => crud.handleEdit(item)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (confirm(t('credentials:confirmDelete'))) {
-                          deleteMutation.mutate(item.id)
-                        }
-                      }}
+                      onClick={() => crud.handleDelete(item.id)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -311,25 +215,26 @@ export function CertificationsTab() {
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Dialog */}
+      <Dialog open={crud.isDialogOpen} onOpenChange={crud.setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingItem ? t('credentials:certifications.edit') : t('credentials:certifications.new')}
+              {crud.editingItem ? t('credentials:certifications.edit') : t('credentials:certifications.new')}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={crud.handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">{t('credentials:certifications.name')} *</Label>
                 <CertificationAutocomplete
-                  value={formData.name}
+                  value={crud.formData.name}
                   onChange={(name, issuer) => {
-                    setFormData({
-                      ...formData,
+                    crud.setFormData(prev => ({
+                      ...prev,
                       name,
-                      issuer: issuer || formData.issuer,
-                    })
+                      issuer: issuer || prev.issuer,
+                    }))
                   }}
                   placeholder={t('credentials:certifications.name')}
                 />
@@ -338,8 +243,8 @@ export function CertificationsTab() {
                 <Label htmlFor="issuer">{t('credentials:certifications.issuer')}</Label>
                 <Input
                   id="issuer"
-                  value={formData.issuer}
-                  onChange={(e) => setFormData({ ...formData, issuer: e.target.value })}
+                  value={crud.formData.issuer}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, issuer: e.target.value }))}
                 />
               </div>
             </div>
@@ -349,8 +254,8 @@ export function CertificationsTab() {
                 <Input
                   id="issue_date"
                   type="date"
-                  value={formData.issue_date || ''}
-                  onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+                  value={crud.formData.issue_date || ''}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -358,8 +263,8 @@ export function CertificationsTab() {
                 <Input
                   id="expiry_date"
                   type="date"
-                  value={formData.expiry_date || ''}
-                  onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                  value={crud.formData.expiry_date || ''}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
                 />
               </div>
             </div>
@@ -368,8 +273,8 @@ export function CertificationsTab() {
                 <Label htmlFor="credential_id">{t('credentials:certifications.credentialId')}</Label>
                 <Input
                   id="credential_id"
-                  value={formData.credential_id}
-                  onChange={(e) => setFormData({ ...formData, credential_id: e.target.value })}
+                  value={crud.formData.credential_id}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, credential_id: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -377,8 +282,8 @@ export function CertificationsTab() {
                 <Input
                   id="credential_url"
                   type="url"
-                  value={formData.credential_url}
-                  onChange={(e) => setFormData({ ...formData, credential_url: e.target.value })}
+                  value={crud.formData.credential_url}
+                  onChange={(e) => crud.setFormData(prev => ({ ...prev, credential_url: e.target.value }))}
                   placeholder="https://"
                 />
               </div>
@@ -387,32 +292,31 @@ export function CertificationsTab() {
               <Label htmlFor="description">{t('credentials:certifications.description')}</Label>
               <Textarea
                 id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={crud.formData.description}
+                onChange={(e) => crud.setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
               />
             </div>
-            {/* Attachment upload (only in edit mode) */}
-            {editingItem && (
+            {crud.editingItem && (
               <div className="space-y-2">
                 <Label>{t('credentials:attachment.title')}</Label>
                 <AttachmentUpload
                   userId={user!.id}
                   credentialType="certifications"
-                  credentialId={editingItem.id}
-                  attachmentPath={editingItem.attachment_path}
-                  attachmentName={editingItem.attachment_name}
-                  attachmentSize={editingItem.attachment_size}
+                  credentialId={crud.editingItem.id}
+                  attachmentPath={crud.editingItem.attachment_path}
+                  attachmentName={crud.editingItem.attachment_name}
+                  attachmentSize={crud.editingItem.attachment_size}
                   mode="full"
                 />
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => crud.setIsDialogOpen(false)}>
                 {t('common:cancel')}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingItem ? t('common:edit') : t('common:add')}
+              <Button type="submit" disabled={crud.isCreating || crud.isUpdating}>
+                {crud.editingItem ? t('common:edit') : t('common:add')}
               </Button>
             </DialogFooter>
           </form>
