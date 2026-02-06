@@ -15,7 +15,7 @@ from api.schemas.credentials import (
     VolunteerActivityCreate, VolunteerActivityUpdate, VolunteerActivityResponse,
     ReorderRequest
 )
-from api.services.attachment_service import attachment_service
+from api.services.core import attachment_service
 
 router = APIRouter()
 

@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -15,31 +14,11 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s",
 from api.config import get_settings
 from api.database import init_db, close_db, AsyncSessionLocal
 from api.routers import users, github, templates, pipeline, documents, llm, platforms, lookup, oauth
-from api.services.platform_template_service import PlatformTemplateService
-from api.services.template_init_service import init_system_templates
+from api.services.platform import PlatformTemplateService
+from api.services.template import init_system_templates
 from api.routers.knowledge import companies, projects, achievements, credentials
 
 settings = get_settings()
-
-
-class DebugCORSMiddleware(BaseHTTPMiddleware):
-    """Debug middleware to log CORS-related request information."""
-
-    async def dispatch(self, request: Request, call_next):
-        origin = request.headers.get("origin", "no-origin")
-        method = request.method
-        path = str(request.url.path)
-
-        # Log preflight and regular requests
-        if settings.debug:
-            print(f"[CORS Debug] Origin: {origin}, Method: {method}, Path: {path}")
-
-        response = await call_next(request)
-
-        if settings.debug:
-            print(f"[CORS Debug] Response status: {response.status_code}")
-
-        return response
 
 
 @asynccontextmanager
@@ -80,10 +59,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
-# Debug CORS middleware (must be added before CORSMiddleware)
-if settings.debug:
-    app.add_middleware(DebugCORSMiddleware)
 
 # CORS middleware - allow all origins in debug mode for easier development
 if settings.debug:
@@ -130,6 +105,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors()}
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all handler to ensure proper JSON response with CORS headers on 500 errors."""
+    logging.error(f"Unhandled exception for {request.method} {request.url.path}: {exc}", exc_info=True)
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=headers,
     )
 
 

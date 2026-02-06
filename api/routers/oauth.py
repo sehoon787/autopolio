@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from api.database import get_db
 from api.config import get_settings
 from api.services.oauth.factory import OAuthProviderFactory
-from api.services.oauth_service import OAuthService
+from api.services.oauth import OAuthService
 
 router = APIRouter()
 settings = get_settings()

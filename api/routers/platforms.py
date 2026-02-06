@@ -28,7 +28,7 @@ from api.schemas.platform import (
     PlatformInfo,
     PlatformListResponse,
 )
-from api.services.platform_template_service import PlatformTemplateService
+from api.services.platform import PlatformTemplateService
 from sqlalchemy import select
 
 router = APIRouter()

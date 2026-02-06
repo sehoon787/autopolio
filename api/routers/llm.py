@@ -26,14 +26,13 @@ from api.schemas.llm import (
     LLMTestResponse,
     StoredAPIKeysResponse,
 )
-from api.services.cli_service import get_cli_service
-from api.services.encryption_service import EncryptionService
+from api.services.llm import get_cli_service
+from api.services.core import EncryptionService
 from api.config import get_settings
 
 router = APIRouter()
 encryption_service = EncryptionService()
 settings = get_settings()
-
 
 # Available LLM providers configuration
 LLM_PROVIDERS = [
@@ -65,7 +64,6 @@ LLM_PROVIDERS = [
         has_cli=True,  # Gemini CLI supported
     ),
 ]
-
 
 @router.get("/config", response_model=LLMConfigResponse)
 async def get_llm_config(
@@ -192,7 +190,6 @@ async def update_llm_config(
 
     # Return updated config
     return await get_llm_config(user_id=user_id, db=db)
-
 
 @router.get("/keys", response_model=StoredAPIKeysResponse)
 async def get_stored_keys(
@@ -339,7 +336,7 @@ async def get_gemini_cli_status():
 async def refresh_cli_status():
     """Force refresh CLI detection (clears cache)."""
     # Clear the version cache
-    from api.services.cli_service import CLIService
+    from api.services.llm import CLIService
     CLIService._cached_latest_version = None
 
     cli_service = get_cli_service()

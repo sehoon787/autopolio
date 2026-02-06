@@ -19,7 +19,7 @@ from api.schemas.user import (
     GenerationOptionsUpdate,
     GenerationOptionsResponse,
 )
-from api.services.profile_service import ProfileService
+from api.services.core import ProfileService
 
 router = APIRouter()
 

@@ -11,8 +11,8 @@ from api.models.project import Project, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
 from api.models.user import User
 from api.schemas.project import AchievementCreate, AchievementUpdate, AchievementResponse
-from api.services.achievement_service import AchievementService
-from api.services.encryption_service import EncryptionService
+from api.services.achievement import AchievementService
+from api.services.core import EncryptionService
 
 router = APIRouter()
 

@@ -8,8 +8,8 @@ from api.models.user import User
 from api.models.job import Job
 from api.schemas.pipeline import PipelineRunRequest, PipelineStatusResponse, PipelineResultResponse
 from api.schemas.job import JobResponse, JobListResponse
-from api.services.pipeline_service import PipelineService
-from api.services.task_service import TaskService
+from api.services.pipeline import PipelineService
+from api.services.core import TaskService
 
 router = APIRouter()
 

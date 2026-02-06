@@ -5,7 +5,7 @@ Lookup Router - API endpoints for autocomplete functionality
 from typing import Optional, List
 from fastapi import APIRouter, Query
 
-from api.services.lookup_service import get_lookup_service
+from api.services.core import get_lookup_service
 
 router = APIRouter(prefix="/lookup", tags=["lookup"])
 
