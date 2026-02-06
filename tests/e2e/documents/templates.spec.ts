@@ -7,6 +7,7 @@ import {
   createTestUser,
   createTestTemplate,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_TEMPLATE } from '../fixtures/test-data'
@@ -14,13 +15,23 @@ import { TEST_TEMPLATE } from '../fixtures/test-data'
 test.describe('Template List', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display templates page', async ({ page }) => {
@@ -58,13 +69,23 @@ test.describe('Template List', () => {
 test.describe('Template Creation', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should navigate to create template page', async ({ page }) => {
@@ -116,15 +137,25 @@ test.describe('Template Cloning', () => {
   let testContext: TestDataContext
   let templateId: number
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const template = await createTestTemplate(request, user.id)
-    templateId = template.id
-    testContext = { user, template }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const template = await createTestTemplate(request, user.id)
+      templateId = template.id
+      testContext = { user, template }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should clone a template', async ({ page }) => {
@@ -159,16 +190,26 @@ test.describe('Template Cloning', () => {
 test.describe('Template Editing', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const template = await createTestTemplate(request, user.id, {
-      name: `Edit Test Template ${Date.now()}`,
-    })
-    testContext = { user, template }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const template = await createTestTemplate(request, user.id, {
+        name: `Edit Test Template ${Date.now()}`,
+      })
+      testContext = { user, template }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should navigate to edit page', async ({ page }) => {
@@ -230,14 +271,24 @@ test.describe('Template Editing', () => {
 test.describe('Template Field Insertion', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const template = await createTestTemplate(request, user.id)
-    testContext = { user, template }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const template = await createTestTemplate(request, user.id)
+      testContext = { user, template }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should show available fields', async ({ page }) => {

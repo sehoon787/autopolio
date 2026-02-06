@@ -9,22 +9,33 @@ import {
   createTestProject,
   createTestTemplate,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
 test.describe('Document Generation Page', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const company = await createTestCompany(request, user.id)
-    const project = await createTestProject(request, user.id, company.id)
-    const template = await createTestTemplate(request, user.id)
-    testContext = { user, company, project, template }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const company = await createTestCompany(request, user.id)
+      const project = await createTestProject(request, user.id, company.id)
+      const template = await createTestTemplate(request, user.id)
+      testContext = { user, company, project, template }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display generate page', async ({ page }) => {
@@ -75,17 +86,27 @@ test.describe('Document Generation Page', () => {
 test.describe('Document Generation Process', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Generate Test ${Date.now()}`,
-    })
-    const template = await createTestTemplate(request, user.id)
-    testContext = { user, project, template }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Generate Test ${Date.now()}`,
+      })
+      const template = await createTestTemplate(request, user.id)
+      testContext = { user, project, template }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should select project and start generation', async ({ page }) => {
@@ -169,14 +190,24 @@ test.describe('Pipeline Status', () => {
 test.describe('Export Dialog', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id)
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id)
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should open export dialog from projects page', async ({ page }) => {
