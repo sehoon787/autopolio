@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Github, LogOut, Loader2, Link2, Link2Off, Check, RefreshCw, AlertTriangle } from 'lucide-react'
+import { GitHubCLIProviderRow } from './GitHubCLIProviderRow'
 
 // Figma icon component
 function FigmaIcon({ className }: { className?: string }) {
@@ -418,24 +419,31 @@ export default function AccountSection() {
           </div>
         ) : (
           <div>
-            {/* GitHub - main provider with features */}
-            <OAuthProviderRow
-              provider="github"
-              identity={identityMap['github'] || (isGitHubConnected ? {
-                id: 0,
-                provider: 'github',
-                username: user.github_username || undefined,
-                is_primary: true,
-                created_at: '',
-              } : undefined)}
-              isConfigured={providers.find(p => p.name === 'github')?.configured ?? true}
-              onConnect={() => connectMutation.mutate({ provider: 'github' })}
-              onDisconnect={() => disconnectMutation.mutate({ provider: 'github' })}
-              isConnecting={connectMutation.isPending && connectMutation.variables?.provider === 'github'}
-              isDisconnecting={disconnectMutation.isPending && disconnectMutation.variables?.provider === 'github'}
-              showFeatures={true}
-              isLastAccount={connectedCount <= 1}
-            />
+            {/* GitHub - use CLI in Electron mode, OAuth in Web mode */}
+            {isElectronApp ? (
+              <GitHubCLIProviderRow
+                showFeatures={true}
+                isLastAccount={connectedCount <= 1}
+              />
+            ) : (
+              <OAuthProviderRow
+                provider="github"
+                identity={identityMap['github'] || (isGitHubConnected ? {
+                  id: 0,
+                  provider: 'github',
+                  username: user.github_username || undefined,
+                  is_primary: true,
+                  created_at: '',
+                } : undefined)}
+                isConfigured={providers.find(p => p.name === 'github')?.configured ?? true}
+                onConnect={() => connectMutation.mutate({ provider: 'github' })}
+                onDisconnect={() => disconnectMutation.mutate({ provider: 'github' })}
+                isConnecting={connectMutation.isPending && connectMutation.variables?.provider === 'github'}
+                isDisconnecting={disconnectMutation.isPending && disconnectMutation.variables?.provider === 'github'}
+                showFeatures={true}
+                isLastAccount={connectedCount <= 1}
+              />
+            )}
 
             {/* Google and Figma - Coming Soon */}
             {['google', 'figma'].map(provider => (

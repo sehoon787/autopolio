@@ -283,7 +283,7 @@ export default function RepoSelector() {
             <p className="text-gray-600 mb-4">
               {t('connectionRequiredDesc')}
             </p>
-            <Button onClick={() => navigate('/setup/github')}>
+            <Button onClick={() => navigate('/setup/github?returnUrl=/github/repos')}>
               <Github className="mr-2 h-4 w-4" />
               {t('connectGitHub')}
             </Button>
@@ -309,7 +309,7 @@ export default function RepoSelector() {
                 {t('previousConnection')}: @{githubStatus.github_username}
               </p>
             )}
-            <Button onClick={() => navigate('/setup/github')}>
+            <Button onClick={() => navigate('/setup/github?returnUrl=/github/repos')}>
               <RefreshCw className="mr-2 h-4 w-4" />
               {t('reconnectGitHub')}
             </Button>
