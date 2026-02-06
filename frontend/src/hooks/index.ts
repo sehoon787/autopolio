@@ -32,3 +32,17 @@ export { useSelection } from './useSelection'
 
 // Project form hook
 export { useProjectForm } from './useProjectForm'
+
+// GitHub CLI authentication hook
+export {
+  useGitHubCLIAuth,
+  type UseGitHubCLIAuthOptions,
+  type UseGitHubCLIAuthReturn,
+} from './useGitHubCLIAuth'
+
+// Autocomplete hook
+export {
+  useAutocomplete,
+  type UseAutocompleteOptions,
+  type UseAutocompleteReturn,
+} from './useAutocomplete'

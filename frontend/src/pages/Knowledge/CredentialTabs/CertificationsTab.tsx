@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { LoadingState } from '@/components/ui/loading-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   Dialog,
   DialogContent,
@@ -109,19 +111,19 @@ export function CertificationsTab() {
 
       {/* Content */}
       {crud.isLoading ? (
-        <div className="text-center py-8">{t('common:loading')}</div>
+        <LoadingState message={t('common:loading')} />
       ) : sort.sortedItems.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Medal className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-2">{t('credentials:certifications.empty')}</h3>
-            <p className="text-muted-foreground mb-4">{t('credentials:certifications.emptyDesc')}</p>
-            <Button onClick={crud.handleCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('credentials:certifications.addFirst')}
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Medal}
+          title={t('credentials:certifications.empty')}
+          description={t('credentials:certifications.emptyDesc')}
+          action={{
+            label: t('credentials:certifications.addFirst'),
+            onClick: crud.handleCreate,
+            icon: Plus,
+          }}
+          withCard
+        />
       ) : (
         <div className="grid gap-4">
           {sort.sortedItems.map((item, index) => (

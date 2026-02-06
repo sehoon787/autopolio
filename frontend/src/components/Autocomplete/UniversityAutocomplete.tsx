@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { lookupApi, UniversityResult } from '@/api/lookup'
+import { useAutocomplete } from '@/hooks'
 import { cn } from '@/lib/utils'
 import { MapPin, Globe, ExternalLink } from 'lucide-react'
 
@@ -22,82 +21,16 @@ export function UniversityAutocomplete({
   className,
   disabled,
 }: UniversityAutocompleteProps) {
-  const [inputValue, setInputValue] = useState(value)
-  const [isOpen, setIsOpen] = useState(false)
-  const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLUListElement>(null)
-
-  // Sync input value with prop
-  useEffect(() => {
-    setInputValue(value)
-  }, [value])
-
-  // Search query
-  const { data: searchResults } = useQuery({
-    queryKey: ['universities-search', inputValue],
-    queryFn: () => lookupApi.searchUniversities(inputValue, undefined, 10),
-    enabled: inputValue.length >= 2 && isOpen,
-    staleTime: 30000,
+  const autocomplete = useAutocomplete<UniversityResult>({
+    value,
+    onChange,
+    queryKey: ['universities-search', value],
+    queryFn: () => lookupApi.searchUniversities(value, undefined, 10),
+    minLength: 2,
+    getResultKey: (result, index) => `${result.name}-${result.country_code}-${index}`,
+    getResultLabel: (result) => result.name,
+    onSelect,
   })
-
-  const results = searchResults?.data?.results || []
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setInputValue(newValue)
-    onChange(newValue)
-    setIsOpen(true)
-    setHighlightedIndex(-1)
-  }
-
-  const handleSelect = (result: UniversityResult) => {
-    setInputValue(result.name)
-    onChange(result.name)
-    // Pass full university data to parent
-    if (onSelect) {
-      onSelect(result)
-    }
-    setIsOpen(false)
-    setHighlightedIndex(-1)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || results.length === 0) return
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setHighlightedIndex((prev) =>
-          prev < results.length - 1 ? prev + 1 : prev
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev))
-        break
-      case 'Enter':
-        e.preventDefault()
-        if (highlightedIndex >= 0 && highlightedIndex < results.length) {
-          handleSelect(results[highlightedIndex])
-        }
-        break
-      case 'Escape':
-        setIsOpen(false)
-        setHighlightedIndex(-1)
-        break
-    }
-  }
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && listRef.current) {
-      const item = listRef.current.children[highlightedIndex] as HTMLElement
-      if (item) {
-        item.scrollIntoView({ block: 'nearest' })
-      }
-    }
-  }, [highlightedIndex])
 
   const getCountryFlag = (countryCode: string) => {
     // Convert ISO country code to flag emoji
@@ -121,33 +54,24 @@ export function UniversityAutocomplete({
   return (
     <div className={cn('relative', className)}>
       <Input
-        ref={inputRef}
-        value={inputValue}
-        onChange={handleInputChange}
-        onFocus={() => setIsOpen(true)}
-        onBlur={() => {
-          setTimeout(() => setIsOpen(false), 200)
-        }}
-        onKeyDown={handleKeyDown}
+        {...autocomplete.inputProps}
         placeholder={placeholder}
         disabled={disabled}
-        autoComplete="off"
       />
 
-      {isOpen && results.length > 0 && (
+      {autocomplete.isOpen && autocomplete.results.length > 0 && (
         <ul
-          ref={listRef}
+          ref={autocomplete.listRef}
           className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-popover shadow-lg"
         >
-          {results.map((result, index) => (
+          {autocomplete.results.map((result, index) => (
             <li
-              key={`${result.name}-${result.country_code}-${index}`}
+              key={autocomplete.getResultKey(result, index)}
               className={cn(
                 'flex items-start gap-3 px-3 py-2 cursor-pointer hover:bg-accent',
-                highlightedIndex === index && 'bg-accent'
+                autocomplete.isHighlighted(index) && 'bg-accent'
               )}
-              onClick={() => handleSelect(result)}
-              onMouseEnter={() => setHighlightedIndex(index)}
+              {...autocomplete.getItemProps(index)}
             >
               <span className="text-lg mt-0.5">{getCountryFlag(result.country_code)}</span>
               <div className="flex-1 min-w-0">
