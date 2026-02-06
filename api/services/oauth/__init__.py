@@ -2,13 +2,15 @@
 OAuth Services Module - Provides OAuth provider abstraction and services
 """
 
-from api.services.oauth.base import OAuthProvider, OAuthUserInfo
-from api.services.oauth.github_provider import GitHubOAuthProvider
-from api.services.oauth.factory import OAuthProviderFactory
+from .base import OAuthProvider, OAuthUserInfo
+from .github_provider import GitHubOAuthProvider
+from .factory import OAuthProviderFactory
+from .oauth_service import OAuthService
 
 __all__ = [
     "OAuthProvider",
     "OAuthUserInfo",
     "GitHubOAuthProvider",
     "OAuthProviderFactory",
+    "OAuthService",
 ]
