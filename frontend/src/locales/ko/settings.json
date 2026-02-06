@@ -204,6 +204,22 @@
         "techDetection": "기술 스택 자동 탐지 (200+ 기술)",
         "contributionStats": "기여도 통계 계산"
       }
+    },
+    "githubCLI": {
+      "checking": "GitHub CLI 상태 확인 중...",
+      "cliRequired": "CLI 필요",
+      "installRequired": "GitHub CLI(gh)를 설치하세요",
+      "installGuide": "설치 가이드",
+      "installCommand": "이 명령어를 실행하여 설치하세요:",
+      "notAuthenticated": "GitHub CLI에 로그인되어 있지 않습니다",
+      "enterCode": "브라우저에서 코드를 입력하세요",
+      "visitUrl": "브라우저가 열리지 않으면 아래 주소로 이동하세요:",
+      "waiting": "인증 대기 중...",
+      "cancel": "취소",
+      "connected": "GitHub 연결됨",
+      "connectedDesc": "GitHub CLI를 통해 연결되었습니다",
+      "copied": "복사됨!",
+      "copiedDesc": "디바이스 코드가 클립보드에 복사되었습니다"
     }
   },
   "logout": {

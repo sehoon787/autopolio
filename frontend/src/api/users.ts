@@ -83,7 +83,7 @@ export const usersApi = {
 
   getById: (id: number) => apiClient.get<User>(`/users/${id}`),
 
-  create: (data: { name: string; email?: string }) =>
+  create: (data: { name: string; email?: string; github_username?: string }) =>
     apiClient.post<User>('/users', data),
 
   update: (id: number, data: Partial<User>) =>

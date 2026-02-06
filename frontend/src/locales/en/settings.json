@@ -204,6 +204,22 @@
         "techDetection": "Auto tech stack detection (200+ techs)",
         "contributionStats": "Contribution statistics"
       }
+    },
+    "githubCLI": {
+      "checking": "Checking GitHub CLI status...",
+      "cliRequired": "CLI Required",
+      "installRequired": "Please install GitHub CLI (gh)",
+      "installGuide": "Install Guide",
+      "installCommand": "Run this command to install:",
+      "notAuthenticated": "Not logged in to GitHub CLI",
+      "enterCode": "Enter the code in your browser",
+      "visitUrl": "If browser didn't open, visit:",
+      "waiting": "Waiting for authentication...",
+      "cancel": "Cancel",
+      "connected": "GitHub Connected",
+      "connectedDesc": "Connected via GitHub CLI",
+      "copied": "Copied!",
+      "copiedDesc": "Device code copied to clipboard"
     }
   },
   "logout": {

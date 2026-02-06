@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAppStore } from '@/stores/appStore'
 import { useUserStore } from '@/stores/userStore'
 import { usersApi } from '@/api/users'
+import { githubApi } from '@/api/github'
+import { isElectron } from '@/lib/electron'
 import Layout from '@/components/Layout'
 import Dashboard from '@/pages/Dashboard'
 import SetupPage from '@/pages/Setup'
@@ -32,16 +35,16 @@ import RepoSelectorPage from '@/pages/GitHub/RepoSelector'
 
 function App() {
   const initialize = useAppStore((state) => state.initialize)
-  const isElectronApp = useAppStore((state) => state.isElectronApp)
   const { setUser } = useUserStore()
   const [isInitializing, setIsInitializing] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     // Initialize app store (detect Electron, set backend URL, etc.)
     initialize()
   }, [initialize])
 
-  // Auto-create/validate user for both web and desktop app
+  // Validate stored user or start in guest mode
   useEffect(() => {
     const initUser = async () => {
       try {
@@ -86,23 +89,10 @@ function App() {
           }
         }
 
-        // For web mode without stored user, just finish initialization
-        if (!isElectronApp) {
-          setIsInitializing(false)
-          return
-        }
-
-        // Create default user for desktop app
-        console.log('[App] Creating default desktop user...')
-        const response = await usersApi.create({
-          name: 'Desktop User',
-        })
-
-        if (response.data && response.data.id) {
-          setUser(response.data)
-          localStorage.setItem('user_id', String(response.data.id))
-          console.log('[App] Created default desktop user:', response.data.id, response.data.name)
-        }
+        // No stored user - start in guest mode for both web and desktop
+        // User will be created when they connect to GitHub or manually create a profile
+        console.log('[App] No stored user, starting in guest mode')
+        setIsInitializing(false)
       } catch (error) {
         console.error('[App] Failed to initialize user:', error)
       } finally {
@@ -111,10 +101,123 @@ function App() {
     }
 
     initUser()
-  }, [isElectronApp, setUser])
+  }, [setUser])
 
-  // Show loading while initializing user in desktop mode
-  if (isInitializing && isElectronApp) {
+  // Auto-sync GitHub CLI token on Electron startup
+  useEffect(() => {
+    const syncGitHubCLI = async () => {
+      // Only run in Electron after initialization
+      console.log('[App syncGitHubCLI] Starting... isElectron:', isElectron(), 'isInitializing:', isInitializing)
+      if (!isElectron() || isInitializing) {
+        console.log('[App syncGitHubCLI] Skipped: not Electron or still initializing')
+        return
+      }
+      if (!window.electron) {
+        console.log('[App syncGitHubCLI] Skipped: window.electron not available')
+        return
+      }
+
+      try {
+        // Check if GitHub CLI is authenticated
+        console.log('[App syncGitHubCLI] Checking GitHub CLI status...')
+        const status = await window.electron.getGitHubCLIStatus()
+        console.log('[App syncGitHubCLI] GitHub CLI status:', JSON.stringify(status))
+        
+        if (!status.authenticated || !status.username) {
+          console.log('[App syncGitHubCLI] GitHub CLI not authenticated, skipping auto-sync')
+          return
+        }
+
+        console.log('[App syncGitHubCLI] GitHub CLI authenticated as:', status.username)
+
+        // Get token from CLI FIRST (before checking user status)
+        console.log('[App syncGitHubCLI] Getting GitHub token from CLI...')
+        const tokenResult = await window.electron.getGitHubToken()
+        console.log('[App syncGitHubCLI] Token result:', tokenResult.success ? 'success' : 'failed', tokenResult.error || '')
+        
+        if (!tokenResult.success || !tokenResult.token) {
+          console.warn('[App syncGitHubCLI] Failed to get GitHub token from CLI:', tokenResult.error)
+          return
+        }
+
+        // Get current user from store
+        const currentUser = useUserStore.getState().user
+        console.log('[App syncGitHubCLI] Current user:', currentUser?.id, currentUser?.name)
+        
+        // If we have a user, check if GitHub token is already synced AND valid
+        if (currentUser?.id) {
+          try {
+            const githubStatus = await githubApi.getStatus(currentUser.id)
+            console.log('[App syncGitHubCLI] Backend GitHub status:', JSON.stringify(githubStatus.data))
+            if (githubStatus.data.connected && githubStatus.data.valid) {
+              console.log('[App syncGitHubCLI] GitHub token already synced and valid, skipping')
+              return
+            }
+            console.log('[App syncGitHubCLI] Token not synced or invalid, will sync now')
+          } catch (statusError) {
+            // Status check failed, try to sync token anyway
+            console.log('[App syncGitHubCLI] Status check failed, will try to sync token:', statusError)
+          }
+        }
+
+        // Create or update user with GitHub info
+        let userId: number
+        if (currentUser?.id) {
+          // Update existing user
+          console.log('[App syncGitHubCLI] Updating existing user:', currentUser.id)
+          const response = await usersApi.update(currentUser.id, {
+            github_username: status.username,
+          })
+          useUserStore.getState().setUser(response.data)
+          userId = response.data.id
+        } else {
+          // Create new user
+          console.log('[App syncGitHubCLI] Creating new user for:', status.username)
+          const response = await usersApi.create({
+            name: status.username,
+            github_username: status.username,
+          })
+          useUserStore.getState().setUser(response.data)
+          localStorage.setItem('user_id', String(response.data.id))
+          userId = response.data.id
+          console.log('[App syncGitHubCLI] Created new user with ID:', userId)
+        }
+
+        // Save token to backend
+        try {
+          console.log('[App syncGitHubCLI] Saving token to backend for user:', userId)
+          const saveResult = await githubApi.saveToken(userId, tokenResult.token)
+          console.log('[App syncGitHubCLI] Token saved successfully:', JSON.stringify(saveResult.data))
+          
+          // Update user store with GitHub info if returned
+          if (saveResult.data.github_username) {
+            const updatedUser = useUserStore.getState().user
+            if (updatedUser) {
+              useUserStore.getState().setUser({
+                ...updatedUser,
+                github_username: saveResult.data.github_username,
+                github_avatar_url: saveResult.data.github_avatar_url || null,
+              })
+            }
+          }
+          
+          // Invalidate GitHub status and repos queries to reflect the new connection
+          console.log('[App syncGitHubCLI] Invalidating GitHub queries...')
+          queryClient.invalidateQueries({ queryKey: ['github-status'] })
+          queryClient.invalidateQueries({ queryKey: ['github-repos'] })
+        } catch (saveError) {
+          console.error('[App syncGitHubCLI] Failed to save GitHub token:', saveError)
+        }
+      } catch (error) {
+        console.error('[App syncGitHubCLI] GitHub CLI auto-sync failed:', error)
+      }
+    }
+
+    syncGitHubCLI()
+  }, [isInitializing])
+
+  // Show loading while initializing
+  if (isInitializing) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center space-y-4">

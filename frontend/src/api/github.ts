@@ -523,4 +523,15 @@ export const githubApi = {
     apiClient.get<AnalysisJobStatus>(`/github/job/${taskId}`, {
       params: { user_id: userId }
     }),
+
+  // Save GitHub token (used by Electron desktop app via gh CLI)
+  saveToken: (userId: number, token: string) =>
+    apiClient.post<{
+      success: boolean
+      message: string
+      github_username?: string
+      github_avatar_url?: string
+    }>('/github/save-token', null, {
+      params: { user_id: userId, token }
+    }),
 }

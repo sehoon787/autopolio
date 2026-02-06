@@ -109,6 +109,43 @@ interface ElectronAPI {
   // CLI Output Streaming APIs (NEW)
   subscribeCLIOutput: (sessionId: string, callback: OutputCallback) => () => void
   onCLIOutput: (callback: OutputCallback) => () => void
+
+  // GitHub CLI APIs (Device Code Flow)
+  getGitHubCLIStatus: () => Promise<{
+    installed: boolean
+    version: string | null
+    path: string | null
+    authenticated: boolean
+    username: string | null
+    scopes: string[]
+    install_command: string
+  }>
+  startGitHubAuth: () => Promise<{
+    success: boolean
+    pending?: boolean
+    username?: string
+    token?: string
+    device_code?: string
+    verification_uri?: string
+    error?: string
+  }>
+  cancelGitHubAuth: () => Promise<{ success: boolean; message?: string }>
+  logoutGitHub: () => Promise<{ success: boolean }>
+  getGitHubToken: () => Promise<{ success: boolean; token?: string; error?: string }>
+  onGitHubDeviceCode: (callback: (data: {
+    device_code: string
+    user_code: string
+    verification_uri: string
+  }) => void) => () => void
+  onGitHubAuthComplete: (callback: (data: {
+    success: boolean
+    pending?: boolean
+    username?: string
+    token?: string
+    device_code?: string
+    verification_uri?: string
+    error?: string
+  }) => void) => () => void
 }
 
 declare global {
