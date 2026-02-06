@@ -3,12 +3,17 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { initPlatformTemplates } from '../fixtures/api-helpers'
+import { initPlatformTemplates, createApiContext } from '../fixtures/api-helpers'
 
 test.describe('Platform Template List', () => {
-  test.beforeAll(async ({ request }) => {
+  test.beforeAll(async () => {
     // Ensure system templates are initialized
-    await initPlatformTemplates(request)
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display platform templates page', async ({ page }) => {
@@ -86,8 +91,13 @@ test.describe('Platform Template List', () => {
 })
 
 test.describe('Platform Template Details', () => {
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should navigate to template detail on click', async ({ page }) => {

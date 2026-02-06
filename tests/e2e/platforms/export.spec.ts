@@ -9,17 +9,23 @@ import {
   initPlatformTemplates,
   getPlatformTemplates,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
 test.describe('Platform Export Page', () => {
   let platformId: number
 
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
-    const platforms = await getPlatformTemplates(request)
-    if (platforms.length > 0) {
-      platformId = platforms[0].id
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+      const platforms = await getPlatformTemplates(request)
+      if (platforms.length > 0) {
+        platformId = platforms[0].id
+      }
+    } finally {
+      await request.dispose()
     }
   })
 
@@ -58,11 +64,16 @@ test.describe('Platform Export Page', () => {
 test.describe('HTML Export', () => {
   let platformId: number
 
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
-    const platforms = await getPlatformTemplates(request)
-    if (platforms.length > 0) {
-      platformId = platforms[0].id
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+      const platforms = await getPlatformTemplates(request)
+      if (platforms.length > 0) {
+        platformId = platforms[0].id
+      }
+    } finally {
+      await request.dispose()
     }
   })
 
@@ -120,11 +131,16 @@ test.describe('HTML Export', () => {
 test.describe('Markdown Export', () => {
   let platformId: number
 
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
-    const platforms = await getPlatformTemplates(request)
-    if (platforms.length > 0) {
-      platformId = platforms[0].id
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+      const platforms = await getPlatformTemplates(request)
+      if (platforms.length > 0) {
+        platformId = platforms[0].id
+      }
+    } finally {
+      await request.dispose()
     }
   })
 
@@ -156,11 +172,16 @@ test.describe('Markdown Export', () => {
 test.describe('Word Export', () => {
   let platformId: number
 
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
-    const platforms = await getPlatformTemplates(request)
-    if (platforms.length > 0) {
-      platformId = platforms[0].id
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+      const platforms = await getPlatformTemplates(request)
+      if (platforms.length > 0) {
+        platformId = platforms[0].id
+      }
+    } finally {
+      await request.dispose()
     }
   })
 
@@ -193,23 +214,33 @@ test.describe('Export with Real User Data', () => {
   let testContext: TestDataContext
   let platformId: number
 
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
-    const platforms = await getPlatformTemplates(request)
-    if (platforms.length > 0) {
-      platformId = platforms[0].id
-    }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+      const platforms = await getPlatformTemplates(request)
+      if (platforms.length > 0) {
+        platformId = platforms[0].id
+      }
 
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: 'Export Test Project',
-      description: 'Project for testing export functionality',
-    })
-    testContext = { user, project }
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: 'Export Test Project',
+        description: 'Project for testing export functionality',
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should export with user data', async ({ page }) => {
@@ -247,8 +278,13 @@ test.describe('Export with Real User Data', () => {
 })
 
 test.describe('Export Navigation', () => {
-  test.beforeAll(async ({ request }) => {
-    await initPlatformTemplates(request)
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      await initPlatformTemplates(request)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should navigate to export from list', async ({ page }) => {
