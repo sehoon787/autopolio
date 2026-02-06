@@ -6,19 +6,30 @@ import { test, expect } from '@playwright/test'
 import {
   createTestUser,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
 test.describe('GitHub Repository List', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display GitHub setup page', async ({ page }) => {

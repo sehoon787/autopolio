@@ -7,24 +7,35 @@ import {
   createTestUser,
   createTestProject,
   cleanupTestData,
+  createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
 test.describe('Project Analysis', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    // Create project with git URL
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Analysis Test ${Date.now()}`,
-      git_url: 'https://github.com/facebook/react',
-    })
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      // Create project with git URL
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Analysis Test ${Date.now()}`,
+        git_url: 'https://github.com/facebook/react',
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should show analyze button for project with git URL', async ({ page }) => {
@@ -79,13 +90,23 @@ test.describe('Project Analysis', () => {
 test.describe('Batch Analysis', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    testContext = { user }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should allow selecting multiple projects for batch analysis', async ({ page }) => {
@@ -108,16 +129,26 @@ test.describe('Batch Analysis', () => {
 test.describe('Analysis Results Display', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Results Test ${Date.now()}`,
-    })
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Results Test ${Date.now()}`,
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should display commit statistics if analyzed', async ({ page }) => {
@@ -157,17 +188,27 @@ test.describe('Analysis Results Display', () => {
 test.describe('Contributor Analysis', () => {
   let testContext: TestDataContext
 
-  test.beforeAll(async ({ request }) => {
-    const user = await createTestUser(request)
-    const project = await createTestProject(request, user.id, undefined, {
-      name: `Contributor Test ${Date.now()}`,
-      git_url: 'https://github.com/facebook/react',
-    })
-    testContext = { user, project }
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      const project = await createTestProject(request, user.id, undefined, {
+        name: `Contributor Test ${Date.now()}`,
+        git_url: 'https://github.com/facebook/react',
+      })
+      testContext = { user, project }
+    } finally {
+      await request.dispose()
+    }
   })
 
-  test.afterAll(async ({ request }) => {
-    await cleanupTestData(request, testContext)
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
   })
 
   test('should show contributor section if available', async ({ page }) => {
