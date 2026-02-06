@@ -3,7 +3,7 @@
  * Uses Playwright's request context to make API calls.
  */
 
-import { APIRequestContext } from '@playwright/test'
+import { APIRequestContext, request as playwrightRequest } from '@playwright/test'
 import {
   TEST_USER,
   TEST_COMPANY,
@@ -15,6 +15,18 @@ import {
 } from './test-data'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api'
+
+// ==================== Standalone Request Context ====================
+
+/**
+ * Creates a standalone API request context for use in beforeAll/afterAll hooks.
+ * Must be disposed after use with request.dispose()
+ */
+export async function createApiContext(): Promise<APIRequestContext> {
+  return playwrightRequest.newContext({
+    baseURL: API_BASE.replace('/api', ''),
+  })
+}
 
 // ==================== Users ====================
 
@@ -86,9 +98,9 @@ export async function createTestCompany(
   overrides: Partial<typeof TEST_COMPANY> = {}
 ): Promise<TestCompany> {
   const timestamp = Date.now()
-  const response = await request.post(`${API_BASE}/knowledge/companies`, {
+  // user_id is a query parameter, not body data
+  const response = await request.post(`${API_BASE}/knowledge/companies?user_id=${userId}`, {
     data: {
-      user_id: userId,
       name: `${TEST_COMPANY.name} ${timestamp}`,
       position: TEST_COMPANY.position,
       department: TEST_COMPANY.department,
@@ -132,9 +144,9 @@ export async function createTestProject(
   const timestamp = Date.now()
   const projectData = companyId ? TEST_PROJECT : TEST_PERSONAL_PROJECT
 
-  const response = await request.post(`${API_BASE}/knowledge/projects`, {
+  // user_id is a query parameter, not body data
+  const response = await request.post(`${API_BASE}/knowledge/projects?user_id=${userId}`, {
     data: {
-      user_id: userId,
       company_id: companyId,
       name: `${projectData.name} ${timestamp}`,
       description: projectData.description,
@@ -169,9 +181,9 @@ export async function createTestCertification(
   overrides: Partial<typeof TEST_CERTIFICATION> = {}
 ): Promise<{ id: number }> {
   const timestamp = Date.now()
-  const response = await request.post(`${API_BASE}/knowledge/credentials/certifications`, {
+  // user_id is a query parameter, not body data
+  const response = await request.post(`${API_BASE}/knowledge/credentials/certifications?user_id=${userId}`, {
     data: {
-      user_id: userId,
       name: `${TEST_CERTIFICATION.name} ${timestamp}`,
       issuer: TEST_CERTIFICATION.issuer,
       issue_date: TEST_CERTIFICATION.issue_date,
@@ -192,9 +204,9 @@ export async function createTestEducation(
   overrides: Partial<typeof TEST_EDUCATION> = {}
 ): Promise<{ id: number }> {
   const timestamp = Date.now()
-  const response = await request.post(`${API_BASE}/knowledge/credentials/education`, {
+  // user_id is a query parameter, not body data
+  const response = await request.post(`${API_BASE}/knowledge/credentials/educations?user_id=${userId}`, {
     data: {
-      user_id: userId,
       school: `${TEST_EDUCATION.school} ${timestamp}`,
       degree: TEST_EDUCATION.degree,
       field_of_study: TEST_EDUCATION.field_of_study,
@@ -219,9 +231,9 @@ export async function createTestTemplate(
   overrides: Record<string, unknown> = {}
 ): Promise<{ id: number; name: string }> {
   const timestamp = Date.now()
-  const response = await request.post(`${API_BASE}/templates`, {
+  // user_id is a query parameter, not body data
+  const response = await request.post(`${API_BASE}/templates?user_id=${userId}`, {
     data: {
-      user_id: userId,
       name: `Test Template ${timestamp}`,
       platform: 'custom',
       template_content: '# {{name}}\n\n{{description}}',
@@ -272,8 +284,13 @@ export interface TestDataContext {
 
 export async function cleanupTestData(
   request: APIRequestContext,
-  context: TestDataContext
+  context?: TestDataContext
 ): Promise<void> {
+  // Handle undefined context (when beforeAll fails)
+  if (!context) {
+    return
+  }
+
   // Delete in reverse order of dependencies
   if (context.template?.id) {
     await request.delete(`${API_BASE}/templates/${context.template.id}`).catch(() => {})
