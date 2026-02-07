@@ -7,6 +7,280 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16] - 2026-02-08
+
+### Changed
+- **LLM Analysis Parallelization**
+  - Steps 5.2 (key_tasks) + 5.3 (detailed_content) now run via `asyncio.gather()` in both sync and background analysis paths
+  - Expected ~15s speedup per analysis in CLI mode
+  - AI summary (5.4) correctly runs after parallel tasks complete (depends on key_tasks)
+  - `return_exceptions=True` in background runner for error isolation
+
+- **CLI LLM Service Improvements**
+  - Enhanced Windows npm global path resolution (`.cmd` file priority)
+  - stdin-based prompt delivery for long prompts
+  - Improved timeout and logging
+
+### Added
+- **Parallelization Unit Tests** (`tests/test_parallel_verify.py`)
+  - Concurrent execution verification (2x2s tasks complete in ~2s, not 4s)
+  - Error isolation test (one failure doesn't block the other)
+  - Sequential dependency test (AI summary waits for key_tasks)
+  - Background runner pattern test with `return_exceptions=True`
+
+### Housekeeping
+- Deleted stray `frontend/python-env-manager.js` duplicate
+- Updated `.gitignore`: added `*.ps1`, `extracted_asar/`, `.claude/`, `frontend/release/`, `frontend/python-runtime/`, `frontend/electron/services/*.js`, `backend.spec`, `backend_entry.py`, `test-*.png`
+
+---
+
+## [1.15] - 2026-02-07
+
+### Added
+- **GitHub CLI Authentication in Electron**
+  - `gh` CLI detection with multi-path search (PATH, known locations per platform)
+  - Device Code OAuth flow (`gh auth login --web`)
+  - Auto-extract device code and open browser
+  - Token sync from CLI to backend for API operations
+  - `github-cli:status`, `github-cli:start-auth`, `github-cli:cancel-auth`, `github-cli:logout`, `github-cli:get-token` IPC handlers
+
+- **GitHub CLI Repository Listing**
+  - Multi-endpoint aggregation matching backend's 5-step approach:
+    1. `/user/repos` (owner + collaborator + org member)
+    2. `/users/{username}/repos` (public profile)
+    3. `/user/orgs` → `/orgs/{org}/repos` (org repos)
+    4. `/search/repositories` (search fallback)
+    5. `/user/memberships/orgs` → `/orgs/{org}/repos` (membership-based)
+  - Deduplication by repo ID
+  - `github-cli:list-repos` IPC handler
+
+- **Bundled Python Environment Manager**
+  - `PythonEnvManager` class for managing bundled/system Python in Electron
+  - Cross-platform support (win32, darwin, linux)
+  - Bundled Python detection for packaged apps
+  - System Python fallback with version validation
+
+### Changed
+- **RepoSelector Dual Mode** (Web + Electron)
+  - Electron: CLI auth check → gh CLI token → backend token sync
+  - Web: Backend OAuth token check (existing flow)
+  - Priority: Backend API when token synced, CLI fallback in Electron
+  - User ID merge handling when GitHub account linked to different user
+
+- **Electron Main Process Enhancements**
+  - CLI status prefetching at app startup with caching
+  - Backend process management: PID tracking, auto-restart (max 3), port cleanup
+  - Custom protocol handler (`autopolio://`) for OAuth callbacks
+
+---
+
+## [1.14] - 2026-02-05
+
+### Added
+- **Credentials Management System**
+  - Certifications, Awards, Education, Publications, Volunteer Activities CRUD
+  - `credentials` router with dedicated API endpoints
+  - OAuth Identity management (`oauth_identities` table)
+  - Credentials included in platform template rendering
+
+- **Lookup / Autocomplete Service**
+  - University name autocomplete (Korean universities)
+  - Certification name autocomplete
+  - Issuing organization autocomplete
+  - `GET /api/lookup/autocomplete` endpoint
+
+- **File Attachment Service**
+  - `AttachmentService` for file upload/management
+  - File storage in `data/attachments/` directory
+
+- **CRUD Factory Pattern**
+  - `crud_factory.py` for generating standard CRUD routers
+  - Reduces boilerplate across knowledge management endpoints
+
+### Changed
+- **Backend Service Reorganization**
+  - Services split into modular directories: `analysis/`, `core/`, `document/`, `docx/`, `export/`, `github/`, `llm/`, `oauth/`, `pipeline/`, `platform/`, `report/`, `template/`, `user_data/`
+  - Routers reorganized: `github/` (6 sub-routers), `documents/` (3 sub-routers), `knowledge/` (4 sub-routers + CRUD factory)
+  - `TechnologyDetectionService` extracted from `GitHubService`
+  - `ReportBaseService` extracted for common report functionality
+
+- **Frontend Refactoring**
+  - `ProjectDetail` split into tab components
+  - `LLMSection` split into modular components
+  - `useAutocomplete` hook extracted as reusable
+  - `SelectableTile` reusable UI component
+  - Settings page reorganized into sections
+
+---
+
+## [1.13] - 2026-02-03
+
+### Added
+- **Background Analysis Job System**
+  - `POST /api/github/analyze-background` for non-blocking analysis
+  - `GET /api/github/analysis-job/{task_id}` for progress polling
+  - `DELETE /api/github/analysis-job/{task_id}` for cancellation
+  - Step-by-step progress tracking with percentage updates
+  - Background analysis progress UI in frontend
+
+- **Word Document Generator (Korean Resume)**
+  - Specialized DOCX generator for Korean resume templates
+  - `DocxGenerator`, `DocxStyles`, `DocxTableBuilder` classes
+  - Professional formatting with table layouts
+
+- **General Templates**
+  - Career resume template (Word/Markdown)
+  - Notion template
+  - Platform-specific template filtering
+
+- **User Profile Management**
+  - Birthdate and career start year fields
+  - Generation options for customizing LLM output
+  - Profile data included in template rendering
+
+### Changed
+- **E2E Test Infrastructure**
+  - Comprehensive Playwright test suite added
+  - `createApiContext` helper for test isolation
+  - Tests for knowledge, GitHub, platforms, documents, flows
+  - Test data fixtures and cleanup
+
+- **Platform Template Improvements**
+  - Birthdate and career fields in template rendering
+  - Personal projects handled as capabilities (no company)
+  - Logo configurations per platform
+  - Improved sample data for previews
+
+- **LLM Service Enhancements**
+  - Multilingual support (language parameter in all generation)
+  - Analysis language initialized from app settings
+  - Improved prompt engineering for Korean/English output
+
+### Fixed
+- Achievement mapping in pipeline and template export
+- Date picker visibility in dark mode
+- Render-phase state update warning in UsageDisplay
+- DetailedCommit schema fields made optional for backward compatibility
+- GitHub OAuth callback and user validation
+
+---
+
+## [1.12] - 2026-02-01
+
+### Added
+- **Background Analysis Progress UI**
+  - Real-time progress bar for repository analysis
+  - Step indicators showing current analysis phase
+  - Cancel button for in-progress analyses
+
+- **Owner Filter in Repo Selector**
+  - Filter repos by: All, Owned, Forked, Contributed
+  - Virtual list (TanStack Virtual) for performance with large repo lists
+
+- **Project Batch Operations**
+  - `DELETE /api/knowledge/projects/batch` for bulk deletion
+  - Multi-select with SelectableTile components
+
+- **Database Indexes**
+  - Added indexes on `projects.user_id`, `projects.company_id`, `projects.is_analyzed`
+  - Added indexes on `repo_analyses.project_id`, `project_achievements.project_id`
+  - Performance improvement for common queries
+
+### Changed
+- **Backend Logging**
+  - All `print()` statements converted to `logging` module
+  - Korean log messages converted to English for consistency
+  - Module-specific loggers throughout
+
+- **Collapsible Document Menu**
+  - Document sidebar with collapsible sections
+  - Company field added to project detail view
+
+- **Platform Template Auto-Initialization**
+  - System templates auto-refresh on server startup
+  - Template initialization service for first-run setup
+
+### Fixed
+- Pipeline UI improvements and document deletion refresh
+- Selection flash animation improvements
+- Date range validation for start/end dates
+
+---
+
+## [1.11] - 2026-01-30
+
+### Added
+- **Resume Platform Templates**
+  - Saramin: Traditional blue theme resume form
+  - Remember: Modern gradient timeline style
+  - Jumpit: Developer-friendly green card style
+  - Wanted: Professional listing format
+
+- **HTML Rendering & Export**
+  - Mustache template syntax (`{{field}}`, `{{#section}}...{{/section}}`)
+  - User data auto-fill (projects, tech stack, achievements)
+  - HTML, Markdown, Word (DOCX) export formats
+  - Real-time iframe preview with fullscreen mode
+  - Print functionality
+
+### New API Endpoints
+- `GET /api/platforms`: Template list
+- `POST /api/platforms/init-system`: System template initialization
+- `POST /api/platforms/{id}/render`: Data rendering
+- `GET /api/platforms/{id}/export/html|md|docx`: Export
+
+### New Model
+- `PlatformTemplate`: Platform template storage (HTML, CSS, field mappings)
+
+---
+
+## [1.10] - 2026-01-30
+
+### Added
+- **Extended Analysis Features**
+  - Contributor-specific analysis (user contribution breakdown)
+  - Conventional Commit parsing (feat, fix, refactor, docs, test auto-classification)
+  - Work area auto-detection (frontend, backend, tests, devops, docs, database, config)
+  - Code quality metrics (file size, test ratio, doc ratio, language distribution)
+
+### New API Endpoints
+- `GET /api/github/contributors/{project_id}`: All contributors list
+- `GET /api/github/contributor-analysis/{project_id}`: User-specific detailed analysis
+- `GET /api/github/code-quality/{project_id}`: Code quality metrics
+- `GET /api/github/detailed-commits/{project_id}`: Conventional Commit parsed commits
+
+### New Model
+- `ContributorAnalysis`: Per-contributor analysis results with composite index
+
+---
+
+## [1.9] - 2026-01-30
+
+### Changed
+- **Analysis Performance (60-70% Time Reduction)**
+  - Tech stack detection parallelized: 40+ files checked concurrently (30s → 3-5s)
+  - Commit detail queries parallelized: 50 commits concurrent fetch (40s → 5-8s)
+  - LLM calls parallelized: 3 concurrent calls (30s → 10-15s)
+  - Pipeline project processing parallelized with concurrency limits
+
+- **GitHub API Deduplication**
+  - Session-level caching for `get_repo_languages()`
+  - Eliminated redundant API calls during same-repo analysis
+
+### Added
+- **Concurrency Limit Constants**
+  - `MAX_CONCURRENT_FILE_CHECKS = 15`
+  - `MAX_CONCURRENT_COMMIT_DETAILS = 10`
+  - `MAX_CONCURRENT_LLM_CALLS = 3`
+  - `MAX_CONCURRENT_GITHUB_ANALYSIS = 3`
+  - `MAX_CONCURRENT_LLM_SUMMARY = 2`
+
+### Performance
+- Single repo analysis: 2-3min → 40-60s
+- 5 project analysis: 10-15min → 3-5min
+
+---
+
 ## [1.8] - 2026-01-29
 
 ### Fixed
@@ -277,9 +551,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GitHub**: OAuth App (multi-user support)
 
 ### Pipeline Stages
-1. GitHub Analysis → Commit analysis, statistics extraction
+1. GitHub Analysis → Commit analysis, statistics extraction (parallelized)
 2. Code Extraction → Code patterns, architecture detection
-3. Tech Detection → Auto technology stack detection
-4. LLM Summarization → AI-based summary generation
-5. Template Mapping → Platform-specific template mapping
-6. Document Gen → DOCX/PDF/MD generation
+3. Tech Detection → Auto technology stack detection (parallelized)
+4. Achievement Detection → Auto achievement detection from commits
+5. LLM Summarization → AI-based summary generation (Steps 5.2+5.3 parallelized)
+6. Template Mapping → Platform-specific template mapping
+7. Document Gen → DOCX/PDF/MD generation

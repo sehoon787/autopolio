@@ -1,7 +1,7 @@
 # Autopolio - 포트폴리오/이력서 자동화 플랫폼
 
 **생성일**: 2026-01-19
-**프로젝트 상태**: 완성 (v1.11)
+**프로젝트 상태**: 완성 (v1.16)
 **기반 프로젝트**: portfolio, aircok_backoffice
 
 ---
@@ -270,36 +270,73 @@ C:\Users\kimsehun\Desktop\proj\Autopolio\
 │   │   ├── pipeline.py
 │   │   ├── llm.py            # v1.3 LLM/CLI 스키마
 │   │   └── platform.py       # v1.11 플랫폼 템플릿 스키마
-│   ├── routers/              # API 엔드포인트
+│   ├── routers/              # API 엔드포인트 (v1.14 모듈화)
 │   │   ├── users.py
-│   │   ├── github.py
+│   │   ├── github/           # GitHub 관련 라우터 분리
+│   │   │   ├── github.py          # 메인 라우터
+│   │   │   ├── github_analysis.py # 분석 (병렬화 v1.16)
+│   │   │   ├── github_batch.py    # 배치 작업
+│   │   │   ├── github_edits.py    # 분석 결과 편집
+│   │   │   ├── github_jobs.py     # 백그라운드 작업
+│   │   │   ├── github_oauth.py    # OAuth 콜백
+│   │   │   └── github_repos.py    # 레포지토리 목록
 │   │   ├── knowledge/
 │   │   │   ├── companies.py
 │   │   │   ├── projects.py
-│   │   │   └── achievements.py
+│   │   │   ├── achievements.py
+│   │   │   ├── credentials.py    # v1.14 자격증/학력/수상
+│   │   │   └── crud_factory.py   # v1.14 CRUD 팩토리
+│   │   ├── documents/        # 문서 라우터 분리
+│   │   │   ├── documents.py
+│   │   │   ├── documents_export.py
+│   │   │   └── documents_reports.py
 │   │   ├── templates.py
 │   │   ├── pipeline.py
-│   │   ├── documents.py
-│   │   ├── llm.py            # v1.3 LLM/CLI API
-│   │   └── platforms.py      # v1.11 플랫폼 템플릿 API
-│   └── services/             # 비즈니스 로직
-│       ├── encryption_service.py
-│       ├── task_service.py   # aircok 패턴 적용
-│       ├── github_service.py
-│       ├── llm_service.py
-│       ├── cli_service.py    # v1.3 CLI 감지 서비스
-│       ├── document_service.py
-│       ├── pipeline_service.py
-│       ├── cli_llm_service.py  # v1.8 CLI LLM 실행 서비스
-│       ├── achievement_service.py  # v1.2 성과 자동 감지
-│       ├── report_service.py       # v1.2 리포트 생성
-│       └── platform_template_service.py  # v1.11 플랫폼 템플릿 서비스
+│   │   ├── llm.py
+│   │   ├── platforms.py
+│   │   ├── lookup.py         # v1.14 자동완성 API
+│   │   └── oauth.py          # v1.14 OAuth 관리
+│   └── services/             # 비즈니스 로직 (v1.14 모듈화)
+│       ├── achievement/      # 성과 감지
+│       ├── analysis/         # 분석 워크플로우 (v1.16 병렬화)
+│       │   ├── analysis_job_runner.py   # 백그라운드 분석
+│       │   ├── analysis_job_service.py  # 작업 관리
+│       │   ├── analysis_workflow.py     # 분석 단계별 로직
+│       │   ├── repo_analyzer.py         # 레포 분석
+│       │   ├── technology_detection_service.py  # 기술 스택 감지
+│       │   └── role_service.py
+│       ├── core/             # 공통 서비스
+│       │   ├── encryption_service.py
+│       │   ├── task_service.py
+│       │   ├── lookup_service.py   # v1.14 자동완성
+│       │   ├── profile_service.py  # v1.13 프로필
+│       │   └── attachment_service.py  # v1.14 첨부파일
+│       ├── document/         # 문서 생성
+│       ├── docx/             # v1.13 Word 문서 생성기
+│       ├── export/           # 내보내기
+│       ├── github/           # GitHub API 클라이언트
+│       ├── llm/              # LLM 서비스
+│       │   ├── llm_service.py
+│       │   ├── cli_llm_service.py  # v1.8 CLI LLM
+│       │   └── cli_service.py
+│       ├── oauth/            # v1.14 OAuth 관리
+│       ├── pipeline/         # 파이프라인
+│       ├── platform/         # 플랫폼 템플릿
+│       ├── report/           # 리포트 생성
+│       ├── template/         # 템플릿 렌더링
+│       └── user_data/        # 사용자 데이터 수집
 ├── frontend/                 # React 프론트엔드 + Electron
 │   ├── electron/             # v1.4 Electron 메인 프로세스
 │   │   ├── main.ts           # Electron 메인 (TypeScript)
 │   │   ├── main.js           # 컴파일된 메인 (ES Module)
 │   │   ├── preload.js        # 프리로드 스크립트 (CommonJS 필수)
-│   │   └── tsconfig.json     # Electron용 TypeScript 설정
+│   │   ├── tsconfig.json     # Electron용 TypeScript 설정
+│   │   ├── types/            # v1.15 CLI 타입 정의
+│   │   │   └── cli.ts
+│   │   └── services/         # v1.15 Electron 서비스
+│   │       ├── cli-tool-manager.ts      # CLI 도구 감지/관리
+│   │       ├── agent-process-manager.ts # CLI 프로세스 관리
+│   │       └── python-env-manager.ts    # Python 환경 관리
 │   ├── src/
 │   │   ├── api/              # API 클라이언트
 │   │   │   ├── client.ts
@@ -877,6 +914,82 @@ portfolio/
 
 ## 버전 히스토리
 
+### v1.16 (2026-02-08)
+- **LLM 분석 병렬화**
+  - Steps 5.2 (key_tasks + detailed_content) + 5.3 (development_timeline + achievements) `asyncio.gather` 병렬 실행
+  - 동기 분석 엔드포인트 (`github_analysis.py`) 및 백그라운드 분석 (`analysis_job_runner.py`) 모두 적용
+  - 타이밍 로그 추가 (`[Analyze] Steps 5.2+5.3 parallel completed in %.1fs`)
+- **병렬화 단위 테스트**
+  - `tests/test_parallel_verify.py`: 4개 테스트 케이스
+  - 동기/백그라운드 병렬 실행, 에러 격리, 순차 의존성 검증
+- **.gitignore 정리**
+  - `*.ps1`, `extracted_asar/`, `.claude/`, `frontend/release/`, `frontend/python-runtime/` 등 추가
+  - 불필요 파일 삭제 (`frontend/python-env-manager.js`)
+
+### v1.15 (2026-02-07)
+- **GitHub CLI 인증 (Electron)**
+  - `gh` CLI 설치 감지 및 Device Code OAuth 플로우
+  - `cli-tool-manager.ts`: 다중 경로 CLI 도구 감지
+  - `agent-process-manager.ts`: CLI 프로세스 관리
+- **GitHub CLI 레포 목록**
+  - 5단계 다중 엔드포인트 집계 (user repos, orgs, collaborator, search)
+  - 중복 제거 및 정렬
+- **Python 환경 관리자**
+  - `python-env-manager.ts`: 번들/시스템 Python 감지
+  - Electron 빌드 시 Python 런타임 번들링 지원
+- **RepoSelector 듀얼 모드**
+  - 웹: GitHub OAuth API 기반 레포 목록
+  - Electron: `gh` CLI 기반 레포 목록
+- **Electron 서비스 모듈화**
+  - `frontend/electron/services/` 디렉토리 구조
+  - `frontend/electron/types/` 타입 정의
+
+### v1.14 (2026-02-05)
+- **자격증/학력/수상 관리 시스템**
+  - `credentials.py` 라우터: 자격증, 학력, 수상 CRUD
+  - `CredentialBase`, `EducationBase`, `AwardBase` 모델
+- **CRUD 팩토리 패턴**
+  - `crud_factory.py`: 공통 CRUD 엔드포인트 자동 생성
+  - 반복 코드 제거, 일관된 API 패턴
+- **자동완성 서비스**
+  - `lookup_service.py`: 대학교, 자격증 이름 자동완성
+  - `lookup.py` 라우터
+- **백엔드 서비스 모듈화**
+  - `api/services/` 하위 디렉토리 구조 재편
+  - `analysis/`, `core/`, `document/`, `docx/`, `export/`, `github/`, `llm/`, `oauth/`, `pipeline/`, `platform/`, `report/`, `template/`, `user_data/`
+- **라우터 모듈화**
+  - `api/routers/github/`: GitHub 관련 라우터 분리 (6개 파일)
+  - `api/routers/knowledge/`: Knowledge 관련 라우터 분리
+  - `api/routers/documents/`: 문서 관련 라우터 분리
+- **OAuth 관리**
+  - `oauth.py` 라우터, `oauth/` 서비스 모듈
+- **첨부파일 서비스**
+  - `attachment_service.py`: 파일 업로드/다운로드 관리
+
+### v1.13 (2026-02-03)
+- **백그라운드 분석 작업 시스템**
+  - `analysis_job_runner.py`: 백그라운드 분석 실행
+  - `analysis_job_service.py`: 작업 상태 관리
+  - `analysis_workflow.py`: 분석 단계별 로직 분리
+- **Word 문서 생성기**
+  - `api/services/docx/`: 한국어 이력서 Word 문서 생성
+  - 테이블, 스타일, 한글 폰트 지원
+- **사용자 프로필 관리**
+  - `profile_service.py`: 프로필 CRUD
+- **E2E 테스트 인프라**
+  - Playwright 기반 테스트 설정
+
+### v1.12 (2026-02-01)
+- **백그라운드 분석 진행 UI**
+  - 분석 작업 진행률 실시간 표시
+  - 작업 상태 폴링 및 완료 알림
+- **레포 선택기 소유자 필터**
+  - 레포지토리를 소유자(org/user)별로 필터링
+- **프로젝트 배치 삭제**
+  - 다중 프로젝트 선택 후 일괄 삭제
+- **데이터베이스 인덱스 추가**
+  - 주요 쿼리 성능 개선을 위한 인덱스
+
 ### v1.11 (2026-01-30)
 - **이력서 플랫폼 템플릿 기능 추가**
   - 사람인, 리멤버, 점핏 3개 플랫폼 시스템 템플릿 제공
@@ -1152,5 +1265,5 @@ portfolio/
 ---
 
 **작성자**: Claude Code (Opus 4.5)
-**문서 버전**: 1.11
-**최종 업데이트**: 2026-01-30 KST
+**문서 버전**: 1.16
+**최종 업데이트**: 2026-02-08 KST
