@@ -1,8 +1,10 @@
 """
 Analysis Job Runner - Background analysis execution.
 """
+import asyncio
 import json
 import logging
+import time
 import traceback
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
@@ -253,69 +255,78 @@ async def run_background_analysis(
             await db.commit()
             analysis_id = repo_analysis.id
 
-        # Step 5: LLM key tasks
+        # Steps 5+6: LLM key tasks + detailed content (PARALLEL)
+        # These two are independent — running them concurrently saves ~15s on CLI mode
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
 
         key_tasks = []
+        detailed_content = {}
         if llm_service:
             await service.update_step_progress(task_id, 5, "running")
-            logger.info("[BackgroundAnalysis] Step 5: LLM key tasks (language=%s)", language)
+            await service.update_step_progress(task_id, 6, "running")
+            logger.info("[BackgroundAnalysis] Steps 5+6: LLM key tasks + detailed content in PARALLEL (language=%s)", language)
 
-            try:
-                key_tasks, tokens = await _generate_key_tasks_bg(
-                    project_id, analysis_result, llm_service, language
-                )
+            # Prepare project_data for Step 6 before launching parallel tasks
+            async with AsyncSessionLocal() as db:
+                proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                project = proj_result.scalar_one_or_none()
+
+                project_data = {
+                    "name": project.name,
+                    "description": project.description,
+                    "role": project.role,
+                    "start_date": str(project.start_date) if project.start_date else None,
+                    "end_date": str(project.end_date) if project.end_date else None,
+                }
+
+            _parallel_start = time.time()
+
+            # Launch both LLM tasks concurrently
+            key_tasks_coro = _generate_key_tasks_bg(
+                project_id, analysis_result, llm_service, language
+            )
+            detailed_content_coro = github_service.generate_detailed_content(
+                project_data=project_data,
+                analysis_data={
+                    "commit_messages_summary": analysis_result.get("commit_messages_summary"),
+                    "detected_technologies": analysis_result.get("detected_technologies", []),
+                    "commit_categories": analysis_result.get("commit_categories", {}),
+                    "total_commits": analysis_result.get("total_commits", 0),
+                    "lines_added": analysis_result.get("lines_added", 0),
+                    "lines_deleted": analysis_result.get("lines_deleted", 0),
+                    "files_changed": analysis_result.get("files_changed", 0),
+                },
+                llm_service=llm_service,
+                language=language
+            )
+
+            results = await asyncio.gather(
+                key_tasks_coro, detailed_content_coro, return_exceptions=True
+            )
+
+            _parallel_elapsed = time.time() - _parallel_start
+            logger.info("[BackgroundAnalysis] Steps 5+6 parallel completed in %.1fs", _parallel_elapsed)
+
+            # Process Step 5 result
+            if isinstance(results[0], Exception):
+                logger.warning("[BackgroundAnalysis] Failed to generate key tasks: %s", results[0])
+            else:
+                key_tasks, tokens = results[0]
                 total_tokens += tokens
                 logger.info("[BackgroundAnalysis] Generated %d key tasks, tokens=%d", len(key_tasks), tokens)
-            except Exception as e:
-                logger.warning("[BackgroundAnalysis] Failed to generate key tasks: %s", e)
+
+            # Process Step 6 result
+            if isinstance(results[1], Exception):
+                logger.warning("[BackgroundAnalysis] Failed to generate detailed content: %s", results[1])
+            else:
+                detailed_content, content_tokens = results[1]
+                total_tokens += content_tokens
         else:
-            logger.warning("[BackgroundAnalysis] Skipping Step 5: llm_service is None")
+            logger.warning("[BackgroundAnalysis] Skipping Steps 5+6: llm_service is None")
 
         step5_result = {"tasks": key_tasks}
         await service.update_step_progress(task_id, 5, "completed", step5_result)
-
-        # Step 6: LLM detailed content
-        if await service.check_cancelled(task_id):
-            raise AnalysisCancelledException()
-
-        detailed_content = {}
-        if llm_service:
-            await service.update_step_progress(task_id, 6, "running")
-            logger.info("[BackgroundAnalysis] Step 6: LLM detailed content")
-
-            try:
-                async with AsyncSessionLocal() as db:
-                    proj_result = await db.execute(select(Project).where(Project.id == project_id))
-                    project = proj_result.scalar_one_or_none()
-
-                    project_data = {
-                        "name": project.name,
-                        "description": project.description,
-                        "role": project.role,
-                        "start_date": str(project.start_date) if project.start_date else None,
-                        "end_date": str(project.end_date) if project.end_date else None,
-                    }
-
-                detailed_content, content_tokens = await github_service.generate_detailed_content(
-                    project_data=project_data,
-                    analysis_data={
-                        "commit_messages_summary": analysis_result.get("commit_messages_summary"),
-                        "detected_technologies": analysis_result.get("detected_technologies", []),
-                        "commit_categories": analysis_result.get("commit_categories", {}),
-                        "total_commits": analysis_result.get("total_commits", 0),
-                        "lines_added": analysis_result.get("lines_added", 0),
-                        "lines_deleted": analysis_result.get("lines_deleted", 0),
-                        "files_changed": analysis_result.get("files_changed", 0),
-                    },
-                    llm_service=llm_service,
-                    language=language
-                )
-                total_tokens += content_tokens
-            except Exception as e:
-                logger.warning("[BackgroundAnalysis] Failed to generate detailed content: %s", e)
-
         step6_result = detailed_content
         await service.update_step_progress(task_id, 6, "completed", step6_result)
 

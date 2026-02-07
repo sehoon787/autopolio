@@ -105,8 +105,6 @@ function createWindow() {
     else {
         // Production: use electron-serve to serve static files via app:// protocol
         loadURL(mainWindow);
-        // Open DevTools for debugging
-        mainWindow.webContents.openDevTools();
     }
     // Open external links in browser
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -396,7 +394,7 @@ function startPythonBackend() {
                 AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'backend-config'),
                 AUTOPOLIO_DATA_DIR: path.join(process.resourcesPath, 'backend-data'),
                 // Database should be in user data directory (writable)
-                DATABASE_URL: `sqlite:///${path.join(app.getPath('userData'), 'autopolio.db')}`,
+                DATABASE_URL: `sqlite+aiosqlite:///${path.join(app.getPath('userData'), 'autopolio.db')}`,
             };
         }
         console.log(`[Backend] Starting backend from: ${projectRoot}`);
@@ -1130,6 +1128,170 @@ ipcMain.handle('github-cli:get-token', async () => {
     catch (error) {
         console.error('[GitHub CLI] Get token error:', error);
         return { success: false, error: 'Not authenticated or token not available' };
+    }
+});
+/**
+ * Execute a gh api command and parse the paginated JSON output.
+ * Returns an array of parsed objects. Silently returns [] on failure.
+ */
+function execGhApi(ghPath, endpoint, opts) {
+    const { execSync } = require('child_process');
+    const timeout = opts?.timeout ?? 60000;
+    try {
+        const command = `"${ghPath}" api "${endpoint}" --paginate`;
+        const output = execSync(command, {
+            encoding: 'utf8',
+            timeout,
+            maxBuffer: 50 * 1024 * 1024,
+        });
+        const results = [];
+        for (const part of output.trim().split('\n')) {
+            if (!part.trim())
+                continue;
+            try {
+                const parsed = JSON.parse(part);
+                if (Array.isArray(parsed)) {
+                    results.push(...parsed);
+                }
+                else {
+                    results.push(parsed);
+                }
+            }
+            catch {
+                // skip invalid JSON fragments
+            }
+        }
+        return results;
+    }
+    catch (error) {
+        console.warn(`[GitHub CLI] gh api ${endpoint} failed:`, error instanceof Error ? error.message : error);
+        return [];
+    }
+}
+/**
+ * List GitHub repositories using gh CLI with multi-endpoint aggregation.
+ * Matches the backend's 5-step approach (github_api_client.get_all_user_repos):
+ *
+ *   1. /user/repos  (owner + collaborator + org member)
+ *   2. /users/{username}/repos  (public profile repos)
+ *   3. /user/orgs → /orgs/{org}/repos  (org repos via orgs API)
+ *   4. /search/repositories?q=user:{username}  (search fallback)
+ *   5. /user/memberships/orgs → /orgs/{org}/repos  (membership-based org repos)
+ *
+ * All results are deduplicated by repo id, matching the backend exactly.
+ */
+ipcMain.handle('github-cli:list-repos', async (_) => {
+    console.log('[IPC] github-cli:list-repos called (multi-endpoint)');
+    try {
+        const ghPath = await getGitHubCLIPath();
+        if (!ghPath) {
+            return { success: false, error: 'GitHub CLI not found' };
+        }
+        const seenIds = new Set();
+        const allRepos = [];
+        const addRepos = (repos) => {
+            for (const repo of repos) {
+                if (repo.id && !seenIds.has(repo.id)) {
+                    seenIds.add(repo.id);
+                    allRepos.push(repo);
+                }
+            }
+        };
+        // --- Step 1: /user/repos (owner, collaborator, org member) ---
+        console.log('[GitHub CLI] Step 1/5: /user/repos');
+        addRepos(execGhApi(ghPath, '/user/repos?per_page=100&affiliation=owner,collaborator,organization_member&sort=pushed&direction=desc', { timeout: 120000 }));
+        console.log(`[GitHub CLI] After step 1: ${allRepos.length} repos`);
+        // Get username for steps 2 & 4
+        let username = '';
+        try {
+            const userInfo = execGhApi(ghPath, '/user');
+            if (userInfo.length > 0) {
+                username = userInfo[0]?.login || '';
+            }
+        }
+        catch { /* ignore */ }
+        // --- Step 2: /users/{username}/repos (public profile) ---
+        if (username) {
+            console.log(`[GitHub CLI] Step 2/5: /users/${username}/repos`);
+            addRepos(execGhApi(ghPath, `/users/${username}/repos?per_page=100&sort=pushed&type=all`));
+            console.log(`[GitHub CLI] After step 2: ${allRepos.length} repos`);
+        }
+        // --- Step 3: /user/orgs → /orgs/{org}/repos ---
+        console.log('[GitHub CLI] Step 3/5: org repos via /user/orgs');
+        const orgs = execGhApi(ghPath, '/user/orgs');
+        for (const org of orgs) {
+            const orgLogin = org?.login;
+            if (!orgLogin)
+                continue;
+            addRepos(execGhApi(ghPath, `/orgs/${orgLogin}/repos?per_page=100&sort=pushed`));
+        }
+        console.log(`[GitHub CLI] After step 3: ${allRepos.length} repos`);
+        // --- Step 4: /search/repositories (search fallback, max 4 pages) ---
+        if (username) {
+            console.log(`[GitHub CLI] Step 4/5: search repos for user:${username}`);
+            for (let page = 1; page <= 4; page++) {
+                try {
+                    const searchResults = execGhApi(ghPath, `/search/repositories?q=user:${username}&per_page=100&page=${page}`);
+                    // Search API wraps results in { items: [...] }
+                    const items = searchResults.length > 0 && searchResults[0]?.items
+                        ? searchResults[0].items
+                        : searchResults;
+                    if (!items || items.length === 0)
+                        break;
+                    addRepos(items);
+                    if (items.length < 100)
+                        break;
+                }
+                catch {
+                    break;
+                }
+            }
+            console.log(`[GitHub CLI] After step 4: ${allRepos.length} repos`);
+        }
+        // --- Step 5: /user/memberships/orgs → /orgs/{org}/repos ---
+        console.log('[GitHub CLI] Step 5/5: org repos via memberships');
+        try {
+            const memberships = execGhApi(ghPath, '/user/memberships/orgs');
+            for (const membership of memberships) {
+                const orgLogin = membership?.organization?.login;
+                if (!orgLogin)
+                    continue;
+                addRepos(execGhApi(ghPath, `/orgs/${orgLogin}/repos?per_page=100&sort=pushed&type=all`));
+            }
+        }
+        catch { /* ignore membership failures */ }
+        console.log(`[GitHub CLI] Final total: ${allRepos.length} repos`);
+        // Transform to match backend API format
+        const transformedRepos = allRepos.map((repo) => ({
+            id: repo.id || 0,
+            name: repo.name,
+            full_name: repo.full_name,
+            description: repo.description,
+            html_url: repo.html_url,
+            clone_url: repo.clone_url,
+            language: repo.language || null,
+            stargazers_count: repo.stargazers_count || 0,
+            forks_count: repo.forks_count || 0,
+            created_at: repo.created_at,
+            updated_at: repo.updated_at,
+            pushed_at: repo.pushed_at,
+            fork: repo.fork || false,
+            owner: repo.owner?.login || ''
+        }));
+        return {
+            success: true,
+            repos: transformedRepos,
+            total: transformedRepos.length
+        };
+    }
+    catch (error) {
+        console.error('[GitHub CLI] List repos error:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        // Check if it's an auth error
+        if (errorMessage.includes('auth') || errorMessage.includes('login')) {
+            return { success: false, error: 'Not authenticated. Please run: gh auth login' };
+        }
+        return { success: false, error: `Failed to list repos: ${errorMessage}` };
     }
 });
 // ============================================================================

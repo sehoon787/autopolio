@@ -15,7 +15,7 @@
   "extraResources": [
     {
       "from": "../api",
-      "to": "backend",
+      "to": "api",
       "filter": [
         "**/*",
         "!**/__pycache__",

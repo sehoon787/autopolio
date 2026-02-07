@@ -123,6 +123,10 @@ contextBridge.exposeInMainWorld('electron', {
   // Get GitHub token (for API calls)
   getGitHubToken: () => ipcRenderer.invoke('github-cli:get-token'),
 
+  // List GitHub repositories directly via gh CLI (bypasses backend)
+  // This is preferred for Electron as it doesn't require backend token storage
+  listGitHubRepos: (options) => ipcRenderer.invoke('github-cli:list-repos', options),
+
   // Subscribe to GitHub auth device code event
   onGitHubDeviceCode: (callback) => {
     const handler = (_event, data) => callback(data)

@@ -13,6 +13,7 @@
     "test:platforms": "playwright test platforms/",
     "test:documents": "playwright test documents/",
     "test:flows": "playwright test flows/",
+    "test:electron": "playwright test --config=electron/playwright.electron.config.ts",
     "install:browsers": "playwright install chromium --with-deps"
   },
   "devDependencies": {

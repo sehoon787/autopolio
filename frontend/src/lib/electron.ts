@@ -146,6 +146,29 @@ interface ElectronAPI {
     verification_uri?: string
     error?: string
   }) => void) => () => void
+
+  // GitHub Repository listing via CLI (multi-endpoint aggregation matching backend)
+  listGitHubRepos: () => Promise<{
+    success: boolean
+    repos?: Array<{
+      id: number
+      name: string
+      full_name: string
+      description: string | null
+      html_url: string
+      clone_url: string
+      language: string | null
+      stargazers_count: number
+      forks_count: number
+      created_at: string
+      updated_at: string
+      pushed_at: string | null
+      fork: boolean
+      owner: string
+    }>
+    total?: number
+    error?: string
+  }>
 }
 
 declare global {

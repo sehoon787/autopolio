@@ -74,3 +74,27 @@ test_*.png
 scripts/
 /package.json
 /package-lock.json
+
+# Debug/development PowerShell scripts
+*.ps1
+
+# Electron build artifacts
+frontend/release/
+frontend/python-runtime/
+extracted_asar/
+
+# Electron compiled JS (source is .ts)
+frontend/electron/services/*.js
+
+# Claude Code workspace
+.claude/
+
+# Backend packaging
+backend.spec
+backend_entry.py
+
+# Ad-hoc test scripts (not in tests/ structure)
+/test_electron_github_flow.py
+
+# Test screenshots (test-*.png and test_*.png)
+test-*.png

@@ -37,6 +37,7 @@ function App() {
   const initialize = useAppStore((state) => state.initialize)
   const { setUser } = useUserStore()
   const [isInitializing, setIsInitializing] = useState(true)
+  const [backendReady, setBackendReady] = useState(!isElectron()) // Web: ready immediately (Vite proxy), Electron: wait for backend
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -44,8 +45,43 @@ function App() {
     initialize()
   }, [initialize])
 
-  // Validate stored user or start in guest mode
+  // Electron: Wait for backend to be ready before making any API calls
   useEffect(() => {
+    if (!isElectron()) return // Web mode: backend is always available via proxy
+
+    const { backendUrl } = useAppStore.getState()
+    const healthUrl = `${backendUrl || 'http://localhost:8000'}/health`
+
+    let cancelled = false
+    const waitForBackend = async () => {
+      const maxAttempts = 30 // 30 seconds
+      for (let i = 0; i < maxAttempts; i++) {
+        if (cancelled) return
+        try {
+          const response = await fetch(healthUrl)
+          if (response.ok) {
+            console.log(`[App] Backend ready after ${i + 1} attempt(s)`)
+            setBackendReady(true)
+            return
+          }
+        } catch {
+          // Backend not ready yet
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+      // Timed out but still set ready to allow error handling to kick in
+      console.warn('[App] Backend health check timed out after 30s, proceeding anyway')
+      setBackendReady(true)
+    }
+
+    waitForBackend()
+    return () => { cancelled = true }
+  }, [])
+
+  // Validate stored user or start in guest mode (only after backend is ready)
+  useEffect(() => {
+    if (!backendReady) return // Wait for backend
+
     const initUser = async () => {
       try {
         // Clear any stale persisted data first
@@ -101,7 +137,7 @@ function App() {
     }
 
     initUser()
-  }, [setUser])
+  }, [setUser, backendReady])
 
   // Auto-sync GitHub CLI token on Electron startup
   useEffect(() => {
@@ -171,16 +207,34 @@ function App() {
           useUserStore.getState().setUser(response.data)
           userId = response.data.id
         } else {
-          // Create new user
-          console.log('[App syncGitHubCLI] Creating new user for:', status.username)
-          const response = await usersApi.create({
-            name: status.username,
-            github_username: status.username,
-          })
-          useUserStore.getState().setUser(response.data)
-          localStorage.setItem('user_id', String(response.data.id))
-          userId = response.data.id
-          console.log('[App syncGitHubCLI] Created new user with ID:', userId)
+          // No stored user - try to find existing user by github_username first
+          console.log('[App syncGitHubCLI] No stored user, looking for existing user with github_username:', status.username)
+          try {
+            const allUsers = await usersApi.getAll()
+            const existingUser = allUsers.data?.find(
+              (u: { github_username: string | null }) => u.github_username === status.username
+            )
+            if (existingUser) {
+              console.log('[App syncGitHubCLI] Found existing user:', existingUser.id, existingUser.name)
+              useUserStore.getState().setUser(existingUser)
+              localStorage.setItem('user_id', String(existingUser.id))
+              userId = existingUser.id
+            } else {
+              // Create new user (no existing user with this github_username)
+              console.log('[App syncGitHubCLI] Creating new user for:', status.username)
+              const response = await usersApi.create({
+                name: status.username,
+                github_username: status.username,
+              })
+              useUserStore.getState().setUser(response.data)
+              localStorage.setItem('user_id', String(response.data.id))
+              userId = response.data.id
+              console.log('[App syncGitHubCLI] Created new user with ID:', userId)
+            }
+          } catch (lookupError) {
+            console.error('[App syncGitHubCLI] Failed to find/create user:', lookupError)
+            return
+          }
         }
 
         // Save token to backend
@@ -217,12 +271,14 @@ function App() {
   }, [isInitializing])
 
   // Show loading while initializing
-  if (isInitializing) {
+  if (!backendReady || isInitializing) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center space-y-4">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
-          <p className="text-muted-foreground">Initializing...</p>
+          <p className="text-muted-foreground">
+            {!backendReady ? 'Starting backend server...' : 'Initializing...'}
+          </p>
         </div>
       </div>
     )

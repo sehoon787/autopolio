@@ -2,7 +2,9 @@
 
 Handles repository analysis, AI description generation, and LLM testing.
 """
+import asyncio
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -127,10 +129,8 @@ async def analyze_repository(
                 project_start_date = str(project.start_date) if project and project.start_date else None
                 project_end_date = str(project.end_date) if project and project.end_date else None
 
-            # 5.2: Generate key tasks
-            await phase5_generate_key_tasks(ctx, project_name, project_description, project_role)
-
-            # 5.3: Generate detailed content
+            # 5.2 + 5.3: Generate key tasks AND detailed content in PARALLEL
+            # These are independent — running concurrently saves ~15s on CLI mode
             project_data = {
                 "name": project_name,
                 "description": project_description,
@@ -138,9 +138,16 @@ async def analyze_repository(
                 "start_date": project_start_date,
                 "end_date": project_end_date,
             }
-            await phase5_generate_detailed_content(ctx, project_data)
 
-            # 5.4: Generate AI summary
+            _parallel_start = time.time()
+            await asyncio.gather(
+                phase5_generate_key_tasks(ctx, project_name, project_description, project_role),
+                phase5_generate_detailed_content(ctx, project_data),
+            )
+            _parallel_elapsed = time.time() - _parallel_start
+            logger.info("[Analyze] Steps 5.2+5.3 parallel completed in %.1fs", _parallel_elapsed)
+
+            # 5.4: Generate AI summary (depends on key_tasks from 5.2)
             summary_project_data = {
                 "name": project_name,
                 "description": project_description,

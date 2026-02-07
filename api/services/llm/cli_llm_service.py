@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 import shutil
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -363,3 +363,72 @@ class CLILLMService:
                 "3. 기술적 성과 3-4개 강조\n\n"
                 "중요: 반드시 한국어로 응답하세요."
             )
+
+    async def generate_key_tasks(
+        self,
+        project_data: dict,
+        commit_summary: Optional[str] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None,
+        code_context: Optional[str] = None
+    ) -> List[str]:
+        """
+        Generate key tasks using CLI, matching LLMService interface.
+        Delegates to generate_key_tasks_llm via the provider wrapper.
+        """
+        from .llm_generation import generate_key_tasks_llm
+        tasks, tokens = await generate_key_tasks_llm(
+            self.provider,
+            project_data,
+            commit_summary,
+            language,
+            user_context,
+            code_context
+        )
+        self.total_tokens_used += tokens
+        return tasks
+
+    async def generate_implementation_details(
+        self,
+        project_data: dict,
+        commit_summary: Optional[str] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None
+    ) -> List[dict]:
+        """
+        Generate implementation details using CLI, matching LLMService interface.
+        Delegates to generate_implementation_details_llm via the provider wrapper.
+        """
+        from .llm_generation import generate_implementation_details_llm
+        details, tokens = await generate_implementation_details_llm(
+            self.provider,
+            project_data,
+            commit_summary,
+            language,
+            user_context
+        )
+        self.total_tokens_used += tokens
+        return details
+
+    async def generate_detailed_achievements(
+        self,
+        project_data: dict,
+        existing_achievements: Optional[List[dict]] = None,
+        language: str = "ko",
+        user_context: Optional[str] = None
+    ) -> dict:
+        """
+        Generate detailed achievements using CLI, matching LLMService interface.
+        Delegates to generate_detailed_achievements_llm via the provider wrapper.
+        """
+        from .llm_generation import generate_detailed_achievements_llm
+        achievements, tokens = await generate_detailed_achievements_llm(
+            self.provider,
+            project_data,
+            existing_achievements,
+            language,
+            user_context
+        )
+        self.total_tokens_used += tokens
+        return achievements
+

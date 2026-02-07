@@ -529,8 +529,10 @@ export const githubApi = {
     apiClient.post<{
       success: boolean
       message: string
+      user_id: number  // The actual user_id where token was saved (may differ due to merge)
       github_username?: string
       github_avatar_url?: string
+      merged_from_user_id?: number  // If token was merged to existing user
     }>('/github/save-token', null, {
       params: { user_id: userId, token }
     }),

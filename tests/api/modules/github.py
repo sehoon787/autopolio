@@ -6,7 +6,7 @@ Note: API parameters must match the actual endpoint definitions:
 - analyze: user_id is a query param, git_url/project_id in body
 """
 
-from typing import Optional
+from typing import Optional, Any
 import httpx
 from .base import BaseAPIModule
 
@@ -62,7 +62,7 @@ class GitHubAPI(BaseAPIModule):
             provider: LLM provider (optional query param)
             cli_mode: CLI mode (optional query param)
         """
-        params = {"user_id": user_id}
+        params: dict[str, Any] = {"user_id": user_id}
         if provider:
             params["provider"] = provider
         if cli_mode:
@@ -118,3 +118,82 @@ class GitHubAPI(BaseAPIModule):
     ) -> httpx.Response:
         """Get detailed commit history with conventional commit parsing."""
         return self._get(f"/github/detailed-commits/{project_id}", params={"limit": limit})
+
+    # ============ Import and Token APIs ============
+
+    def import_repos(
+        self,
+        user_id: int,
+        repo_urls: list[str],
+        auto_analyze: bool = False
+    ) -> httpx.Response:
+        """
+        Import GitHub repositories as projects.
+
+        Args:
+            user_id: User ID (query param)
+            repo_urls: List of repository URLs to import
+            auto_analyze: Whether to auto-analyze after import
+        """
+        return self._post("/github/import-repos", params={"user_id": user_id}, json={
+            "repo_urls": repo_urls,
+            "auto_analyze": auto_analyze
+        })
+
+    def save_token(self, user_id: int, token: str) -> httpx.Response:
+        """
+        Save GitHub token for a user (used by Electron via gh CLI).
+
+        Args:
+            user_id: User ID
+            token: GitHub access token from gh CLI
+        """
+        return self._post("/github/save-token", params={
+            "user_id": user_id,
+            "token": token
+        })
+
+    def start_background_analysis(
+        self,
+        user_id: int,
+        git_url: str,
+        project_id: Optional[int] = None,
+        provider: Optional[str] = None,
+        cli_mode: Optional[str] = None,
+        cli_model: Optional[str] = None,
+        language: Optional[str] = None
+    ) -> httpx.Response:
+        """
+        Start background analysis for a repository.
+
+        Args:
+            user_id: User ID
+            git_url: Repository URL to analyze
+            project_id: Optional project ID (creates new if not provided)
+            provider: LLM provider for API mode (openai, anthropic, gemini)
+            cli_mode: CLI mode for Electron (claude_code, gemini_cli)
+            cli_model: CLI model name
+            language: Analysis output language (ko, en)
+        """
+        params: dict[str, Any] = {"user_id": user_id}
+        if provider:
+            params["provider"] = provider
+        if cli_mode:
+            params["cli_mode"] = cli_mode
+        if cli_model:
+            params["cli_model"] = cli_model
+        if language:
+            params["language"] = language
+
+        return self._post("/github/analyze-background", params=params, json={
+            "git_url": git_url,
+            "project_id": project_id
+        })
+
+    def get_analysis_status(self, project_id: int, user_id: int) -> httpx.Response:
+        """Get background analysis job status for a project."""
+        return self._get(f"/github/analysis-status/{project_id}", params={"user_id": user_id})
+
+    def get_active_analyses(self, user_id: int) -> httpx.Response:
+        """Get all active analysis jobs for a user."""
+        return self._get("/github/active-analyses", params={"user_id": user_id})

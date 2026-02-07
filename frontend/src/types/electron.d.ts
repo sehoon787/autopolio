@@ -30,6 +30,30 @@ export interface GitHubAuthResult {
   error?: string
 }
 
+export interface GitHubRepoFromCLI {
+  id: number
+  name: string
+  full_name: string
+  description: string | null
+  html_url: string
+  clone_url: string
+  language: string | null
+  stargazers_count: number
+  forks_count: number
+  created_at: string
+  updated_at: string
+  pushed_at: string | null
+  fork: boolean
+  owner: string
+}
+
+export interface GitHubReposResult {
+  success: boolean
+  repos?: GitHubRepoFromCLI[]
+  total?: number
+  error?: string
+}
+
 export interface CLIStatus {
   tool: string
   installed: boolean
@@ -78,12 +102,7 @@ export interface ElectronAPI {
   getGitHubToken: () => Promise<{ success: boolean; token?: string; error?: string }>
   onGitHubDeviceCode: (callback: (data: GitHubDeviceCodeEvent) => void) => () => void
   onGitHubAuthComplete: (callback: (data: GitHubAuthResult) => void) => () => void
+  
+  // GitHub Repository listing via CLI (multi-endpoint aggregation matching backend)
+  listGitHubRepos: () => Promise<GitHubReposResult>
 }
-
-declare global {
-  interface Window {
-    electron?: ElectronAPI
-  }
-}
-
-export {}

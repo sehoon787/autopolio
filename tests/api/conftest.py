@@ -309,6 +309,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_github: mark test as requiring GitHub connection"
     )
+    config.addinivalue_line(
+        "markers", "llm_required: mark test as requiring LLM service (API or CLI)"
+    )
 
 
 def pytest_collection_modifyitems(config, items):

@@ -260,51 +260,90 @@ async def save_github_token(
     
     This endpoint is used by the Electron desktop app to save tokens
     obtained through the GitHub CLI device code flow.
+    
+    IMPORTANT: Handles UNIQUE constraint on github_username by:
+    1. First verifying the token and getting GitHub user info
+    2. Checking if another user already has this github_username
+    3. If yes, updating that existing user instead (prevents duplicates)
+    4. Returns the actual user ID that was updated
     """
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Encrypt and save the token
-    try:
-        encrypted_token = encryption.encrypt(token)
-    except Exception as e:
-        logger.error("Failed to encrypt token for user %s: %s", user_id, e)
-        raise HTTPException(status_code=500, detail="Failed to encrypt token")
-
-    user.github_token_encrypted = encrypted_token
-
-    # Verify the token by fetching user info
+    # Step 1: Verify the token first to get GitHub user info
     try:
         github_service = GitHubService(token)
         github_user = await github_service.get_user_info()
+        github_username = github_user.get("login")
+        github_avatar_url = github_user.get("avatar_url")
+    except Exception as e:
+        logger.error("Failed to verify GitHub token: %s", e)
+        raise HTTPException(status_code=400, detail=f"Invalid GitHub token: {str(e)}")
 
-        # Update user with GitHub info
-        user.github_username = github_user.get("login")
-        user.github_avatar_url = github_user.get("avatar_url")
+    # Step 2: Check if another user already has this github_username
+    existing_user_result = await db.execute(
+        select(User).where(User.github_username == github_username)
+    )
+    existing_user = existing_user_result.scalar_one_or_none()
 
+    # Step 3: Determine which user to update
+    if existing_user and existing_user.id != user_id:
+        # Another user already has this GitHub account linked
+        # Update the existing user's token instead of creating a duplicate
+        logger.info(
+            "GitHub username '%s' already linked to user %s, updating that user instead of %s",
+            github_username, existing_user.id, user_id
+        )
+        target_user = existing_user
+        merged_from_user_id = user_id  # Track the original request
+    else:
+        # No conflict, update the requested user
+        result = await db.execute(select(User).where(User.id == user_id))
+        target_user = result.scalar_one_or_none()
+        merged_from_user_id = None
+
+        if not target_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    # Step 4: Encrypt and save the token
+    try:
+        encrypted_token = encryption.encrypt(token)
+    except Exception as e:
+        logger.error("Failed to encrypt token for user %s: %s", target_user.id, e)
+        raise HTTPException(status_code=500, detail="Failed to encrypt token")
+
+    # Step 5: Update user with GitHub info
+    target_user.github_token_encrypted = encrypted_token
+    target_user.github_username = github_username
+    target_user.github_avatar_url = github_avatar_url
+
+    try:
         await db.commit()
+        await db.refresh(target_user)
 
-        return {
+        response = {
             "success": True,
             "message": "GitHub token saved successfully",
-            "github_username": user.github_username,
-            "github_avatar_url": user.github_avatar_url
+            "user_id": target_user.id,  # Return the actual user ID that was updated
+            "github_username": target_user.github_username,
+            "github_avatar_url": target_user.github_avatar_url
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Token might still be valid for some operations, save it anyway
-        try:
-            await db.commit()
-        except Exception as commit_error:
-            logger.error("Failed to commit token for user %s: %s", user_id, commit_error)
-            raise HTTPException(status_code=500, detail="Database error while saving token")
-        logger.warning("Token saved but verification failed for user %s: %s", user_id, e)
-        return {
-            "success": True,
-            "message": "GitHub token saved (verification skipped)",
-            "warning": str(e)
-        }
+        
+        # If we merged to a different user, include that info
+        if merged_from_user_id is not None:
+            response["merged_from_user_id"] = merged_from_user_id
+            response["message"] = f"GitHub account already linked to user {target_user.id}, token updated there"
+            logger.info("Token saved for existing user %s (requested by user %s)", 
+                       target_user.id, merged_from_user_id)
+        
+        return response
+    except Exception as commit_error:
+        await db.rollback()
+        error_type = type(commit_error).__name__
+        error_msg = str(commit_error)
+        logger.error("Failed to commit token for user %s: [%s] %s", target_user.id, error_type, error_msg)
+        
+        # Provide more specific error messages
+        if "UNIQUE constraint" in error_msg:
+            raise HTTPException(status_code=409, detail=f"GitHub username already linked to another user: {error_msg}")
+        elif "database is locked" in error_msg.lower():
+            raise HTTPException(status_code=503, detail="Database is busy, please retry")
+        else:
+            raise HTTPException(status_code=500, detail=f"Database error: [{error_type}] {error_msg}")
