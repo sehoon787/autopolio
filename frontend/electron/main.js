@@ -14,6 +14,7 @@ console.log('[Main] Core Electron modules loaded');
 // Import CLI services
 import { getCLIToolManager } from './services/cli-tool-manager.js';
 import { getAgentProcessManager } from './services/agent-process-manager.js';
+import { getAugmentedEnv } from './utils/env-utils.js';
 // Import Python environment manager
 import { getPythonEnvManager } from './services/python-env-manager.js';
 console.log('[Main] CLI modules imported successfully');
@@ -355,13 +356,36 @@ async function killExistingBackend() {
 function startPythonBackend() {
     return new Promise(async (resolve) => {
         console.log('[Backend] Checking if backend is running...');
-        // Kill any existing zombie processes first
+        // First, check if backend is already running (before any cleanup)
+        const backendRunning = await new Promise((checkResolve) => {
+            import('http').then((http) => {
+                const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/`, { timeout: 3000 }, (res) => {
+                    console.log('[Backend] Backend responded with status:', res.statusCode);
+                    checkResolve(res.statusCode === 200);
+                });
+                req.on('error', (err) => {
+                    console.log('[Backend] Backend check failed:', err.message);
+                    checkResolve(false);
+                });
+                req.on('timeout', () => {
+                    console.log('[Backend] Backend check timed out');
+                    req.destroy();
+                    checkResolve(false);
+                });
+            }).catch(() => checkResolve(false));
+        });
+        if (backendRunning) {
+            console.log('[Backend] Backend is already running, skipping startup');
+            resolve();
+            return;
+        }
+        // Kill any existing zombie processes (only if backend not responding)
         await killExistingBackend();
-        // Quick check if backend is already running (after cleanup)
+        // Double-check after cleanup
         try {
             const response = await fetch(`${BACKEND_URL}/health`);
             if (response.ok) {
-                console.log('[Backend] Backend is already running');
+                console.log('[Backend] Backend started externally');
                 resolve();
                 return;
             }
@@ -508,13 +532,58 @@ ipcMain.handle('get-claude-cli-status', async () => {
             console.log('[IPC] get-claude-cli-status returning cached result');
             return cachedCLIStatus.claude;
         }
-        // Direct file existence check for Windows npm global
-        const claudePath = path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd');
-        const fileExists = fs.existsSync(claudePath);
-        console.log(`[IPC] Direct check: path=${claudePath}, exists=${fileExists}`);
-        // If file exists directly, create status without complex detection
-        if (fileExists) {
-            console.log('[IPC] Using direct file detection for Claude CLI');
+        // Platform-specific fast-path detection
+        let claudePath = null;
+        const homeDir = os.homedir();
+        if (process.platform === 'win32') {
+            // Windows: npm global paths
+            const windowsPaths = [
+                path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+                path.join(homeDir, 'AppData', 'Local', 'npm', 'claude.cmd'),
+            ];
+            for (const p of windowsPaths) {
+                if (fs.existsSync(p)) {
+                    claudePath = p;
+                    console.log(`[IPC] Claude found at Windows path: ${p}`);
+                    break;
+                }
+            }
+        }
+        else if (process.platform === 'darwin') {
+            // macOS: Check common installation paths (native installer, Homebrew, npm)
+            const macosPaths = [
+                path.join(homeDir, '.local', 'bin', 'claude'), // Native installer / pipx
+                path.join(homeDir, '.claude', 'local', 'bin', 'claude'), // Alternative native installer
+                '/opt/homebrew/bin/claude', // Apple Silicon Homebrew
+                '/usr/local/bin/claude', // Intel Homebrew
+                path.join(homeDir, '.npm-global', 'bin', 'claude'), // npm global (custom prefix)
+            ];
+            for (const p of macosPaths) {
+                if (fs.existsSync(p)) {
+                    claudePath = p;
+                    console.log(`[IPC] Claude found at macOS path: ${p}`);
+                    break;
+                }
+            }
+        }
+        else {
+            // Linux: Check common paths
+            const linuxPaths = [
+                path.join(homeDir, '.local', 'bin', 'claude'),
+                '/usr/local/bin/claude',
+                '/usr/bin/claude',
+            ];
+            for (const p of linuxPaths) {
+                if (fs.existsSync(p)) {
+                    claudePath = p;
+                    console.log(`[IPC] Claude found at Linux path: ${p}`);
+                    break;
+                }
+            }
+        }
+        // If found via fast-path, create status directly
+        if (claudePath) {
+            console.log('[IPC] Using fast-path detection for Claude CLI');
             const status = {
                 tool: 'claude_code',
                 installed: true,
@@ -522,15 +591,19 @@ ipcMain.handle('get-claude-cli-status', async () => {
                 latest_version: null,
                 is_outdated: false,
                 path: claudePath,
-                install_command: 'npm install -g @anthropic-ai/claude-code',
+                install_command: process.platform === 'win32'
+                    ? 'irm https://claude.ai/install.ps1 | iex'
+                    : 'curl -fsSL https://claude.ai/install.sh | bash',
                 update_command: 'claude update',
                 platform: process.platform,
             };
-            // Try to get version
+            // Try to get version using the found path
             try {
                 const { execSync } = await import('child_process');
-                const versionOutput = execSync('claude --version', { encoding: 'utf8', timeout: 5000 }).trim();
-                status.version = versionOutput.split(' ')[0] || versionOutput;
+                const versionOutput = execSync(`"${claudePath}" --version`, { encoding: 'utf8', timeout: 5000 }).trim();
+                // Extract version number (e.g., "2.1.36" from "2.1.36 (Claude Code)")
+                const versionMatch = versionOutput.match(/^([\d.]+)/);
+                status.version = versionMatch ? versionMatch[1] : versionOutput.split(' ')[0];
                 console.log(`[IPC] Claude version: ${status.version}`);
             }
             catch (e) {
@@ -539,6 +612,8 @@ ipcMain.handle('get-claude-cli-status', async () => {
             cachedCLIStatus.claude = status;
             return status;
         }
+        // Fallback to full CLIToolManager detection
+        console.log('[IPC] Fast-path not found, using CLIToolManager...');
         const manager = getCLIToolManager();
         const result = await manager.detectCLI('claude_code');
         cachedCLIStatus.claude = result;
@@ -573,13 +648,52 @@ ipcMain.handle('get-gemini-cli-status', async () => {
             console.log('[IPC] get-gemini-cli-status returning cached result');
             return cachedCLIStatus.gemini;
         }
-        // Direct file existence check for Windows npm global
-        const geminiPath = path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'gemini.cmd');
-        const fileExists = fs.existsSync(geminiPath);
-        console.log(`[IPC] Direct check: path=${geminiPath}, exists=${fileExists}`);
-        // If file exists directly, create status without complex detection
-        if (fileExists) {
-            console.log('[IPC] Using direct file detection for Gemini CLI');
+        let geminiPath = null;
+        const homeDir = os.homedir();
+        if (process.platform === 'win32') {
+            const windowsPaths = [
+                path.join(homeDir, 'AppData', 'Roaming', 'npm', 'gemini.cmd'),
+                path.join(homeDir, 'AppData', 'Local', 'npm', 'gemini.cmd'),
+            ];
+            for (const p of windowsPaths) {
+                if (fs.existsSync(p)) {
+                    geminiPath = p;
+                    console.log(`[IPC] Gemini found at Windows path: ${p}`);
+                    break;
+                }
+            }
+        }
+        else if (process.platform === 'darwin') {
+            const macosPaths = [
+                '/opt/homebrew/bin/gemini',
+                '/usr/local/bin/gemini',
+                path.join(homeDir, '.local', 'bin', 'gemini'),
+                path.join(homeDir, '.npm-global', 'bin', 'gemini'),
+            ];
+            for (const p of macosPaths) {
+                if (fs.existsSync(p)) {
+                    geminiPath = p;
+                    console.log(`[IPC] Gemini found at macOS path: ${p}`);
+                    break;
+                }
+            }
+        }
+        else {
+            const linuxPaths = [
+                path.join(homeDir, '.local', 'bin', 'gemini'),
+                '/usr/local/bin/gemini',
+                '/usr/bin/gemini',
+            ];
+            for (const p of linuxPaths) {
+                if (fs.existsSync(p)) {
+                    geminiPath = p;
+                    console.log(`[IPC] Gemini found at Linux path: ${p}`);
+                    break;
+                }
+            }
+        }
+        if (geminiPath) {
+            console.log('[IPC] Using fast-path detection for Gemini CLI');
             const status = {
                 tool: 'gemini_cli',
                 installed: true,
@@ -591,10 +705,9 @@ ipcMain.handle('get-gemini-cli-status', async () => {
                 update_command: null,
                 platform: process.platform,
             };
-            // Try to get version
             try {
                 const { execSync } = await import('child_process');
-                const versionOutput = execSync('gemini --version', { encoding: 'utf8', timeout: 5000 }).trim();
+                const versionOutput = execSync(`"${geminiPath}" --version`, { encoding: 'utf8', timeout: 5000 }).trim();
                 status.version = versionOutput.split(' ')[0] || versionOutput;
                 console.log(`[IPC] Gemini version: ${status.version}`);
             }
@@ -604,6 +717,7 @@ ipcMain.handle('get-gemini-cli-status', async () => {
             cachedCLIStatus.gemini = status;
             return status;
         }
+        console.log('[IPC] Fast-path not found, using CLIToolManager...');
         const manager = getCLIToolManager();
         const result = await manager.detectCLI('gemini_cli');
         cachedCLIStatus.gemini = result;
@@ -799,26 +913,47 @@ async function detectGitHubCLI() {
     };
     try {
         let ghPath = null;
-        // First, try to find gh in PATH
-        try {
-            if (process.platform === 'win32') {
-                const whereOutput = execSync('where gh', { encoding: 'utf8', timeout: 5000 }).trim();
-                ghPath = whereOutput.split('\n')[0];
-                console.log('[GitHub CLI] Found in PATH:', ghPath);
-            }
-            else {
-                const whichOutput = execSync('which gh', { encoding: 'utf8', timeout: 5000 }).trim();
-                ghPath = whichOutput;
-                console.log('[GitHub CLI] Found in PATH:', ghPath);
+        const platform = process.platform;
+        const knownPaths = GITHUB_CLI_PATHS[platform] || [];
+        // On macOS/Linux, check known paths FIRST (fast-path for GUI-launched apps)
+        if (process.platform !== 'win32') {
+            for (const candidatePath of knownPaths) {
+                if (fs.existsSync(candidatePath)) {
+                    console.log('[GitHub CLI] Found at known path (fast-path):', candidatePath);
+                    ghPath = candidatePath;
+                    break;
+                }
             }
         }
-        catch {
-            console.log('[GitHub CLI] gh not found in PATH, checking known locations...');
-        }
-        // If not found in PATH, check known installation paths
+        // If not found via fast-path, try to find gh in PATH with augmented environment
         if (!ghPath) {
-            const platform = process.platform;
-            const knownPaths = GITHUB_CLI_PATHS[platform] || [];
+            try {
+                const augmentedEnv = getAugmentedEnv();
+                if (process.platform === 'win32') {
+                    const whereOutput = execSync('where gh', {
+                        encoding: 'utf8',
+                        timeout: 5000,
+                        env: augmentedEnv,
+                    }).trim();
+                    ghPath = whereOutput.split('\n')[0];
+                    console.log('[GitHub CLI] Found in PATH:', ghPath);
+                }
+                else {
+                    const whichOutput = execSync('which gh', {
+                        encoding: 'utf8',
+                        timeout: 5000,
+                        env: augmentedEnv,
+                    }).trim();
+                    ghPath = whichOutput;
+                    console.log('[GitHub CLI] Found in PATH:', ghPath);
+                }
+            }
+            catch {
+                console.log('[GitHub CLI] gh not found in PATH, checking known locations...');
+            }
+        }
+        // Windows fallback: check known paths
+        if (!ghPath && process.platform === 'win32') {
             for (const candidatePath of knownPaths) {
                 if (fs.existsSync(candidatePath)) {
                     console.log('[GitHub CLI] Found at known path:', candidatePath);
