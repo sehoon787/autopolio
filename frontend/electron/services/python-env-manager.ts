@@ -218,6 +218,57 @@ export class PythonEnvManager extends EventEmitter {
    * Find system Python
    */
   private findSystemPython(): string | null {
+    const homeDir = process.env.HOME || process.env.USERPROFILE || ''
+    const projectRoot = this.backendPath ? path.dirname(this.backendPath) : null
+    
+    if (projectRoot) {
+      const venvPython = process.platform === 'win32'
+        ? path.join(projectRoot, 'venv', 'Scripts', 'python.exe')
+        : path.join(projectRoot, 'venv', 'bin', 'python3')
+      if (fs.existsSync(venvPython)) {
+        console.log('[PythonEnvManager] Found project venv:', venvPython)
+        return venvPython
+      }
+      
+      const dotVenvPython = process.platform === 'win32'
+        ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+        : path.join(projectRoot, '.venv', 'bin', 'python3')
+      if (fs.existsSync(dotVenvPython)) {
+        console.log('[PythonEnvManager] Found project .venv:', dotVenvPython)
+        return dotVenvPython
+      }
+    }
+    
+    const knownPaths = process.platform === 'darwin' ? [
+      '/opt/homebrew/bin/python3',
+      '/usr/local/bin/python3',
+      path.join(homeDir, '.local/bin/python3'),
+      '/usr/bin/python3',
+    ] : process.platform === 'win32' ? [
+      path.join(homeDir, 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
+      path.join(homeDir, 'AppData', 'Local', 'Programs', 'Python', 'Python311', 'python.exe'),
+      'C:\\Python312\\python.exe',
+      'C:\\Python311\\python.exe',
+    ] : [
+      '/usr/bin/python3',
+      '/usr/local/bin/python3',
+      path.join(homeDir, '.local/bin/python3'),
+    ]
+    
+    for (const pythonPath of knownPaths) {
+      if (fs.existsSync(pythonPath)) {
+        try {
+          const result = execSync(`"${pythonPath}" --version`, { encoding: 'utf8', timeout: 5000 })
+          if (result.includes('Python 3')) {
+            console.log('[PythonEnvManager] Found Python:', pythonPath)
+            return pythonPath
+          }
+        } catch {
+          continue
+        }
+      }
+    }
+    
     const commands = process.platform === 'win32'
       ? ['python', 'python3', 'py']
       : ['python3', 'python']
@@ -226,7 +277,6 @@ export class PythonEnvManager extends EventEmitter {
       try {
         const result = execSync(`${cmd} --version`, { encoding: 'utf8', timeout: 5000 })
         if (result.includes('Python 3')) {
-          // Get full path
           if (process.platform === 'win32') {
             const wherePath = execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim().split('\n')[0]
             return wherePath
@@ -236,7 +286,7 @@ export class PythonEnvManager extends EventEmitter {
           }
         }
       } catch {
-        // Continue to next command
+        continue
       }
     }
     
