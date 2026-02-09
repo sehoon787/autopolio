@@ -22,6 +22,18 @@ def _get_config_dir() -> Path:
     return _get_base_dir() / "config"
 
 
+def _get_platform_templates_dir() -> Path:
+    if "AUTOPOLIO_PLATFORM_TEMPLATES_DIR" in os.environ:
+        return Path(os.environ["AUTOPOLIO_PLATFORM_TEMPLATES_DIR"])
+    return _get_data_dir() / "platform_templates"
+
+
+def _get_templates_dir() -> Path:
+    if "AUTOPOLIO_TEMPLATES_DIR" in os.environ:
+        return Path(os.environ["AUTOPOLIO_TEMPLATES_DIR"])
+    return _get_data_dir() / "templates"
+
+
 class Settings(BaseSettings):
     # App settings
     app_name: str = "Autopolio"
@@ -48,7 +60,8 @@ class Settings(BaseSettings):
     base_dir: Path = _get_base_dir()
     data_dir: Path = _get_data_dir()
     config_dir: Path = _get_config_dir()
-    templates_dir: Path = data_dir / "templates"
+    templates_dir: Path = _get_templates_dir()
+    platform_templates_dir: Path = _get_platform_templates_dir()
     result_dir: Path = base_dir / "result"
 
     # Frontend URL (for OAuth redirect)

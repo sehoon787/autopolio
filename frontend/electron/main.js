@@ -417,10 +417,11 @@ function startPythonBackend() {
                 AUTOPOLIO_BASE_DIR: process.resourcesPath,
                 AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'config'),
                 AUTOPOLIO_DATA_DIR: path.join(userDataPath, 'data'),
+                AUTOPOLIO_PLATFORM_TEMPLATES_DIR: path.join(process.resourcesPath, 'data', 'platform_templates'),
+                AUTOPOLIO_TEMPLATES_DIR: path.join(process.resourcesPath, 'data', 'templates'),
                 DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataPath, 'data', 'autopolio.db')}`,
             };
             fs.mkdirSync(path.join(userDataPath, 'data'), { recursive: true });
-            fs.mkdirSync(path.join(userDataPath, 'data', 'platform_templates'), { recursive: true });
         }
         console.log(`[Backend] Starting backend from: ${projectRoot}`);
         console.log(`[Backend] Using Python: ${pythonCommand}`);

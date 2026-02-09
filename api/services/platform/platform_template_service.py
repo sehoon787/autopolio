@@ -48,7 +48,7 @@ class PlatformTemplateService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.templates_dir = Path(settings.data_dir) / "platform_templates"
+        self.templates_dir = Path(settings.platform_templates_dir)
         self.config_dir = Path(settings.config_dir)
         self.result_dir = Path(settings.result_dir)
 
