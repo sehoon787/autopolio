@@ -456,16 +456,17 @@ function startPythonBackend(): Promise<void> {
     const pythonEnv = pythonEnvManager.getPythonEnv()
     const projectRoot = pythonEnvManager.getProjectRoot()
 
-    // For packaged app, set up paths for config and data
     let additionalEnv: Record<string, string> = {}
     if (app.isPackaged) {
-      // In packaged app, config and data are in extraResources
+      const userDataPath = app.getPath('userData')
       additionalEnv = {
-        AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'backend-config'),
-        AUTOPOLIO_DATA_DIR: path.join(process.resourcesPath, 'backend-data'),
-        // Database should be in user data directory (writable)
-        DATABASE_URL: `sqlite+aiosqlite:///${path.join(app.getPath('userData'), 'autopolio.db')}`,
+        AUTOPOLIO_BASE_DIR: process.resourcesPath,
+        AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'config'),
+        AUTOPOLIO_DATA_DIR: path.join(userDataPath, 'data'),
+        DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataPath, 'data', 'autopolio.db')}`,
       }
+      fs.mkdirSync(path.join(userDataPath, 'data'), { recursive: true })
+      fs.mkdirSync(path.join(userDataPath, 'data', 'platform_templates'), { recursive: true })
     }
 
     console.log(`[Backend] Starting backend from: ${projectRoot}`)

@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Download,
   Eye,
@@ -32,6 +33,7 @@ import { getPlatformIcon } from '@/components/icons/PlatformIcons'
 export default function PlatformsPage() {
   const { t } = useTranslation(['platforms', 'common'])
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useUserStore()
 
   // Fetch platform templates
@@ -42,6 +44,19 @@ export default function PlatformsPage() {
     queryKey: ['platformTemplates'],
     queryFn: () => platformsApi.getAll(),
   })
+
+  const initMutation = useMutation({
+    mutationFn: () => platformsApi.initSystemTemplates(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platformTemplates'] })
+    },
+  })
+
+  useEffect(() => {
+    if (templatesData?.data?.templates?.length === 0 && !initMutation.isPending) {
+      initMutation.mutate()
+    }
+  }, [templatesData])
 
   // Fetch user stats to check for analyzed projects
   const { data: statsData } = useQuery({

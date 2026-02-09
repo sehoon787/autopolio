@@ -49,7 +49,7 @@ class PlatformTemplateService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.templates_dir = Path(settings.data_dir) / "platform_templates"
-        self.config_dir = Path(settings.base_dir) / "config"
+        self.config_dir = Path(settings.config_dir)
         self.result_dir = Path(settings.result_dir)
 
         # Initialize helper services
@@ -59,7 +59,9 @@ class PlatformTemplateService:
 
         # Initialize sub-services
         self._crud = PlatformTemplateCRUD(db)
-        self._init = PlatformTemplateInit(db, self.templates_dir, self.config_dir, self._crud)
+        self._init = PlatformTemplateInit(
+            db, self.templates_dir, self.config_dir, self._crud
+        )
         self._rendering = PlatformTemplateRendering(
             db, self._crud, self.renderer, self.exporter, self.data_collector
         )
@@ -77,22 +79,20 @@ class PlatformTemplateService:
         """Get a platform template by ID"""
         return await self._crud.get_by_id(template_id)
 
-    async def get_by_platform_key(self, platform_key: str) -> Optional[PlatformTemplate]:
+    async def get_by_platform_key(
+        self, platform_key: str
+    ) -> Optional[PlatformTemplate]:
         """Get a system platform template by platform key"""
         return await self._crud.get_by_platform_key(platform_key)
 
     async def create(
-        self,
-        data: PlatformTemplateCreate,
-        user_id: Optional[int] = None
+        self, data: PlatformTemplateCreate, user_id: Optional[int] = None
     ) -> PlatformTemplate:
         """Create a new platform template"""
         return await self._crud.create(data, user_id)
 
     async def update(
-        self,
-        template_id: int,
-        data: PlatformTemplateUpdate
+        self, template_id: int, data: PlatformTemplateUpdate
     ) -> Optional[PlatformTemplate]:
         """Update a platform template"""
         return await self._crud.update(template_id, data)
@@ -103,7 +103,9 @@ class PlatformTemplateService:
 
     # ==================== System Template Initialization ====================
 
-    async def init_system_templates(self, force_update: bool = False) -> List[PlatformTemplate]:
+    async def init_system_templates(
+        self, force_update: bool = False
+    ) -> List[PlatformTemplate]:
         """Initialize system templates from YAML config and HTML files
 
         Args:
@@ -118,9 +120,7 @@ class PlatformTemplateService:
     # ==================== Rendering ====================
 
     async def render_with_user_data(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> str:
         """
         Render a template with user-provided data
@@ -134,10 +134,7 @@ class PlatformTemplateService:
         """
         return await self._rendering.render_with_user_data(template_id, data)
 
-    async def render_with_sample_data(
-        self,
-        template_id: int
-    ) -> str:
+    async def render_with_sample_data(self, template_id: int) -> str:
         """
         Render a template with sample data for preview without connected projects
 
@@ -149,11 +146,7 @@ class PlatformTemplateService:
         """
         return await self._rendering.render_with_sample_data(template_id)
 
-    async def render_from_db(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def render_from_db(self, template_id: int, user_id: int) -> str:
         """
         Render a template with data from the database
 
@@ -169,11 +162,7 @@ class PlatformTemplateService:
         """
         return await self._rendering.render_from_db(template_id, user_id)
 
-    async def render_markdown_from_db(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def render_markdown_from_db(self, template_id: int, user_id: int) -> str:
         """
         Render a template as Markdown with data from the database
 
@@ -186,10 +175,7 @@ class PlatformTemplateService:
         """
         return await self._rendering.render_markdown_from_db(template_id, user_id)
 
-    async def render_markdown_with_sample_data(
-        self,
-        template_id: int
-    ) -> str:
+    async def render_markdown_with_sample_data(self, template_id: int) -> str:
         """
         Render a template as Markdown with sample data for preview
 
@@ -204,9 +190,7 @@ class PlatformTemplateService:
     # ==================== Export Methods ====================
 
     async def export_from_db_to_html(
-        self,
-        template_id: int,
-        user_id: int
+        self, template_id: int, user_id: int
     ) -> Tuple[str, str]:
         """
         Export to HTML file using data from the database
@@ -221,9 +205,7 @@ class PlatformTemplateService:
         return await self._export.export_from_db_to_html(template_id, user_id)
 
     async def export_from_db_to_markdown(
-        self,
-        template_id: int,
-        user_id: int
+        self, template_id: int, user_id: int
     ) -> Tuple[str, str]:
         """
         Export to Markdown file using data from the database
@@ -237,11 +219,7 @@ class PlatformTemplateService:
         """
         return await self._export.export_from_db_to_markdown(template_id, user_id)
 
-    async def export_from_db_to_docx(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def export_from_db_to_docx(self, template_id: int, user_id: int) -> str:
         """
         Export to Word document using data from the database
 
@@ -255,9 +233,7 @@ class PlatformTemplateService:
         return await self._export.export_from_db_to_docx(template_id, user_id)
 
     async def export_to_html(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> Tuple[str, str]:
         """
         Export rendered template to HTML file
@@ -272,9 +248,7 @@ class PlatformTemplateService:
         return await self._export.export_to_html(template_id, data)
 
     async def export_to_markdown(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> Tuple[str, str]:
         """
         Export to Markdown format
@@ -288,11 +262,7 @@ class PlatformTemplateService:
         """
         return await self._export.export_to_markdown(template_id, data)
 
-    async def export_to_docx(
-        self,
-        template_id: int,
-        data: RenderDataRequest
-    ) -> str:
+    async def export_to_docx(self, template_id: int, data: RenderDataRequest) -> str:
         """
         Export to Word document
 
@@ -313,23 +283,25 @@ class PlatformTemplateService:
         if not config_path.exists():
             return []
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         platforms = config.get("platforms", {})
         result = []
 
         for key, info in platforms.items():
-            result.append(PlatformInfo(
-                key=key,
-                name=info.get("name", key),
-                name_en=info.get("name_en", key),
-                description=info.get("description", ""),
-                description_en=info.get("description_en", ""),
-                color=info.get("color", "#666"),
-                features=info.get("features", []),
-                template_available=True,
-            ))
+            result.append(
+                PlatformInfo(
+                    key=key,
+                    name=info.get("name", key),
+                    name_en=info.get("name_en", key),
+                    description=info.get("description", ""),
+                    description_en=info.get("description_en", ""),
+                    color=info.get("color", "#666"),
+                    features=info.get("features", []),
+                    template_available=True,
+                )
+            )
 
         return result
 
@@ -339,5 +311,5 @@ class PlatformTemplateService:
         if not config_path.exists():
             return {}
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)

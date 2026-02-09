@@ -2,7 +2,24 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 from pathlib import Path
 import yaml
+import os
 from typing import Optional
+
+
+def _get_base_dir() -> Path:
+    return Path(os.environ.get("AUTOPOLIO_BASE_DIR", Path(__file__).parent.parent))
+
+
+def _get_data_dir() -> Path:
+    if "AUTOPOLIO_DATA_DIR" in os.environ:
+        return Path(os.environ["AUTOPOLIO_DATA_DIR"])
+    return _get_base_dir() / "data"
+
+
+def _get_config_dir() -> Path:
+    if "AUTOPOLIO_CONFIG_DIR" in os.environ:
+        return Path(os.environ["AUTOPOLIO_CONFIG_DIR"])
+    return _get_base_dir() / "config"
 
 
 class Settings(BaseSettings):
@@ -28,9 +45,9 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-3-5-sonnet-20241022"
     gemini_model: str = "gemini-2.0-flash"
 
-    # File paths
-    base_dir: Path = Path(__file__).parent.parent
-    data_dir: Path = base_dir / "data"
+    base_dir: Path = _get_base_dir()
+    data_dir: Path = _get_data_dir()
+    config_dir: Path = _get_config_dir()
     templates_dir: Path = data_dir / "templates"
     result_dir: Path = base_dir / "result"
 
@@ -46,9 +63,9 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://localhost:5199",  # Additional fallback port
         "http://localhost:3000",
-        "app://-",      # Electron app origin (electron-serve)
-        "app://.",      # Alternative Electron origin
-        "file://",      # File protocol
+        "app://-",  # Electron app origin (electron-serve)
+        "app://.",  # Alternative Electron origin
+        "file://",  # File protocol
     ]
 
     class Config:
@@ -75,31 +92,55 @@ PLATFORM_CONFIGS = {
     "saramin_1": {
         "name": "사람인 (기본형)",
         "max_projects": 5,
-        "fields": ["company", "position", "period", "description"]
+        "fields": ["company", "position", "period", "description"],
     },
     "saramin_2": {
         "name": "사람인 (상세형)",
         "max_projects": 10,
-        "fields": ["company", "position", "period", "description", "achievements", "tech_stack"]
+        "fields": [
+            "company",
+            "position",
+            "period",
+            "description",
+            "achievements",
+            "tech_stack",
+        ],
     },
     "saramin_3": {
         "name": "사람인 (포트폴리오형)",
         "max_projects": 15,
-        "fields": ["company", "position", "period", "description", "achievements", "tech_stack", "links"]
+        "fields": [
+            "company",
+            "position",
+            "period",
+            "description",
+            "achievements",
+            "tech_stack",
+            "links",
+        ],
     },
     "wanted": {
         "name": "원티드",
         "max_projects": 10,
-        "fields": ["company", "position", "period", "description", "achievements"]
+        "fields": ["company", "position", "period", "description", "achievements"],
     },
     "remember": {
         "name": "리멤버",
         "max_projects": 8,
-        "fields": ["company", "position", "period", "summary"]
+        "fields": ["company", "position", "period", "summary"],
     },
     "notion": {
         "name": "노션",
         "max_projects": None,
-        "fields": ["company", "position", "period", "description", "achievements", "tech_stack", "links", "images"]
-    }
+        "fields": [
+            "company",
+            "position",
+            "period",
+            "description",
+            "achievements",
+            "tech_stack",
+            "links",
+            "images",
+        ],
+    },
 }

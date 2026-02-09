@@ -28,17 +28,17 @@
     },
     {
       "from": "../config",
-      "to": "backend-config",
+      "to": "config",
       "filter": ["**/*"]
     },
     {
       "from": "../data/platform_templates",
-      "to": "backend-data/platform_templates",
+      "to": "data/platform_templates",
       "filter": ["**/*"]
     },
     {
       "from": "../data/templates",
-      "to": "backend-data/templates",
+      "to": "data/templates",
       "filter": ["**/*"]
     }
   ],
