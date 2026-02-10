@@ -6,8 +6,7 @@ import { test, expect } from '@playwright/test'
  * Aligned with actual API schemas
  */
 
-const API_URL = 'http://localhost:8000'
-const APP_URL = 'http://localhost:5173'
+import { API_URL, APP_URL } from './runtimeConfig'
 
 const timestamp = Date.now()
 let userId: number

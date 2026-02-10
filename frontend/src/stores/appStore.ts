@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus } from '@/lib/electron'
+import { externalBackendUrl } from '@/config/runtime'
 
 type CLIType = 'claude_code' | 'gemini_cli'
 type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
@@ -56,7 +57,7 @@ const initialIsElectron = isElectron()
 console.log('[AppStore] Initial Electron detection:', initialIsElectron)
 
 // Default backend URL for Electron (before async initialization)
-const DEFAULT_BACKEND_URL = 'http://localhost:8000'
+const DEFAULT_BACKEND_URL = externalBackendUrl
 
 export const useAppStore = create<AppState>()(
   persist(

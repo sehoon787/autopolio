@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.api
     ports:
-      - "8000:8000"
+      - "8085:8000"
     volumes:
       - ./data:/app/data
       - ./result:/app/result
@@ -14,6 +14,7 @@ services:
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./data/autopolio.db
       - TZ=Asia/Seoul
+      - AUTOPOLIO_RUNTIME=docker
     restart: unless-stopped
 
   frontend:
@@ -21,7 +22,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:80"
+      - "3035:3000"
     depends_on:
       - api
     restart: unless-stopped

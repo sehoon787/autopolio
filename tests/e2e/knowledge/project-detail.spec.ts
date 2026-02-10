@@ -12,6 +12,7 @@ import {
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_ACHIEVEMENT } from '../fixtures/test-data'
+import { API_BASE_URL } from '../runtimeConfig'
 
 test.describe('Project Detail Page', () => {
   let testContext: TestDataContext
@@ -172,7 +173,7 @@ test.describe('Project Achievements', () => {
   test('should display existing achievements', async ({ page, request }) => {
     // Add achievement via API
     await request.post(
-      `http://localhost:8000/api/knowledge/projects/${testContext.project!.id}/achievements`,
+      `${API_BASE_URL}/knowledge/projects/${testContext.project!.id}/achievements`,
       {
         data: {
           metric_name: 'API Achievement',

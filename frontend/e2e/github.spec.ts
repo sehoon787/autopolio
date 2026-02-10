@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const API_URL = 'http://localhost:8000'
-const APP_URL = 'http://localhost:5173'
+import { API_URL, APP_URL } from './runtimeConfig'
 
 // GitHub-connected user ID (same as conftest.py)
 const GITHUB_USER_ID = 25

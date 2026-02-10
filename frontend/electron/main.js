@@ -6,6 +6,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import yaml from 'js-yaml';
 import os from 'os';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
@@ -22,9 +23,29 @@ console.log('[Main] CLI modules imported successfully');
 const PROTOCOL_NAME = 'autopolio';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+function loadRuntimeConfig() {
+    const devPath = path.resolve(__dirname, '..', '..', 'config', 'runtime.yaml');
+    const prodPath = path.join(process.resourcesPath, 'config', 'runtime.yaml');
+    const candidates = [prodPath, devPath];
+    for (const configPath of candidates) {
+        try {
+            if (fs.existsSync(configPath)) {
+                const raw = fs.readFileSync(configPath, 'utf8');
+                return yaml.load(raw) ?? {};
+            }
+        }
+        catch {
+            // ignore and continue
+        }
+    }
+    return {};
+}
+const runtimeConfig = loadRuntimeConfig();
+const externalPorts = runtimeConfig?.ports?.external ?? { frontend: 3035, backend: 8085 };
+const FRONTEND_PORT = Number(externalPorts.frontend) || 3035;
+const BACKEND_PORT = Number(externalPorts.backend) || 8085;
 // Python backend process
 let pythonProcess = null;
-const BACKEND_PORT = 8000;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 // Backend restart tracking
 let backendRestartCount = 0;
@@ -100,7 +121,7 @@ function createWindow() {
     // Load the app
     if (isDev) {
         // Development: load from Vite dev server
-        mainWindow.loadURL('http://localhost:5173');
+        mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`);
         mainWindow.webContents.openDevTools();
     }
     else {
@@ -113,15 +134,15 @@ function createWindow() {
         return { action: 'deny' };
     });
     // Handle OAuth callback redirects
-    // When backend redirects to http://localhost:5173/..., intercept and handle properly
+    // When backend redirects to http://localhost:<frontend>/..., intercept and handle properly
     mainWindow.webContents.on('will-navigate', (event, url) => {
         try {
             const parsedUrl = new URL(url);
             // Check if this is an OAuth callback (redirected from backend to frontend)
-            // Support multiple ports: 5173 (default), 5174 (fallback), 5199 (custom), etc.
-            const oauthPorts = ['5173', '5174', '5199', '3000', '5000'];
+            // Support multiple ports: frontend + legacy fallback ports
+            const oauthPorts = [String(FRONTEND_PORT), '5174', '5199', '3000', '5000'];
             if (parsedUrl.hostname === 'localhost' && oauthPorts.includes(parsedUrl.port)) {
-                event.preventDefault(); // Always prevent navigation to localhost:5173
+                event.preventDefault(); // Always prevent navigation to localhost frontend port
                 const userId = parsedUrl.searchParams.get('user_id');
                 const githubConnected = parsedUrl.searchParams.get('github_connected');
                 const targetPath = parsedUrl.pathname;
@@ -141,7 +162,7 @@ function createWindow() {
                 }
                 // Reload the app at the target path
                 if (isDev) {
-                    mainWindow?.loadURL('http://localhost:5173' + targetPath + parsedUrl.search);
+                    mainWindow?.loadURL(`http://localhost:${FRONTEND_PORT}` + targetPath + parsedUrl.search);
                 }
                 else {
                     // Production: load via app:// protocol
@@ -225,7 +246,7 @@ async function killExistingBackend() {
     // First, clean up via PID file
     cleanupPidFile();
     if (process.platform === 'win32') {
-        // Windows: Find and kill only Python processes using port 8000
+        // Windows: Find and kill only Python processes using backend port
         // (skip Docker, WSL, and other non-Python processes to avoid conflicts)
         return new Promise((resolve) => {
             const findProcess = spawn('cmd', ['/c', `netstat -ano | findstr :${BACKEND_PORT}`], { shell: true });
@@ -359,7 +380,7 @@ function startPythonBackend() {
         // First, check if backend is already running (before any cleanup)
         const backendRunning = await new Promise((checkResolve) => {
             import('http').then((http) => {
-                const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/`, { timeout: 3000 }, (res) => {
+                const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/health`, { timeout: 3000 }, (res) => {
                     console.log('[Backend] Backend responded with status:', res.statusCode);
                     checkResolve(res.statusCode === 200);
                 });
@@ -1489,7 +1510,7 @@ function handleProtocolUrl(url) {
                 mainWindow.focus();
                 // Navigate to the redirect path and inject OAuth data
                 const targetUrl = isDev
-                    ? `http://localhost:5173${redirectPath}?user_id=${userId}&github_connected=${githubConnected}`
+                    ? `http://localhost:${FRONTEND_PORT}${redirectPath}?user_id=${userId}&github_connected=${githubConnected}`
                     : `app://-${redirectPath}?user_id=${userId}&github_connected=${githubConnected}`;
                 mainWindow.loadURL(targetUrl);
                 // Also dispatch event after navigation

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { FRONTEND_URL } from './runtimeConfig'
 
 /**
  * Playwright configuration for E2E tests.
@@ -22,7 +23,7 @@ export default defineConfig({
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
-    baseURL: process.env.FRONTEND_URL || 'http://localhost:5173',
+    baseURL: FRONTEND_URL,
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',

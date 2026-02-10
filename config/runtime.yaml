@@ -1,0 +1,7 @@
+ports:
+  external:
+    frontend: 3035
+    backend: 8085
+  docker:
+    frontend: 3000
+    backend: 8000

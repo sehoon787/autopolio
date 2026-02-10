@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { API_URL } from './runtimeConfig'
 
 /**
  * Comprehensive E2E Tests for Autopolio Application
@@ -310,7 +311,6 @@ test.describe('UX-03: Dashboard Tests', () => {
 })
 
 test.describe('OAuth API Tests', () => {
-  const API_URL = 'http://localhost:8000'
 
   test('OAUTH-01: Verify OAuth providers endpoint returns available providers', async ({ request }) => {
     const response = await request.get(`${API_URL}/api/oauth/providers`)
@@ -359,7 +359,6 @@ test.describe('OAuth API Tests', () => {
 })
 
 test.describe('API Health Check', () => {
-  const API_URL = 'http://localhost:8000'
 
   test('API-01: Verify /health endpoint returns healthy status', async ({ request }) => {
     const response = await request.get(`${API_URL}/health`)
@@ -405,7 +404,6 @@ test.describe('API Health Check', () => {
 })
 
 test.describe('User API Tests', () => {
-  const API_URL = 'http://localhost:8000'
 
   test('USER-01: Create a test user', async ({ request }) => {
     const response = await request.post(`${API_URL}/api/users`, {

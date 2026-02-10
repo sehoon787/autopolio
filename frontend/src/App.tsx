@@ -8,6 +8,7 @@ import { useUserStore } from '@/stores/userStore'
 import { usersApi } from '@/api/users'
 import { githubApi } from '@/api/github'
 import { isElectron } from '@/lib/electron'
+import { externalBackendUrl } from '@/config/runtime'
 import Layout from '@/components/Layout'
 import Dashboard from '@/pages/Dashboard'
 import SetupPage from '@/pages/Setup'
@@ -50,7 +51,7 @@ function App() {
     if (!isElectron()) return // Web mode: backend is always available via proxy
 
     const { backendUrl } = useAppStore.getState()
-    const healthUrl = `${backendUrl || 'http://localhost:8000'}/health`
+    const healthUrl = `${backendUrl || externalBackendUrl}/health`
 
     let cancelled = false
     const waitForBackend = async () => {

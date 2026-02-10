@@ -68,7 +68,7 @@ copy .env.example .env
 uv sync
 
 # 서버 실행
-uv run uvicorn api.main:app --reload --port 8000
+uv run uvicorn api.main:app --reload --port 8085
 ```
 
 ### 3. 프론트엔드 실행
@@ -85,8 +85,10 @@ npm run dev
 
 ### 4. 접속
 
-- Frontend: http://localhost:5173
-- API Docs: http://localhost:8000/docs
+- Frontend: http://localhost:3035
+- API Docs: http://localhost:8085/docs
+
+Ports are managed in `config/runtime.yaml` (external vs docker internal).
 
 ## 개발 스크립트
 

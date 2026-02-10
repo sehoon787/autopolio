@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
+import { API_URL } from './runtimeConfig'
 
 test.describe('API Health Checks', () => {
-  const API_URL = 'http://localhost:8000'
 
   test('should respond to health check', async ({ request }) => {
     // Try common health endpoints

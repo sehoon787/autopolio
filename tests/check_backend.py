@@ -3,7 +3,9 @@ import time
 import urllib.request
 import sys
 
-url = "http://localhost:8000/health"
+from tests.utils.runtime_config import get_api_base_url
+
+url = f"{get_api_base_url()}/health"
 start = time.time()
 max_wait = 60  # seconds
 

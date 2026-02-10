@@ -28,7 +28,7 @@ uv sync
 
 # Start backend
 echo "Starting FastAPI backend..."
-uv run uvicorn api.main:app --reload --host 0.0.0.0 --port 8000 &
+uv run uvicorn api.main:app --reload --host 0.0.0.0 --port 8085 &
 API_PID=$!
 
 # Wait for backend to start
@@ -44,9 +44,9 @@ echo ""
 echo "============================================"
 echo "Autopolio Development Environment Started!"
 echo "============================================"
-echo "API:      http://localhost:8000"
-echo "API Docs: http://localhost:8000/docs"
-echo "Frontend: http://localhost:5173"
+echo "API:      http://localhost:8085"
+echo "API Docs: http://localhost:8085/docs"
+echo "Frontend: http://localhost:3035"
 echo "============================================"
 echo ""
 echo "Press Ctrl+C to stop all services"

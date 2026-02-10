@@ -20,7 +20,9 @@
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test'
 import path from 'path'
 
-const BACKEND_URL = 'http://localhost:8000'
+import { API_BASE_URL, FRONTEND_URL } from '../runtimeConfig'
+
+const BACKEND_URL = API_BASE_URL.replace(/\/api$/, '')
 const API_BASE = `${BACKEND_URL}/api`
 
 // Timeout for backend to become healthy after Electron launches it
@@ -136,7 +138,7 @@ test.describe('Electron GitHub Workflow', () => {
     })
 
     // Alternative: test via the backend API or page navigation
-    await page.goto('http://localhost:5173/setup/github')
+    await page.goto(`${FRONTEND_URL}/setup/github`)
     await page.waitForLoadState('networkidle')
 
     // Should show either "Connected" or "Connect" button
@@ -441,22 +443,22 @@ test.describe('Electron GitHub Workflow', () => {
 
   test('should navigate between main pages', async () => {
     // Dashboard
-    await page.goto('http://localhost:5173/dashboard')
+    await page.goto(`${FRONTEND_URL}/dashboard`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // GitHub repos
-    await page.goto('http://localhost:5173/github/repos')
+    await page.goto(`${FRONTEND_URL}/github/repos`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // Projects
-    await page.goto('http://localhost:5173/knowledge/projects')
+    await page.goto(`${FRONTEND_URL}/knowledge/projects`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // Settings
-    await page.goto('http://localhost:5173/settings')
+    await page.goto(`${FRONTEND_URL}/settings`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toBeEmpty()
   })

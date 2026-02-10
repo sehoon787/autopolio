@@ -15,7 +15,9 @@ from typing import Generator, Optional
 from uuid import uuid4
 
 # Base URL for API requests - configurable via environment variable
-BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
+from tests.utils.runtime_config import get_api_base_url
+
+BASE_URL = os.getenv("API_BASE_URL", f"{get_api_base_url()}/api")
 
 # GitHub-connected user ID for integration tests
 # Set via environment variable or use default (user_id=25 has GitHub connected)

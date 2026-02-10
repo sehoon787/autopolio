@@ -88,11 +88,11 @@
     "gatekeeperAssess": false,
     "extraResources": [
       {
-        "from": "python-runtime/${os}-${arch}/python",
+        "from": "python-runtime/darwin-${arch}/python",
         "to": "python"
       },
       {
-        "from": "python-runtime/${os}-${arch}/site-packages",
+        "from": "python-runtime/darwin-${arch}/site-packages",
         "to": "site-packages"
       }
     ]

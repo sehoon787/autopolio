@@ -14,7 +14,9 @@ import {
   generateUniqueEmail,
 } from './test-data'
 
-const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api'
+import { API_BASE_URL } from '../runtimeConfig'
+
+const API_BASE = API_BASE_URL
 
 // ==================== Standalone Request Context ====================
 

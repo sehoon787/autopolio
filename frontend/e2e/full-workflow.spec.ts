@@ -12,8 +12,7 @@ import { test, expect, Page } from '@playwright/test'
  * 6. Document generation
  */
 
-const API_URL = 'http://localhost:8000'
-const APP_URL = 'http://localhost:5173'
+import { API_URL, APP_URL } from './runtimeConfig'
 
 // Test data
 const timestamp = Date.now()

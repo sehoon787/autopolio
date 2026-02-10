@@ -5,7 +5,7 @@ Runs against whatever backend is currently running (Electron or Docker).
 Usage:
   python tests/scenario_test.py [base_url]
   
-  base_url defaults to http://localhost:8000
+  base_url defaults to http://localhost:8085
 """
 
 import sys
@@ -25,7 +25,9 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-BASE_URL = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+from tests.utils.runtime_config import get_api_base_url
+
+BASE_URL = sys.argv[1] if len(sys.argv) > 1 else get_api_base_url()
 API = f"{BASE_URL}/api"
 RESULTS = {}
 CLEANUP_IDS = []  # (endpoint, id) pairs to clean up

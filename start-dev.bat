@@ -16,7 +16,7 @@ if not exist result mkdir result
 
 :: Start backend in new terminal
 echo Starting FastAPI backend...
-start "Autopolio API" cmd /k "cd /d %~dp0 && python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000"
+start "Autopolio API" cmd /k "cd /d %~dp0 && python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8085"
 
 :: Wait for backend to start
 timeout /t 3 /nobreak > nul
@@ -29,8 +29,8 @@ echo.
 echo ============================================
 echo Autopolio Development Environment Started!
 echo ============================================
-echo API:      http://localhost:8000
-echo API Docs: http://localhost:8000/docs
-echo Frontend: http://localhost:5173
+echo API:      http://localhost:8085
+echo API Docs: http://localhost:8085/docs
+echo Frontend: http://localhost:3035
 echo ============================================
 echo.

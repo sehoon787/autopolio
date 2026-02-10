@@ -18,7 +18,9 @@ import argparse
 import urllib.request
 import urllib.error
 
-BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8000")
+from tests.utils.runtime_config import get_api_base_url
+
+BASE_URL = os.environ.get("TEST_BASE_URL", get_api_base_url())
 USER_ID = 1
 # Small repo for quick testing
 TEST_REPO_URL = "https://github.com/sehoon787/coflanet-app.git"

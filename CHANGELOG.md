@@ -385,7 +385,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Electron OAuth Improvements**
   - `autopolio://oauth-callback` custom protocol handler
-  - Multi-port OAuth callback support (5173, 5174, 5199, etc.)
+  - Multi-port OAuth callback support (3035, 3000, 5174, 5199, etc.)
   - Windows .cmd execution quote handling fixed
 
 - **Backend Stability**

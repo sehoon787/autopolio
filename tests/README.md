@@ -131,7 +131,7 @@ scripts\run-e2e-tests.bat
 
 The API tests use pytest with the following configuration:
 
-- **Base URL**: `http://localhost:8000/api` (configurable via `API_BASE_URL` env var)
+- **Base URL**: `http://localhost:8085/api` (configurable via `API_BASE_URL` env var)
 - **Timeout**: 30 seconds per request
 
 ### Fixtures
@@ -179,7 +179,7 @@ pytest -m "not requires_github"
 
 The E2E tests use Playwright with:
 
-- **Base URL**: `http://localhost:5173` (configurable via `FRONTEND_URL` env var)
+- **Base URL**: `http://localhost:3035` (configurable via `FRONTEND_URL` env var)
 - **Browser**: Chromium (default)
 - **Timeout**: 60 seconds per test
 
@@ -298,10 +298,10 @@ Artifacts are stored in `tests/e2e/test-results/`.
 
 ```bash
 # API Tests
-API_BASE_URL=http://localhost:8000/api
+API_BASE_URL=http://localhost:8085/api
 
 # E2E Tests
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:3035
 
 # CI/CD
 CI=true  # Enables CI-specific settings
@@ -403,7 +403,7 @@ test.describe('Example Feature', () => {
 
 ### API Tests
 
-1. **Connection refused**: Ensure backend is running on port 8000
+1. **Connection refused**: Ensure backend is running on port 8085
 2. **Authentication errors**: Check if user creation/deletion works
 3. **Timeout errors**: Increase timeout in `conftest.py`
 
@@ -417,7 +417,7 @@ test.describe('Example Feature', () => {
 
 1. **Container not starting**: Check `docker-compose logs`
 2. **Database errors**: Run `./scripts/setup-test-db.sh`
-3. **Port conflicts**: Ensure ports 5173 and 8000 are available
+3. **Port conflicts**: Ensure ports 3035 and 8085 are available
 
 ## Contributing
 
