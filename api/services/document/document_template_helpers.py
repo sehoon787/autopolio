@@ -3,6 +3,7 @@ Document Template Helpers - Template rendering and data preparation utilities.
 
 Provides functions for template rendering, data flattening, and skill categorization.
 """
+from collections import OrderedDict
 from typing import Dict, List, Any
 from datetime import datetime
 import re
@@ -260,6 +261,18 @@ def build_project_company_data(
                         "has_description": bool(description)
                     })
 
+        # Build achievements_grouped from summary_list
+        grouped_dict = OrderedDict()
+        for ach in achievements_summary_list:
+            cat = ach.get("category", "성과")
+            if cat not in grouped_dict:
+                grouped_dict[cat] = []
+            grouped_dict[cat].append({"title": ach.get("title", "")})
+        achievements_grouped = [
+            {"category": cat, "items": items, "has_items": bool(items)}
+            for cat, items in grouped_dict.items()
+        ]
+
         enriched_projects.append({
             "name": p.get("name", ""),
             "short_description": p.get("short_description", ""),
@@ -278,6 +291,8 @@ def build_project_company_data(
             "achievements": raw_achievements,  # Keep original for backward compatibility
             "achievements_summary_list": achievements_summary_list,  # Default: title only
             "achievements_detailed_list": achievements_detailed_list,  # With description
+            "achievements_grouped": achievements_grouped,  # Grouped by category
+            "has_achievements": bool(achievements_summary_list or achievements_detailed_list),
             "links": p.get("links", {}),
             # Company info for project
             "company_name": company.get("name", ""),

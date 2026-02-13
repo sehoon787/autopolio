@@ -124,9 +124,12 @@ RESUME_TEMPLATE = """# 이력서
 
 {{#has_achievements}}
 **성과**
-{{#achievements_summary_list}}
-- **[{{category}}] {{title}}**
-{{/achievements_summary_list}}
+{{#achievements_grouped}}
+**[{{category}}]**
+{{#items}}
+- {{title}}
+{{/items}}
+{{/achievements_grouped}}
 {{/has_achievements}}
 
 ---

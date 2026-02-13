@@ -200,6 +200,21 @@ def _get_sample_projects():
             "has_key_tasks": True,
             "achievements": "• 문서 처리 시간 80% 단축\n• 월간 활성 사용자 5,000명 달성",
             "has_achievements": True,
+            "achievements_grouped": [
+                {
+                    "category": "성능 개선",
+                    "items": [
+                        {"title": "문서 처리 시간 80% 단축"},
+                        {"title": "API 응답 속도 3배 향상"}
+                    ]
+                },
+                {
+                    "category": "사용자 성장",
+                    "items": [
+                        {"title": "월간 활성 사용자 5,000명 달성"}
+                    ]
+                }
+            ],
             "git_url": "https://github.com/example/doc-analyzer"
         },
         {
@@ -222,6 +237,14 @@ def _get_sample_projects():
             "has_key_tasks": True,
             "achievements": "• 동시 접속자 1,000명 지원",
             "has_achievements": True,
+            "achievements_grouped": [
+                {
+                    "category": "인프라 성과",
+                    "items": [
+                        {"title": "동시 접속자 1,000명 지원"}
+                    ]
+                }
+            ],
             "git_url": ""
         }
     ]

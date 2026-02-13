@@ -396,14 +396,27 @@ def _add_project_detail_unified_docx(doc, proj: dict, idx: int, styler: DocxStyl
         if clean_description:
             styler.add_key_value(doc, "상세 내용", clean_description)
 
-    # 성과 (최대 4개)
-    achievements = get_achievements_list(proj)
-    if achievements:
+    # 성과 (grouped by category)
+    achievements_grouped = proj.get("achievements_grouped", [])
+    if achievements_grouped:
         styler.add_paragraph(doc, "성과:")
-        for ach in achievements[:4]:
-            # Clean any Mustache syntax from each achievement
-            clean_ach = render_or_clean_mustache(ach, proj)
-            if clean_ach:
-                styler.add_bullet(doc, clean_ach)
+        for group in achievements_grouped:
+            category = group.get("category", "")
+            items = group.get("items", [])
+            if category:
+                styler.add_bold_text(doc, f"[{category}]")
+            for item in items:
+                title = item.get("title", "") if isinstance(item, dict) else str(item)
+                if title:
+                    styler.add_bullet(doc, title)
+    else:
+        # Fallback to flat list
+        achievements = get_achievements_list(proj)
+        if achievements:
+            styler.add_paragraph(doc, "성과:")
+            for ach in achievements:
+                clean_ach = render_or_clean_mustache(ach, proj)
+                if clean_ach:
+                    styler.add_bullet(doc, clean_ach)
 
     styler.add_spacing(doc)

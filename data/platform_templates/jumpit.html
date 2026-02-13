@@ -583,11 +583,14 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                         <div class="project-achievements" style="margin-top: 12px;">
                             <div class="project-achievements-title">성과</div>
                             <div class="project-achievements-list">
-                                {{#achievements_summary_list}}
-                                <div style="margin-bottom: 8px; padding: 6px 8px; background: rgba(0, 221, 109, 0.05); border-radius: 6px;">
-                                    <div style="font-weight: 600;"><span style="color: #00DD6D;">[{{category}}]</span> {{title}}</div>
+                                {{#achievements_grouped}}
+                                <div style="margin-bottom: 10px; padding: 6px 8px; background: rgba(0, 221, 109, 0.05); border-radius: 6px;">
+                                    <div style="font-weight: 600;"><span style="color: #00DD6D;">[{{category}}]</span></div>
+                                    {{#items}}
+                                    <div style="margin-left: 12px; font-size: 13px;">- {{title}}</div>
+                                    {{/items}}
                                 </div>
-                                {{/achievements_summary_list}}
+                                {{/achievements_grouped}}
                             </div>
                         </div>
                         {{/has_achievements}}

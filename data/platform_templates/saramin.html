@@ -601,11 +601,14 @@
                                 {{#has_achievements}}
                                 <div style="margin-top: 8px;"><strong>성과:</strong></div>
                                 <div style="margin-left: 16px;">
-                                    {{#achievements_summary_list}}
-                                    <div style="margin-bottom: 6px;">
-                                        <div><strong style="color: #4876EF;">[{{category}}]</strong> {{title}}</div>
+                                    {{#achievements_grouped}}
+                                    <div style="margin-bottom: 8px;">
+                                        <div><strong style="color: #4876EF;">[{{category}}]</strong></div>
+                                        {{#items}}
+                                        <div style="margin-left: 16px;">- {{title}}</div>
+                                        {{/items}}
                                     </div>
-                                    {{/achievements_summary_list}}
+                                    {{/achievements_grouped}}
                                 </div>
                                 {{/has_achievements}}
                             </div>

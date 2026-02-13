@@ -117,9 +117,12 @@ CAREER_DESCRIPTION_TEMPLATE = """# 경력기술서
 
 {{#has_achievements}}
 **성과**
-{{#achievements_summary_list}}
-- **[{{category}}] {{title}}**
-{{/achievements_summary_list}}
+{{#achievements_grouped}}
+**[{{category}}]**
+{{#items}}
+- {{title}}
+{{/items}}
+{{/achievements_grouped}}
 {{/has_achievements}}
 
 ---
@@ -269,9 +272,12 @@ CAREER_DESCRIPTION_NO_PERSONAL_TEMPLATE = """# 경력기술서
 
 {{#has_achievements}}
 **성과**
-{{#achievements_summary_list}}
-- **[{{category}}] {{title}}**
-{{/achievements_summary_list}}
+{{#achievements_grouped}}
+**[{{category}}]**
+{{#items}}
+- {{title}}
+{{/items}}
+{{/achievements_grouped}}
 {{/has_achievements}}
 
 ---

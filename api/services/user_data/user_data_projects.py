@@ -125,7 +125,7 @@ def build_projects(
 
         # Build achievement formats
         achievements_basic, achievements_basic_list = _build_achievements_basic(project_achievements)
-        achievements_summary, achievements_summary_list = _build_achievements_summary(
+        achievements_summary, achievements_summary_list, achievements_grouped = _build_achievements_summary(
             detailed_achievements, project_achievements, achievements_basic
         )
         achievements_detailed, achievements_detailed_list = _build_achievements_detailed(
@@ -164,6 +164,8 @@ def build_projects(
             # 3. Detailed: Full title + description (from detailed_achievements)
             "achievements_detailed": achievements_detailed,
             "achievements_detailed_list": achievements_detailed_list,
+            # 4. Grouped: category -> items[] for platform templates
+            "achievements_grouped": achievements_grouped,
             # Legacy compatibility
             "achievements_list": achievements_summary_list or achievements_basic_list,  # For template iteration
             "has_achievements": bool(achievements_str),  # Boolean flag for Mustache
@@ -196,10 +198,15 @@ def _build_achievements_summary(
     detailed_achievements: List[Dict[str, Any]],
     project_achievements: List[Dict[str, Any]],
     achievements_basic: str
-) -> Tuple[str, List[Dict[str, Any]]]:
-    """Build SUMMARY format: Titles from detailed_achievements (grouped by category)"""
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Build SUMMARY format: Titles from detailed_achievements (grouped by category)
+
+    Returns:
+        Tuple of (summary_string, flat_list, grouped_list)
+    """
     achievements_summary = ""
     achievements_summary_list = []
+    achievements_grouped = []
 
     if detailed_achievements:
         # Group by category
@@ -213,6 +220,7 @@ def _build_achievements_summary(
         summary_lines = []
         for category, items in categories.items():
             summary_lines.append(f"**[{category}]**")
+            grouped_items = []
             for item in items:
                 summary_lines.append(f"• {item['title']}")
                 achievements_summary_list.append({
@@ -220,14 +228,28 @@ def _build_achievements_summary(
                     "title": item['title'],
                     "has_description": bool(item.get('description')),
                 })
+                grouped_items.append({"title": item['title']})
             summary_lines.append("")  # Empty line between categories
+            achievements_grouped.append({
+                "category": category,
+                "items": grouped_items,
+            })
         achievements_summary = "\n".join(summary_lines).strip()
     elif project_achievements:
         # Fallback to basic if no detailed achievements
         achievements_summary = achievements_basic
         achievements_summary_list = project_achievements
+        # Build grouped from project_achievements (group by category field)
+        cat_map = OrderedDict()
+        for ach in project_achievements:
+            cat = ach.get("category", "") or ach.get("metric_name", "기타")
+            if cat not in cat_map:
+                cat_map[cat] = []
+            cat_map[cat].append({"title": ach.get("metric_value", ach.get("title", ""))})
+        for cat, items in cat_map.items():
+            achievements_grouped.append({"category": cat, "items": items})
 
-    return achievements_summary, achievements_summary_list
+    return achievements_summary, achievements_summary_list, achievements_grouped
 
 
 def _build_achievements_detailed(

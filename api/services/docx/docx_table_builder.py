@@ -4,7 +4,9 @@ DOCX Table Builder - Table creation utilities for Word documents.
 Extracted from docx_generator.py for better modularity.
 Contains cell styling helpers and table creation methods.
 """
-from typing import Dict, List, Any, Optional
+import re
+from collections import OrderedDict
+from typing import Dict, List, Any
 
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
@@ -12,6 +14,17 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+
+def _strip_markdown(text: str) -> str:
+    """Strip markdown syntax from text for clean DOCX rendering."""
+    # Remove heading prefixes
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Remove bold markers
+    text = text.replace('**', '')
+    # Remove italic markers (single *)
+    text = re.sub(r'(?<!\*)\*(?!\*)', '', text)
+    return text.strip()
 
 
 class DocxTableBuilder:
@@ -358,11 +371,13 @@ class DocxTableBuilder:
                 run = para.add_run(f"기술스택: {project['technologies']}")
                 self.set_run_font(run, self.size_table_content, bold=False)
 
-            # Description
+            # Description (strip any markdown syntax)
             if project.get("description"):
-                para = cell1.add_paragraph()
-                run = para.add_run(project['description'])
-                self.set_run_font(run, self.size_table_content, bold=False)
+                clean_desc = _strip_markdown(project['description'])
+                if clean_desc:
+                    para = cell1.add_paragraph()
+                    run = para.add_run(clean_desc)
+                    self.set_run_font(run, self.size_table_content, bold=False)
 
             # Key tasks
             key_tasks = project.get("key_tasks", [])
@@ -373,9 +388,11 @@ class DocxTableBuilder:
                 self.set_run_font(run, self.size_table_content, bold=True)
 
                 for task in key_tasks:
-                    para = cell1.add_paragraph()
-                    run = para.add_run(f"• {task}")
-                    self.set_run_font(run, self.size_table_content, bold=False)
+                    clean_task = _strip_markdown(str(task))
+                    if clean_task:
+                        para = cell1.add_paragraph()
+                        run = para.add_run(f"• {clean_task}")
+                        self.set_run_font(run, self.size_table_content, bold=False)
 
             # Achievements
             self._add_achievements_to_cell(cell1, project)
@@ -389,7 +406,8 @@ class DocxTableBuilder:
         return table
 
     def _add_achievements_to_cell(self, cell, project: Dict[str, Any]):
-        """Add achievements section to a cell."""
+        """Add achievements section to a cell, grouped by category."""
+
         achievements_detailed = project.get("achievements_detailed_list", [])
         achievements_summary = project.get("achievements_summary_list", [])
 
@@ -407,26 +425,42 @@ class DocxTableBuilder:
         run = para.add_run("성과:")
         self.set_run_font(run, self.size_table_content, bold=True)
 
-        for ach in achievements_list:
-            if isinstance(ach, dict):
+        # Group dict achievements by category
+        if achievements_list and isinstance(achievements_list[0], dict):
+            grouped = OrderedDict()
+            for ach in achievements_list:
                 category = ach.get("category", ach.get("metric_name", "성과"))
                 title = ach.get("title", ach.get("metric_value", ""))
                 description = ach.get("description", "")
+                if category not in grouped:
+                    grouped[category] = []
+                grouped[category].append({"title": title, "description": description})
 
-                ach_text = f"[{category}] {title}"
+            for category, items in grouped.items():
+                # Category header (bold)
                 para = cell.add_paragraph()
-                run = para.add_run(ach_text)
-                self.set_run_font(run, self.size_table_content, bold=False)
+                run = para.add_run(f"[{category}]")
+                self.set_run_font(run, self.size_table_content, bold=True)
 
-                if use_detailed and description:
-                    para = cell.add_paragraph()
-                    para.paragraph_format.left_indent = Pt(12)
-                    run = para.add_run(f"→ {description}")
-                    self.set_run_font(run, self.size_table_content - 1, bold=False)
-            else:
-                ach_text = f"• {ach}"
+                for item in items:
+                    title = item["title"].replace("**", "")
+                    if title:
+                        para = cell.add_paragraph()
+                        para.paragraph_format.left_indent = Pt(12)
+                        run = para.add_run(f"• {title}")
+                        self.set_run_font(run, self.size_table_content, bold=False)
+
+                        if use_detailed and item.get("description"):
+                            desc = item["description"].replace("**", "")
+                            para = cell.add_paragraph()
+                            para.paragraph_format.left_indent = Pt(24)
+                            run = para.add_run(f"→ {desc}")
+                            self.set_run_font(run, self.size_table_content - 1, bold=False)
+        else:
+            for ach in achievements_list:
+                ach_text = str(ach).replace("**", "")
                 para = cell.add_paragraph()
-                run = para.add_run(ach_text)
+                run = para.add_run(f"• {ach_text}")
                 self.set_run_font(run, self.size_table_content, bold=False)
 
     def create_skills_table(

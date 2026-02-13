@@ -106,6 +106,22 @@ async def generate_docx(content: str, file_path: Path) -> int:
                     run.font.bold = True
         set_cell_border(cell)
 
+    def _add_formatted_paragraph(text: str, style: str = None):
+        """Add a paragraph with **bold** markdown parsed into actual bold runs."""
+        para = doc.add_paragraph(style=style) if style else doc.add_paragraph()
+        parts = re.split(r'(\*\*.+?\*\*)', text)
+        for part in parts:
+            if not part:
+                continue
+            is_bold = part.startswith('**') and part.endswith('**')
+            run = para.add_run(part[2:-2] if is_bold else part)
+            if is_bold:
+                run.font.bold = True
+            run.font.name = 'Malgun Gothic'
+            run.font.size = Pt(11)
+            run.font.color.rgb = RGBColor(0, 0, 0)
+        return para
+
     # Parse markdown-like content
     lines = content.split('\n')
     idx = 0
@@ -148,38 +164,37 @@ async def generate_docx(content: str, file_path: Path) -> int:
             continue
 
         if line.startswith('# '):
-            # Heading 1: 대제목
-            para = doc.add_heading(line[2:], level=1)
-            # Ensure color is black (override theme)
+            # Heading 1: 대제목 (strip stray ** from heading text)
+            para = doc.add_heading(line[2:].replace('**', ''), level=1)
             for run in para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)
         elif line.startswith('## '):
             # Heading 2: 중제목
-            para = doc.add_heading(line[3:], level=2)
+            para = doc.add_heading(line[3:].replace('**', ''), level=2)
             for run in para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)
         elif line.startswith('### '):
             # Heading 3: 소제목
-            para = doc.add_heading(line[4:], level=3)
+            para = doc.add_heading(line[4:].replace('**', ''), level=3)
             for run in para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)
         elif line.startswith('#### '):
             # Heading 4: 소소제목 (Bold paragraph)
             para = doc.add_paragraph()
-            run = para.add_run(line[5:])
+            run = para.add_run(line[5:].replace('**', ''))
             run.font.bold = True
             run.font.size = Pt(11)
             run.font.name = 'Malgun Gothic'
         elif line.startswith('- ') or line.startswith('• '):
-            # Bullet point
-            text = line[2:] if line.startswith('- ') else line[2:]
-            doc.add_paragraph(text, style='List Bullet')
+            # Bullet point - parse inline bold
+            text = line[2:]
+            _add_formatted_paragraph(text, style='List Bullet')
         elif line.startswith('---'):
             # Horizontal line (add empty paragraph)
             doc.add_paragraph()
         else:
-            # Regular paragraph
-            doc.add_paragraph(line)
+            # Regular paragraph - parse inline bold
+            _add_formatted_paragraph(line)
 
         idx += 1
 
@@ -240,17 +255,19 @@ async def generate_pdf(content: str, file_path: Path) -> int:
         line = line.strip()
 
         if line.startswith('# '):
-            elements.append(Paragraph(line[2:], styles['CustomHeading1']))
+            elements.append(Paragraph(line[2:].replace('**', ''), styles['CustomHeading1']))
         elif line.startswith('## '):
-            elements.append(Paragraph(line[3:], styles['CustomHeading2']))
+            elements.append(Paragraph(line[3:].replace('**', ''), styles['CustomHeading2']))
         elif line.startswith('### '):
-            elements.append(Paragraph(f"<b>{line[4:]}</b>", styles['CustomBody']))
+            elements.append(Paragraph(f"<b>{line[4:].replace('**', '')}</b>", styles['CustomBody']))
         elif line.startswith('- '):
-            elements.append(Paragraph(f"• {line[2:]}", styles['CustomBody']))
+            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line[2:])
+            elements.append(Paragraph(f"• {text}", styles['CustomBody']))
         elif line == '---':
             elements.append(Spacer(1, 0.2 * inch))
         elif line:
-            elements.append(Paragraph(line, styles['CustomBody']))
+            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line)
+            elements.append(Paragraph(text, styles['CustomBody']))
         else:
             elements.append(Spacer(1, 0.1 * inch))
 
