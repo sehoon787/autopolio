@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAppStore } from '@/stores/appStore'
 import { useUserStore } from '@/stores/userStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { usersApi } from '@/api/users'
 import { githubApi } from '@/api/github'
 import { isElectron } from '@/lib/electron'
@@ -139,6 +140,18 @@ function App() {
 
     initUser()
   }, [setUser, backendReady])
+
+  // Global analysis polling - keeps Calls/Tokens updated regardless of current page
+  useEffect(() => {
+    if (isInitializing) return
+    const user = useUserStore.getState().user
+    if (!user?.id) return
+
+    const { startPolling, stopPolling } = useAnalysisStore.getState()
+    startPolling(user.id)
+
+    return () => stopPolling()
+  }, [isInitializing])
 
   // Auto-sync GitHub CLI token on Electron startup
   useEffect(() => {

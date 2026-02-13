@@ -26,6 +26,44 @@ router = APIRouter(tags=["github"])
 encryption = EncryptionService()
 
 
+def _extract_token_and_provider(job) -> tuple:
+    """Extract token_usage and llm_provider from a Job model.
+
+    Returns (token_usage, llm_provider) tuple.
+    """
+    token_usage = None
+    if job.output_data and isinstance(job.output_data, dict):
+        token_usage = job.output_data.get("total_tokens")
+
+    llm_provider = None
+    if job.input_data and isinstance(job.input_data, dict):
+        options = job.input_data.get("options", {})
+        llm_provider = options.get("provider") or options.get("cli_mode")
+
+    return token_usage, llm_provider
+
+
+def _build_job_status(job) -> AnalysisJobStatus:
+    """Build AnalysisJobStatus from a Job model."""
+    token_usage, llm_provider = _extract_token_and_provider(job)
+    return AnalysisJobStatus(
+        task_id=job.task_id,
+        project_id=job.target_project_id,
+        status=job.status,
+        progress=job.progress,
+        current_step=job.current_step,
+        total_steps=job.total_steps,
+        step_name=job.step_name,
+        error_message=job.error_message,
+        partial_results=job.partial_results,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        created_at=job.created_at,
+        token_usage=token_usage,
+        llm_provider=llm_provider,
+    )
+
+
 @router.post("/analyze-background", response_model=StartAnalysisResponse)
 async def start_background_analysis(
     request: RepoAnalysisRequest,
@@ -134,38 +172,8 @@ async def get_active_analyses(
     service = AnalysisJobService(db)
     jobs = await service.get_active_jobs_for_user(user_id)
 
-    def _extract_job_status(job):
-        """Extract AnalysisJobStatus from Job model."""
-        # Extract token usage from output_data
-        token_usage = None
-        if job.output_data and isinstance(job.output_data, dict):
-            token_usage = job.output_data.get("total_tokens")
-
-        # Extract LLM provider from input_data
-        llm_provider = None
-        if job.input_data and isinstance(job.input_data, dict):
-            options = job.input_data.get("options", {})
-            llm_provider = options.get("provider") or options.get("cli_mode")
-
-        return AnalysisJobStatus(
-            task_id=job.task_id,
-            project_id=job.target_project_id,
-            status=job.status,
-            progress=job.progress,
-            current_step=job.current_step,
-            total_steps=job.total_steps,
-            step_name=job.step_name,
-            error_message=job.error_message,
-            partial_results=job.partial_results,
-            started_at=job.started_at,
-            completed_at=job.completed_at,
-            created_at=job.created_at,
-            token_usage=token_usage,
-            llm_provider=llm_provider,
-        )
-
     return AnalysisJobListResponse(
-        jobs=[_extract_job_status(job) for job in jobs],
+        jobs=[_build_job_status(job) for job in jobs],
         total=len(jobs)
     )
 
@@ -187,33 +195,7 @@ async def get_analysis_status(
     if job.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this job")
 
-    # Extract token usage from output_data
-    token_usage = None
-    if job.output_data and isinstance(job.output_data, dict):
-        token_usage = job.output_data.get("total_tokens")
-
-    # Extract LLM provider from input_data
-    llm_provider = None
-    if job.input_data and isinstance(job.input_data, dict):
-        options = job.input_data.get("options", {})
-        llm_provider = options.get("provider") or options.get("cli_mode")
-
-    return AnalysisJobStatus(
-        task_id=job.task_id,
-        project_id=job.target_project_id,
-        status=job.status,
-        progress=job.progress,
-        current_step=job.current_step,
-        total_steps=job.total_steps,
-        step_name=job.step_name,
-        error_message=job.error_message,
-        partial_results=job.partial_results,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        created_at=job.created_at,
-        token_usage=token_usage,
-        llm_provider=llm_provider,
-    )
+    return _build_job_status(job)
 
 
 @router.post("/analysis/{project_id}/cancel", response_model=CancelAnalysisResponse)
@@ -268,17 +250,4 @@ async def get_job_status(
     if job.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this job")
 
-    return AnalysisJobStatus(
-        task_id=job.task_id,
-        project_id=job.target_project_id,
-        status=job.status,
-        progress=job.progress,
-        current_step=job.current_step,
-        total_steps=job.total_steps,
-        step_name=job.step_name,
-        error_message=job.error_message,
-        partial_results=job.partial_results,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        created_at=job.created_at,
-    )
+    return _build_job_status(job)

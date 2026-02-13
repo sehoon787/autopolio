@@ -7,11 +7,13 @@ function mapProviderToUsageKey(provider?: string): keyof LLMUsage | null {
   if (!provider) return null
 
   const providerLower = provider.toLowerCase()
+  // CLI providers must be checked FIRST — 'claude_code'.includes('claude') is true
+  if (providerLower === 'claude_code') return 'claude_code_cli'
+  if (providerLower === 'gemini_cli') return 'gemini_cli'
+  // API providers
   if (providerLower === 'openai' || providerLower.includes('gpt')) return 'openai'
   if (providerLower === 'anthropic' || providerLower.includes('claude')) return 'anthropic'
   if (providerLower === 'gemini' || providerLower.includes('gemini')) return 'gemini'
-  if (providerLower === 'claude_code') return 'claude_code_cli'
-  if (providerLower === 'gemini_cli') return 'gemini_cli'
 
   return null
 }
@@ -53,6 +55,10 @@ interface AnalysisState {
   cancelAnalysis: (userId: number, projectId: number) => Promise<void>
 }
 
+// Polling intervals
+const FAST_POLL_MS = 2000   // 2s when analysis is running
+const SLOW_POLL_MS = 30000  // 30s idle check for recently completed jobs
+
 export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
   activeJobs: new Map(),
   processedTaskIds: new Set(),
@@ -66,10 +72,10 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
     // Initial fetch
     get().refreshJobs(userId)
 
-    // Start polling every 2 seconds
+    // Start with slow polling; refreshJobs will switch to fast when active jobs exist
     const interval = setInterval(() => {
       get().refreshJobs(userId)
-    }, 2000)
+    }, SLOW_POLL_MS)
 
     set({ isPolling: true, pollingInterval: interval })
   },
@@ -88,7 +94,7 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
       const jobs = response.data.jobs
 
       const jobMap = new Map<number, AnalysisJobStatus>()
-      const { processedTaskIds } = get()
+      const { processedTaskIds, pollingInterval } = get()
       const newProcessedTaskIds = new Set(processedTaskIds)
       let hasActiveJobs = false
 
@@ -96,19 +102,15 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
         if (job.project_id) {
           jobMap.set(job.project_id, job)
 
-          // Check if this is a newly completed job with token usage
-          if (
-            job.status === 'completed' &&
-            job.token_usage &&
-            job.token_usage > 0 &&
-            !processedTaskIds.has(job.task_id)
-          ) {
-            // Track token usage
+          // Track completed jobs (call count always, tokens only when available)
+          if (job.status === 'completed' && !processedTaskIds.has(job.task_id)) {
             const provider = mapProviderToUsageKey(job.llm_provider)
             if (provider) {
               useUsageStore.getState().incrementLLMCallCount(provider)
-              useUsageStore.getState().trackTokenUsage(provider, job.token_usage)
-              console.log(`[AnalysisStore] Tracked ${job.token_usage} tokens for provider ${provider}`)
+              if (job.token_usage && job.token_usage > 0) {
+                useUsageStore.getState().trackTokenUsage(provider, job.token_usage)
+              }
+              console.log(`[AnalysisStore] Tracked call for ${provider}, tokens: ${job.token_usage ?? 0}`)
             }
             newProcessedTaskIds.add(job.task_id)
           }
@@ -122,10 +124,15 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
 
       set({ activeJobs: jobMap, processedTaskIds: newProcessedTaskIds })
 
-      // Stop polling if no active jobs
-      if (!hasActiveJobs) {
-        get().stopPolling()
+      // Switch polling speed: fast when active, slow when idle
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
       }
+      const nextInterval = hasActiveJobs ? FAST_POLL_MS : SLOW_POLL_MS
+      const newInterval = setInterval(() => {
+        get().refreshJobs(userId)
+      }, nextInterval)
+      set({ pollingInterval: newInterval })
     } catch (error) {
       console.error('[AnalysisStore] Failed to refresh jobs:', error)
     }

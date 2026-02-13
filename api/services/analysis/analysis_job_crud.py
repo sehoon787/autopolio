@@ -99,9 +99,11 @@ class AnalysisJobService:
 
         Includes:
         - Active jobs (pending, running)
-        - Recently completed jobs (within last 60 seconds) for token tracking
+        - Recently completed jobs (within last 10 minutes) for token tracking
+          The window must be long enough for the frontend to poll and process
+          the completed job, even if the user navigates away during analysis.
         """
-        recent_cutoff = datetime.utcnow() - timedelta(seconds=60)
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=10)
 
         result = await self.db.execute(
             select(Job).where(
