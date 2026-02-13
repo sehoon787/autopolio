@@ -327,7 +327,8 @@ export const githubApi = {
 
   getRepos: (userId: number, fetchAll: boolean = true) =>
     apiClient.get<{ repos: GitHubRepo[]; total: number; has_more: boolean }>('/github/repos', {
-      params: { user_id: userId, fetch_all: fetchAll }
+      params: { user_id: userId, fetch_all: fetchAll },
+      timeout: ANALYSIS_TIMEOUT, // 5 min - backend makes 5 sequential GitHub API calls
     }),
 
   analyzeRepo: (

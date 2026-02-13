@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { usePipelineStore } from '@/stores/pipelineStore'
 import { useUsageStore, LLMUsage } from '@/stores/usageStore'
 import { pipelineApi } from '@/api/pipeline'
+import { getFullApiUrl } from '@/lib/apiUrl'
 import {
   CheckCircle2,
   XCircle,
@@ -117,21 +118,20 @@ export default function PipelinePage() {
       const cliType = result.llm_cli_type as string | undefined
       const llmProvider = result.llm_provider as string | undefined
 
-      if (tokensUsed && tokensUsed > 0) {
-        // Determine which provider to track
-        let provider: keyof LLMUsage | null = null
-        if (executionMode === 'cli' && cliType) {
-          provider = cliType === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
-        } else if (llmProvider) {
-          if (llmProvider === 'openai' || llmProvider === 'anthropic' || llmProvider === 'gemini') {
-            provider = llmProvider
-          }
+      // Determine which provider to track
+      let provider: keyof LLMUsage | null = null
+      if (executionMode === 'cli' && cliType) {
+        provider = cliType === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
+      } else if (llmProvider) {
+        if (llmProvider === 'openai' || llmProvider === 'anthropic' || llmProvider === 'gemini') {
+          provider = llmProvider
         }
+      }
 
-        if (provider) {
-          trackTokenUsage(provider, tokensUsed)
-          incrementLLMCallCount(provider)
-        }
+      // Only track usage if LLM was actually called (tokens > 0)
+      if (provider && tokensUsed && tokensUsed > 0) {
+        incrementLLMCallCount(provider)
+        trackTokenUsage(provider, tokensUsed)
       }
     }
   }, [status?.status, status?.result, currentTaskId, trackTokenUsage, incrementLLMCallCount])
@@ -210,7 +210,7 @@ export default function PipelinePage() {
 
   const handleDownload = () => {
     if (status.result?.document_id) {
-      window.open(`/api/documents/${status.result.document_id}/download`, '_blank')
+      window.open(getFullApiUrl(`/api/documents/${status.result.document_id}/download`), '_blank')
     }
   }
 

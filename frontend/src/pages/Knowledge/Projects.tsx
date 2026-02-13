@@ -140,7 +140,6 @@ export default function ProjectsPage() {
     getProgress,
     getJob,
     startPolling,
-    stopPolling,
     activeJobs,
     cancelAnalysis,
     startAnalysis,
@@ -176,13 +175,12 @@ export default function ProjectsPage() {
   // GitHub connection check
   const isGitHubConnected = !!user?.github_username
 
-  // Start polling for active analyses on mount
+  // Ensure polling is running (App.tsx manages lifecycle, this just ensures it's started)
   useEffect(() => {
     if (user?.id) {
       startPolling(user.id)
     }
-    return () => stopPolling()
-  }, [user?.id, startPolling, stopPolling])
+  }, [user?.id, startPolling])
 
   // Refetch projects when analysis jobs complete
   useEffect(() => {

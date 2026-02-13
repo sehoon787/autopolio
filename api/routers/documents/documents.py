@@ -9,6 +9,7 @@ import os
 from api.database import get_db
 from api.models.document import GeneratedDocument
 from api.schemas.document import DocumentResponse, DocumentListResponse
+from api.config import get_settings
 
 # Import sub-routers
 from .documents_reports import router as reports_router
@@ -19,6 +20,22 @@ router = APIRouter()
 # Include sub-routers with prefixes
 router.include_router(reports_router, prefix="/reports", tags=["Reports"])
 router.include_router(export_router, prefix="/export", tags=["Export"])
+
+
+def _resolve_file_path(stored_path: str) -> str:
+    """Resolve a stored file path, falling back to result_dir by filename.
+
+    DB may store Docker paths (/app/result/...) that don't exist locally.
+    Falls back to settings.result_dir / basename.
+    """
+    if os.path.exists(stored_path):
+        return stored_path
+    # Try resolving by filename in local result_dir
+    filename = os.path.basename(stored_path)
+    local_path = str(get_settings().result_dir / filename)
+    if os.path.exists(local_path):
+        return local_path
+    return stored_path  # Return original for consistent error
 
 
 # ==================== Document CRUD Endpoints ====================
@@ -82,7 +99,8 @@ async def download_document(document_id: int, db: AsyncSession = Depends(get_db)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not os.path.exists(document.file_path):
+    resolved_path = _resolve_file_path(document.file_path)
+    if not os.path.exists(resolved_path):
         raise HTTPException(status_code=404, detail="File not found")
 
     # Determine media type
@@ -94,7 +112,7 @@ async def download_document(document_id: int, db: AsyncSession = Depends(get_db)
     media_type = media_types.get(document.file_format, "application/octet-stream")
 
     return FileResponse(
-        path=document.file_path,
+        path=resolved_path,
         media_type=media_type,
         filename=f"{document.document_name}.{document.file_format}"
     )
@@ -111,12 +129,13 @@ async def preview_document(document_id: int, db: AsyncSession = Depends(get_db))
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not os.path.exists(document.file_path):
+    resolved_path = _resolve_file_path(document.file_path)
+    if not os.path.exists(resolved_path):
         raise HTTPException(status_code=404, detail="File not found")
 
     # Only support preview for markdown files
     if document.file_format == "md":
-        with open(document.file_path, "r", encoding="utf-8") as f:
+        with open(resolved_path, "r", encoding="utf-8") as f:
             content = f.read()
         return {
             "document_id": document.id,
@@ -148,8 +167,9 @@ async def delete_document(document_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
 
     # Delete file if exists
-    if document.file_path and os.path.exists(document.file_path):
-        os.remove(document.file_path)
+    resolved_path = _resolve_file_path(document.file_path) if document.file_path else None
+    if resolved_path and os.path.exists(resolved_path):
+        os.remove(resolved_path)
 
     await db.delete(document)
     await db.flush()  # Ensure delete is staged for commit

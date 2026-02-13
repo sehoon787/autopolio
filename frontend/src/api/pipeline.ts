@@ -53,6 +53,8 @@ export interface PipelineResult {
   steps_completed: number
   projects_processed: number
   llm_tokens_used: number | null
+  llm_execution_mode: string | null
+  llm_cli_type: string | null
 }
 
 export interface Job {

@@ -68,7 +68,6 @@ export default function ProjectDetailPage() {
     getProgress,
     getJob,
     startPolling,
-    stopPolling,
     startAnalysis,
     cancelAnalysis,
     activeJobs,
@@ -87,13 +86,12 @@ export default function ProjectDetailPage() {
 
   const projectId = parseInt(id || '0')
 
-  // Start polling for analysis status
+  // Ensure polling is running (App.tsx manages lifecycle, this just ensures it's started)
   useEffect(() => {
     if (user?.id) {
       startPolling(user.id)
     }
-    return () => stopPolling()
-  }, [user?.id, startPolling, stopPolling])
+  }, [user?.id, startPolling])
 
   // Set default analysis language from user preference
   useEffect(() => {

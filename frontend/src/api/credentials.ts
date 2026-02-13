@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { getFullApiUrl } from '@/lib/apiUrl'
 
 // ============================================================
 // Certification Types (자격증)
@@ -377,7 +378,7 @@ export const attachmentsApi = {
   },
 
   getDownloadUrl: (userId: number, credentialType: CredentialType, id: number) =>
-    `${apiClient.defaults.baseURL}/knowledge/credentials/${credentialType}/${id}/attachment?user_id=${userId}`,
+    getFullApiUrl(`/api/knowledge/credentials/${credentialType}/${id}/attachment?user_id=${userId}`),
 
   delete: (userId: number, credentialType: CredentialType, id: number) =>
     apiClient.delete(`/knowledge/credentials/${credentialType}/${id}/attachment`, {

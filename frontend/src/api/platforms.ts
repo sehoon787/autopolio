@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { getFullApiUrl } from '@/lib/apiUrl'
 
 // ===== Types =====
 
@@ -240,10 +241,8 @@ export const platformsApi = {
     ),
 
   // Download helper - returns the full download URL
-  getDownloadUrl: (filename: string) => {
-    const baseUrl = apiClient.defaults.baseURL || '/api'
-    return `${baseUrl}/platforms/download/${filename}`
-  }
+  getDownloadUrl: (filename: string) =>
+    getFullApiUrl(`/api/platforms/download/${filename}`),
 }
 
 export default platformsApi

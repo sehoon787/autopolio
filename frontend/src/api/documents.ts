@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { getFullApiUrl } from '@/lib/apiUrl'
 import type { ImplementationDetail, DevelopmentTimelinePhase, DetailedAchievementItem } from './github'
 
 export interface Document {
@@ -195,7 +196,7 @@ export const documentsApi = {
   download: (id: number) =>
     apiClient.get(`/documents/${id}/download`, { responseType: 'blob' }),
 
-  getDownloadUrl: (id: number) => `/api/documents/${id}/download`,
+  getDownloadUrl: (id: number) => getFullApiUrl(`/api/documents/${id}/download`),
 
   preview: (id: number) =>
     apiClient.get<DocumentPreview>(`/documents/${id}/preview`),
@@ -234,7 +235,7 @@ export const reportsApi = {
     }),
 
   getDownloadUrl: (reportType: 'projects' | 'performance' | 'company-integrated', userId: number) =>
-    `/api/documents/reports/download/${reportType}?user_id=${userId}`,
+    getFullApiUrl(`/api/documents/reports/download/${reportType}?user_id=${userId}`),
 
   // Project-specific reports
   getDetailedReport: (projectId: number) =>
@@ -322,7 +323,7 @@ export const exportApi = {
    * Get download URL for exported file
    */
   getDownloadUrl: (filename: string) =>
-    `/api/documents/export/download/${filename}`,
+    getFullApiUrl(`/api/documents/export/download/${filename}`),
 
   // Single project export methods
 

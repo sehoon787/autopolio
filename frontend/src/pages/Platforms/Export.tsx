@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { platformsApi } from '@/api/platforms'
+import { getFullApiUrl } from '@/lib/apiUrl'
 import { usersApi } from '@/api/users'
 import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
@@ -124,9 +125,9 @@ export default function PlatformExportPage() {
     onSuccess: (response) => {
       const { filename, download_url } = response.data
 
-      // Trigger download
+      // Trigger download (convert relative URL for Electron)
       const link = document.createElement('a')
-      link.href = download_url
+      link.href = getFullApiUrl(download_url)
       link.download = filename
       document.body.appendChild(link)
       link.click()
