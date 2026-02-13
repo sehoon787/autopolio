@@ -35,6 +35,9 @@ class PipelineRunRequest(BaseModel):
     cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli' for CLI execution
     cli_model: Optional[str] = None  # Model name for CLI execution (e.g., 'claude-sonnet-4-20250514')
 
+    # Internal (set by PipelineService, not from client)
+    task_id: Optional[str] = None
+
 
 class PipelineStatusResponse(BaseModel):
     """Response for pipeline execution status."""

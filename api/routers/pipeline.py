@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+import asyncio
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
@@ -11,26 +14,30 @@ from api.schemas.job import JobResponse, JobListResponse
 from api.services.pipeline import PipelineService
 from api.services.core import TaskService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Store references to background tasks to prevent garbage collection
+_background_tasks: set = set()
 
 
 @router.post("/run", response_model=JobResponse)
 async def run_pipeline(
     request: PipelineRunRequest,
-    background_tasks: BackgroundTasks,
     user_id: int = Query(..., description="User ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Start the document generation pipeline.
 
-    6-step pipeline:
+    7-step pipeline:
     1. GitHub Analysis - Analyze commits and code
     2. Code Extraction - Extract patterns and architecture
     3. Tech Detection - Auto-detect technologies
-    4. LLM Summarization - Generate AI summaries
-    5. Template Mapping - Map data to template
-    6. Document Generation - Create final document
+    4. Achievement Detection - Auto-detect achievements
+    5. LLM Summarization - Generate AI summaries
+    6. Template Mapping - Map data to template
+    7. Document Generation - Create final document
     """
     # Verify user exists
     result = await db.execute(select(User).where(User.id == user_id))
@@ -44,20 +51,23 @@ async def run_pipeline(
         user_id=user_id,
         job_type="pipeline",
         input_data=request.model_dump(),
-        total_steps=7  # 7 steps: GitHub Analysis, Code Extraction, Tech Detection, Achievement Detection, LLM Summarization, Template Mapping, Document Generation
+        total_steps=7  # 7 steps
     )
 
     # Commit immediately so the job is visible to status queries
     await db.commit()
     await db.refresh(job)
 
-    # Start pipeline in background
+    # Start pipeline in background using asyncio.create_task
+    # PipelineService.run_pipeline creates its own DB session internally
     pipeline_service = PipelineService(db, user_id)
-    background_tasks.add_task(
-        pipeline_service.run_pipeline,
-        job.task_id,
-        request
+    task = asyncio.create_task(
+        pipeline_service.run_pipeline(job.task_id, request),
+        name=f"pipeline-{job.task_id}"
     )
+    # Store reference to prevent GC and auto-cleanup on completion
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return job
 
@@ -160,8 +170,8 @@ async def get_pipeline_result(
         "steps_completed": job.current_step,
         "projects_processed": output.get("projects_processed", 0),
         "llm_tokens_used": output.get("llm_tokens_used"),
-        "token_usage": output.get("llm_tokens_used", 0),
-        "provider": output.get("llm_provider")
+        "llm_execution_mode": output.get("llm_execution_mode"),
+        "llm_cli_type": output.get("llm_cli_type"),
     }
 
 
