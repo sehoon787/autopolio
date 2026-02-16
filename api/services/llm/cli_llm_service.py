@@ -100,14 +100,37 @@ class CLILLMService:
                 logger.debug("Command: %s...%s", ' '.join(args[:4]), f" --model {self.model}" if self.model else "")
 
             logger.debug("Running with stdin pipe (timeout: %ds)", CLI_TIMEOUT_SECONDS)
-            result = subprocess.run(
+
+            # Use Popen instead of subprocess.run to handle Windows process tree kill on timeout.
+            # subprocess.run's timeout kills only the parent (cmd.exe) but orphans child node.exe,
+            # causing communicate() to block forever on pipe drain.
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+            process = subprocess.Popen(
                 exec_args,
-                capture_output=True,
-                timeout=CLI_TIMEOUT_SECONDS,
-                input=prompt_bytes,  # Pass prompt via stdin
-                text=False,  # Get bytes, decode manually for better error handling
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                creationflags=creation_flags,
             )
-            return result
+            try:
+                stdout, stderr = process.communicate(input=prompt_bytes, timeout=CLI_TIMEOUT_SECONDS)
+                return subprocess.CompletedProcess(exec_args, process.returncode, stdout, stderr)
+            except subprocess.TimeoutExpired:
+                logger.warning("[CLI] Timeout after %ds, killing process tree (pid=%d)", CLI_TIMEOUT_SECONDS, process.pid)
+                if sys.platform == "win32":
+                    # Kill entire process tree (cmd.exe + node.exe + children)
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(process.pid)],
+                        capture_output=True, timeout=10,
+                    )
+                else:
+                    process.kill()
+                # Drain any remaining output with short timeout
+                try:
+                    process.communicate(timeout=5)
+                except (subprocess.TimeoutExpired, OSError):
+                    pass
+                raise
 
         try:
             # Run subprocess in thread pool to avoid blocking event loop
@@ -123,16 +146,38 @@ class CLILLMService:
             logger.debug("Return code: %d", result.returncode)
             logger.debug("Output length: %d, stderr length: %d", len(output), len(stderr_text))
 
-            if not output and stderr_text:
-                raise RuntimeError(f"CLI error: {stderr_text[:500]}")
+            # Filter out harmless CLI noise from stderr
+            _STDERR_NOISE = (
+                "(node:",                       # Node.js process warnings
+                "DeprecationWarning",           # Node.js deprecation warnings
+                "Use `node --trace-deprecation", # Node.js trace hint
+                "Loaded cached credentials",    # Gemini CLI auth message
+                "ExperimentalWarning",          # Node.js experimental feature
+                "Hook registry initialized",    # Gemini CLI hook registry info
+                "hook entries",                 # Gemini CLI hook registry info
+            )
+            stderr_significant = "\n".join(
+                line for line in stderr_text.splitlines()
+                if not any(noise in line for noise in _STDERR_NOISE)
+            ).strip()
+
+            if not output and stderr_significant:
+                raise RuntimeError(f"CLI error: {stderr_significant[:500]}")
+
+            if not output and not stderr_significant:
+                logger.warning("[CLI] Empty stdout and no significant stderr (cli=%s, returncode=%d)",
+                               self.cli_type, result.returncode)
+                return "", 0
 
             if result.returncode != 0 and not output:
                 raise RuntimeError(
-                    f"CLI exited with code {result.returncode}. Stderr: {stderr_text[:500]}"
+                    f"CLI exited with code {result.returncode}. Stderr: {stderr_significant[:500]}"
                 )
 
             content, token_count = self._parse_json_output(output)
-            logger.debug("Parsed content length: %d, tokens: %d", len(content), token_count)
+            logger.info("[CLI] Parsed: content_len=%d, tokens=%d, cli=%s", len(content), token_count, self.cli_type)
+            if not content or content == output:
+                logger.warning("[CLI] Content may be raw/unparsed (cli=%s)", self.cli_type)
             self.total_tokens_used += token_count
             return content, token_count
 
@@ -158,9 +203,21 @@ class CLILLMService:
         prompt = self._build_summary_prompt(project_data, style, language)
         content, token_count = await self.generate_with_cli(prompt)
 
+        # Try to parse key_features from structured CLI response
+        key_features = []
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict):
+                kf = parsed.get("key_features", [])
+                if isinstance(kf, list):
+                    key_features = kf
+                content = parsed.get("summary", content)
+        except (json.JSONDecodeError, ValueError):
+            pass  # Plain text summary, no key_features
+
         return {
             "summary": content,
-            "key_features": [],
+            "key_features": key_features,
             "token_usage": token_count,
         }
 
@@ -231,8 +288,8 @@ class CLILLMService:
         try:
             data = json.loads(raw_output)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.debug("JSON parse failed: %s", e)
-            logger.debug("Raw output preview: %s...", raw_output[:500] if len(raw_output) > 500 else raw_output)
+            logger.warning("[CLI] JSON parse failed: %s (output length: %d)", e, len(raw_output))
+            logger.warning("[CLI] Raw output preview: %.300s", raw_output)
             return raw_output, 0
 
         if not isinstance(data, dict):
@@ -385,7 +442,7 @@ class CLILLMService:
             user_context,
             code_context
         )
-        self.total_tokens_used += tokens
+        # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return tasks
 
     async def generate_implementation_details(
@@ -407,7 +464,7 @@ class CLILLMService:
             language,
             user_context
         )
-        self.total_tokens_used += tokens
+        # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return details
 
     async def generate_detailed_achievements(
@@ -429,6 +486,6 @@ class CLILLMService:
             language,
             user_context
         )
-        self.total_tokens_used += tokens
+        # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return achievements
 

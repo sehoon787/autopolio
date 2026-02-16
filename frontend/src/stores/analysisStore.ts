@@ -50,6 +50,7 @@ interface AnalysisState {
       cli_mode?: 'claude_code' | 'gemini_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language
+      project_repository_id?: number  // Specific repo in multi-repo project
     }
   ) => Promise<{ task_id: string; project_id: number }>
   cancelAnalysis: (userId: number, projectId: number) => Promise<void>

@@ -1,6 +1,7 @@
 from api.models.user import User
 from api.models.company import Company
 from api.models.project import Project, ProjectTechnology, Technology
+from api.models.project_repository import ProjectRepository
 from api.models.achievement import ProjectAchievement
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
@@ -16,6 +17,7 @@ __all__ = [
     "User",
     "Company",
     "Project",
+    "ProjectRepository",
     "ProjectTechnology",
     "Technology",
     "ProjectAchievement",

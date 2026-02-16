@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { SelectableTile } from '@/components/ui/selectable-tile'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useSelection } from '@/hooks/useSelection'
 import { githubApi, GitHubRepo } from '@/api/github'
-import { projectsApi } from '@/api/knowledge'
+import { projectsApi, ProjectRepositoryCreate } from '@/api/knowledge'
 import { isElectron } from '@/lib/electron'
 import {
   Github,
@@ -26,6 +29,7 @@ import {
   AlertTriangle,
   Filter,
   X,
+  Layers,
 } from 'lucide-react'
 
 export default function RepoSelector() {
@@ -194,13 +198,6 @@ export default function RepoSelector() {
     retry: 1,
   })
 
-  // Step 3: Fetch existing projects to filter out already-added repos
-  const { data: projectsData } = useQuery({
-    queryKey: ['projects', user?.id],
-    queryFn: () => projectsApi.getAll(user!.id),
-    enabled: !!user?.id,
-  })
-
   // Loading state: for Electron, check CLI status; for Web, check backend status
   const isCheckingAuth = isElectron() ? !cliAuthStatus.checked : statusLoading
   const isLoading = isCheckingAuth || (canFetchRepos && reposLoading)
@@ -214,19 +211,6 @@ export default function RepoSelector() {
   const repos: GitHubRepo[] = (reposData?.data?.repos as GitHubRepo[]) || []
   const totalRepos = reposData?.data?.total || 0
 
-  // Get set of already-added repo URLs (for filtering)
-  const addedRepoUrls = useMemo(() => {
-    const urls = new Set<string>()
-    projectsData?.data?.projects?.forEach((p) => {
-      if (p.git_url) {
-        // Normalize URL: remove trailing .git and convert to lowercase
-        const normalized = p.git_url.toLowerCase().replace(/\.git$/, '')
-        urls.add(normalized)
-      }
-    })
-    return urls
-  }, [projectsData])
-
   // Get unique languages for filter
   const languages = useMemo(() => {
     const langSet = new Set<string>()
@@ -236,26 +220,11 @@ export default function RepoSelector() {
     return Array.from(langSet).sort()
   }, [repos])
 
-  // Count of repos already added as projects
-  const alreadyAddedCount = useMemo(() => {
-    return repos.filter((repo) => {
-      const normalizedCloneUrl = repo.clone_url.toLowerCase().replace(/\.git$/, '')
-      const normalizedHtmlUrl = repo.html_url.toLowerCase().replace(/\.git$/, '')
-      return addedRepoUrls.has(normalizedCloneUrl) || addedRepoUrls.has(normalizedHtmlUrl)
-    }).length
-  }, [repos, addedRepoUrls])
-
-  // Filtered repos (excluding already-added repos)
+  // Filtered repos
   const filteredRepos = useMemo(() => {
     const githubUsername = user?.github_username?.toLowerCase() || ''
 
     return repos.filter((repo) => {
-      // Check if repo is already added as a project
-      const normalizedCloneUrl = repo.clone_url.toLowerCase().replace(/\.git$/, '')
-      const normalizedHtmlUrl = repo.html_url.toLowerCase().replace(/\.git$/, '')
-      const isAlreadyAdded = addedRepoUrls.has(normalizedCloneUrl) || addedRepoUrls.has(normalizedHtmlUrl)
-      if (isAlreadyAdded) return false
-
       const matchesSearch = searchQuery === '' ||
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -271,20 +240,20 @@ export default function RepoSelector() {
       } else if (ownerFilter === 'forked') {
         matchesOwner = isFork
       } else if (ownerFilter === 'contributed') {
-        // Contributed: repos where user is the owner (either owned or forked into their account)
         matchesOwner = isOwned
       }
 
       return matchesSearch && matchesLanguage && matchesOwner
     })
-  }, [repos, searchQuery, languageFilter, ownerFilter, addedRepoUrls, user?.github_username])
+  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username])
 
-  // Virtual list configuration
+  // Virtual list configuration with dynamic measurement
   const virtualizer = useVirtualizer({
     count: filteredRepos.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100, // Estimated row height (repos with description ~110px, without ~80px)
-    overscan: 5, // Render 5 extra items above/below viewport
+    estimateSize: () => 88,
+    overscan: 5,
+    measureElement: (el) => el?.getBoundingClientRect().height ?? 88,
   })
 
   // Track the actual user_id where token was saved (may differ due to merge)
@@ -361,6 +330,16 @@ export default function RepoSelector() {
     },
   })
 
+  // Bundle dialog state
+  const [bundleDialogOpen, setBundleDialogOpen] = useState(false)
+  const [bundleProjectName, setBundleProjectName] = useState('')
+  const [bundleRepos, setBundleRepos] = useState<Array<{
+    url: string
+    name: string
+    label: string
+    isPrimary: boolean
+  }>>([])
+
   // Handlers
   const handleImport = () => {
     if (selection.selectedCount === 0) {
@@ -373,6 +352,89 @@ export default function RepoSelector() {
     }
     importMutation.mutate(selection.getSelectedArray())
   }
+
+  const handleOpenBundleDialog = useCallback(() => {
+    const selectedUrls = selection.getSelectedArray()
+    const repoEntries = selectedUrls.map((url, index) => {
+      const repo = repos.find((r) => r.clone_url === url)
+      return {
+        url,
+        name: repo?.name || url.split('/').pop()?.replace('.git', '') || url,
+        label: '',
+        isPrimary: index === 0,
+      }
+    })
+    setBundleRepos(repoEntries)
+    setBundleProjectName(repoEntries[0]?.name || '')
+    setBundleDialogOpen(true)
+  }, [selection, repos])
+
+  const handleBundleSetPrimary = useCallback((url: string) => {
+    setBundleRepos((prev) =>
+      prev.map((r) => ({ ...r, isPrimary: r.url === url }))
+    )
+  }, [])
+
+  const handleBundleLabelChange = useCallback((url: string, label: string) => {
+    setBundleRepos((prev) =>
+      prev.map((r) => r.url === url ? { ...r, label } : r)
+    )
+  }, [])
+
+  // Bundle create mutation
+  const bundleCreateMutation = useMutation({
+    mutationFn: async () => {
+      const targetUserId = actualUserId || user!.id
+      const primaryRepo = bundleRepos.find((r) => r.isPrimary) || bundleRepos[0]
+
+      // Fetch repo info + technologies for primary repo
+      const [repoInfoRes, techRes] = await Promise.all([
+        githubApi.getRepoInfo(targetUserId, primaryRepo.url),
+        githubApi.detectTechnologies(targetUserId, primaryRepo.url),
+      ])
+
+      const repoInfo = repoInfoRes.data
+      const technologies = techRes.data?.technologies || []
+
+      const repositories: ProjectRepositoryCreate[] = bundleRepos.map((r) => ({
+        git_url: r.url,
+        label: r.label || undefined,
+        is_primary: r.isPrimary,
+      }))
+
+      return projectsApi.create(targetUserId, {
+        name: bundleProjectName,
+        short_description: repoInfo.description || undefined,
+        git_url: primaryRepo.url,
+        project_type: 'personal',
+        status: 'pending',
+        start_date: repoInfo.start_date
+          ? new Date(repoInfo.start_date).toISOString().split('T')[0]
+          : undefined,
+        technologies,
+        repositories,
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: t('bundleDialog.success'),
+        description: t('bundleDialog.successDesc', {
+          name: bundleProjectName,
+          count: bundleRepos.length,
+        }),
+      })
+      setBundleDialogOpen(false)
+      selection.deselectAll()
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('bundleDialog.error'),
+        description: error?.response?.data?.detail || t('bundleDialog.errorDesc'),
+        variant: 'destructive',
+      })
+    },
+  })
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -504,6 +566,19 @@ export default function RepoSelector() {
         </div>
       </div>
 
+      {/* Bundle Dialog */}
+      <BundleDialog
+        open={bundleDialogOpen}
+        onOpenChange={setBundleDialogOpen}
+        projectName={bundleProjectName}
+        onProjectNameChange={setBundleProjectName}
+        repos={bundleRepos}
+        onSetPrimary={handleBundleSetPrimary}
+        onLabelChange={handleBundleLabelChange}
+        onSubmit={() => bundleCreateMutation.mutate()}
+        isPending={bundleCreateMutation.isPending}
+      />
+
       {/* Filters */}
       <Card>
         <CardContent className="py-4">
@@ -562,11 +637,6 @@ export default function RepoSelector() {
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
           <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
-          {alreadyAddedCount > 0 && (
-            <Badge variant="outline" className="text-gray-500">
-              {t('hiddenAsAdded', { count: alreadyAddedCount })}
-            </Badge>
-          )}
           {selection.selectedCount > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -623,16 +693,17 @@ export default function RepoSelector() {
               return (
                 <div
                   key={repo.id}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualItem.index}
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
-                    height: `${virtualItem.size}px`,
                     transform: `translateY(${virtualItem.start}px)`,
                   }}
                 >
-                  <div className="pb-3">
+                  <div className="pb-2">
                     <RepoCard
                       repo={repo}
                       selected={selection.isSelected(repo.clone_url)}
@@ -669,6 +740,17 @@ export default function RepoSelector() {
                 <Download className="mr-2 h-4 w-4" />
                 {t('importAsProjects')}
               </Button>
+              {selection.selectedCount >= 2 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleOpenBundleDialog}
+                  disabled={bundleCreateMutation.isPending}
+                >
+                  <Layers className="mr-2 h-4 w-4" />
+                  {t('bundleAsProject')}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -736,5 +818,106 @@ function RepoCard({ repo, selected, onToggle }: RepoCardProps) {
         </div>
       </CardContent>
     </SelectableTile>
+  )
+}
+
+// Bundle Dialog Component
+interface BundleDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  projectName: string
+  onProjectNameChange: (name: string) => void
+  repos: Array<{ url: string; name: string; label: string; isPrimary: boolean }>
+  onSetPrimary: (url: string) => void
+  onLabelChange: (url: string, label: string) => void
+  onSubmit: () => void
+  isPending: boolean
+}
+
+function BundleDialog({
+  open,
+  onOpenChange,
+  projectName,
+  onProjectNameChange,
+  repos,
+  onSetPrimary,
+  onLabelChange,
+  onSubmit,
+  isPending,
+}: BundleDialogProps) {
+  const { t } = useTranslation('github')
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>{t('bundleDialog.title')}</DialogTitle>
+          <DialogDescription>
+            {t('bundleDialog.primaryNote')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Project Name */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t('bundleDialog.projectName')}</label>
+            <Input
+              value={projectName}
+              onChange={(e) => onProjectNameChange(e.target.value)}
+              placeholder={t('bundleDialog.projectNamePlaceholder')}
+            />
+          </div>
+
+          {/* Repo List */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t('bundleDialog.selectedRepos', { count: repos.length })}
+            </label>
+            <div className="space-y-2 max-h-[280px] overflow-y-auto">
+              {repos.map((repo) => (
+                <div
+                  key={repo.url}
+                  className="flex items-center gap-2 p-2 rounded-md border bg-muted/30"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSetPrimary(repo.url)}
+                    className="shrink-0 text-lg leading-none hover:scale-110 transition-transform"
+                    title={repo.isPrimary ? 'Primary' : 'Set as primary'}
+                  >
+                    {repo.isPrimary ? (
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    ) : (
+                      <Star className="h-4 w-4 text-gray-300" />
+                    )}
+                  </button>
+                  <span className="text-sm font-medium truncate min-w-0 flex-1">
+                    {repo.name}
+                  </span>
+                  <Input
+                    value={repo.label}
+                    onChange={(e) => onLabelChange(repo.url, e.target.value)}
+                    placeholder={t('bundleDialog.labelPlaceholder')}
+                    className="w-[140px] h-8 text-xs"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+            {t('bundleDialog.cancel')}
+          </Button>
+          <Button
+            onClick={onSubmit}
+            disabled={isPending || !projectName.trim()}
+          >
+            {isPending ? t('bundleDialog.creating') : t('bundleDialog.create')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

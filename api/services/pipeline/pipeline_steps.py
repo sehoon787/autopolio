@@ -55,29 +55,33 @@ async def analyze_single_project(
     semaphore: asyncio.Semaphore,
     github_service: GitHubService,
     project: Project,
-    username: str
+    username: str,
+    git_url: str = "",
+    project_repository_id: int = None,
 ) -> Dict[str, Any]:
-    """Analyze a single project with semaphore for rate limiting."""
+    """Analyze a single project/repo with semaphore for rate limiting."""
+    url = git_url or project.git_url
     async with semaphore:
         try:
-            analysis = await github_service.analyze_repository(
-                project.git_url,
-                username
-            )
+            analysis = await github_service.analyze_repository(url, username)
             return {
                 "project_id": project.id,
                 "project": project,
                 "analysis": analysis,
-                "success": True
+                "success": True,
+                "git_url": url,
+                "project_repository_id": project_repository_id,
             }
         except Exception as e:
-            logger.warning("Failed to analyze project %s: %s", project.id, e)
+            logger.warning("Failed to analyze project %s (%s): %s", project.id, url, e)
             return {
                 "project_id": project.id,
                 "project": project,
                 "analysis": None,
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "git_url": url,
+                "project_repository_id": project_repository_id,
             }
 
 
@@ -146,11 +150,13 @@ async def step_github_analysis(
 
     await task_service.start_step(request.task_id, 1, STEP_NAMES[0])
 
-    # Get projects with git URLs
+    # Get projects with git URLs (and their repositories)
+    from api.models.project_repository import ProjectRepository
     projects_result = await db.execute(
         select(Project)
         .where(Project.id.in_(request.project_ids))
         .where(Project.git_url.isnot(None))
+        .options(selectinload(Project.repositories))
     )
     projects = projects_result.scalars().all()
 
@@ -159,13 +165,17 @@ async def step_github_analysis(
         token = encryption.decrypt(user.github_token_encrypted)
         github_service = GitHubService(token)
 
-        # Filter projects that need analysis
+        # Filter projects that need analysis — build (project, url, repo_id) tuples
         projects_to_analyze = []
         for project in projects:
             if project.is_analyzed:
                 results["skipped"].append(project.id)
             elif request.auto_analyze:
-                projects_to_analyze.append(project)
+                if project.repositories:
+                    for repo in project.repositories:
+                        projects_to_analyze.append((project, repo.git_url, repo.id))
+                elif project.git_url:
+                    projects_to_analyze.append((project, project.git_url, None))
             else:
                 results["skipped"].append(project.id)
 
@@ -174,9 +184,10 @@ async def step_github_analysis(
             semaphore = asyncio.Semaphore(MAX_CONCURRENT_GITHUB_ANALYSIS)
             tasks = [
                 analyze_single_project(
-                    semaphore, github_service, project, user.github_username
+                    semaphore, github_service, project, user.github_username,
+                    git_url=url, project_repository_id=repo_id,
                 )
-                for project in projects_to_analyze
+                for project, url, repo_id in projects_to_analyze
             ]
 
             analysis_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -191,20 +202,34 @@ async def step_github_analysis(
 
                 project = result["project"]
                 analysis = result["analysis"]
+                repo_url = result.get("git_url", project.git_url)
+                repo_id = result.get("project_repository_id")
 
-                # Save analysis
-                existing = await db.execute(
-                    select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
-                )
+                # Save analysis — match by project_repository_id if available
+                if repo_id:
+                    existing = await db.execute(
+                        select(RepoAnalysis).where(
+                            RepoAnalysis.project_repository_id == repo_id
+                        )
+                    )
+                else:
+                    existing = await db.execute(
+                        select(RepoAnalysis).where(
+                            RepoAnalysis.project_id == project.id,
+                            RepoAnalysis.git_url == repo_url,
+                        )
+                    )
                 repo_analysis = existing.scalar_one_or_none()
 
                 if repo_analysis:
                     for key, value in analysis.items():
-                        setattr(repo_analysis, key, value)
+                        if hasattr(repo_analysis, key):
+                            setattr(repo_analysis, key, value)
                 else:
                     repo_analysis = RepoAnalysis(
                         project_id=project.id,
-                        git_url=project.git_url,
+                        project_repository_id=repo_id,
+                        git_url=repo_url,
                         **analysis
                     )
                     db.add(repo_analysis)
@@ -212,7 +237,8 @@ async def step_github_analysis(
                 project.is_analyzed = 1
                 results["analyses"].append({
                     "project_id": project.id,
-                    "analysis": analysis
+                    "analysis": analysis,
+                    "git_url": repo_url,
                 })
 
         await db.flush()
@@ -314,7 +340,7 @@ async def step_achievement_detection(
         .where(Project.id.in_(request.project_ids))
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-            selectinload(Project.repo_analysis),
+            selectinload(Project.repo_analyses),
             selectinload(Project.achievements)
         )
     )
@@ -419,7 +445,7 @@ async def step_llm_summarization(
             .options(
                 selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
                 selectinload(Project.achievements),
-                selectinload(Project.repo_analysis)
+                selectinload(Project.repo_analyses)
             )
         )
         projects = projects_result.scalars().all()

@@ -9,7 +9,8 @@ class RepoAnalysis(Base):
     __tablename__ = "repo_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    project_repository_id = Column(Integer, ForeignKey("project_repositories.id"), nullable=True, index=True)
 
     # Repository info
     git_url = Column(String(500), nullable=False)
@@ -77,6 +78,10 @@ class RepoAnalysis(Base):
     # Suggested contribution percent (auto-calculated from commit/line stats)
     suggested_contribution_percent = Column(Integer, nullable=True)
 
+    # AI tools detected from commit messages (Vibe Coding)
+    # Format: [{"tool": "Claude Code", "evidence": "Co-Authored-By", "count": 42}]
+    ai_tools_detected = Column(JSON, nullable=True)
+
     # Language used for analysis
     analysis_language = Column(String(10), default="ko")  # "ko" or "en"
 
@@ -88,7 +93,8 @@ class RepoAnalysis(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    project = relationship("Project", back_populates="repo_analysis")
+    project = relationship("Project", back_populates="repo_analyses")
+    project_repository = relationship("ProjectRepository", back_populates="repo_analysis")
     user_edits = relationship("RepoAnalysisEdits", back_populates="repo_analysis", uselist=False)
     contributors = relationship(
         "ContributorAnalysis",

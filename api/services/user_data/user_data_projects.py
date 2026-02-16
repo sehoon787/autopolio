@@ -48,12 +48,13 @@ def build_projects(
         is_ongoing = project.end_date is None
 
         # Extract data from RepoAnalysis if available (with user edits support)
+        # For multi-repo projects, use the primary repo's analysis (via backward-compat property)
         key_tasks = []
         implementation_details = []
         detailed_achievements = []
 
-        if project.repo_analysis:
-            ra = project.repo_analysis
+        ra = project.repo_analysis  # backward-compat property: returns primary or first
+        if ra:
             edits = ra.user_edits  # May be None if no edits exist
 
             # Get effective key_tasks (edited or original)
@@ -174,7 +175,24 @@ def build_projects(
             "has_key_tasks": len(key_tasks) > 0,  # Boolean flag for Mustache
             "implementation_details": implementation_details,  # For detailed rendering
             "git_url": project.git_url or "",
+            # Multi-repo support: basic repo list
+            "repositories": [
+                {
+                    "git_url": repo.git_url,
+                    "label": repo.label or "",
+                    "is_primary": bool(repo.is_primary),
+                }
+                for repo in (project.repositories or [])
+            ],
+            "has_multiple_repos": len(project.repositories or []) > 1,
+            "repo_count": len(project.repositories or []),
         }
+
+        # Per-repo analysis data (for multi-repo projects)
+        repo_analyses_list = _build_per_repo_analyses(project, code_stat_keywords)
+        proj["repo_analyses_list"] = repo_analyses_list
+        proj["has_repo_analyses"] = len(repo_analyses_list) > 1
+
         project_list.append(proj)
 
     return project_list, all_technologies
@@ -250,6 +268,75 @@ def _build_achievements_summary(
             achievements_grouped.append({"category": cat, "items": items})
 
     return achievements_summary, achievements_summary_list, achievements_grouped
+
+
+def _build_per_repo_analyses(project, code_stat_keywords: List[str]) -> List[Dict[str, Any]]:
+    """Build per-repo analysis data for multi-repo projects.
+
+    Each item contains key_tasks, achievements, and ai_summary from the repo's analysis.
+    """
+    if not project.repo_analyses or len(project.repo_analyses) <= 1:
+        return []
+
+    result = []
+    for ra in project.repo_analyses:
+        repo = ra.project_repository
+        label = ""
+        is_primary = False
+        if repo:
+            label = repo.label or ra.git_url.split("/")[-1] if ra.git_url else ""
+            is_primary = bool(repo.is_primary)
+        elif ra.git_url:
+            label = ra.git_url.split("/")[-1]
+
+        edits = ra.user_edits
+
+        # Get effective key_tasks
+        effective_key_tasks = None
+        if edits and edits.key_tasks_modified and edits.key_tasks is not None:
+            effective_key_tasks = edits.key_tasks
+        elif ra.key_tasks:
+            effective_key_tasks = ra.key_tasks
+
+        per_key_tasks = effective_key_tasks if isinstance(effective_key_tasks, list) else []
+
+        # Get effective detailed_achievements
+        effective_achievements = None
+        if edits and edits.detailed_achievements_modified and edits.detailed_achievements is not None:
+            effective_achievements = edits.detailed_achievements
+        elif ra.detailed_achievements:
+            effective_achievements = ra.detailed_achievements
+
+        # Build grouped achievements for this repo
+        per_achievements_grouped = []
+        if effective_achievements and isinstance(effective_achievements, dict):
+            for category, items in effective_achievements.items():
+                if isinstance(items, list):
+                    grouped_items = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            grouped_items.append({"title": item.get("title", "")})
+                        else:
+                            grouped_items.append({"title": str(item)})
+                    if grouped_items:
+                        per_achievements_grouped.append({
+                            "category": category,
+                            "items": grouped_items,
+                        })
+
+        result.append({
+            "git_url": ra.git_url or "",
+            "label": label,
+            "is_primary": is_primary,
+            "key_tasks_list": per_key_tasks,
+            "has_key_tasks": len(per_key_tasks) > 0,
+            "achievements_grouped": per_achievements_grouped,
+            "has_achievements": len(per_achievements_grouped) > 0,
+            "ai_summary": ra.ai_summary or "",
+            "has_ai_summary": bool(ra.ai_summary),
+        })
+
+    return result
 
 
 def _build_achievements_detailed(

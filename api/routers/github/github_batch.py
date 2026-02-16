@@ -57,23 +57,6 @@ async def import_repos_as_projects(
 
     for repo_url in request.repo_urls:
         try:
-            # Check if project with this URL already exists
-            existing = await db.execute(
-                select(Project).where(
-                    Project.user_id == user_id,
-                    Project.git_url == repo_url
-                )
-            )
-            if existing.scalar_one_or_none():
-                results.append(ImportRepoResult(
-                    repo_url=repo_url,
-                    project_name="",
-                    success=False,
-                    message="Repository already registered."
-                ))
-                failed += 1
-                continue
-
             # Fetch repo info
             repo_info = await github_service.get_repo_info(repo_url)
 
@@ -234,7 +217,7 @@ async def analyze_batch(
             existing = await db.execute(
                 select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
             )
-            repo_analysis = existing.scalar_one_or_none()
+            repo_analysis = existing.scalars().first()
 
             if repo_analysis:
                 for key, value in analysis_result.items():

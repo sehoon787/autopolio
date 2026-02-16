@@ -158,9 +158,15 @@ class AnalysisJobService:
         task_id: str,
         step_number: int,
         status: str = "running",
-        result: Optional[Dict[str, Any]] = None
+        result: Optional[Dict[str, Any]] = None,
+        step_name_override: Optional[str] = None,
     ) -> None:
-        """Update job progress for a specific step."""
+        """Update job progress for a specific step.
+
+        Args:
+            step_name_override: If provided, use this instead of the default STEP_NAMES mapping.
+                               Used by multi-repo analysis to prefix with repo label.
+        """
         async with AsyncSessionLocal() as db:
             job_result = await db.execute(
                 select(Job).where(Job.task_id == task_id)
@@ -169,7 +175,7 @@ class AnalysisJobService:
             if not job:
                 return
 
-            step_name = self.STEP_NAMES.get(step_number, f"step_{step_number}")
+            step_name = step_name_override or self.STEP_NAMES.get(step_number, f"step_{step_number}")
             job.current_step = step_number
             job.step_name = step_name
 
@@ -276,7 +282,7 @@ class AnalysisJobService:
         analysis_result = await db.execute(
             select(RepoAnalysis).where(RepoAnalysis.project_id == job.target_project_id)
         )
-        repo_analysis = analysis_result.scalar_one_or_none()
+        repo_analysis = analysis_result.scalars().first()
 
         if not repo_analysis:
             repo_analysis = RepoAnalysis(

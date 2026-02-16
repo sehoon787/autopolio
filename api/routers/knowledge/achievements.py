@@ -215,7 +215,7 @@ async def auto_detect_achievements(
         .where(Project.id == project_id, Project.user_id == user_id)
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-            selectinload(Project.repo_analysis),
+            selectinload(Project.repo_analyses),
             selectinload(Project.achievements)
         )
     )
@@ -326,7 +326,7 @@ async def auto_detect_all_projects(
         .where(Project.user_id == user_id)
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-            selectinload(Project.repo_analysis),
+            selectinload(Project.repo_analyses),
             selectinload(Project.achievements)
         )
     )

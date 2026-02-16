@@ -89,6 +89,8 @@ class RepoAnalysisResponse(BaseModel):
     suggested_contribution_percent: Optional[int] = None
     # Language used for analysis (v1.12)
     analysis_language: str = "ko"  # "ko" or "en"
+    # AI tools detected from commits (v1.17)
+    ai_tools_detected: Optional[List[Dict[str, Any]]] = None
 
     class Config:
         from_attributes = True
@@ -212,6 +214,45 @@ class EffectiveAnalysisResponse(BaseModel):
     suggested_contribution_percent: Optional[int] = None
     # Language used for analysis (v1.12)
     analysis_language: str = "ko"  # "ko" or "en"
+    # AI tools detected from commits (v1.17)
+    ai_tools_detected: Optional[List[Dict[str, Any]]] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RepoAnalysisSummary(BaseModel):
+    """Per-repo analysis summary for multi-repo projects."""
+    repo_url: str
+    label: Optional[str] = None
+    is_primary: bool = False
+    total_commits: int = 0
+    user_commits: int = 0
+    lines_added: int = 0
+    lines_deleted: int = 0
+    files_changed: int = 0
+    detected_technologies: List[str] = []
+    primary_language: Optional[str] = None
+    key_tasks: Optional[List[str]] = None
+    # Rich per-repo fields (v1.17)
+    implementation_details: Optional[List[Dict[str, Any]]] = None
+    detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None
+    ai_summary: Optional[str] = None
+    ai_key_features: Optional[List[str]] = None
+    languages: Optional[Dict[str, float]] = None
+    commit_categories: Optional[Dict[str, int]] = None
+    development_timeline: Optional[List[Dict[str, Any]]] = None
+    ai_tools_detected: Optional[List[Dict[str, Any]]] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MultiRepoAnalysisResponse(BaseModel):
+    """All per-repo analyses for a multi-repo project."""
+    project_id: int
+    repo_count: int
+    analyses: List[RepoAnalysisSummary]
 
     class Config:
         from_attributes = True

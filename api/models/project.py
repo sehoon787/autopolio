@@ -84,5 +84,21 @@ class Project(Base):
     company = relationship("Company", back_populates="projects")
     technologies = relationship("ProjectTechnology", back_populates="project", cascade="all, delete-orphan")
     achievements = relationship("ProjectAchievement", back_populates="project", cascade="all, delete-orphan")
-    repo_analysis = relationship("RepoAnalysis", back_populates="project", uselist=False, cascade="all, delete-orphan")
+    repositories = relationship(
+        "ProjectRepository", back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ProjectRepository.display_order",
+    )
+    repo_analyses = relationship("RepoAnalysis", back_populates="project", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="project", foreign_keys="Job.target_project_id")
+
+    @property
+    def repo_analysis(self):
+        """Backward compat: return the first (primary) analysis result."""
+        if not self.repo_analyses:
+            return None
+        primary = [
+            a for a in self.repo_analyses
+            if a.project_repository and a.project_repository.is_primary
+        ]
+        return primary[0] if primary else self.repo_analyses[0]

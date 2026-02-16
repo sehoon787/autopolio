@@ -22,6 +22,7 @@ from api.models.achievement import ProjectAchievement
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.services.report.report_base import ReportBaseService
+from api.services.report.report_strings import get_strings
 from api.services.docx.docx_styles import DocxStyler, DocxStyleConfig, DEFAULT_DOCX_STYLE
 from .export_sections import ExportSectionGenerator, filter_achievements
 from .export_docx_converter import convert_markdown_to_docx
@@ -33,11 +34,12 @@ settings = get_settings()
 class ExportService(ReportBaseService):
     """Service for exporting project reports to Markdown and Word formats."""
 
-    def __init__(self, db: AsyncSession, style_config: Optional[DocxStyleConfig] = None):
+    def __init__(self, db: AsyncSession, style_config: Optional[DocxStyleConfig] = None, language: str = "ko"):
         super().__init__(db)
         self.result_dir = settings.result_dir
+        self.language = language
         self.styler = DocxStyler(style_config or DEFAULT_DOCX_STYLE)
-        self._section_gen = ExportSectionGenerator(self)
+        self._section_gen = ExportSectionGenerator(self, language=language)
 
     # ==========================================================================
     # Report Header Generation
@@ -45,6 +47,7 @@ class ExportService(ReportBaseService):
 
     def _generate_report_header(self, projects_data: List[Dict], user: Any, report_title: str) -> List[str]:
         """Generate common report header."""
+        s = get_strings(self.language)
         total_commits = sum(
             data["analysis"].total_commits if data["analysis"] else 0
             for data in projects_data
@@ -67,9 +70,9 @@ class ExportService(ReportBaseService):
         lines = [
             f"# {report_title}",
             "",
-            f"**작성일**: {datetime.now().strftime('%Y-%m-%d')}",
-            f"**분석 대상**: {len(projects_data)}개 프로젝트",
-            f"**총 커밋 수**: {total_commits:,}개",
+            f"**{s['report_date']}**: {datetime.now().strftime('%Y-%m-%d')}",
+            f"**{s['report_target']}**: {s['report_target_value'].format(count=len(projects_data))}",
+            f"**{s['report_total_commits']}**: {total_commits:,}",
         ]
 
         if earliest:
@@ -77,11 +80,11 @@ class ExportService(ReportBaseService):
             if latest:
                 period += latest.strftime('%Y-%m-%d')
             else:
-                period += "현재"
-            lines.append(f"**작업 기간**: {period}")
+                period += s["date_ongoing"]
+            lines.append(f"**{s['report_period']}**: {period}")
 
         if user.github_username:
-            lines.append(f"**분석 대상자**: {user.github_username}")
+            lines.append(f"**{s['report_analyst']}**: {user.github_username}")
 
         lines.extend(["", "---", ""])
         return lines
@@ -96,12 +99,13 @@ class ExportService(ReportBaseService):
         include_code_stats: bool = False
     ) -> str:
         """Generate summary report (요약) - PROJECT_PERFORMANCE_SUMMARY.md style."""
+        s = get_strings(self.language)
         projects_data, user = await self._get_analyzed_projects(user_id)
 
         if not projects_data:
-            return "# 프로젝트 완료결과보고서\n\n분석된 프로젝트가 없습니다."
+            return f"# {s['report_summary_title']}\n\n{s['report_summary_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, "프로젝트 완료결과보고서")
+        lines = self._generate_report_header(projects_data, user, s["report_summary_title"])
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -120,12 +124,13 @@ class ExportService(ReportBaseService):
         include_code_stats: bool = False
     ) -> str:
         """Generate detailed report (상세) - DETAILED_COMPLETION_REPORT style."""
+        s = get_strings(self.language)
         projects_data, user = await self._get_analyzed_projects(user_id)
 
         if not projects_data:
-            return "# 프로젝트 상세 보고서\n\n분석된 프로젝트가 없습니다."
+            return f"# {s['report_detailed_title']}\n\n{s['report_detailed_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, "프로젝트 상세 보고서")
+        lines = self._generate_report_header(projects_data, user, s["report_detailed_title"])
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -144,12 +149,13 @@ class ExportService(ReportBaseService):
         include_code_stats: bool = False
     ) -> str:
         """Generate final report (상세 요약) - FINAL_PROJECT_REPORT style."""
+        s = get_strings(self.language)
         projects_data, user = await self._get_analyzed_projects(user_id)
 
         if not projects_data:
-            return "# 프로젝트 최종 보고서\n\n분석된 프로젝트가 없습니다."
+            return f"# {s['report_final_title']}\n\n{s['report_final_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, "프로젝트 최종 보고서")
+        lines = self._generate_report_header(projects_data, user, s["report_final_title"])
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -297,7 +303,7 @@ class ExportService(ReportBaseService):
         analysis_result = await self.db.execute(
             select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
         )
-        analysis = analysis_result.scalar_one_or_none()
+        analysis = analysis_result.scalars().first()
 
         edits = None
         if analysis:
@@ -333,6 +339,7 @@ class ExportService(ReportBaseService):
         include_code_stats: bool = False
     ) -> str:
         """Generate a report for a single project."""
+        s = get_strings(self.language)
         data = await self._get_single_project(project_id)
         project = data["project"]
         user = data["user"]
@@ -340,11 +347,11 @@ class ExportService(ReportBaseService):
         lines = [
             f"# {project.name}",
             "",
-            f"**작성일**: {datetime.now().strftime('%Y-%m-%d')}",
+            f"**{s['report_date']}**: {datetime.now().strftime('%Y-%m-%d')}",
         ]
 
         if user and user.github_username:
-            lines.append(f"**분석 대상자**: {user.github_username}")
+            lines.append(f"**{s['report_analyst']}**: {user.github_username}")
 
         lines.extend(["", "---", ""])
 

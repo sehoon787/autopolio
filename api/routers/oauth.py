@@ -119,6 +119,7 @@ async def oauth_connect(
     redirect_path: str = Query("/setup/github", description="Path to redirect to after OAuth"),
     is_electron: bool = Query(False, description="Whether request is from Electron app"),
     user_id: Optional[int] = Query(None, description="User ID for account linking"),
+    frontend_origin: Optional[str] = Query(None, description="Frontend origin for redirect after OAuth"),
 ):
     """
     Start OAuth flow for a provider.
@@ -147,7 +148,7 @@ async def oauth_connect(
     if provider == "github":
         state_data = {
             "path": redirect_path,
-            "origin": None,
+            "origin": frontend_origin,
             "is_electron": is_electron,
             "user_id": user_id,
         }

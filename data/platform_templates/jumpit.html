@@ -568,6 +568,22 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                         <div><strong>연계/소속회사:</strong> {{#company}}{{company}}{{/company}}{{^company}}{{#company_name}}{{company_name}}{{/company_name}}{{^company_name}}사이드 프로젝트{{/company_name}}{{/company}}</div>
                         <div><strong>기간:</strong> {{start_date}} - {{#end_date}}{{end_date}}{{/end_date}}{{^end_date}}진행중{{/end_date}}</div>
                         {{#role}}<div><strong>주요 업무:</strong> {{role}}</div>{{/role}}
+                        {{#has_repo_analyses}}
+                        <div style="margin-top: 8px;"><strong>주요 구현 기능:</strong></div>
+                        {{#repo_analyses_list}}
+                        <div style="margin-top: 6px; margin-left: 8px;">
+                            <div style="font-weight: 600; color: var(--jumpit-primary-dark); font-size: 13px;">[{{label}}]</div>
+                            {{#has_key_tasks}}
+                            <div style="margin-left: 16px;">
+                                {{#key_tasks_list}}
+                                <div>• {{.}}</div>
+                                {{/key_tasks_list}}
+                            </div>
+                            {{/has_key_tasks}}
+                        </div>
+                        {{/repo_analyses_list}}
+                        {{/has_repo_analyses}}
+                        {{^has_repo_analyses}}
                         {{#has_key_tasks}}
                         <div style="margin-top: 8px;"><strong>주요 구현 기능:</strong></div>
                         <div style="margin-left: 16px;">
@@ -576,9 +592,33 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                             {{/key_tasks_list}}
                         </div>
                         {{/has_key_tasks}}
+                        {{/has_repo_analyses}}
                         {{#technologies}}<div><strong>기술 스택:</strong> {{technologies}}</div>{{/technologies}}
                         {{#team_size}}<div><strong>개발 인원:</strong> {{team_size}}</div>{{/team_size}}
                         {{#description}}<div style="margin-top: 8px;"><strong>상세 내용:</strong> {{description}}</div>{{/description}}
+                        {{#has_repo_analyses}}
+                        <div class="project-achievements" style="margin-top: 12px;">
+                            <div class="project-achievements-title">성과</div>
+                            <div class="project-achievements-list">
+                                {{#repo_analyses_list}}
+                                {{#has_achievements}}
+                                <div style="margin-top: 4px;">
+                                    <div style="font-weight: 600; color: var(--jumpit-primary-dark); font-size: 13px;">[{{label}}]</div>
+                                    {{#achievements_grouped}}
+                                    <div style="margin-bottom: 6px; margin-left: 8px; padding: 4px 8px; background: rgba(0, 221, 109, 0.05); border-radius: 6px;">
+                                        <div style="font-weight: 600;"><span style="color: #00DD6D;">{{category}}</span></div>
+                                        {{#items}}
+                                        <div style="margin-left: 12px; font-size: 13px;">- {{title}}</div>
+                                        {{/items}}
+                                    </div>
+                                    {{/achievements_grouped}}
+                                </div>
+                                {{/has_achievements}}
+                                {{/repo_analyses_list}}
+                            </div>
+                        </div>
+                        {{/has_repo_analyses}}
+                        {{^has_repo_analyses}}
                         {{#has_achievements}}
                         <div class="project-achievements" style="margin-top: 12px;">
                             <div class="project-achievements-title">성과</div>
@@ -594,6 +634,7 @@ Python과 FastAPI를 주력으로 사용하며, 확장 가능하고 유지보수
                             </div>
                         </div>
                         {{/has_achievements}}
+                        {{/has_repo_analyses}}
                     </div>
                 </div>
                 {{/projects}}

@@ -23,8 +23,9 @@ from api.models.repo_analysis_edits import RepoAnalysisEdits
 class ReportBaseService:
     """Base service with common report generation utilities."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, language: str = "ko"):
         self.db = db
+        self.language = language
 
     def _format_date(self, d: Optional[date]) -> str:
         """Format date as YYYY.MM"""
@@ -36,9 +37,11 @@ class ReportBaseService:
         self, start: Optional[date], end: Optional[date], is_current: bool = False
     ) -> str:
         """Format date range"""
+        from .report_strings import get_strings
+        s = get_strings(self.language)
         start_str = self._format_date(start)
         if is_current or end is None:
-            end_str = "진행중"
+            end_str = s["ongoing"]
         else:
             end_str = self._format_date(end)
         return f"{start_str} ~ {end_str}"
@@ -134,19 +137,52 @@ class ReportBaseService:
 
         result = []
         for project in projects:
-            # Get repo analysis
+            # Get repo analyses (all repos)
             analysis_result = await self.db.execute(
-                select(RepoAnalysis).where(RepoAnalysis.project_id == project.id)
+                select(RepoAnalysis)
+                .where(RepoAnalysis.project_id == project.id)
+                .options(selectinload(RepoAnalysis.project_repository))
             )
-            analysis = analysis_result.scalar_one_or_none()
+            analyses = list(analysis_result.scalars().all())
+            analysis = next(
+                (a for a in analyses if a.project_repository and a.project_repository.is_primary),
+                analyses[0] if analyses else None
+            )
 
-            # Get user edits if analysis exists
+            # Get user edits for primary analysis
             edits = None
             if analysis:
                 edits_result = await self.db.execute(
                     select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
                 )
                 edits = edits_result.scalar_one_or_none()
+
+            # Build per-repo analysis list for multi-repo projects
+            has_multi_repo = len(analyses) > 1
+            all_analyses = []
+            if has_multi_repo:
+                for a in analyses:
+                    label = ""
+                    is_primary = False
+                    if a.project_repository:
+                        raw = a.project_repository.label or (a.git_url.split("/")[-1] if a.git_url else "")
+                        label = raw.removesuffix(".git")
+                        is_primary = bool(a.project_repository.is_primary)
+                    elif a.git_url:
+                        label = a.git_url.split("/")[-1].removesuffix(".git")
+
+                    a_edits = None
+                    a_edits_result = await self.db.execute(
+                        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == a.id)
+                    )
+                    a_edits = a_edits_result.scalar_one_or_none()
+
+                    all_analyses.append({
+                        "analysis": a,
+                        "edits": a_edits,
+                        "label": label,
+                        "is_primary": is_primary,
+                    })
 
             company = companies.get(project.company_id)
 
@@ -155,6 +191,8 @@ class ReportBaseService:
                 "analysis": analysis,
                 "edits": edits,
                 "company": company,
+                "has_multi_repo": has_multi_repo,
+                "all_analyses": all_analyses,
             })
 
         return result, user
@@ -163,13 +201,15 @@ class ReportBaseService:
         self, projects_data: List[Dict[str, Any]]
     ) -> Dict[str, List[str]]:
         """Categorize projects by their technology stack"""
+        from .report_strings import get_strings
+        s = get_strings(self.language)
         categories = {
-            "Backend 시스템": [],
-            "Frontend": [],
-            "Mobile": [],
-            "AI/ML": [],
-            "IoT/하드웨어": [],
-            "기타": [],
+            s["category_backend"]: [],
+            s["category_frontend"]: [],
+            s["category_mobile"]: [],
+            s["category_ai_ml"]: [],
+            s["category_iot"]: [],
+            s["category_other"]: [],
         }
 
         backend_techs = {"FastAPI", "Django", "Flask", "Spring", "Spring Boot", "Express", "NestJS", "Node.js"}
@@ -186,21 +226,21 @@ class ReportBaseService:
 
             categorized = False
             if techs & backend_techs:
-                categories["Backend 시스템"].append(project.name)
+                categories[s["category_backend"]].append(project.name)
                 categorized = True
             if techs & frontend_techs:
-                categories["Frontend"].append(project.name)
+                categories[s["category_frontend"]].append(project.name)
                 categorized = True
             if techs & mobile_techs:
-                categories["Mobile"].append(project.name)
+                categories[s["category_mobile"]].append(project.name)
                 categorized = True
             if techs & ai_techs:
-                categories["AI/ML"].append(project.name)
+                categories[s["category_ai_ml"]].append(project.name)
                 categorized = True
             if techs & iot_techs:
-                categories["IoT/하드웨어"].append(project.name)
+                categories[s["category_iot"]].append(project.name)
                 categorized = True
             if not categorized:
-                categories["기타"].append(project.name)
+                categories[s["category_other"]].append(project.name)
 
         return categories

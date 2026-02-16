@@ -66,6 +66,42 @@ class AchievementResponse(AchievementBase):
         from_attributes = True
 
 
+# ProjectRepository schemas
+class ProjectRepositoryCreate(BaseModel):
+    git_url: str
+    label: Optional[str] = None
+    is_primary: bool = False
+
+
+class ProjectRepositoryResponse(BaseModel):
+    id: int
+    git_url: str
+    label: Optional[str] = None
+    display_order: int = 0
+    is_primary: bool = False
+    is_analyzed: bool = False
+
+    class Config:
+        from_attributes = True
+
+    @model_validator(mode='before')
+    @classmethod
+    def compute_is_analyzed(cls, data):
+        """Compute is_analyzed from the presence of repo_analysis."""
+        if hasattr(data, 'repo_analysis'):
+            if isinstance(data, dict):
+                data['is_analyzed'] = data.get('repo_analysis') is not None
+            else:
+                data._computed_is_analyzed = data.repo_analysis is not None
+        return data
+
+    @model_validator(mode='after')
+    def apply_computed_fields(self):
+        if hasattr(self, '_computed_is_analyzed'):
+            object.__setattr__(self, 'is_analyzed', self._computed_is_analyzed)
+        return self
+
+
 # Project schemas
 class ProjectBase(BaseModel):
     name: str
@@ -88,6 +124,7 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     company_id: Optional[int] = None
     technologies: Optional[List[str]] = None  # List of technology names
+    repositories: Optional[List[ProjectRepositoryCreate]] = None  # Multi-repo support
 
 
 class ProjectUpdate(BaseModel):
@@ -106,6 +143,7 @@ class ProjectUpdate(BaseModel):
     images: Optional[List[str]] = None
     company_id: Optional[int] = None
     technologies: Optional[List[str]] = None
+    repositories: Optional[List[ProjectRepositoryCreate]] = None  # Multi-repo support
 
     _validate_contribution = field_validator('contribution_percent')(validate_percent_range)
 
@@ -117,10 +155,14 @@ class ProjectResponse(ProjectBase):
     is_analyzed: bool = False
     ai_summary: Optional[str] = None
     ai_key_features: Optional[List[str]] = None
+    last_analyzed_at: Optional[datetime] = None
+    analysis_language: Optional[str] = None
+    ai_tools_detected: Optional[List[Dict[str, Any]]] = None
     created_at: datetime
     updated_at: datetime
     technologies: List[TechnologyResponse] = []
     achievements: List[AchievementResponse] = []
+    repositories: List[ProjectRepositoryResponse] = []
 
     class Config:
         from_attributes = True

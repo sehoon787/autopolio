@@ -1,10 +1,10 @@
 /**
  * useProjectForm - Hook for managing project form state
- * Handles both create and edit form logic
+ * Handles both create and edit form logic with multi-repo support
  */
 
 import { useState, useCallback } from 'react'
-import { ProjectCreate } from '@/api/knowledge'
+import { ProjectCreate, ProjectRepositoryCreate } from '@/api/knowledge'
 
 const initialFormData: ProjectCreate = {
   name: '',
@@ -19,6 +19,7 @@ const initialFormData: ProjectCreate = {
   project_type: 'company',
   company_id: undefined,
   technologies: [],
+  repositories: [],
 }
 
 export function useProjectForm(initial?: Partial<ProjectCreate>) {
@@ -26,8 +27,12 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
   const [techInput, setTechInput] = useState('')
   const [isOngoing, setIsOngoing] = useState(!initial?.end_date)
 
-  const updateFormData = useCallback((data: Partial<ProjectCreate>) => {
-    setFormData(data)
+  const updateFormData = useCallback((data: Partial<ProjectCreate> | ((prev: Partial<ProjectCreate>) => Partial<ProjectCreate>)) => {
+    if (typeof data === 'function') {
+      setFormData(data)
+    } else {
+      setFormData(data)
+    }
   }, [])
 
   const addTechnology = useCallback(() => {
@@ -55,6 +60,54 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
     }
   }, [])
 
+  // Multi-repo management
+  const addRepository = useCallback((repo: ProjectRepositoryCreate) => {
+    setFormData((prev) => {
+      const repos = [...(prev.repositories || [])]
+      // If this is the first repo, mark as primary
+      if (repos.length === 0) {
+        repo = { ...repo, is_primary: true }
+      }
+      repos.push(repo)
+      // Also set git_url to primary repo for backward compat
+      const primary = repos.find((r) => r.is_primary) || repos[0]
+      return { ...prev, repositories: repos, git_url: primary?.git_url || prev.git_url }
+    })
+  }, [])
+
+  const removeRepository = useCallback((index: number) => {
+    setFormData((prev) => {
+      const repos = [...(prev.repositories || [])]
+      const wasRemovedPrimary = repos[index]?.is_primary
+      repos.splice(index, 1)
+      // If removed was primary, make first remaining primary
+      if (wasRemovedPrimary && repos.length > 0) {
+        repos[0] = { ...repos[0], is_primary: true }
+      }
+      const primary = repos.find((r) => r.is_primary) || repos[0]
+      return { ...prev, repositories: repos, git_url: primary?.git_url || '' }
+    })
+  }, [])
+
+  const updateRepository = useCallback((index: number, repo: Partial<ProjectRepositoryCreate>) => {
+    setFormData((prev) => {
+      const repos = [...(prev.repositories || [])]
+      repos[index] = { ...repos[index], ...repo }
+      const primary = repos.find((r) => r.is_primary) || repos[0]
+      return { ...prev, repositories: repos, git_url: primary?.git_url || prev.git_url }
+    })
+  }, [])
+
+  const setPrimaryRepository = useCallback((index: number) => {
+    setFormData((prev) => {
+      const repos = (prev.repositories || []).map((r, i) => ({
+        ...r,
+        is_primary: i === index,
+      }))
+      return { ...prev, repositories: repos, git_url: repos[index]?.git_url || prev.git_url }
+    })
+  }, [])
+
   const reset = useCallback(() => {
     setFormData(initialFormData)
     setTechInput('')
@@ -75,7 +128,25 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
       project_type?: string | null
       company_id?: number | null
       technologies?: Array<{ name: string }> | null
+      repositories?: Array<{
+        id?: number
+        git_url: string
+        label?: string
+        is_primary?: boolean
+      }> | null
     }) => {
+      // Build repositories from project data
+      const repos: ProjectRepositoryCreate[] = (project.repositories || []).map((r) => ({
+        git_url: r.git_url,
+        label: r.label || undefined,
+        is_primary: r.is_primary || false,
+      }))
+
+      // If no repositories but has git_url, create one
+      if (repos.length === 0 && project.git_url) {
+        repos.push({ git_url: project.git_url, is_primary: true })
+      }
+
       setFormData({
         name: project.name,
         short_description: project.short_description || '',
@@ -89,6 +160,7 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
         project_type: project.project_type || 'company',
         company_id: project.company_id ?? undefined,
         technologies: project.technologies?.map((t) => t.name) || [],
+        repositories: repos,
       })
       setIsOngoing(!project.end_date)
       setTechInput('')
@@ -97,6 +169,7 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
   )
 
   const getCleanedData = useCallback((): Partial<ProjectCreate> => {
+    const repos = formData.repositories || []
     return {
       name: formData.name,
       short_description: formData.short_description || undefined,
@@ -110,6 +183,7 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
       project_type: formData.project_type || undefined,
       company_id: formData.company_id,
       technologies: formData.technologies,
+      repositories: repos.length > 0 ? repos : undefined,
     }
   }, [formData])
 
@@ -122,6 +196,10 @@ export function useProjectForm(initial?: Partial<ProjectCreate>) {
     setIsOngoing: handleOngoingChange,
     addTechnology,
     removeTechnology,
+    addRepository,
+    removeRepository,
+    updateRepository,
+    setPrimaryRepository,
     reset,
     initializeFromProject,
     getCleanedData,

@@ -46,6 +46,7 @@ export const oauthApi = {
         redirect_path: redirectPath,
         is_electron: isElectron,
         user_id: userId,
+        frontend_origin: window.location.origin,
       },
     }),
 

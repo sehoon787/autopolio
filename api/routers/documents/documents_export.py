@@ -18,6 +18,7 @@ async def get_export_preview(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -31,7 +32,7 @@ async def get_export_preview(
 
     include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits) in the report
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         preview = await export_service.get_export_preview(user_id, report_type, include_code_stats)
         return preview
@@ -48,6 +49,7 @@ async def export_to_markdown(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -62,7 +64,7 @@ async def export_to_markdown(
 
     Returns file path and download URL.
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         file_path, content = await export_service.export_to_markdown(user_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
@@ -87,6 +89,7 @@ async def export_to_docx(
     user_id: int = Query(..., description="User ID"),
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -101,7 +104,7 @@ async def export_to_docx(
 
     Returns file path and download URL.
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         file_path = await export_service.export_to_docx(user_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
@@ -152,6 +155,7 @@ async def get_single_project_export_preview(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -164,7 +168,7 @@ async def get_single_project_export_preview(
 
     include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         preview = await export_service.get_single_project_preview(project_id, report_type, include_code_stats)
         return preview
@@ -181,6 +185,7 @@ async def export_single_project_to_markdown(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -193,7 +198,7 @@ async def export_single_project_to_markdown(
 
     include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         file_path, content = await export_service.export_single_project_to_markdown(project_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)
@@ -218,6 +223,7 @@ async def export_single_project_to_docx(
     project_id: int,
     report_type: Literal["detailed", "final", "summary"] = Query("summary", description="Report type"),
     include_code_stats: bool = Query(False, description="Include code statistics (lines added/deleted, commits)"),
+    language: str = Query("ko", description="Output language: 'ko' or 'en'"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -230,7 +236,7 @@ async def export_single_project_to_docx(
 
     include_code_stats: If True, include code contribution statistics (lines_added, lines_deleted, total_commits)
     """
-    export_service = ExportService(db)
+    export_service = ExportService(db, language=language)
     try:
         file_path = await export_service.export_single_project_to_docx(project_id, report_type, include_code_stats)
         filename = os.path.basename(file_path)

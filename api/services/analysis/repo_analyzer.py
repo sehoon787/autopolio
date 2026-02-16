@@ -26,6 +26,7 @@ from .contributor_analyzer import (
     detect_work_areas,
     extract_file_extensions,
     detect_technologies_from_files,
+    detect_ai_tools,
 )
 
 logger = logging.getLogger(__name__)
@@ -396,6 +397,15 @@ class RepoAnalyzer:
             except Exception:
                 pass
 
+        # Detect AI tools from full commit messages (Co-Authored-By patterns)
+        ai_tools_detected = []
+        try:
+            all_commits = await self.api.get_commits(git_url, per_page=100, max_pages=5)
+            full_messages = [c["commit"]["message"] for c in all_commits if c.get("commit", {}).get("message")]
+            ai_tools_detected = detect_ai_tools(full_messages)
+        except Exception as e:
+            logger.warning("Failed to detect AI tools for %s: %s", git_url, e)
+
         return {
             "default_branch": repo_info.get("default_branch", "main"),
             "total_commits": commit_stats["total_commits"],
@@ -410,6 +420,7 @@ class RepoAnalyzer:
             "detected_technologies": technologies,
             "commit_messages_summary": "\n".join(commit_stats["commit_messages"][:10]),
             "commit_categories": commit_stats["commit_categories"],
+            "ai_tools_detected": ai_tools_detected or None,
         }
 
     async def get_quick_repo_info(

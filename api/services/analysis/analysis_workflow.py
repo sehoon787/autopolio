@@ -50,34 +50,38 @@ class AnalysisContext:
     user_id: int
     github_token: str
     github_username: str
-    
+
     # Project info
     project_id: Optional[int] = None
     git_url: str = ""
-    
+    project_repository_id: Optional[int] = None  # Which ProjectRepository we're analyzing
+
     # Analysis settings
     language: str = "ko"
     summary_style: str = "professional"
-    
+
     # Services (initialized lazily)
     github_service: Optional["GitHubService"] = None
     llm_service: Any = None
-    
+
     # Results
     analysis_result: Dict[str, Any] = field(default_factory=dict)
     analysis_id: Optional[int] = None
     total_tokens: int = 0
     used_provider: Optional[str] = None
-    
+
     # LLM results
     key_tasks: Optional[List[str]] = None
     detailed_content: Optional[Dict[str, Any]] = None
     ai_summary: Optional[str] = None
     ai_key_features: Optional[List[str]] = None
     user_code_contributions: Optional[Dict[str, Any]] = None
-    
+
     # Context from previous edits
     existing_edits: Optional[Any] = None
+
+    # User's decrypted LLM API keys (provider -> key)
+    user_api_keys: Dict[str, str] = field(default_factory=dict)
 
 
 class AnalysisWorkflowError(Exception):
@@ -121,7 +125,18 @@ async def phase1_validate_user(
     
     # Determine language
     analysis_language = language or getattr(user, 'preferred_language', 'ko') or 'ko'
-    
+
+    # Extract user's decrypted LLM API keys
+    user_api_keys: Dict[str, str] = {}
+    for provider_name in ("openai", "anthropic", "gemini"):
+        key_attr = f"{provider_name}_api_key_encrypted"
+        encrypted = getattr(user, key_attr, None)
+        if encrypted:
+            try:
+                user_api_keys[provider_name] = encryption.decrypt(encrypted)
+            except Exception:
+                pass
+
     # Create context
     ctx = AnalysisContext(
         user_id=user_id,
@@ -129,6 +144,7 @@ async def phase1_validate_user(
         github_username=github_username,
         project_id=project_id,
         language=analysis_language,
+        user_api_keys=user_api_keys,
     )
     
     # If project exists, get existing edits for context
@@ -140,11 +156,12 @@ async def phase1_validate_user(
         if not project:
             raise AnalysisWorkflowError("Project not found", "validate_user")
         
-        # Get existing analysis and user edits
+        # Get existing analysis and user edits (use first for multi-repo compat)
         existing_analysis_result = await db.execute(
             select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+            .order_by(RepoAnalysis.id.asc())
         )
-        existing_analysis = existing_analysis_result.scalar_one_or_none()
+        existing_analysis = existing_analysis_result.scalars().first()
         if existing_analysis:
             edits_result = await db.execute(
                 select(RepoAnalysisEdits).where(
@@ -238,14 +255,25 @@ async def phase4_save_analysis(
     )
     project = proj_result.scalar_one_or_none()
     
-    # Check for existing analysis
-    existing = await db.execute(
-        select(RepoAnalysis).where(RepoAnalysis.project_id == ctx.project_id)
-    )
-    repo_analysis = existing.scalar_one_or_none()
-    
+    # Check for existing analysis — match by project_repository_id if available,
+    # otherwise fall back to project_id + git_url match
     analysis_result = ctx.analysis_result
-    
+
+    if ctx.project_repository_id:
+        existing = await db.execute(
+            select(RepoAnalysis).where(
+                RepoAnalysis.project_repository_id == ctx.project_repository_id
+            )
+        )
+    else:
+        existing = await db.execute(
+            select(RepoAnalysis).where(
+                RepoAnalysis.project_id == ctx.project_id,
+                RepoAnalysis.git_url == ctx.git_url,
+            )
+        )
+    repo_analysis = existing.scalar_one_or_none()
+
     if repo_analysis:
         for key, value in analysis_result.items():
             if hasattr(repo_analysis, key):
@@ -253,6 +281,7 @@ async def phase4_save_analysis(
     else:
         repo_analysis = RepoAnalysis(
             project_id=ctx.project_id,
+            project_repository_id=ctx.project_repository_id,
             git_url=ctx.git_url,
             **analysis_result
         )

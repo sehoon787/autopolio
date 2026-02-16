@@ -87,9 +87,10 @@
   "retry": "Retry",
   "noRepos": "No repositories found.",
   "noMatchingRepos": "No repositories match your search criteria.",
-  "reposSelected": "{{count}} repositories selected",
+  "reposSelected": "{{count}} selected",
   "cancelSelection": "Cancel Selection",
-  "importAsProjects": "Import as Projects",
+  "importAsProjects": "Import as Individual Projects",
+  "bundleAsProject": "Bundle as One Project",
   "updated": "Updated:",
   "importSuccess": "Import Complete",
   "importSuccessDesc": "{{count}} repositories have been imported as projects.",
@@ -99,5 +100,22 @@
   "selectionRequired": "Selection Required",
   "selectionRequiredDesc": "Please select repositories to import.",
   "errorTitle": "Error",
-  "errorDesc": "Failed to import repositories."
+  "errorDesc": "Failed to import repositories.",
+
+  "bundleDialog": {
+    "title": "Create Multi-Repo Project",
+    "projectName": "Project Name",
+    "projectNamePlaceholder": "Enter project name",
+    "selectedRepos": "Selected Repositories ({{count}})",
+    "label": "Label",
+    "labelPlaceholder": "e.g. Backend, Frontend",
+    "primaryNote": "Click the star to change the primary repository.",
+    "cancel": "Cancel",
+    "create": "Create Project",
+    "creating": "Creating...",
+    "success": "Project Created",
+    "successDesc": "Project {{name}} has been created with {{count}} repositories.",
+    "error": "Project Creation Failed",
+    "errorDesc": "Could not create the project."
+  }
 }

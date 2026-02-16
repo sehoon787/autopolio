@@ -55,6 +55,7 @@ async def analyze_repository(
     cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
     language: Optional[str] = Query(None, description="Analysis output language: 'ko' or 'en'"),
+    project_repository_id: Optional[int] = Query(None, description="Specific ProjectRepository to analyze"),
 ):
     """Analyze a GitHub repository.
 
@@ -80,20 +81,23 @@ async def analyze_repository(
 
         # Get summary style from request or default
         ctx.summary_style = request.summary_style or "professional"
+        ctx.project_repository_id = project_repository_id
 
-        # Initialize LLM service
+        # Initialize LLM service (prefer user's stored API key, then .env fallback)
         try:
+            effective_provider = provider or settings.llm_provider
+            user_key = ctx.user_api_keys.get(effective_provider)
             if cli_mode:
                 logger.info("[Analyze] Using CLI mode: %s, model: %s", cli_mode, cli_model)
                 ctx.llm_service = CLILLMService(cli_mode, model=cli_model)
                 ctx.used_provider = f"cli:{cli_mode}"
             elif provider:
-                logger.info("[Analyze] Using API mode: %s", provider)
-                ctx.llm_service = LLMService(provider)
+                logger.info("[Analyze] Using API mode: %s, has_user_key: %s", provider, bool(user_key))
+                ctx.llm_service = LLMService(provider, api_key=user_key)
                 ctx.used_provider = ctx.llm_service.provider_name
             else:
-                logger.info("[Analyze] Using default LLM provider from settings")
-                ctx.llm_service = LLMService()
+                logger.info("[Analyze] Using default LLM provider from settings, has_user_key: %s", bool(user_key))
+                ctx.llm_service = LLMService(api_key=user_key)
                 ctx.used_provider = ctx.llm_service.provider_name
         except (ValueError, Exception) as e:
             logger.warning("[Analyze] LLM service not available: %s", e)
@@ -228,18 +232,8 @@ async def analyze_repository(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
-@router.get("/analysis/{project_id}", response_model=RepoAnalysisResponse)
-async def get_repo_analysis(project_id: int, db: AsyncSession = Depends(get_db)):
-    """Get repository analysis for a project."""
-    result = await db.execute(
-        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
-    )
-    analysis = result.scalar_one_or_none()
-
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    # Explicitly construct response with all fields
+def _build_analysis_response(analysis: RepoAnalysis) -> RepoAnalysisResponse:
+    """Build RepoAnalysisResponse from ORM object."""
     return RepoAnalysisResponse(
         id=analysis.id,
         project_id=analysis.project_id,
@@ -261,11 +255,37 @@ async def get_repo_analysis(project_id: int, db: AsyncSession = Depends(get_db))
         tech_stack_versions=analysis.tech_stack_versions,
         detailed_achievements=analysis.detailed_achievements,
         analyzed_at=analysis.analyzed_at,
-        # AI summary fields (v1.12)
         ai_summary=analysis.ai_summary,
         ai_key_features=analysis.ai_key_features,
-        analysis_language=analysis.analysis_language or "ko"
+        analysis_language=analysis.analysis_language or "ko",
+        user_code_contributions=analysis.user_code_contributions,
+        suggested_contribution_percent=analysis.suggested_contribution_percent,
     )
+
+
+@router.get("/analysis/{project_id}", response_model=RepoAnalysisResponse)
+async def get_repo_analysis(project_id: int, db: AsyncSession = Depends(get_db)):
+    """Get repository analysis for a project (returns the primary/first one)."""
+    result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    analysis = result.scalars().first()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    return _build_analysis_response(analysis)
+
+
+@router.get("/analyses/{project_id}")
+async def get_repo_analyses(project_id: int, db: AsyncSession = Depends(get_db)):
+    """Get all repository analyses for a project (multi-repo support)."""
+    result = await db.execute(
+        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+    )
+    analyses = result.scalars().all()
+
+    return [_build_analysis_response(a) for a in analyses]
 
 
 @router.post("/generate-description")

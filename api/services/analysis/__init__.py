@@ -1,5 +1,5 @@
 from .analysis_job_service import AnalysisJobService
-from .analysis_job_runner import run_background_analysis, AnalysisCancelledException
+from .analysis_job_runner import run_background_analysis, run_multi_repo_background_analysis, AnalysisCancelledException
 from .analysis_workflow import (
     AnalysisContext,
     AnalysisWorkflowError,
@@ -17,10 +17,12 @@ from .analysis_workflow import (
 from .repo_analyzer import RepoAnalyzer
 from .technology_detection_service import TechnologyDetectionService
 from .role_service import RoleService
+from .analysis_aggregator import aggregate_analyses
 
 __all__ = [
     'AnalysisJobService',
     'run_background_analysis',
+    'run_multi_repo_background_analysis',
     'AnalysisCancelledException',
     'AnalysisContext',
     'AnalysisWorkflowError',
@@ -37,4 +39,5 @@ __all__ = [
     'RepoAnalyzer',
     'TechnologyDetectionService',
     'RoleService',
+    'aggregate_analyses',
 ]

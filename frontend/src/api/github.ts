@@ -78,6 +78,8 @@ export interface RepoAnalysis {
   suggested_contribution_percent?: number | null
   // Language used for analysis (v1.12)
   analysis_language?: string  // "ko" or "en"
+  // AI tools detected from commit messages (v1.17 Vibe Coding)
+  ai_tools_detected?: { tool: string; evidence: string; count: number }[] | null
 }
 
 export interface RepoQuickInfo {
@@ -183,6 +185,38 @@ export interface AnalysisUpdateResponse {
   success: boolean
   field: string
   message: string
+}
+
+// ============ Per-Repo Analysis Types (v1.17) ============
+
+export interface RepoAnalysisSummary {
+  repo_url: string
+  label: string | null
+  is_primary: boolean
+  total_commits: number
+  user_commits: number
+  lines_added: number
+  lines_deleted: number
+  files_changed: number
+  detected_technologies: string[]
+  primary_language: string | null
+  key_tasks: string[] | null
+  // Rich per-repo fields (v1.17)
+  implementation_details: { title: string; items: string[] }[] | null
+  detailed_achievements: Record<string, DetailedAchievementItem[]> | null
+  ai_summary: string | null
+  ai_key_features: string[] | null
+  languages: Record<string, number> | null
+  commit_categories: Record<string, number> | null
+  development_timeline: DevelopmentTimelinePhase[] | null
+  // AI tools detected (v1.17 Vibe Coding)
+  ai_tools_detected?: { tool: string; evidence: string; count: number }[] | null
+}
+
+export interface MultiRepoAnalysisResponse {
+  project_id: number
+  repo_count: number
+  analyses: RepoAnalysisSummary[]
 }
 
 // ============ Extended Analysis Types (v1.10) ============
@@ -340,6 +374,7 @@ export const githubApi = {
       cli_mode?: 'claude_code' | 'gemini_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language (v1.12)
+      project_repository_id?: number  // Specific repo in multi-repo project
     }
   ) =>
     apiClient.post<RepoAnalysis>('/github/analyze', {
@@ -352,7 +387,8 @@ export const githubApi = {
         provider: options?.provider,
         cli_mode: options?.cli_mode,
         cli_model: options?.cli_model,
-        language: options?.language  // Pass analysis language
+        language: options?.language,
+        project_repository_id: options?.project_repository_id
       }
     }),
 
@@ -429,6 +465,9 @@ export const githubApi = {
   getEffectiveAnalysis: (projectId: number) =>
     apiClient.get<EffectiveRepoAnalysis>(`/github/analysis/${projectId}/effective`),
 
+  getPerRepoAnalyses: (projectId: number) =>
+    apiClient.get<MultiRepoAnalysisResponse>(`/github/analysis/${projectId}/per-repo`),
+
   updateAnalysisContent: (projectId: number, update: AnalysisContentUpdate) =>
     apiClient.patch<AnalysisUpdateResponse>(`/github/analysis/${projectId}/content`, update),
 
@@ -490,6 +529,7 @@ export const githubApi = {
       cli_mode?: 'claude_code' | 'gemini_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language (v1.12)
+      project_repository_id?: number  // Specific repo in multi-repo project
     }
   ) =>
     apiClient.post<StartAnalysisResponse>('/github/analyze-background', {
@@ -501,7 +541,8 @@ export const githubApi = {
         provider: options?.provider,
         cli_mode: options?.cli_mode,
         cli_model: options?.cli_model,
-        language: options?.language  // Pass analysis language
+        language: options?.language,
+        project_repository_id: options?.project_repository_id
       }
     }),
 

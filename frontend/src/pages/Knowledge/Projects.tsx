@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { TechBadge } from '@/components/ui/tech-badge'
 import { Progress } from '@/components/ui/progress'
@@ -30,13 +29,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { useAppStore } from '@/stores/appStore'
@@ -53,12 +45,12 @@ import {
   PROJECT_STATUS_COLUMNS,
   createKanbanColumns,
 } from '@/components/KanbanBoard'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatDateTime } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { ExportDialog } from '@/components/ExportDialog'
 import { ProjectFormFields } from '@/components/ProjectFormFields'
 import { ProjectFilters, countActiveFilters } from '@/components/ProjectFilters'
-import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown, StopCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown, StopCircle, Star } from 'lucide-react'
 
 // Kanban item interface
 interface ProjectKanbanItem extends KanbanItem {
@@ -117,10 +109,17 @@ function ProjectKanbanCard({ project }: { project: Project }) {
           {project.team_size && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{t('teamSizeValue', { count: project.team_size })}</span>}
           {project.role && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{project.role}</span>}
         </div>
-        {project.git_url && (
-          <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline pt-1" onClick={(e) => e.stopPropagation()}>
-            <Github className="h-3 w-3" />GitHub<ExternalLink className="h-2 w-2" />
-          </a>
+        {(project.git_url || (project.repositories && project.repositories.length > 0)) && (
+          <div className="flex items-center gap-1 pt-1">
+            <Github className="h-3 w-3 text-primary" />
+            {project.repositories && project.repositories.length > 1 ? (
+              <span className="text-xs text-primary">{project.repositories.length} repos</span>
+            ) : project.git_url ? (
+              <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                GitHub<ExternalLink className="h-2 w-2 inline ml-0.5" />
+              </a>
+            ) : null}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -128,7 +127,7 @@ function ProjectKanbanCard({ project }: { project: Project }) {
 }
 
 export default function ProjectsPage() {
-  const { t } = useTranslation('projects')
+  const { t, i18n } = useTranslation('projects')
   const { t: tc } = useTranslation('common')
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -152,7 +151,6 @@ export default function ProjectsPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
-  const [selectedRepoUrl, setSelectedRepoUrl] = useState('')
   const [isLoadingRepoInfo, setIsLoadingRepoInfo] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
@@ -230,7 +228,6 @@ export default function ProjectsPage() {
       queryClient.refetchQueries({ queryKey: ['projects'] })
       setIsDialogOpen(false)
       createForm.reset()
-      setSelectedRepoUrl('')
       toast({ title: t('projectAdded') })
     },
     onError: (error: any) => toast({ title: tc('error'), description: error?.response?.data?.detail || t('addFailed'), variant: 'destructive' }),
@@ -288,13 +285,16 @@ export default function ProjectsPage() {
     let failed = 0
 
     for (const project of projectsToAnalyze) {
-      if (!project.git_url) {
+      const gitUrl = project.git_url || project.repositories?.find((r) => r.is_primary)?.git_url || project.repositories?.[0]?.git_url
+      if (!gitUrl) {
         failed++
         continue
       }
 
       try {
-        const options: Parameters<typeof startAnalysis>[3] = {}
+        const options: Parameters<typeof startAnalysis>[3] = {
+          language: i18n.language as 'ko' | 'en',
+        }
         if (useCli) {
           options.cli_mode = selectedCLI as 'claude_code' | 'gemini_cli'
           options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
@@ -302,7 +302,7 @@ export default function ProjectsPage() {
           options.provider = selectedLLMProvider
         }
 
-        await startAnalysis(user.id, project.git_url, project.id, options)
+        await startAnalysis(user.id, gitUrl, project.id, options)
         completed++
       } catch (error: any) {
         console.warn(`[Batch Analysis] ${project.name}: ${error?.message || 'Failed'}`)
@@ -327,23 +327,41 @@ export default function ProjectsPage() {
   const clearFilters = () => { setFilters({ sort_by: 'is_analyzed,created_at', sort_order: 'asc,desc' }); setSearchInput(''); selection.deselectAll() }
   const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput || undefined }))
 
-  const handleRepoSelect = async (repoUrl: string) => {
-    if (!repoUrl || repoUrl === 'manual') { setSelectedRepoUrl(''); return }
-    setSelectedRepoUrl(repoUrl)
-    createForm.setFormData({ ...createForm.formData, git_url: repoUrl })
-    if (!user?.id) return
+  const handleRepoSelected = async (repoUrl: string) => {
+    if (!repoUrl || !user?.id) return
+    createForm.setFormData((prev) => ({ ...prev, git_url: repoUrl }))
     setIsLoadingRepoInfo(true)
     try {
       const [infoResponse, techResponse] = await Promise.all([githubApi.getRepoInfo(user.id, repoUrl), githubApi.detectTechnologies(user.id, repoUrl)])
       const info = infoResponse.data
       const technologies = techResponse.data.technologies || []
-      createForm.setFormData({
-        ...createForm.formData, short_description: info.description || createForm.formData.short_description, git_url: info.html_url || repoUrl,
-        start_date: info.start_date || createForm.formData.start_date, end_date: info.end_date || '',
-        team_size: info.team_size || createForm.formData.team_size, contribution_percent: info.contribution_percent || createForm.formData.contribution_percent,
-        project_type: 'personal', technologies: technologies.length > 0 ? technologies : createForm.formData.technologies,
-      })
+      createForm.setFormData((prev) => ({
+        ...prev, short_description: info.description || prev.short_description, git_url: info.html_url || repoUrl,
+        start_date: info.start_date || prev.start_date, end_date: info.end_date || '',
+        team_size: info.team_size || prev.team_size, contribution_percent: info.contribution_percent || prev.contribution_percent,
+        project_type: 'personal', technologies: technologies.length > 0 ? technologies : prev.technologies,
+      }))
       createForm.setIsOngoing(!info.end_date)
+      toast({ title: t('repoInfoLoaded') })
+    } catch (error: any) { toast({ title: tc('error'), description: error?.response?.data?.detail || t('repoInfoFailed'), variant: 'destructive' }) }
+    finally { setIsLoadingRepoInfo(false) }
+  }
+
+  const handleEditRepoSelected = async (repoUrl: string) => {
+    if (!repoUrl || !user?.id) return
+    editForm.setFormData((prev) => ({ ...prev, git_url: repoUrl }))
+    setIsLoadingRepoInfo(true)
+    try {
+      const [infoResponse, techResponse] = await Promise.all([githubApi.getRepoInfo(user.id, repoUrl), githubApi.detectTechnologies(user.id, repoUrl)])
+      const info = infoResponse.data
+      const technologies = techResponse.data.technologies || []
+      editForm.setFormData((prev) => ({
+        ...prev, short_description: info.description || prev.short_description, git_url: info.html_url || repoUrl,
+        start_date: info.start_date || prev.start_date, end_date: info.end_date || '',
+        team_size: info.team_size || prev.team_size, contribution_percent: info.contribution_percent || prev.contribution_percent,
+        technologies: technologies.length > 0 ? technologies : prev.technologies,
+      }))
+      editForm.setIsOngoing(!info.end_date)
       toast({ title: t('repoInfoLoaded') })
     } catch (error: any) { toast({ title: tc('error'), description: error?.response?.data?.detail || t('repoInfoFailed'), variant: 'destructive' }) }
     finally { setIsLoadingRepoInfo(false) }
@@ -389,8 +407,9 @@ export default function ProjectsPage() {
   const handleEditProject = (project: Project) => { setEditingProject(project); editForm.initializeFromProject(project) }
   const handleEditSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!editingProject) return; updateMutation.mutate({ id: editingProject.id, data: editForm.getCleanedData() }) }
 
-  const selectedAnalyzableProjects = projects.filter(p => selection.isSelected(p.id) && p.git_url && !p.is_analyzed)
-  const pendingProjects = projects.filter((p) => p.git_url && !p.is_analyzed && (p.status === 'pending' || !p.status))
+  const hasGitUrl = (p: Project) => p.git_url || (p.repositories && p.repositories.length > 0)
+  const selectedAnalyzableProjects = projects.filter(p => selection.isSelected(p.id) && hasGitUrl(p) && !p.is_analyzed)
+  const pendingProjects = projects.filter((p) => hasGitUrl(p) && !p.is_analyzed && (p.status === 'pending' || !p.status))
   const handleBatchAnalyze = () => { if (pendingProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noPendingProjects'), variant: 'destructive' }); return }; handleStartBatchAnalysis(pendingProjects) }
   const handleSelectedBatchAnalyze = () => { if (selectedAnalyzableProjects.length === 0) { toast({ title: t('noAnalysisTarget'), description: t('noSelectedAnalyzable'), variant: 'destructive' }); return }; handleStartBatchAnalysis(selectedAnalyzableProjects) }
   const handleSelectedBatchDelete = () => { if (selection.selectedCount === 0) { toast({ title: t('noDeleteTarget'), description: t('noSelectedProjects'), variant: 'destructive' }); return }; setIsBatchDeleteDialogOpen(true) }
@@ -426,7 +445,7 @@ export default function ProjectsPage() {
             <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" className="rounded-r-none" onClick={() => setViewMode('list')}><List className="h-4 w-4 mr-1" />{t('listView')}</Button>
             <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className="rounded-l-none" onClick={() => setViewMode('kanban')}><Kanban className="h-4 w-4 mr-1" />{t('kanbanView')}</Button>
           </div>
-          <Button onClick={() => { createForm.reset(); setSelectedRepoUrl(''); setIsDialogOpen(true) }}><Plus className="h-4 w-4 mr-2" />{t('addProject')}</Button>
+          <Button onClick={() => { createForm.reset(); setIsDialogOpen(true) }}><Plus className="h-4 w-4 mr-2" />{t('addProject')}</Button>
         </div>
       </div>
 
@@ -510,16 +529,27 @@ export default function ProjectsPage() {
                               {t('backgroundAnalysis.inProgress')} ({progress}%)
                             </Badge>
                           ) : project.is_analyzed ? (
-                            <Badge variant="success">{t('analyzed')}</Badge>
+                            <>
+                              <Badge variant="success">{t('analyzed')}</Badge>
+                              {project.last_analyzed_at && (
+                                <span className="text-xs text-gray-400">{t('analyzedAt', { date: formatDateTime(project.last_analyzed_at) })}</span>
+                              )}
+                            </>
                           ) : (
                             <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">{t('notAnalyzed')}</Badge>
                           )}
                           {project.project_type && <Badge variant="outline">{project.project_type}</Badge>}
+                          {project.ai_tools_detected && project.ai_tools_detected.length > 0 && (
+                            <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200 border border-violet-300 dark:border-violet-700 text-xs gap-1">
+                              <span className="inline-block w-3 h-3 mr-0.5">🤖</span>
+                              {t('detail.badge.vibeCoding')}
+                            </Badge>
+                          )}
                         </div>
                         {analyzing && job && (
                           <div className="mb-2 flex items-center gap-2">
                             <Progress value={progress} className="h-2 flex-1 max-w-xs" />
-                            <span className="text-xs text-gray-500">{t('backgroundAnalysis.stepProgress', { step: job.current_step, total: job.total_steps })}</span>
+                            <span className="text-xs text-gray-500">{progress}%</span>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -546,11 +576,24 @@ export default function ProjectsPage() {
                             {project.technologies.length > 10 && <Badge variant="outline" className="text-xs">{t('detail.basicInfo.moreCount', { count: project.technologies.length - 10 })}</Badge>}
                           </div>
                         )}
-                        {project.git_url && (
-                          <div className="mt-3">
-                            <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 text-sm text-primary rounded-md hover:bg-primary/5 hover:underline transition-colors" onClick={(e) => e.stopPropagation()}>
-                              <Github className="h-4 w-4" /><span>GitHub</span><ExternalLink className="h-3 w-3" />
-                            </a>
+                        {(project.git_url || (project.repositories && project.repositories.length > 0)) && (
+                          <div className="mt-3 flex items-center gap-2">
+                            {project.repositories && project.repositories.length > 1 ? (
+                              <>
+                                <Badge variant="outline" className="text-xs">
+                                  <Github className="h-3 w-3 mr-1" />{project.repositories.length} repos
+                                </Badge>
+                                {project.repositories.map((repo) => (
+                                  <a key={repo.id || repo.git_url} href={repo.git_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs text-primary rounded hover:bg-primary/5 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                    {repo.label || repo.git_url.split('/').pop()}{repo.is_primary && <Star className="h-2.5 w-2.5 text-yellow-500 fill-yellow-500" />}
+                                  </a>
+                                ))}
+                              </>
+                            ) : project.git_url ? (
+                              <a href={project.git_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 text-sm text-primary rounded-md hover:bg-primary/5 hover:underline transition-colors" onClick={(e) => e.stopPropagation()}>
+                                <Github className="h-4 w-4" /><span>GitHub</span><ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : null}
                           </div>
                         )}
                       </div>
@@ -584,25 +627,7 @@ export default function ProjectsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('dialog.title')}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isGitHubConnected && githubRepos.length > 0 && (
-              <div className="space-y-2">
-                <Label>{t('dialog.importFromGithub')}</Label>
-                <Select value={selectedRepoUrl} onValueChange={handleRepoSelect}>
-                  <SelectTrigger><SelectValue placeholder={t('dialog.selectRepo')}>{isLoadingRepoInfo && <Loader2 className="h-4 w-4 animate-spin mr-2" />}</SelectValue></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">{t('dialog.manualInput')}</SelectItem>
-                    {githubRepos.map((repo) => (
-                      <SelectItem key={repo.id} value={repo.html_url}>
-                        <div className="flex items-center gap-2"><Github className="h-4 w-4" /><span>{repo.full_name}</span>{repo.language && <Badge variant="outline" className="text-xs">{repo.language}</Badge>}</div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500">{t('dialog.repoSelectionHint')}</p>
-              </div>
-            )}
-            {isLoadingRepoInfo && <div className="flex items-center justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /><span className="ml-2 text-sm text-gray-500">{t('dialog.loadingRepoInfo')}</span></div>}
-            <ProjectFormFields formData={createForm.formData} onChange={createForm.setFormData} companies={companies} techInput={createForm.techInput} onTechInputChange={createForm.setTechInput} onAddTechnology={createForm.addTechnology} onRemoveTechnology={createForm.removeTechnology} isOngoing={createForm.isOngoing} onOngoingChange={createForm.setIsOngoing} />
+            <ProjectFormFields formData={createForm.formData} onChange={createForm.setFormData} companies={companies} techInput={createForm.techInput} onTechInputChange={createForm.setTechInput} onAddTechnology={createForm.addTechnology} onRemoveTechnology={createForm.removeTechnology} isOngoing={createForm.isOngoing} onOngoingChange={createForm.setIsOngoing} onAddRepository={createForm.addRepository} onRemoveRepository={createForm.removeRepository} onUpdateRepository={createForm.updateRepository} onSetPrimaryRepository={createForm.setPrimaryRepository} githubRepos={isGitHubConnected ? githubRepos : undefined} onRepoSelected={handleRepoSelected} isLoadingRepoInfo={isLoadingRepoInfo} />
             <div className="space-y-2">
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={handleGenerateAI} disabled={!createForm.formData.git_url || isGeneratingAI} className="ml-auto">
@@ -624,7 +649,7 @@ export default function ProjectsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('editDialog.title')}</DialogTitle></DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
-            <ProjectFormFields formData={editForm.formData} onChange={editForm.setFormData} companies={companies} techInput={editForm.techInput} onTechInputChange={editForm.setTechInput} onAddTechnology={editForm.addTechnology} onRemoveTechnology={editForm.removeTechnology} isOngoing={editForm.isOngoing} onOngoingChange={editForm.setIsOngoing} idPrefix="edit_" />
+            <ProjectFormFields formData={editForm.formData} onChange={editForm.setFormData} companies={companies} techInput={editForm.techInput} onTechInputChange={editForm.setTechInput} onAddTechnology={editForm.addTechnology} onRemoveTechnology={editForm.removeTechnology} isOngoing={editForm.isOngoing} onOngoingChange={editForm.setIsOngoing} onAddRepository={editForm.addRepository} onRemoveRepository={editForm.removeRepository} onUpdateRepository={editForm.updateRepository} onSetPrimaryRepository={editForm.setPrimaryRepository} githubRepos={isGitHubConnected ? githubRepos : undefined} onRepoSelected={handleEditRepoSelected} isLoadingRepoInfo={isLoadingRepoInfo} idPrefix="edit_" />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditingProject(null)}>{tc('cancel')}</Button>
               <Link to={`/knowledge/projects/${editingProject?.id}`}><Button type="button" variant="secondary">{t('editDialog.viewDetail')}</Button></Link>

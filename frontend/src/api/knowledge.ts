@@ -80,6 +80,28 @@ export interface Achievement {
   updated_at: string
 }
 
+// Multi-repo support types
+export interface ProjectRepository {
+  id?: number
+  git_url: string
+  label?: string
+  display_order?: number
+  is_primary?: boolean
+  is_analyzed?: boolean
+}
+
+export interface ProjectRepositoryCreate {
+  git_url: string
+  label?: string
+  is_primary?: boolean
+}
+
+export interface AiToolDetected {
+  tool: string
+  evidence: string
+  count: number
+}
+
 export interface Project {
   id: number
   user_id: number
@@ -100,10 +122,14 @@ export interface Project {
   is_analyzed: boolean
   ai_summary: string | null
   ai_key_features: string[] | null
+  last_analyzed_at: string | null
+  analysis_language: string | null
+  ai_tools_detected: AiToolDetected[] | null
   created_at: string
   updated_at: string
   technologies: Technology[]
   achievements: Achievement[]
+  repositories: ProjectRepository[]
 }
 
 export interface ProjectCreate {
@@ -121,6 +147,7 @@ export interface ProjectCreate {
   links?: Record<string, string>
   company_id?: number
   technologies?: string[]
+  repositories?: ProjectRepositoryCreate[]
 }
 
 export interface ProjectListResponse {

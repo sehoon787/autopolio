@@ -87,7 +87,7 @@ async def step_template_mapping(
         analysis_result = await db.execute(
             select(RepoAnalysis).where(RepoAnalysis.project_id == p.id)
         )
-        analysis = analysis_result.scalar_one_or_none()
+        analysis = analysis_result.scalars().first()
         if analysis:
             # Check for user edits first
             edits_result = await db.execute(

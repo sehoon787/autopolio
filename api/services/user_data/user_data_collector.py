@@ -58,8 +58,10 @@ class UserDataCollector:
             select(Project).where(Project.user_id == user_id)
             .options(
                 selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                selectinload(Project.repo_analysis).selectinload(RepoAnalysis.user_edits),
+                selectinload(Project.repo_analyses).selectinload(RepoAnalysis.user_edits),
+                selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
                 selectinload(Project.achievements),
+                selectinload(Project.repositories),
             )
             .order_by(Project.start_date.desc())
         )

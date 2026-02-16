@@ -513,6 +513,24 @@
                     <p class="project-company">{{#company}}{{company}}{{/company}}{{^company}}{{#company_name}}{{company_name}}{{/company_name}}{{^company_name}}사이드 프로젝트{{/company_name}}{{/company}}</p>
                     {{#role}}<p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 4px;"><strong>역할:</strong> {{role}}</p>{{/role}}
                     {{#description}}<p class="project-desc">{{description}}</p>{{/description}}
+                    {{#has_repo_analyses}}
+                    <div style="margin-top: 8px;">
+                        <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>주요 구현 기능:</strong></p>
+                        {{#repo_analyses_list}}
+                        <div style="margin-top: 4px; margin-left: 4px;">
+                            <div style="font-weight: 600; color: #FF6A0D; font-size: 13px;">[{{label}}]</div>
+                            {{#has_key_tasks}}
+                            <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text);">
+                                {{#key_tasks_list}}
+                                <div>• {{.}}</div>
+                                {{/key_tasks_list}}
+                            </div>
+                            {{/has_key_tasks}}
+                        </div>
+                        {{/repo_analyses_list}}
+                    </div>
+                    {{/has_repo_analyses}}
+                    {{^has_repo_analyses}}
                     {{#has_key_tasks}}
                     <div style="margin-top: 8px;">
                         <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>주요 구현 기능:</strong></p>
@@ -523,12 +541,36 @@
                         </div>
                     </div>
                     {{/has_key_tasks}}
+                    {{/has_repo_analyses}}
                     {{#technologies}}
                     <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 8px;"><strong>기술 스택:</strong> <span style="color: var(--rmb-text);">{{technologies}}</span></p>
                     {{/technologies}}
                     {{#team_size}}
                     <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-top: 4px;"><strong>개발 인원:</strong> <span style="color: var(--rmb-text);">{{team_size}}</span></p>
                     {{/team_size}}
+                    {{#has_repo_analyses}}
+                    <div style="margin-top: 8px;">
+                        <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>성과:</strong></p>
+                        {{#repo_analyses_list}}
+                        {{#has_achievements}}
+                        <div style="margin-top: 4px; margin-left: 4px;">
+                            <div style="font-weight: 600; color: #FF6A0D; font-size: 13px;">[{{label}}]</div>
+                            <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text);">
+                                {{#achievements_grouped}}
+                                <div style="margin-bottom: 4px; padding: 4px 6px; background: rgba(255, 106, 13, 0.06); border-radius: 4px;">
+                                    <div><strong style="color: #FF6A0D;">{{category}}</strong></div>
+                                    {{#items}}
+                                    <div style="margin-left: 12px;">- {{title}}</div>
+                                    {{/items}}
+                                </div>
+                                {{/achievements_grouped}}
+                            </div>
+                        </div>
+                        {{/has_achievements}}
+                        {{/repo_analyses_list}}
+                    </div>
+                    {{/has_repo_analyses}}
+                    {{^has_repo_analyses}}
                     {{#has_achievements}}
                     <div style="margin-top: 8px;">
                         <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>성과:</strong></p>
@@ -544,6 +586,7 @@
                         </div>
                     </div>
                     {{/has_achievements}}
+                    {{/has_repo_analyses}}
                 </div>
                 {{/projects}}
                 {{^projects}}

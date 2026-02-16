@@ -17,13 +17,14 @@ from api.models.company import Company
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from .report_base import ReportBaseService
+from .report_strings import get_strings
 
 
 class ReportService(ReportBaseService):
     """Service for generating various report formats"""
 
-    def __init__(self, db: AsyncSession):
-        super().__init__(db)
+    def __init__(self, db: AsyncSession, language: str = "ko"):
+        super().__init__(db, language=language)
 
     async def generate_projects_md(self, user_id: int) -> str:
         """
@@ -40,37 +41,38 @@ class ReportService(ReportBaseService):
         - Git: https://github.com/...
         - 기술스택: Python, FastAPI, React
         """
+        s = get_strings(self.language)
         data = await self._get_user_data(user_id)
         projects = data["projects"]
         companies = {c.id: c for c in data["companies"]}
 
         lines = [
-            "# 프로젝트 목록",
+            f"# {s['project_list_title']}",
             "",
-            f"총 {len(projects)}개 프로젝트",
+            s["total_projects"].format(count=len(projects)),
             "",
         ]
 
         for idx, project in enumerate(projects, 1):
             company = companies.get(project.company_id) if project.company_id else None
-            company_name = company.name if company else "개인/프리랜서"
+            company_name = company.name if company else s["freelancer"]
 
             tech_names = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
-            tech_str = ", ".join(tech_names) if tech_names else "미지정"
+            tech_str = ", ".join(tech_names) if tech_names else s["unspecified"]
 
             lines.append(f"## {idx}. {project.name}")
             lines.append("")
-            lines.append(f"- **기간**: {self._format_date_range(project.start_date, project.end_date)}")
-            lines.append(f"- **소속**: {company_name}")
+            lines.append(f"- **{s['period']}**: {self._format_date_range(project.start_date, project.end_date)}")
+            lines.append(f"- **{s['company']}**: {company_name}")
             if project.team_size:
-                lines.append(f"- **투입인원**: {project.team_size}명")
+                lines.append(f"- **{s['team_size']}**: {s['team_size_value'].format(count=project.team_size)}")
             if project.role:
-                lines.append(f"- **역할**: {project.role}")
+                lines.append(f"- **{s['role']}**: {project.role}")
             if project.description:
-                lines.append(f"- **설명**: {project.description}")
+                lines.append(f"- **{s['description']}**: {project.description}")
             if project.git_url:
-                lines.append(f"- **Git**: {project.git_url}")
-            lines.append(f"- **기술스택**: {tech_str}")
+                lines.append(f"- **{s['git']}**: {project.git_url}")
+            lines.append(f"- **{s['tech_stack']}**: {tech_str}")
             lines.append("")
 
         return "\n".join(lines)
@@ -86,13 +88,14 @@ class ReportService(ReportBaseService):
         - 성과1: 80% 성능 향상
         - 성과2: 96배 생산성 증가
         """
+        s = get_strings(self.language)
         data = await self._get_user_data(user_id)
         projects = data["projects"]
 
         lines = [
-            "# 프로젝트 성과 요약",
+            f"# {s['performance_title']}",
             "",
-            "정량적 성과 중심의 프로젝트 요약입니다.",
+            s["performance_subtitle"],
             "",
         ]
 
@@ -102,7 +105,7 @@ class ReportService(ReportBaseService):
         ]
 
         if not projects_with_achievements:
-            lines.append("*등록된 성과가 없습니다.*")
+            lines.append(s["no_achievements"])
             return "\n".join(lines)
 
         for project in projects_with_achievements:
@@ -139,6 +142,7 @@ class ReportService(ReportBaseService):
              설명
              역할: PM, 백엔드
         """
+        s = get_strings(self.language)
         data = await self._get_user_data(user_id)
         companies = data["companies"]
         projects = data["projects"]
@@ -186,14 +190,14 @@ class ReportService(ReportBaseService):
                         result[category].append(tech)
                         categorized.add(tech)
                         break
-            # Add uncategorized to "기타"
+            # Add uncategorized to "Other"
             uncategorized = [t for t in tech_names if t not in categorized]
             if uncategorized:
-                result["기타"] = uncategorized
+                result[s["category_other"]] = uncategorized
             return result
 
         lines = [
-            "# 경력 사항 (회사별 통합)",
+            f"# {s['career_title']}",
             "",
         ]
 
@@ -215,13 +219,13 @@ class ReportService(ReportBaseService):
             lines.append("")
 
             if tech_categories:
-                lines.append("   **[담당 기술 스택]**")
+                lines.append(f"   **[{s['tech_stack_label']}]**")
                 for category, techs in tech_categories.items():
                     lines.append(f"   - {category}: {', '.join(sorted(techs))}")
                 lines.append("")
 
             if company_projects:
-                lines.append("   **[주요 프로젝트]**")
+                lines.append(f"   **[{s['main_projects']}]**")
                 for idx, project in enumerate(company_projects, 1):
                     project_date_range = self._format_date_range(project.start_date, project.end_date)
                     lines.append(f"   {idx}. **{project.name}** ({project_date_range})")
@@ -230,10 +234,10 @@ class ReportService(ReportBaseService):
                         desc = project.description[:150] + "..." if len(project.description) > 150 else project.description
                         lines.append(f"      {desc}")
                     if project.role:
-                        lines.append(f"      역할: {project.role}")
+                        lines.append(f"      {s['role']}: {project.role}")
                     lines.append("")
             else:
-                lines.append("   *등록된 프로젝트 없음*")
+                lines.append(f"   {s['no_projects']}")
                 lines.append("")
 
             lines.append("---")
@@ -241,7 +245,7 @@ class ReportService(ReportBaseService):
 
         # Freelance/Personal projects
         if freelance_projects:
-            lines.append("## ■ 개인/프리랜서 프로젝트")
+            lines.append(f"## ■ {s['freelancer_section']}")
             lines.append("")
             for idx, project in enumerate(freelance_projects, 1):
                 project_date_range = self._format_date_range(project.start_date, project.end_date)
@@ -250,7 +254,7 @@ class ReportService(ReportBaseService):
                     desc = project.description[:150] + "..." if len(project.description) > 150 else project.description
                     lines.append(f"      {desc}")
                 if project.role:
-                    lines.append(f"      역할: {project.role}")
+                    lines.append(f"      {s['role']}: {project.role}")
                 lines.append("")
 
         return "\n".join(lines)
@@ -264,7 +268,15 @@ class ReportService(ReportBaseService):
         }
 
     async def _get_project_with_analysis(self, project_id: int) -> Dict[str, Any]:
-        """Get project data with repo analysis and user edits applied"""
+        """Get project data with repo analysis and user edits applied.
+
+        For multi-repo projects, aggregates all repo analyses into a unified view.
+        """
+        from types import SimpleNamespace
+        from api.services.analysis.analysis_aggregator import aggregate_analyses
+        from api.models.project_repository import ProjectRepository
+        from sqlalchemy.orm import selectinload as sinload
+
         # Get project with technologies and achievements
         project_result = await self.db.execute(
             select(Project)
@@ -278,17 +290,37 @@ class ReportService(ReportBaseService):
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Get repo analysis
+        # Get ALL repo analyses with their project_repository
         analysis_result = await self.db.execute(
-            select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+            select(RepoAnalysis)
+            .where(RepoAnalysis.project_id == project_id)
+            .options(sinload(RepoAnalysis.project_repository))
         )
-        analysis = analysis_result.scalar_one_or_none()
+        analyses = list(analysis_result.scalars().all())
 
-        # Get user edits if analysis exists
+        # Determine primary analysis and aggregate if multi-repo
+        analysis = None
+        if analyses:
+            primary = next(
+                (a for a in analyses if a.project_repository and a.project_repository.is_primary),
+                analyses[0]
+            )
+            if len(analyses) > 1:
+                # Multi-repo: aggregate into a SimpleNamespace for attribute access
+                agg = aggregate_analyses(analyses)
+                analysis = SimpleNamespace(**agg)
+            else:
+                analysis = primary
+
+        # Get user edits from primary analysis
         edits = None
-        if analysis:
+        if analyses:
+            primary_id = next(
+                (a.id for a in analyses if a.project_repository and a.project_repository.is_primary),
+                analyses[0].id
+            )
             edits_result = await self.db.execute(
-                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == primary_id)
             )
             edits = edits_result.scalar_one_or_none()
 
@@ -390,10 +422,11 @@ class ReportService(ReportBaseService):
         key_tasks = self._get_effective_key_tasks(analysis, edits)
 
         # Achievements by category
+        s = get_strings(self.language)
         achievements_by_category: Dict[str, List[Dict]] = {}
         if project.achievements:
             for ach in project.achievements:
-                category = ach.category or "기타"
+                category = ach.category or s["category_other"]
                 if category not in achievements_by_category:
                     achievements_by_category[category] = []
                 achievements_by_category[category].append({
@@ -419,11 +452,11 @@ class ReportService(ReportBaseService):
                 "role": project.role,
                 "team_size": project.team_size,
                 "start_date": self._format_date(project.start_date),
-                "end_date": self._format_date(project.end_date) if project.end_date else "진행중",
+                "end_date": self._format_date(project.end_date) if project.end_date else s["ongoing"],
                 "date_range": self._format_date_range(project.start_date, project.end_date),
             },
             "company": {
-                "name": company.name if company else "개인/프리랜서",
+                "name": company.name if company else s["freelancer"],
                 "position": company.position if company else None,
             } if company else None,
             "repository": repo_info,
@@ -442,7 +475,7 @@ class ReportService(ReportBaseService):
             "detailed_achievements": detailed_achievements,
         }
 
-    async def generate_final_report(self, project_id: int) -> Dict[str, Any]:
+    async def generate_final_report(self, project_id: int, language: str = None) -> Dict[str, Any]:
         """
         Generate FINAL_PROJECT_REPORT style - 업무/성과 양식 정리
 
@@ -451,6 +484,7 @@ class ReportService(ReportBaseService):
         - 주요 구현 내용 (bullet points)
         - 성과 (Before/After 비교 형식)
         """
+        s = get_strings(language or self.language)
         data = await self._get_project_with_analysis(project_id)
         project = data["project"]
         analysis = data["analysis"]
@@ -461,8 +495,8 @@ class ReportService(ReportBaseService):
         overview = {
             "name": project.name,
             "date_range": self._format_date_range(project.start_date, project.end_date),
-            "company": company.name if company else "개인/프리랜서",
-            "role": project.role or "개발자",
+            "company": company.name if company else s["freelancer"],
+            "role": project.role or s["developer"],
             "team_size": project.team_size,
             "description": project.description,
         }
@@ -479,11 +513,11 @@ class ReportService(ReportBaseService):
             # Generate from commit categories
             categories = analysis.commit_categories
             if categories.get("feature", 0) > 0:
-                key_implementations.append(f"신규 기능 {categories['feature']}개 개발")
+                key_implementations.append(s["new_features"].format(count=categories['feature']))
             if categories.get("fix", 0) > 0:
-                key_implementations.append(f"버그 수정 및 안정화 ({categories['fix']}건)")
+                key_implementations.append(s["bug_fixes"].format(count=categories['fix']))
             if categories.get("refactor", 0) > 0:
-                key_implementations.append(f"코드 리팩토링 ({categories['refactor']}건)")
+                key_implementations.append(s["refactoring"].format(count=categories['refactor']))
 
         # Achievements with Before/After format
         achievements = []
@@ -550,7 +584,7 @@ class ReportService(ReportBaseService):
         basic_info = {
             "name": project.name,
             "date_range": self._format_date_range(project.start_date, project.end_date),
-            "role": project.role or "개발자",
+            "role": project.role or get_strings(self.language)["developer"],
             "team_size": project.team_size,
             "git_url": project.git_url,
         }
@@ -591,7 +625,7 @@ class ReportService(ReportBaseService):
         return {
             "report_type": "performance_summary",
             "basic_info": basic_info,
-            "company": company.name if company else "개인/프리랜서",
+            "company": company.name if company else get_strings(self.language)["freelancer"],
             "technologies": technologies,
             "key_tasks": key_tasks,
             "achievements": achievements,

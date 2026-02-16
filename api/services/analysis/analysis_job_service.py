@@ -15,6 +15,7 @@ from .analysis_job_crud import (
 # Re-export from analysis_job_runner
 from .analysis_job_runner import (
     run_background_analysis,
+    run_multi_repo_background_analysis,
 )
 
 # Explicit exports for type checkers and IDE support
@@ -22,4 +23,5 @@ __all__ = [
     "AnalysisCancelledException",
     "AnalysisJobService",
     "run_background_analysis",
+    "run_multi_repo_background_analysis",
 ]

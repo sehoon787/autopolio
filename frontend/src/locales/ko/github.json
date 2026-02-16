@@ -87,9 +87,10 @@
   "retry": "다시 시도",
   "noRepos": "레포지토리가 없습니다.",
   "noMatchingRepos": "검색 조건에 맞는 레포지토리가 없습니다.",
-  "reposSelected": "{{count}}개 레포지토리 선택됨",
+  "reposSelected": "{{count}}개 선택됨",
   "cancelSelection": "선택 취소",
-  "importAsProjects": "프로젝트로 가져오기",
+  "importAsProjects": "개별 프로젝트로 가져오기",
+  "bundleAsProject": "하나의 프로젝트로 묶기",
   "updated": "업데이트:",
   "importSuccess": "가져오기 완료",
   "importSuccessDesc": "{{count}}개의 레포지토리가 프로젝트로 등록되었습니다.",
@@ -99,5 +100,22 @@
   "selectionRequired": "선택 필요",
   "selectionRequiredDesc": "가져올 레포지토리를 선택해주세요.",
   "errorTitle": "오류",
-  "errorDesc": "레포지토리 가져오기에 실패했습니다."
+  "errorDesc": "레포지토리 가져오기에 실패했습니다.",
+
+  "bundleDialog": {
+    "title": "멀티 레포 프로젝트 생성",
+    "projectName": "프로젝트명",
+    "projectNamePlaceholder": "프로젝트 이름을 입력하세요",
+    "selectedRepos": "선택된 레포지토리 ({{count}}개)",
+    "label": "라벨",
+    "labelPlaceholder": "예: Backend, Frontend",
+    "primaryNote": "별표(★)를 클릭하여 대표 레포를 변경할 수 있습니다.",
+    "cancel": "취소",
+    "create": "프로젝트 생성",
+    "creating": "생성 중...",
+    "success": "프로젝트 생성 완료",
+    "successDesc": "{{name}} 프로젝트가 {{count}}개의 레포지토리로 생성되었습니다.",
+    "error": "프로젝트 생성 실패",
+    "errorDesc": "프로젝트를 생성할 수 없습니다."
+  }
 }

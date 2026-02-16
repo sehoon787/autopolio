@@ -19,7 +19,9 @@ from api.schemas.github import (
 )
 from api.services.github import GitHubService
 from api.services.core import EncryptionService
-from api.services.analysis import AnalysisJobService, run_background_analysis
+from api.models.project_repository import ProjectRepository
+from api.services.analysis import AnalysisJobService, run_background_analysis, run_multi_repo_background_analysis
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["github"])
@@ -72,6 +74,7 @@ async def start_background_analysis(
     cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
     language: Optional[str] = Query(None, description="Analysis language: 'ko' or 'en'"),
+    project_repository_id: Optional[int] = Query(None, description="Specific ProjectRepository to analyze"),
     db: AsyncSession = Depends(get_db)
 ):
     """Start a background analysis job for a GitHub repository.
@@ -135,31 +138,89 @@ async def start_background_analysis(
     if language:
         options["language"] = language
 
-    # Create job
+    # Resolve user's LLM API key (user DB first, then .env fallback)
+    llm_provider = provider or cli_mode
+    if llm_provider and llm_provider not in ("claude_code", "gemini_cli"):
+        try:
+            key_attr = f"{llm_provider}_api_key_encrypted"
+            encrypted_key = getattr(user, key_attr, None)
+            if encrypted_key:
+                options["api_key"] = encryption.decrypt(encrypted_key)
+        except Exception:
+            pass  # fall back to settings
+
+    # Load project repositories
+    proj_with_repos = await db.execute(
+        select(Project)
+        .where(Project.id == project_id)
+        .options(selectinload(Project.repositories))
+    )
+    project_with_repos = proj_with_repos.scalar_one_or_none()
+    repositories = list(project_with_repos.repositories) if project_with_repos else []
+
+    is_multi_repo = len(repositories) > 1
+
+    # Create job with total_steps adjusted for multi-repo
+    from api.services.analysis.analysis_job_runner import STEPS_PER_REPO
     job = await service.create_analysis_job(
         user_id=user_id,
         project_id=project_id,
         git_url=request.git_url,
         options=options
     )
+    # Override total_steps for multi-repo
+    if is_multi_repo:
+        job.total_steps = STEPS_PER_REPO * len(repositories)
+        await db.flush()
 
     await db.commit()
 
     # Start background analysis task
-    asyncio.create_task(run_background_analysis(
-        task_id=job.task_id,
-        user_id=user_id,
-        project_id=project_id,
-        git_url=request.git_url,
-        github_username=github_username,
-        github_token=token,
-        options=options
-    ))
+    if is_multi_repo:
+        repo_list = [
+            {
+                "id": r.id,
+                "git_url": r.git_url,
+                "label": r.label,
+                "is_primary": bool(r.is_primary),
+            }
+            for r in sorted(repositories, key=lambda r: (not r.is_primary, r.display_order))
+        ]
+        asyncio.create_task(run_multi_repo_background_analysis(
+            task_id=job.task_id,
+            user_id=user_id,
+            project_id=project_id,
+            github_username=github_username,
+            github_token=token,
+            repositories=repo_list,
+            options=options,
+        ))
+        message = f"Multi-repo analysis started ({len(repositories)} repos)"
+    else:
+        # Single repo: use existing logic
+        # Determine git_url and project_repository_id
+        effective_git_url = request.git_url
+        effective_repo_id = project_repository_id
+        if len(repositories) == 1 and not effective_repo_id:
+            effective_repo_id = repositories[0].id
+            effective_git_url = repositories[0].git_url
+
+        asyncio.create_task(run_background_analysis(
+            task_id=job.task_id,
+            user_id=user_id,
+            project_id=project_id,
+            git_url=effective_git_url,
+            github_username=github_username,
+            github_token=token,
+            options=options,
+            project_repository_id=effective_repo_id,
+        ))
+        message = "Analysis started in background"
 
     return StartAnalysisResponse(
         task_id=job.task_id,
         project_id=project_id,
-        message="Analysis started in background"
+        message=message,
     )
 
 

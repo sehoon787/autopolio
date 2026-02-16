@@ -42,19 +42,36 @@ class GitHubApiClient:
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         # Cache for language info within session
         self._languages_cache: Dict[str, Dict[str, float]] = {}
+        # Shared httpx client for connection pooling
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create a shared httpx client for connection pooling."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            )
+        return self._client
+
+    async def close(self):
+        """Close the shared httpx client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
 
     async def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make an authenticated request to GitHub API with proper error handling."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.request(
-                    method,
-                    f"{self.base_url}{endpoint}",
-                    headers=self.headers,
-                    **kwargs
-                )
-                response.raise_for_status()
-                return response.json()
+            client = await self._get_client()
+            response = await client.request(
+                method,
+                f"{self.base_url}{endpoint}",
+                headers=self.headers,
+                **kwargs
+            )
+            response.raise_for_status()
+            return response.json()
         except httpx.TimeoutException as e:
             raise GitHubTimeoutError() from e
         except httpx.HTTPStatusError as e:
@@ -144,131 +161,160 @@ class GitHubApiClient:
         )
         return self._format_repos(repos)
 
+    async def _fetch_paginated(
+        self,
+        endpoint_template: str,
+        per_page: int = 100,
+        max_pages: int = 10,
+        extract_items: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Fetch paginated results from a GitHub API endpoint.
+
+        Args:
+            endpoint_template: URL with {page} and {per_page} placeholders.
+            per_page: Items per page.
+            max_pages: Maximum pages to fetch.
+            extract_items: If True, extract .items from search API response.
+        """
+        results = []
+        for page in range(1, max_pages + 1):
+            try:
+                endpoint = endpoint_template.format(page=page, per_page=per_page)
+                data = await self._request("GET", endpoint)
+                items = data.get("items", []) if extract_items else data
+                if not items:
+                    break
+                results.extend(items)
+                if len(items) < per_page:
+                    break
+            except Exception:
+                break
+        return results
+
+    async def _fetch_org_repos(
+        self,
+        org_logins: List[str],
+        sort: str = "updated",
+        per_page: int = 100,
+        max_pages: int = 10,
+        type_param: str = "",
+    ) -> List[Dict[str, Any]]:
+        """Fetch repos from multiple orgs in parallel."""
+        if not org_logins:
+            return []
+
+        type_suffix = f"&type={type_param}" if type_param else ""
+
+        async def fetch_one_org(org_login: str) -> List[Dict[str, Any]]:
+            return await self._fetch_paginated(
+                f"/orgs/{org_login}/repos?page={{page}}&per_page={{per_page}}&sort={sort}{type_suffix}",
+                per_page=per_page,
+                max_pages=max_pages,
+            )
+
+        org_results = await asyncio.gather(
+            *[fetch_one_org(login) for login in org_logins],
+            return_exceptions=True,
+        )
+        repos = []
+        for result in org_results:
+            if isinstance(result, list):
+                repos.extend(result)
+        return repos
+
     async def get_all_user_repos(
         self,
         sort: str = "updated",
         max_pages: int = 10
     ) -> List[Dict[str, Any]]:
-        """Get all user's repositories (multiple pages)."""
-        all_repos = []
-        seen_ids = set()
+        """Get all user's repositories using parallel fetching.
+
+        Runs 5 endpoint groups in parallel for ~3-5x speedup:
+        1. /user/repos (owner + collaborator + org member)
+        2. /users/{username}/repos (public profile)
+        3. /user/orgs → /orgs/{org}/repos (org repos)
+        4. /search/repositories?q=user:{username} (search fallback)
+        5. /user/memberships/orgs → /orgs/{org}/repos (membership-based)
+        """
+        import time
+        start = time.time()
         per_page = 100
 
-        # Get authenticated user info
-        user_info = await self._request("GET", "/user")
-        username = user_info.get("login", "")
+        # Step 0: Get user info + org lists in parallel (needed by other steps)
+        user_info_task = self._request("GET", "/user")
+        orgs_task = self._request("GET", "/user/orgs")
+        memberships_task = self._request("GET", "/user/memberships/orgs")
+
+        # Fetch user info and org lists concurrently
+        results = await asyncio.gather(
+            user_info_task, orgs_task, memberships_task,
+            return_exceptions=True,
+        )
+
+        user_info = results[0] if not isinstance(results[0], Exception) else {}
+        orgs = results[1] if not isinstance(results[1], Exception) else []
+        memberships = results[2] if not isinstance(results[2], Exception) else []
+
+        username = user_info.get("login", "") if isinstance(user_info, dict) else ""
         logger.info(f"[GitHub] User: {username}")
 
-        # 1. Fetch from /user/repos
-        for page in range(1, max_pages + 1):
-            repos = await self._request(
-                "GET",
-                f"/user/repos?page={page}&per_page={per_page}&sort={sort}"
-                f"&affiliation=owner,collaborator,organization_member&visibility=all"
-            )
-            if not repos:
-                break
-            for repo in repos:
-                if repo["id"] not in seen_ids:
-                    seen_ids.add(repo["id"])
+        # Extract org logins
+        org_logins = [o.get("login") for o in orgs if o.get("login")] if isinstance(orgs, list) else []
+        membership_logins = [
+            m.get("organization", {}).get("login")
+            for m in memberships
+            if isinstance(m, dict) and m.get("organization", {}).get("login")
+        ] if isinstance(memberships, list) else []
+        # Deduplicate org logins (step 5 may overlap with step 3)
+        all_org_logins = list(dict.fromkeys(org_logins + membership_logins))
+
+        # Steps 1-4 + org repos: run ALL in parallel
+        step1 = self._fetch_paginated(
+            "/user/repos?page={page}&per_page={per_page}&sort=" + sort
+            + "&affiliation=owner,collaborator,organization_member&visibility=all",
+            per_page=per_page, max_pages=max_pages,
+        )
+        async def _empty() -> List[Dict[str, Any]]:
+            return []
+
+        step2 = self._fetch_paginated(
+            f"/users/{username}/repos?page={{page}}&per_page={{per_page}}&sort={sort}&type=all",
+            per_page=per_page, max_pages=max_pages,
+        ) if username else _empty()
+        step3_5 = self._fetch_org_repos(
+            all_org_logins, sort=sort, per_page=per_page, max_pages=max_pages, type_param="all",
+        )
+        step4 = self._fetch_paginated(
+            f"/search/repositories?q=user:{username}&per_page={{per_page}}&page={{page}}",
+            per_page=per_page, max_pages=4, extract_items=True,
+        ) if username else _empty()
+
+        step_results = await asyncio.gather(
+            step1, step2, step3_5, step4,
+            return_exceptions=True,
+        )
+
+        # Merge and deduplicate
+        seen_ids = set()
+        all_repos = []
+        for result in step_results:
+            if isinstance(result, Exception):
+                logger.warning(f"[GitHub] Repo fetch step failed: {result}")
+                continue
+            for repo in result:
+                repo_id = repo.get("id")
+                if repo_id and repo_id not in seen_ids:
+                    seen_ids.add(repo_id)
                     all_repos.append(repo)
-            if len(repos) < per_page:
-                break
 
-        # 2. Fetch from /users/{username}/repos
-        if username:
-            for page in range(1, max_pages + 1):
-                try:
-                    public_repos = await self._request(
-                        "GET",
-                        f"/users/{username}/repos?page={page}&per_page={per_page}&sort={sort}&type=all"
-                    )
-                    if not public_repos:
-                        break
-                    for repo in public_repos:
-                        if repo["id"] not in seen_ids:
-                            seen_ids.add(repo["id"])
-                            all_repos.append(repo)
-                    if len(public_repos) < per_page:
-                        break
-                except Exception as e:
-                    logger.warning(f"[GitHub] Failed to fetch /users/{username}/repos: {e}")
-                    break
+        elapsed = time.time() - start
+        logger.info(f"[GitHub] Total repos fetched: {len(all_repos)} in {elapsed:.1f}s")
 
-        # 3. Fetch repos from organizations
         try:
-            orgs = await self._request("GET", "/user/orgs")
-            for org in orgs:
-                org_login = org.get("login")
-                if not org_login:
-                    continue
-                for page in range(1, max_pages + 1):
-                    try:
-                        org_repos = await self._request(
-                            "GET",
-                            f"/orgs/{org_login}/repos?page={page}&per_page={per_page}&sort={sort}"
-                        )
-                        if not org_repos:
-                            break
-                        for repo in org_repos:
-                            if repo["id"] not in seen_ids:
-                                seen_ids.add(repo["id"])
-                                all_repos.append(repo)
-                        if len(org_repos) < per_page:
-                            break
-                    except Exception:
-                        break
-        except Exception as e:
-            logger.warning(f"[GitHub] Failed to fetch orgs: {e}")
+            await self.close()
+        except Exception:
+            pass
 
-        # 4. Search API
-        if username:
-            try:
-                for page in range(1, 5):
-                    search_result = await self._request(
-                        "GET",
-                        f"/search/repositories?q=user:{username}&per_page={per_page}&page={page}"
-                    )
-                    items = search_result.get("items", [])
-                    if not items:
-                        break
-                    for repo in items:
-                        if repo["id"] not in seen_ids:
-                            seen_ids.add(repo["id"])
-                            all_repos.append(repo)
-                    if len(items) < per_page:
-                        break
-            except Exception as e:
-                logger.warning(f"[GitHub] Search API failed: {e}")
-
-        # 5. Org memberships
-        try:
-            memberships = await self._request("GET", "/user/memberships/orgs")
-            for membership in memberships:
-                org_data = membership.get("organization", {})
-                org_login = org_data.get("login")
-                if not org_login:
-                    continue
-                for page in range(1, max_pages + 1):
-                    try:
-                        org_repos = await self._request(
-                            "GET",
-                            f"/orgs/{org_login}/repos?page={page}&per_page={per_page}&sort={sort}&type=all"
-                        )
-                        if not org_repos:
-                            break
-                        for repo in org_repos:
-                            if repo["id"] not in seen_ids:
-                                seen_ids.add(repo["id"])
-                                all_repos.append(repo)
-                        if len(org_repos) < per_page:
-                            break
-                    except Exception:
-                        break
-        except Exception as e:
-            logger.warning(f"[GitHub] Org memberships failed: {e}")
-
-        logger.info(f"[GitHub] Total repos fetched: {len(all_repos)}")
         return self._format_repos(all_repos)
 
     def _format_repos(self, repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

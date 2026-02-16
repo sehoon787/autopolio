@@ -11,6 +11,7 @@
   "listView": "List",
   "kanbanView": "Kanban",
   "analyzed": "Analyzed",
+  "analyzedAt": "Analyzed: {{date}}",
   "notAnalyzed": "Not Analyzed",
   "ongoing": "Ongoing",
   "teamSizeValue": "{{count}} members",
@@ -93,7 +94,7 @@
     "failed": "Analysis Failed",
     "failedDesc": "Error during analysis: {{error}}",
     "completed": "Analysis Complete",
-    "completedDesc": "Repository analysis completed."
+    "completedDesc": "Project analysis completed."
   },
   "filters": {
     "all": "All",
@@ -113,7 +114,14 @@
     },
     "badge": {
       "analyzed": "Analyzed",
-      "modified": "Modified"
+      "modified": "Modified",
+      "vibeCoding": "Vibe Coding",
+      "aiToolCommits": "{{count}} commits"
+    },
+    "aiTools": {
+      "title": "AI Tools",
+      "detected": "Detected AI Tools",
+      "noTools": "No AI tools detected"
     },
     "buttons": {
       "edit": "Edit",
@@ -127,7 +135,9 @@
       "saving": "Saving...",
       "resetToOriginal": "Reset to Original",
       "addItem": "Add",
-      "addSection": "Add New Section"
+      "addSection": "Add New Section",
+      "showMore": "Show more",
+      "collapse": "Collapse"
     },
     "analyzeHelp": {
       "description": "Analyzing the repository retrieves the latest data from GitHub to update all analysis results.",
@@ -167,7 +177,7 @@
       "analyzeStartedDesc": "Analysis started in the background. You can navigate away and it will continue.",
       "cancelFailed": "Cancel Failed",
       "analyzeSuccess": "Analysis Complete",
-      "analyzeSuccessDesc": "Repository analysis completed.",
+      "analyzeSuccessDesc": "Project analysis completed.",
       "analyzeFailed": "Analysis Error",
       "analyzeFailedDesc": "Analysis failed. Please try again later.",
       "updateSuccess": "Project updated.",
@@ -226,10 +236,16 @@
       "achievements": "Achievements",
       "noAchievements": "No achievements registered.",
       "analyzeForAchievements": "Analyze the project to auto-detect achievements.",
+      "achievementCountUnit": "",
       "commitStats": "Commit Statistics",
       "totalCommits": "Total Commits",
       "myCommits": "My Commits",
       "contribution": "Contribution",
+      "perRepoBreakdown": "Per-Repository Analysis",
+      "perRepoKeyTasks": "Key Tasks",
+      "perRepoAchievements": "Achievements",
+      "perRepoCommits": "commits",
+      "perRepoCommitTypes": "Commit Types",
       "codeStats": "Code Statistics",
       "added": "Added",
       "deleted": "Deleted",
@@ -261,7 +277,11 @@
       "commits": "Commits",
       "contribution": "Contribution",
       "aiSummary": "AI Summary",
-      "keyFeatures": "Key Features"
+      "keyFeatures": "Key Features",
+      "perRepoBreakdown": "Per-Repository Summary",
+      "perRepoKeyTasks": "Key Implementations",
+      "perRepoAiSummary": "AI Summary",
+      "perRepoAchievements": "Achievements"
     },
     "detailTab": {
       "noData": "No analysis data",
@@ -289,7 +309,13 @@
       "changedFiles": "Changed Files",
       "languageAnalysis": "Language Analysis",
       "architecturePatterns": "Detected Architecture Patterns",
-      "commitMessagesSummary": "Commit Messages Summary"
+      "commitMessagesSummary": "Commit Messages Summary",
+      "perRepoBreakdown": "Per-Repository Detailed Analysis",
+      "perRepoTechStack": "Tech Stack",
+      "perRepoKeyFeatures": "Key Implementation Features",
+      "perRepoAchievements": "Detailed Achievements",
+      "perRepoLanguages": "Languages",
+      "perRepoCommitTypes": "Commit Types"
     }
   },
   "editDialog": {
@@ -319,6 +345,15 @@
     "teamSize": "Team Size",
     "contribution": "Contribution (%)",
     "githubUrl": "GitHub URL",
+    "githubRepos": "GitHub Repositories",
+    "repoLabel": "Label (e.g. Backend)",
+    "primaryRepo": "Primary repository",
+    "setAsPrimary": "Set as primary",
+    "multiRepoHint": "Add multiple repositories for projects with separate backend/frontend/infra repos. Star marks the primary repo.",
+    "searchRepoPlaceholder": "Search GitHub repos...",
+    "noReposFound": "No repos found",
+    "manualUrlInput": "Enter URL manually",
+    "backToGithubSearch": "Back to GitHub search",
     "generateAI": "Generate AI Description",
     "aiGenerateHint": "Click \"Generate AI Description\" to auto-generate based on README. (Tech stack is auto-detected when selecting a repository)",
     "techStack": "Tech Stack",

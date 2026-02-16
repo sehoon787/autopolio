@@ -11,6 +11,7 @@
   "listView": "리스트",
   "kanbanView": "칸반",
   "analyzed": "분석됨",
+  "analyzedAt": "분석: {{date}}",
   "notAnalyzed": "미분석",
   "ongoing": "진행중",
   "teamSizeValue": "{{count}}명",
@@ -93,7 +94,7 @@
     "failed": "분석 실패",
     "failedDesc": "분석 중 오류가 발생했습니다: {{error}}",
     "completed": "분석 완료",
-    "completedDesc": "레포지토리 분석이 완료되었습니다."
+    "completedDesc": "프로젝트 분석이 완료되었습니다."
   },
   "filters": {
     "all": "전체",
@@ -113,7 +114,14 @@
     },
     "badge": {
       "analyzed": "분석됨",
-      "modified": "수정됨"
+      "modified": "수정됨",
+      "vibeCoding": "Vibe Coding",
+      "aiToolCommits": "{{count}}개 커밋"
+    },
+    "aiTools": {
+      "title": "AI 도구",
+      "detected": "감지된 AI 도구",
+      "noTools": "감지된 AI 도구가 없습니다"
     },
     "buttons": {
       "edit": "수정",
@@ -127,7 +135,9 @@
       "saving": "저장 중...",
       "resetToOriginal": "원본으로",
       "addItem": "추가",
-      "addSection": "새 섹션 추가"
+      "addSection": "새 섹션 추가",
+      "showMore": "더보기",
+      "collapse": "접기"
     },
     "analyzeHelp": {
       "description": "레포지토리를 분석하면 GitHub에서 최신 데이터를 가져와 모든 분석 결과를 업데이트합니다.",
@@ -164,7 +174,7 @@
       "resetFailed": "복원 실패",
       "resetFailedDesc": "복원에 실패했습니다.",
       "analyzeSuccess": "분석 완료",
-      "analyzeSuccessDesc": "레포지토리 분석이 완료되었습니다.",
+      "analyzeSuccessDesc": "프로젝트 분석이 완료되었습니다.",
       "analyzeFailed": "분석 오류",
       "analyzeFailedDesc": "분석에 실패했습니다. 잠시 후 다시 시도해주세요.",
       "analyzeStarted": "분석 시작",
@@ -226,10 +236,16 @@
       "achievements": "성과",
       "noAchievements": "등록된 성과가 없습니다.",
       "analyzeForAchievements": "프로젝트를 분석하면 성과가 자동으로 감지됩니다.",
+      "achievementCountUnit": "건",
       "commitStats": "커밋 통계",
       "totalCommits": "총 커밋",
       "myCommits": "내 커밋",
       "contribution": "기여도",
+      "perRepoBreakdown": "레포지토리별 분석 결과",
+      "perRepoKeyTasks": "주요 수행 업무",
+      "perRepoAchievements": "성과",
+      "perRepoCommits": "커밋",
+      "perRepoCommitTypes": "커밋 유형",
       "codeStats": "코드 통계",
       "added": "추가",
       "deleted": "삭제",
@@ -261,7 +277,11 @@
       "commits": "커밋 수",
       "contribution": "기여도",
       "aiSummary": "AI 요약",
-      "keyFeatures": "주요 기능"
+      "keyFeatures": "주요 기능",
+      "perRepoBreakdown": "레포지토리별 분석 요약",
+      "perRepoKeyTasks": "주요 구현 내용",
+      "perRepoAiSummary": "AI 요약",
+      "perRepoAchievements": "성과"
     },
     "detailTab": {
       "noData": "분석 데이터가 없습니다",
@@ -289,7 +309,13 @@
       "changedFiles": "변경된 파일",
       "languageAnalysis": "언어 분석",
       "architecturePatterns": "탐지된 아키텍처 패턴",
-      "commitMessagesSummary": "커밋 메시지 요약"
+      "commitMessagesSummary": "커밋 메시지 요약",
+      "perRepoBreakdown": "레포지토리별 상세 분석",
+      "perRepoTechStack": "기술 스택",
+      "perRepoKeyFeatures": "주요 구현 기능",
+      "perRepoAchievements": "상세 성과",
+      "perRepoLanguages": "언어 분포",
+      "perRepoCommitTypes": "커밋 유형"
     }
   },
   "editDialog": {
@@ -319,6 +345,15 @@
     "teamSize": "팀 규모",
     "contribution": "기여도 (%)",
     "githubUrl": "GitHub URL",
+    "githubRepos": "GitHub 레포지토리",
+    "repoLabel": "라벨 (예: Backend)",
+    "primaryRepo": "대표 레포지토리",
+    "setAsPrimary": "대표로 설정",
+    "multiRepoHint": "백엔드/프론트엔드/인프라 등 분리된 레포지토리를 추가하세요. 별표가 대표 레포입니다.",
+    "searchRepoPlaceholder": "GitHub 레포 검색...",
+    "noReposFound": "검색 결과가 없습니다",
+    "manualUrlInput": "URL 직접 입력",
+    "backToGithubSearch": "GitHub 검색으로 돌아가기",
     "generateAI": "AI 설명 생성",
     "aiGenerateHint": "\"AI 설명 생성\" 버튼을 클릭하면 README 기반으로 설명이 자동 생성됩니다. (기술 스택은 레포 선택 시 자동 감지)",
     "techStack": "기술 스택",
