@@ -61,18 +61,18 @@ async def get_field_mappings(
 async def init_system_templates(
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Initialize system platform templates from YAML config and HTML files.
-    This creates templates for Saramin, Remember, and Jumpit if they don't exist.
+    """No-op: System platform templates are now loaded from static files.
+
+    This endpoint is kept for backward compatibility with frontend auto-init calls.
     """
     service = PlatformTemplateService(db)
-    created = await service.init_system_templates()
-
+    templates = await service.get_all()
+    system_templates = [t for t in templates if t.is_system]
     return {
-        "message": f"Created {len(created)} system templates",
+        "message": f"System templates loaded from static files ({len(system_templates)} templates)",
         "templates": [
             {"id": t.id, "name": t.name, "platform_key": t.platform_key}
-            for t in created
+            for t in system_templates
         ]
     }
 
@@ -81,18 +81,18 @@ async def init_system_templates(
 async def refresh_system_templates(
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Refresh system platform templates from YAML config and HTML files.
-    This updates existing templates with new HTML content from files.
-    """
-    service = PlatformTemplateService(db)
-    updated = await service.refresh_system_templates()
+    """Refresh static platform templates by clearing the in-memory cache."""
+    from api.services.platform.static_platform_templates import invalidate_cache
+    invalidate_cache()
 
+    service = PlatformTemplateService(db)
+    templates = await service.get_all()
+    system_templates = [t for t in templates if t.is_system]
     return {
-        "message": f"Refreshed {len(updated)} system templates",
+        "message": f"Refreshed {len(system_templates)} system templates from files",
         "templates": [
             {"id": t.id, "name": t.name, "platform_key": t.platform_key}
-            for t in updated
+            for t in system_templates
         ]
     }
 

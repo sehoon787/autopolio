@@ -58,7 +58,7 @@ class PlatformTemplateService:
         self.data_collector = UserDataCollector(db)
 
         # Initialize sub-services
-        self._crud = PlatformTemplateCRUD(db)
+        self._crud = PlatformTemplateCRUD(db, self.templates_dir, self.config_dir)
         self._init = PlatformTemplateInit(
             db, self.templates_dir, self.config_dir, self._crud
         )

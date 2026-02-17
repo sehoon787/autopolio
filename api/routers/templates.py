@@ -18,6 +18,11 @@ from api.services.document import DocumentService
 from api.services.user_data import UserDataCollector
 from api.services.template import TemplateRenderingService, DEFAULT_SAMPLE_DATA
 from api.services.template.system_templates import get_system_templates
+from api.services.template.static_doc_templates import (
+    get_static_doc_templates,
+    get_static_doc_template_by_id,
+    is_static_doc_id,
+)
 
 router = APIRouter()
 settings = get_settings()
@@ -44,7 +49,10 @@ async def get_templates(
     include_platform_templates: bool = False,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all templates (system + user's custom templates).
+    """Get all templates (static system + user's custom templates from DB).
+
+    System templates are loaded from static code definitions (no DB needed).
+    User templates are loaded from DB.
 
     Args:
         user_id: Filter by user ID
@@ -53,36 +61,38 @@ async def get_templates(
         include_platform_templates: Include platform-specific templates (saramin, wanted, remember).
                                    Defaults to False since these are now in /platforms.
     """
-    from sqlalchemy import or_, and_, not_
+    from sqlalchemy import or_, not_
 
-    query = select(Template)
+    all_templates = []
 
-    conditions = []
+    # Static system templates (always available, no DB)
     if include_system:
-        conditions.append(Template.is_system == 1)
+        static_system = get_static_doc_templates()
+        if platform:
+            static_system = [t for t in static_system if t.platform == platform]
+        if not include_platform_templates:
+            platform_specific = ["saramin", "remember", "jumpit"]
+            static_system = [t for t in static_system if t.platform not in platform_specific]
+        all_templates.extend(static_system)
+
+    # User templates from DB
     if user_id:
-        conditions.append(Template.user_id == user_id)
-
-    if conditions:
-        query = query.where(or_(*conditions))
-
-    if platform:
-        query = query.where(Template.platform == platform)
-
-    # Exclude platform-specific templates unless explicitly requested
-    # These templates are now available via /platforms endpoint with HTML rendering
-    if not include_platform_templates:
-        platform_specific = ["saramin", "remember", "jumpit"]
-        query = query.where(not_(Template.platform.in_(platform_specific)))
-
-    query = query.order_by(Template.is_system.desc(), Template.name)
-
-    result = await db.execute(query)
-    templates = result.scalars().all()
+        query = select(Template).where(
+            Template.user_id == user_id,
+            Template.is_system == 0,
+        )
+        if platform:
+            query = query.where(Template.platform == platform)
+        if not include_platform_templates:
+            platform_specific = ["saramin", "remember", "jumpit"]
+            query = query.where(not_(Template.platform.in_(platform_specific)))
+        query = query.order_by(Template.name)
+        result = await db.execute(query)
+        all_templates.extend(result.scalars().all())
 
     return {
-        "templates": templates,
-        "total": len(templates)
+        "templates": all_templates,
+        "total": len(all_templates)
     }
 
 
@@ -370,7 +380,14 @@ async def preview_template(
 
 @router.get("/{template_id}", response_model=TemplateResponse)
 async def get_template(template_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a specific template by ID."""
+    """Get a specific template by ID (checks static system templates first, then DB)."""
+    # Check static system templates first
+    if is_static_doc_id(template_id):
+        template = get_static_doc_template_by_id(template_id)
+        if template:
+            return template
+
+    # Fall back to DB
     result = await db.execute(select(Template).where(Template.id == template_id))
     template = result.scalar_one_or_none()
     if not template:
@@ -469,6 +486,10 @@ async def update_template(
     db: AsyncSession = Depends(get_db)
 ):
     """Update a template."""
+    # Static system templates cannot be modified
+    if is_static_doc_id(template_id):
+        raise HTTPException(status_code=403, detail="Cannot modify system templates")
+
     result = await db.execute(select(Template).where(Template.id == template_id))
     template = result.scalar_one_or_none()
     if not template:
@@ -490,6 +511,10 @@ async def update_template(
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(template_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a template."""
+    # Static system templates cannot be deleted
+    if is_static_doc_id(template_id):
+        raise HTTPException(status_code=403, detail="Cannot delete system templates")
+
     result = await db.execute(select(Template).where(Template.id == template_id))
     template = result.scalar_one_or_none()
     if not template:
@@ -511,45 +536,16 @@ async def initialize_system_templates(
     force_update: bool = False,
     db: AsyncSession = Depends(get_db)
 ):
-    """Initialize or update system templates (admin only).
+    """No-op: System templates are now loaded from static code definitions.
 
-    Args:
-        force_update: If True, update existing templates with latest content from code.
+    This endpoint is kept for backward compatibility with frontend auto-init calls.
     """
-    # Get existing system templates
-    result = await db.execute(select(Template).where(Template.is_system == 1))
-    existing_templates = {t.platform: t for t in result.scalars().all()}
-
-    if existing_templates and not force_update:
-        return {"message": "System templates already initialized. Use force_update=true to update."}
-
-    # Get system templates from centralized definition
-    system_templates = get_system_templates()
-
-    created_count = 0
-    updated_count = 0
-
-    for tmpl_data in system_templates:
-        platform = tmpl_data.get("platform")
-        existing = existing_templates.get(platform)
-
-        if existing and force_update:
-            # Update existing template
-            for key, value in tmpl_data.items():
-                setattr(existing, key, value)
-            updated_count += 1
-        elif not existing:
-            # Create new template
-            template = Template(
-                user_id=None,
-                is_system=1,
-                **tmpl_data
-            )
-            db.add(template)
-            created_count += 1
-
-    await db.flush()
-    return {"message": f"Created {created_count}, updated {updated_count} system templates"}
+    static_templates = get_static_doc_templates()
+    return {
+        "message": f"System templates loaded from static definitions ({len(static_templates)} templates)",
+        "created": 0,
+        "updated": 0,
+    }
 
 
 @router.post("/{template_id}/clone", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
@@ -565,9 +561,13 @@ async def clone_template(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Get source template
-    result = await db.execute(select(Template).where(Template.id == template_id))
-    source_template = result.scalar_one_or_none()
+    # Get source template (check static first, then DB)
+    source_template = None
+    if is_static_doc_id(template_id):
+        source_template = get_static_doc_template_by_id(template_id)
+    if not source_template:
+        result = await db.execute(select(Template).where(Template.id == template_id))
+        source_template = result.scalar_one_or_none()
     if not source_template:
         raise HTTPException(status_code=404, detail="Template not found")
 
