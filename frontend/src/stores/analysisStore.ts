@@ -101,10 +101,12 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
 
       for (const job of jobs) {
         if (job.project_id) {
-          jobMap.set(job.project_id, job)
+          const isActive = ['pending', 'running'].includes(job.status)
+          const isFinished = ['completed', 'failed', 'cancelled'].includes(job.status)
+          const alreadyProcessed = processedTaskIds.has(job.task_id)
 
-          // Track completed jobs (call count always, tokens only when available)
-          if (job.status === 'completed' && !processedTaskIds.has(job.task_id)) {
+          // Track completed jobs for token usage (only once per task_id)
+          if (job.status === 'completed' && !alreadyProcessed) {
             const provider = mapProviderToUsageKey(job.llm_provider)
             if (provider) {
               useUsageStore.getState().incrementLLMCallCount(provider)
@@ -114,12 +116,23 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
               console.log(`[AnalysisStore] Tracked call for ${provider}, tokens: ${job.token_usage ?? 0}`)
             }
             newProcessedTaskIds.add(job.task_id)
+          } else if (isFinished && !alreadyProcessed) {
+            // Mark failed/cancelled as processed too
+            newProcessedTaskIds.add(job.task_id)
           }
 
-          // Check if job is still active
-          if (['pending', 'running'].includes(job.status)) {
+          if (isActive) {
+            // Active jobs always go in the map
+            jobMap.set(job.project_id, job)
             hasActiveJobs = true
+          } else if (isFinished && !alreadyProcessed) {
+            // Newly finished jobs added ONCE so ProjectDetail.tsx useEffect
+            // can fire toast notifications and invalidate queries.
+            // On the next poll they'll be in processedTaskIds and skipped.
+            jobMap.set(job.project_id, job)
           }
+          // Already-processed finished jobs are NOT re-added — prevents
+          // the "stuck at 100%" bug from 10-minute retention window.
         }
       }
 

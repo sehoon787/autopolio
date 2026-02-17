@@ -53,7 +53,11 @@ const MAX_BACKEND_RESTARTS = 3;
 // PID file for tracking backend process
 const getPidFilePath = () => path.join(app.getPath('userData'), 'backend.pid');
 // Per-install secret key for token encryption
-const getSecretKeyPath = () => path.join(app.getPath('userData'), 'secret.key');
+// Force autopolio-frontend path in dev mode (see comment in startPythonBackend)
+const getConsistentUserDataPath = () => app.isPackaged
+    ? app.getPath('userData')
+    : path.join(app.getPath('appData'), 'autopolio-frontend');
+const getSecretKeyPath = () => path.join(getConsistentUserDataPath(), 'secret.key');
 /**
  * Get or create a unique SECRET_KEY for this Electron installation.
  * Stored in userData directory so each install has its own encryption key.
@@ -431,18 +435,33 @@ function startPythonBackend() {
         const { command: pythonCommand } = pythonEnvManager.getPythonCommand();
         const pythonEnv = pythonEnvManager.getPythonEnv();
         const projectRoot = pythonEnvManager.getProjectRoot();
-        let additionalEnv = {};
+        const userDataPath = getConsistentUserDataPath();
+        const userDataDbDir = path.join(userDataPath, 'data');
+        fs.mkdirSync(userDataDbDir, { recursive: true });
+        let additionalEnv = {
+            // Always use Electron's AppData DB so dev and packaged modes share the same data.
+            AUTOPOLIO_DATA_DIR: userDataDbDir,
+            DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataDbDir, 'autopolio.db')}`,
+        };
         if (app.isPackaged) {
-            const userDataPath = app.getPath('userData');
             additionalEnv = {
+                ...additionalEnv,
                 AUTOPOLIO_BASE_DIR: process.resourcesPath,
                 AUTOPOLIO_CONFIG_DIR: path.join(process.resourcesPath, 'config'),
-                AUTOPOLIO_DATA_DIR: path.join(userDataPath, 'data'),
                 AUTOPOLIO_PLATFORM_TEMPLATES_DIR: path.join(process.resourcesPath, 'data', 'platform_templates'),
                 AUTOPOLIO_TEMPLATES_DIR: path.join(process.resourcesPath, 'data', 'templates'),
-                DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataPath, 'data', 'autopolio.db')}`,
             };
-            fs.mkdirSync(path.join(userDataPath, 'data'), { recursive: true });
+        }
+        else {
+            // Dev mode: AUTOPOLIO_DATA_DIR points to AppData for the DB, but static
+            // template/config files live in the project source tree. Explicitly set
+            // these so Python doesn't derive them from AUTOPOLIO_DATA_DIR.
+            additionalEnv = {
+                ...additionalEnv,
+                AUTOPOLIO_CONFIG_DIR: path.join(projectRoot, 'config'),
+                AUTOPOLIO_PLATFORM_TEMPLATES_DIR: path.join(projectRoot, 'data', 'platform_templates'),
+                AUTOPOLIO_TEMPLATES_DIR: path.join(projectRoot, 'data', 'templates'),
+            };
         }
         console.log(`[Backend] Starting backend from: ${projectRoot}`);
         console.log(`[Backend] Using Python: ${pythonCommand}`);
@@ -455,9 +474,13 @@ function startPythonBackend() {
             // In dev mode, limit --reload to only watch 'api' folder to reduce WatchFiles overhead
             ...(isDev ? ['--reload', '--reload-dir', 'api'] : []),
         ];
+        // Use augmented PATH so CLI tools (gemini, claude) can be found
+        // even when Electron is launched from a desktop shortcut
+        const augmentedEnv = getAugmentedEnv();
         pythonProcess = spawn(pythonCommand, uvicornArgs, {
             cwd: projectRoot,
             env: {
+                ...augmentedEnv,
                 ...pythonEnv,
                 ...additionalEnv,
                 SECRET_KEY: getOrCreateSecretKey(),
@@ -544,7 +567,7 @@ ipcMain.handle('is-electron', () => true);
 ipcMain.handle('get-backend-url', () => BACKEND_URL);
 ipcMain.handle('get-platform', () => process.platform);
 ipcMain.handle('get-app-version', () => app.getVersion());
-ipcMain.handle('get-user-data-path', () => app.getPath('userData'));
+ipcMain.handle('get-user-data-path', () => getConsistentUserDataPath());
 // ============================================================================
 // IPC Handlers - CLI Detection (using CLIToolManager)
 // ============================================================================

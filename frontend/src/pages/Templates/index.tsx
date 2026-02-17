@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,14 +25,6 @@ export default function TemplatesPage() {
   const { data: templatesData, isLoading } = useQuery({
     queryKey: ['templates', user?.id],
     queryFn: () => templatesApi.getAll(user?.id),
-  })
-
-  const initMutation = useMutation({
-    mutationFn: () => templatesApi.initSystemTemplates(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['templates', user?.id] })
-      toast({ title: t('initialized') })
-    },
   })
 
   const deleteMutation = useMutation({
@@ -90,13 +81,6 @@ export default function TemplatesPage() {
     },
     onError: () => toast({ title: tc('error'), description: t('cloneError'), variant: 'destructive' }),
   })
-
-  useEffect(() => {
-    // Initialize system templates if none exist
-    if (templatesData?.data?.templates?.length === 0) {
-      initMutation.mutate()
-    }
-  }, [templatesData])
 
   const templates = templatesData?.data?.templates || []
   const systemTemplates = templates.filter((tmpl) => tmpl.is_system)
@@ -284,9 +268,6 @@ export default function TemplatesPage() {
                 <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('noTemplates')}</h3>
                 <p className="text-gray-500 dark:text-gray-400 mb-4">{t('noTemplatesDesc')}</p>
-                <Button onClick={() => initMutation.mutate()} disabled={initMutation.isPending}>
-                  {t('initSystem')}
-                </Button>
               </CardContent>
             </Card>
           )}

@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Download,
   Eye,
@@ -33,37 +32,18 @@ import { getPlatformIcon } from '@/components/icons/PlatformIcons'
 export default function PlatformsPage() {
   const { t } = useTranslation(['platforms', 'common'])
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user } = useUserStore()
 
   // Fetch platform templates with retry for Electron startup race condition
   const {
     data: templatesData,
     isLoading,
-    isError,
   } = useQuery({
     queryKey: ['platformTemplates'],
     queryFn: () => platformsApi.getAll(),
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   })
-
-  const initMutation = useMutation({
-    mutationFn: () => platformsApi.initSystemTemplates(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platformTemplates'] })
-    },
-  })
-
-  useEffect(() => {
-    const templates = templatesData?.data?.templates
-    const hasEmptyTemplateList = Array.isArray(templates) && templates.length === 0
-    const shouldInitialize = hasEmptyTemplateList && !initMutation.isPending && !isError
-    
-    if (shouldInitialize) {
-      initMutation.mutate()
-    }
-  }, [templatesData, isError])
 
   // Fetch user stats to check for analyzed projects
   const { data: statsData } = useQuery({

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { InlineMarkdown } from '@/components/InlineMarkdown'
 import {
   Pencil,
   Check,
@@ -255,7 +256,7 @@ export function EditableStructuredList({
                   </h4>
                   <ul className="list-disc list-inside space-y-1 text-gray-600 ml-2">
                     {section.items.map((item, itemIdx) => (
-                      <li key={itemIdx} className="text-sm">{item}</li>
+                      <li key={itemIdx} className="text-sm"><InlineMarkdown>{item}</InlineMarkdown></li>
                     ))}
                   </ul>
                 </div>

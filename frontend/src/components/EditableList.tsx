@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { InlineMarkdown } from '@/components/InlineMarkdown'
 import {
   Pencil,
   Check,
@@ -226,7 +227,7 @@ export function EditableList({
                       {getPrefix(index)}
                     </span>
                   )}
-                  <span>{item}</span>
+                  <InlineMarkdown>{item}</InlineMarkdown>
                 </li>
               ))}
             </ul>
