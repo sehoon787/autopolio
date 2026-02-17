@@ -67,10 +67,12 @@ Commit message summary:
 Tech stack: {', '.join(analysis_data.get('detected_technologies', [])[:15])}
 Commit categories: {analysis_data.get('commit_categories', {})}
 {code_section}
+IMPORTANT: ALL output (titles, items) MUST be in English. If the input data is in Korean or another language, translate it to English.
+
 Write 3-5 main implementation features in JSON format. Each feature should be specific and related to actual development work:
 [
   {{
-    "title": "Feature title",
+    "title": "Feature title (in English)",
     "items": [
       "Specific implementation detail 1: including technical specifics",
       "Specific implementation detail 2: specify technologies used"
@@ -79,7 +81,7 @@ Write 3-5 main implementation features in JSON format. Each feature should be sp
 ]
 
 Return only JSON."""
-        system_prompt = "You are a technical expert analyzing software projects. Structure the actual implemented features based on commit messages, tech stack, and code changes."
+        system_prompt = "You are a technical expert analyzing software projects. Structure the actual implemented features based on commit messages, tech stack, and code changes. ALWAYS respond in English regardless of input language."
     else:
         implementation_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 분석해주세요.
 
@@ -116,6 +118,8 @@ JSON만 반환하세요."""
             temperature=0.3
         )
 
+        logger.info("[implementation_details] Response len=%d, tokens=%d", len(impl_response) if impl_response else 0, impl_tokens)
+
         json_str = impl_response
         if "```json" in impl_response:
             json_str = impl_response.split("```json")[1].split("```")[0]
@@ -123,8 +127,11 @@ JSON만 반환하세요."""
             json_str = impl_response.split("```")[1].split("```")[0]
 
         return json.loads(json_str.strip()), impl_tokens
+    except json.JSONDecodeError as e:
+        logger.error("[implementation_details] JSON parse failed: %s (preview=%.200s)", e, (impl_response or "")[:200])
+        return [], 0
     except Exception as e:
-        logger.exception("Failed to generate implementation_details: %s: %s", type(e).__name__, e)
+        logger.error("[implementation_details] Failed: %s: %s", type(e).__name__, e)
         return [], 0
 
 
@@ -161,17 +168,19 @@ Commit message summary:
 Commit categories: {analysis_data.get('commit_categories', {})}
 Total commits: {analysis_data.get('total_commits', 0)}
 
+IMPORTANT: ALL output (titles, activities) MUST be in English. If the input data is in Korean or another language, translate it to English.
+
 Write a chronological development timeline in 2-4 phases in JSON format:
 [
   {{
     "period": "YYYY-MM ~ MM (e.g., 2024-01 ~ 02)",
-    "title": "Phase title (e.g., Basic Infrastructure Setup)",
-    "activities": ["Activity 1", "Activity 2", "Activity 3"]
+    "title": "Phase title in English (e.g., Basic Infrastructure Setup)",
+    "activities": ["Activity 1 in English", "Activity 2 in English", "Activity 3 in English"]
   }}
 ]
 
 Return only JSON."""
-        system_prompt = "You are an expert in analyzing software development project timelines."
+        system_prompt = "You are an expert in analyzing software development project timelines. ALWAYS respond in English regardless of input language."
     else:
         timeline_prompt = f"""다음 프로젝트 정보를 바탕으로 개발 타임라인을 작성해주세요.
 
@@ -204,6 +213,8 @@ JSON만 반환하세요."""
             temperature=0.3
         )
 
+        logger.info("[development_timeline] Response len=%d, tokens=%d", len(timeline_response) if timeline_response else 0, timeline_tokens)
+
         json_str = timeline_response
         if "```json" in timeline_response:
             json_str = timeline_response.split("```json")[1].split("```")[0]
@@ -211,8 +222,11 @@ JSON만 반환하세요."""
             json_str = timeline_response.split("```")[1].split("```")[0]
 
         return json.loads(json_str.strip()), timeline_tokens
+    except json.JSONDecodeError as e:
+        logger.error("[development_timeline] JSON parse failed: %s (preview=%.200s)", e, (timeline_response or "")[:200])
+        return [], 0
     except Exception as e:
-        logger.exception("Failed to generate development_timeline: %s: %s", type(e).__name__, e)
+        logger.error("[development_timeline] Failed: %s: %s", type(e).__name__, e)
         return [], 0
 
 
@@ -250,21 +264,23 @@ Code statistics:
 
 Commit categories: {analysis_data.get('commit_categories', {})}
 
+IMPORTANT: ALL output (titles, descriptions, category names) MUST be in English. If the input data is in Korean or another language, translate it to English.
+
 Write achievements by category in JSON format. Each achievement should include specific metrics or comparisons:
 {{
   "New Features": [
-    {{"title": "Feature title", "description": "Improvement or new value compared to before"}}
+    {{"title": "Feature title in English", "description": "Improvement or new value compared to before"}}
   ],
   "Performance Improvement": [
-    {{"title": "Improvement item", "description": "Numerical improvement (e.g., 80% improvement, 3x faster)"}}
+    {{"title": "Improvement item in English", "description": "Numerical improvement (e.g., 80% improvement, 3x faster)"}}
   ],
   "Code Quality": [
-    {{"title": "Quality improvement", "description": "Refactoring, test additions, etc."}}
+    {{"title": "Quality improvement in English", "description": "Refactoring, test additions, etc."}}
   ]
 }}
 
 Return only JSON. Use empty arrays for categories that don't apply."""
-        system_prompt = "You are an expert in analyzing software project achievements. Extract quantitative achievements based on commit history and code statistics."
+        system_prompt = "You are an expert in analyzing software project achievements. Extract quantitative achievements based on commit history and code statistics. ALWAYS respond in English regardless of input language."
     else:
         achievements_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 분석해주세요.
 
@@ -305,6 +321,8 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             temperature=0.3
         )
 
+        logger.info("[detailed_achievements] Response len=%d, tokens=%d", len(achievements_response) if achievements_response else 0, achievements_tokens)
+
         json_str = achievements_response
         if "```json" in achievements_response:
             json_str = achievements_response.split("```json")[1].split("```")[0]
@@ -312,8 +330,11 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             json_str = achievements_response.split("```")[1].split("```")[0]
 
         return json.loads(json_str.strip()), achievements_tokens
+    except json.JSONDecodeError as e:
+        logger.error("[detailed_achievements] JSON parse failed: %s (preview=%.200s)", e, (achievements_response or "")[:200])
+        return {}, 0
     except Exception as e:
-        logger.exception("Failed to generate detailed_achievements: %s: %s", type(e).__name__, e)
+        logger.error("[detailed_achievements] Failed: %s: %s", type(e).__name__, e)
         return {}, 0
 
 
@@ -377,41 +398,88 @@ async def generate_detailed_content(
             code_context = "\n\n---\n\n".join(code_snippets[:5])
             logger.info("[DetailedContent] Including %d code snippets in context", len(code_snippets[:5]))
 
-    # Execute all LLM calls in parallel for better performance
-    tasks = [
-        generate_implementation_details(project_data, analysis_data, llm, language, code_context),
-        generate_development_timeline(project_data, analysis_data, llm, language, code_context),
-        generate_detailed_achievements(project_data, analysis_data, llm, language, code_context),
-    ]
+    # CLI mode requires sequential execution to avoid concurrent subprocess conflicts
+    # (credential file locks, rate limits, session management)
+    from api.services.llm.cli_llm_service import CLILLMService
+    is_cli_mode = isinstance(llm, CLILLMService)
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    if is_cli_mode:
+        logger.info("[DetailedContent] CLI mode detected — running LLM calls sequentially")
 
-    # Process results
-    # Implementation details
-    if not isinstance(results[0], Exception):
-        impl_details, impl_tokens = results[0]
-        result["implementation_details"] = impl_details
-        total_tokens += impl_tokens
+        # Implementation details
+        try:
+            impl_details, impl_tokens = await generate_implementation_details(
+                project_data, analysis_data, llm, language, code_context
+            )
+            result["implementation_details"] = impl_details
+            total_tokens += impl_tokens
+            logger.info("[DetailedContent] implementation_details: %d items, %d tokens",
+                        len(impl_details) if isinstance(impl_details, list) else 0, impl_tokens)
+        except Exception as e:
+            logger.error("[DetailedContent] implementation_details failed: %s: %s", type(e).__name__, e)
+            result["implementation_details"] = []
+
+        # Development timeline
+        try:
+            timeline, timeline_tokens = await generate_development_timeline(
+                project_data, analysis_data, llm, language, code_context
+            )
+            result["development_timeline"] = timeline
+            total_tokens += timeline_tokens
+            logger.info("[DetailedContent] development_timeline: %d items, %d tokens",
+                        len(timeline) if isinstance(timeline, list) else 0, timeline_tokens)
+        except Exception as e:
+            logger.error("[DetailedContent] development_timeline failed: %s: %s", type(e).__name__, e)
+            result["development_timeline"] = []
+
+        # Detailed achievements
+        try:
+            achievements, achievements_tokens = await generate_detailed_achievements(
+                project_data, analysis_data, llm, language, code_context
+            )
+            result["detailed_achievements"] = achievements
+            total_tokens += achievements_tokens
+            logger.info("[DetailedContent] detailed_achievements: %d categories, %d tokens",
+                        len(achievements) if isinstance(achievements, dict) else 0, achievements_tokens)
+        except Exception as e:
+            logger.error("[DetailedContent] detailed_achievements failed: %s: %s", type(e).__name__, e)
+            result["detailed_achievements"] = {}
     else:
-        logger.exception("implementation_details failed: %s", results[0])
-        result["implementation_details"] = []
+        # API mode: Execute all LLM calls in parallel for better performance
+        tasks = [
+            generate_implementation_details(project_data, analysis_data, llm, language, code_context),
+            generate_development_timeline(project_data, analysis_data, llm, language, code_context),
+            generate_detailed_achievements(project_data, analysis_data, llm, language, code_context),
+        ]
 
-    # Development timeline
-    if not isinstance(results[1], Exception):
-        timeline, timeline_tokens = results[1]
-        result["development_timeline"] = timeline
-        total_tokens += timeline_tokens
-    else:
-        logger.exception("development_timeline failed: %s", results[1])
-        result["development_timeline"] = []
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Detailed achievements
-    if not isinstance(results[2], Exception):
-        achievements, achievements_tokens = results[2]
-        result["detailed_achievements"] = achievements
-        total_tokens += achievements_tokens
-    else:
-        logger.exception("detailed_achievements failed: %s", results[2])
-        result["detailed_achievements"] = {}
+        # Process results
+        # Implementation details
+        if not isinstance(results[0], Exception):
+            impl_details, impl_tokens = results[0]
+            result["implementation_details"] = impl_details
+            total_tokens += impl_tokens
+        else:
+            logger.error("implementation_details failed: %s", results[0])
+            result["implementation_details"] = []
+
+        # Development timeline
+        if not isinstance(results[1], Exception):
+            timeline, timeline_tokens = results[1]
+            result["development_timeline"] = timeline
+            total_tokens += timeline_tokens
+        else:
+            logger.error("development_timeline failed: %s", results[1])
+            result["development_timeline"] = []
+
+        # Detailed achievements
+        if not isinstance(results[2], Exception):
+            achievements, achievements_tokens = results[2]
+            result["detailed_achievements"] = achievements
+            total_tokens += achievements_tokens
+        else:
+            logger.error("detailed_achievements failed: %s", results[2])
+            result["detailed_achievements"] = {}
 
     return result, total_tokens

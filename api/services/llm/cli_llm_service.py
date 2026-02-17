@@ -71,9 +71,11 @@ class CLILLMService:
         cli_path = self._find_cli_path()
         if not cli_path:
             cli_name = "claude" if self.cli_type == "claude_code" else "gemini"
+            logger.error("[CLI] %s CLI not found! Searched: shutil.which, npm global paths", cli_name)
             raise RuntimeError(
                 f"{cli_name} CLI not found. Please install it first."
             )
+        logger.info("[CLI] Found CLI at: %s (type=%s)", cli_path, self.cli_type)
 
         args = self._build_args(cli_path)
         cli_path_lower = cli_path.lower()
@@ -105,12 +107,18 @@ class CLILLMService:
             # subprocess.run's timeout kills only the parent (cmd.exe) but orphans child node.exe,
             # causing communicate() to block forever on pipe drain.
             creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+
+            # Clean env: remove CLAUDECODE to avoid "nested session" error when backend
+            # itself runs inside a Claude Code session (e.g., local dev testing).
+            clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
             process = subprocess.Popen(
                 exec_args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 creationflags=creation_flags,
+                env=clean_env,
             )
             try:
                 stdout, stderr = process.communicate(input=prompt_bytes, timeout=CLI_TIMEOUT_SECONDS)
@@ -176,8 +184,10 @@ class CLILLMService:
 
             content, token_count = self._parse_json_output(output)
             logger.info("[CLI] Parsed: content_len=%d, tokens=%d, cli=%s", len(content), token_count, self.cli_type)
-            if not content or content == output:
-                logger.warning("[CLI] Content may be raw/unparsed (cli=%s)", self.cli_type)
+            if not content:
+                logger.warning("[CLI] Empty content returned (cli=%s, output_preview=%.200s)", self.cli_type, output)
+            elif content == output:
+                logger.warning("[CLI] Content is raw/unparsed — JSON wrapper not found (cli=%s, output_preview=%.200s)", self.cli_type, output[:200])
             self.total_tokens_used += token_count
             return content, token_count
 
@@ -386,7 +396,7 @@ class CLILLMService:
                 "   - Challenges overcome and measurable impact\n"
                 "2. List 4-5 specific features you implemented\n"
                 "3. Highlight 3-4 technical achievements\n\n"
-                "IMPORTANT: Respond ONLY in English."
+                "IMPORTANT: Respond ONLY in English. The input data (commit messages, descriptions) may be in Korean — translate and summarize them in English. Do NOT refuse; just write the summary in English."
             )
         else:
             # Korean (default)

@@ -152,6 +152,8 @@ Instructions:
 
 4. Describe your responsibilities in detail
 
+IMPORTANT: ALL output MUST be in English. The input data (commit messages, descriptions) may be in Korean or another language — translate and summarize them in English. Do NOT refuse or ask for English input; just write the summary in English.
+
 Respond in the following JSON format:
 {{
     "summary": "4-6 sentence detailed project summary emphasizing your contributions and impact",

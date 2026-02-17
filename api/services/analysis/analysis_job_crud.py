@@ -180,8 +180,11 @@ class AnalysisJobService:
             job.step_name = step_name
 
             # Update progress based on step
+            # Cap at 95% — reserve 100% for complete_job() so UI doesn't show
+            # "stuck at 100%" while post-processing (AI summary, tech versions) runs.
             if status == "completed":
-                job.progress = int((step_number / job.total_steps) * 100)
+                raw = int((step_number / job.total_steps) * 100)
+                job.progress = min(raw, 95)
             else:
                 job.progress = int(((step_number - 1) / job.total_steps) * 100) + 5
 
@@ -209,13 +212,21 @@ class AnalysisJobService:
         task_id: str,
         output_data: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Mark job as completed."""
+        """Mark job as completed.
+
+        Respects user cancellation — if the job was cancelled during
+        post-processing, this will NOT overwrite the cancelled status.
+        """
         async with AsyncSessionLocal() as db:
             job_result = await db.execute(
                 select(Job).where(Job.task_id == task_id)
             )
             job = job_result.scalar_one_or_none()
             if not job:
+                return
+
+            # Don't overwrite cancelled/failed status set by user or error handler
+            if job.status in ("cancelled", "failed"):
                 return
 
             job.status = "completed"
