@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import event
@@ -226,7 +227,7 @@ async def cleanup_stale_jobs():
     so the UI doesn't show perpetually stuck jobs.
     """
     from sqlalchemy import text
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("api.database")
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(

@@ -215,38 +215,99 @@ export class PythonEnvManager extends EventEmitter {
   }
   
   /**
+   * Check if a Python executable has the required packages (uvicorn, fastapi)
+   */
+  private verifyPythonPackages(pythonPath: string): boolean {
+    try {
+      execSync(`"${pythonPath}" -c "import uvicorn; import fastapi"`, {
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Try to find a venv Python at the given root directory
+   */
+  private findVenvAt(root: string): string | null {
+    const venvNames = ['venv', '.venv']
+    for (const name of venvNames) {
+      const venvPython = process.platform === 'win32'
+        ? path.join(root, name, 'Scripts', 'python.exe')
+        : path.join(root, name, 'bin', 'python3')
+      if (fs.existsSync(venvPython)) {
+        console.log(`[PythonEnvManager] Found venv at: ${venvPython}`)
+        return venvPython
+      }
+    }
+    return null
+  }
+
+  /**
+   * Read the source project root from build-info.json (packaged app only)
+   */
+  private getSourceProjectRoot(): string | null {
+    if (!app.isPackaged) return null
+    try {
+      const buildInfoPath = path.join(process.resourcesPath, 'build-info.json')
+      if (fs.existsSync(buildInfoPath)) {
+        const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'))
+        const sourceRoot = buildInfo.sourceProjectRoot
+        if (sourceRoot && fs.existsSync(sourceRoot)) {
+          console.log('[PythonEnvManager] Source project root from build-info:', sourceRoot)
+          return sourceRoot
+        }
+      }
+    } catch (err) {
+      console.log('[PythonEnvManager] Could not read build-info.json:', err)
+    }
+    return null
+  }
+
+  /**
    * Find system Python
    */
   private findSystemPython(): string | null {
     const homeDir = process.env.HOME || process.env.USERPROFILE || ''
     const projectRoot = this.backendPath ? path.dirname(this.backendPath) : null
-    
+
+    // 1. Check venv at current project root (works in dev mode)
     if (projectRoot) {
-      const venvPython = process.platform === 'win32'
-        ? path.join(projectRoot, 'venv', 'Scripts', 'python.exe')
-        : path.join(projectRoot, 'venv', 'bin', 'python3')
-      if (fs.existsSync(venvPython)) {
+      const venvPython = this.findVenvAt(projectRoot)
+      if (venvPython) {
         console.log('[PythonEnvManager] Found project venv:', venvPython)
         return venvPython
       }
-      
-      const dotVenvPython = process.platform === 'win32'
-        ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
-        : path.join(projectRoot, '.venv', 'bin', 'python3')
-      if (fs.existsSync(dotVenvPython)) {
-        console.log('[PythonEnvManager] Found project .venv:', dotVenvPython)
-        return dotVenvPython
+    }
+
+    // 2. In packaged mode, check venv at the ORIGINAL source project root
+    //    (recorded during build in build-info.json)
+    if (app.isPackaged) {
+      const sourceRoot = this.getSourceProjectRoot()
+      if (sourceRoot) {
+        const sourceVenv = this.findVenvAt(sourceRoot)
+        if (sourceVenv) {
+          console.log('[PythonEnvManager] Found source project venv:', sourceVenv)
+          return sourceVenv
+        }
       }
     }
-    
+
+    // 3. Check known Python installation paths
     const knownPaths = process.platform === 'darwin' ? [
       '/opt/homebrew/bin/python3',
       '/usr/local/bin/python3',
       path.join(homeDir, '.local/bin/python3'),
       '/usr/bin/python3',
     ] : process.platform === 'win32' ? [
+      path.join(homeDir, 'AppData', 'Local', 'Programs', 'Python', 'Python313', 'python.exe'),
       path.join(homeDir, 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
       path.join(homeDir, 'AppData', 'Local', 'Programs', 'Python', 'Python311', 'python.exe'),
+      'C:\\Python313\\python.exe',
       'C:\\Python312\\python.exe',
       'C:\\Python311\\python.exe',
     ] : [
@@ -254,42 +315,67 @@ export class PythonEnvManager extends EventEmitter {
       '/usr/local/bin/python3',
       path.join(homeDir, '.local/bin/python3'),
     ]
-    
+
     for (const pythonPath of knownPaths) {
       if (fs.existsSync(pythonPath)) {
         try {
           const result = execSync(`"${pythonPath}" --version`, { encoding: 'utf8', timeout: 5000 })
           if (result.includes('Python 3')) {
-            console.log('[PythonEnvManager] Found Python:', pythonPath)
-            return pythonPath
+            if (this.verifyPythonPackages(pythonPath)) {
+              console.log('[PythonEnvManager] Found Python with packages:', pythonPath)
+              return pythonPath
+            }
+            console.log('[PythonEnvManager] Python found but missing packages:', pythonPath)
           }
         } catch {
           continue
         }
       }
     }
-    
+
+    // 4. Search PATH for python commands
     const commands = process.platform === 'win32'
       ? ['python', 'python3', 'py']
       : ['python3', 'python']
-    
+
+    for (const cmd of commands) {
+      try {
+        const result = execSync(`${cmd} --version`, { encoding: 'utf8', timeout: 5000 })
+        if (result.includes('Python 3')) {
+          let foundPath: string
+          if (process.platform === 'win32') {
+            foundPath = execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim().split('\n')[0]
+          } else {
+            foundPath = execSync(`which ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim()
+          }
+          if (this.verifyPythonPackages(foundPath)) {
+            console.log('[PythonEnvManager] Found Python in PATH with packages:', foundPath)
+            return foundPath
+          }
+          console.log('[PythonEnvManager] Python in PATH but missing packages:', foundPath)
+        }
+      } catch {
+        continue
+      }
+    }
+
+    // 5. Last resort: return any Python 3, even without verified packages
+    //    (the backend will fail with a more descriptive import error)
     for (const cmd of commands) {
       try {
         const result = execSync(`${cmd} --version`, { encoding: 'utf8', timeout: 5000 })
         if (result.includes('Python 3')) {
           if (process.platform === 'win32') {
-            const wherePath = execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim().split('\n')[0]
-            return wherePath
+            return execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim().split('\n')[0]
           } else {
-            const whichPath = execSync(`which ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim()
-            return whichPath
+            return execSync(`which ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim()
           }
         }
       } catch {
         continue
       }
     }
-    
+
     return null
   }
   

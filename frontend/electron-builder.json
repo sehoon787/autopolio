@@ -40,6 +40,10 @@
       "from": "../data/templates",
       "to": "data/templates",
       "filter": ["**/*"]
+    },
+    {
+      "from": "build/build-info.json",
+      "to": "build-info.json"
     }
   ],
   "win": {
