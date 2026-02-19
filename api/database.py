@@ -218,6 +218,35 @@ async def init_db():
         """))
 
 
+async def cleanup_stale_jobs():
+    """Mark stale running/pending jobs as failed on startup.
+
+    When the server restarts, any jobs left in 'running' or 'pending' state
+    are orphaned (their background tasks are gone). Mark them as failed
+    so the UI doesn't show perpetually stuck jobs.
+    """
+    from sqlalchemy import text
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            text("SELECT COUNT(*) FROM jobs WHERE status IN ('running', 'pending')")
+        )
+        count = result.scalar()
+        if count:
+            await db.execute(
+                text("""
+                    UPDATE jobs
+                    SET status = 'failed',
+                        error_message = 'Server restarted while job was in progress',
+                        completed_at = CURRENT_TIMESTAMP
+                    WHERE status IN ('running', 'pending')
+                """)
+            )
+            await db.commit()
+            logger.info("Cleaned up %d stale jobs (running/pending → failed)", count)
+
+
 async def close_db():
     """Close database connection."""
     await engine.dispose()

@@ -12,7 +12,7 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s", force=True)
 
 from api.config import get_settings
-from api.database import init_db, close_db, AsyncSessionLocal
+from api.database import init_db, close_db, cleanup_stale_jobs, AsyncSessionLocal
 from api.routers import users, github, templates, pipeline, documents, llm, platforms, lookup, oauth
 from api.routers.knowledge import companies, projects, achievements, credentials
 
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.templates_dir, exist_ok=True)
     os.makedirs(settings.result_dir, exist_ok=True)
     await init_db()
+    await cleanup_stale_jobs()
 
     # System templates are now loaded from static files/code at request time.
     # No DB initialization needed - they're always available.
