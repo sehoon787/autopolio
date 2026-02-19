@@ -28,6 +28,7 @@ MAX_CONCURRENT_LLM_SUMMARY = 2  # LLM API rate limit consideration
 from api.models.user import User
 from api.models.project import Project, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
+from api.models.project_repository import ProjectRepository
 from api.models.achievement import ProjectAchievement
 from api.services.github import GitHubService
 from api.services.llm import LLMService
@@ -151,12 +152,13 @@ async def step_github_analysis(
     await task_service.start_step(request.task_id, 1, STEP_NAMES[0])
 
     # Get projects with git URLs (and their repositories)
-    from api.models.project_repository import ProjectRepository
+    # populate_existing=True ensures selectinloads fire even for cached objects
     projects_result = await db.execute(
         select(Project)
         .where(Project.id.in_(request.project_ids))
         .where(Project.git_url.isnot(None))
         .options(selectinload(Project.repositories))
+        .execution_options(populate_existing=True)
     )
     projects = projects_result.scalars().all()
 
@@ -271,6 +273,7 @@ async def step_code_extraction(
     analyses_result = await db.execute(
         select(RepoAnalysis)
         .where(RepoAnalysis.project_id.in_(request.project_ids))
+        .execution_options(populate_existing=True)
     )
     analyses = analyses_result.scalars().all()
 
@@ -305,6 +308,7 @@ async def step_tech_detection(
     analyses_result = await db.execute(
         select(RepoAnalysis)
         .where(RepoAnalysis.project_id.in_(request.project_ids))
+        .execution_options(populate_existing=True)
     )
     analyses = analyses_result.scalars().all()
 
@@ -335,14 +339,17 @@ async def step_achievement_detection(
     results = {"projects": [], "total_detected": 0, "total_saved": 0}
 
     # Get projects with repo analysis
+    # populate_existing=True forces re-loading of relationships that may have
+    # been auto-populated via backrefs in earlier steps (expire_on_commit=False)
     projects_result = await db.execute(
         select(Project)
         .where(Project.id.in_(request.project_ids))
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-            selectinload(Project.repo_analyses),
+            selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
             selectinload(Project.achievements)
         )
+        .execution_options(populate_existing=True)
     )
     projects = projects_result.scalars().all()
 
@@ -439,14 +446,17 @@ async def step_llm_summarization(
 
     try:
         # Get projects with their repo_analysis
+        # populate_existing=True forces re-loading of relationships that may have
+        # been auto-populated via backrefs in earlier steps (expire_on_commit=False)
         projects_result = await db.execute(
             select(Project)
             .where(Project.id.in_(request.project_ids))
             .options(
                 selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
                 selectinload(Project.achievements),
-                selectinload(Project.repo_analyses)
+                selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
             )
+            .execution_options(populate_existing=True)
         )
         projects = projects_result.scalars().all()
 

@@ -28,6 +28,7 @@ Fixed (v1.17):
 """
 import logging
 import time
+import traceback
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -188,12 +189,19 @@ class PipelineService:
                 return output_data
 
             except Exception as e:
-                logger.exception("[Pipeline] Failed (task=%s): %s", task_id, e)
+                tb_str = traceback.format_exc()
+                logger.error(
+                    "[Pipeline] Failed (task=%s): %s\n%s",
+                    task_id, e, tb_str
+                )
                 try:
                     await task_service.fail_job(
                         task_id,
                         str(e),
-                        {"exception_type": type(e).__name__}
+                        {
+                            "exception_type": type(e).__name__,
+                            "traceback": tb_str[-2000:],
+                        }
                     )
                     await db.commit()
                 except Exception as commit_err:

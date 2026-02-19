@@ -18,7 +18,9 @@ from api.models.company import Company
 from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.repo_analysis import RepoAnalysis
+from api.models.project_repository import ProjectRepository
 from api.schemas.pipeline import PipelineRunRequest
+from api.services.template.static_doc_templates import get_static_doc_template_by_id
 
 if TYPE_CHECKING:
     from api.services.core import TaskService
@@ -48,11 +50,13 @@ async def step_template_mapping(
     """Step 6: Map data to template fields."""
     await task_service.start_step(request.task_id, 6, STEP_NAMES[5])
 
-    # Get template
-    template_result = await db.execute(
-        select(Template).where(Template.id == request.template_id)
-    )
-    template = template_result.scalar_one_or_none()
+    # Get template (check static in-memory templates first, then DB)
+    template = get_static_doc_template_by_id(request.template_id)
+    if not template:
+        template_result = await db.execute(
+            select(Template).where(Template.id == request.template_id)
+        )
+        template = template_result.scalar_one_or_none()
     if not template:
         raise ValueError("Template not found")
 
@@ -67,14 +71,19 @@ async def step_template_mapping(
         companies = [c for c in companies if c.id in request.company_ids]
 
     # Get projects with all relations
+    # populate_existing=True forces re-loading of relationships that may have
+    # been auto-populated via backrefs in earlier steps (expire_on_commit=False)
     projects_result = await db.execute(
         select(Project)
         .where(Project.id.in_(request.project_ids))
         .options(
             selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-            selectinload(Project.achievements)
+            selectinload(Project.achievements),
+            selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
+            selectinload(Project.repositories),
         )
         .order_by(Project.start_date.desc())
+        .execution_options(populate_existing=True)
     )
     projects = projects_result.scalars().all()
 
