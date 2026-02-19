@@ -238,24 +238,6 @@
             font-size: 12px;
             color: var(--wanted-text-secondary);
         }
-        .project-achievements {
-            padding: 16px;
-            background: var(--wanted-white);
-            border-radius: 6px;
-            border-left: 3px solid var(--wanted-primary);
-        }
-        .project-achievements-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--wanted-primary);
-            margin-bottom: 8px;
-        }
-        .project-achievements-list {
-            font-size: 13px;
-            line-height: 1.7;
-            color: var(--wanted-text-secondary);
-        }
-
         /* 스킬 */
         .skills-grid {
             display: flex;
@@ -537,38 +519,33 @@
                     {{#team_size}}<div><strong>개발 인원:</strong> {{team_size}}</div>{{/team_size}}
                     {{#description}}<div style="margin-top: 8px;"><strong>상세 내용:</strong> {{description}}</div>{{/description}}
                     {{#has_repo_analyses}}
-                    <div class="project-achievements" style="margin-top: 12px;">
-                        <div class="project-achievements-title">성과</div>
-                        <div class="project-achievements-list">
-                            {{#repo_analyses_list}}
-                            {{#has_achievements}}
-                            <div style="margin-top: 4px;">
-                                <div style="font-weight: 600; color: var(--wanted-primary); font-size: 13px;">[{{label}}]</div>
-                                {{#achievements_grouped}}
-                                <div style="margin-bottom: 6px; margin-left: 8px; padding: 4px 8px; background: rgba(0, 102, 255, 0.04); border-radius: 6px;">
-                                    <div style="font-weight: 600;"><span style="color: #0066FF;">{{category}}</span></div>
-                                    {{#items}}
-                                    <div style="margin-left: 12px; font-size: 13px;">- {{title}}</div>
-                                    {{/items}}
-                                </div>
-                                {{/achievements_grouped}}
-                            </div>
-                            {{/has_achievements}}
-                            {{/repo_analyses_list}}
+                    <div style="margin-top: 8px;"><strong>성과:</strong></div>
+                    {{#repo_analyses_list}}
+                    {{#has_achievements}}
+                    <div style="margin-left: 8px; margin-top: 6px;">
+                        <div style="font-weight: 600; color: var(--wanted-primary); font-size: 13px;">[{{label}}]</div>
+                        <div style="margin-left: 16px;">
+                            {{#achievements_grouped}}
+                            <div style="font-weight: 600; margin-top: 4px;">{{category}}</div>
+                            {{#items}}
+                            <div style="margin-left: 12px;">• {{title}}</div>
+                            {{/items}}
+                            {{/achievements_grouped}}
                         </div>
                     </div>
+                    {{/has_achievements}}
+                    {{/repo_analyses_list}}
                     {{/has_repo_analyses}}
                     {{^has_repo_analyses}}
                     {{#has_achievements}}
-                    <div class="project-achievements" style="margin-top: 12px;">
-                        <div class="project-achievements-title">성과</div>
-                        <div class="project-achievements-list">
-                            {{#achievements_summary_list}}
-                            <div style="margin-bottom: 8px; padding: 6px 8px; background: rgba(0, 102, 255, 0.04); border-radius: 6px;">
-                                <div style="font-weight: 600;"><span style="color: #0066FF;">[{{category}}]</span> {{title}}</div>
-                            </div>
-                            {{/achievements_summary_list}}
-                        </div>
+                    <div style="margin-top: 8px;"><strong>성과:</strong></div>
+                    <div style="margin-left: 16px;">
+                        {{#achievements_grouped}}
+                        <div style="font-weight: 600; margin-top: 4px;">{{category}}</div>
+                        {{#items}}
+                        <div style="margin-left: 12px;">• {{title}}</div>
+                        {{/items}}
+                        {{/achievements_grouped}}
                     </div>
                     {{/has_achievements}}
                     {{/has_repo_analyses}}

@@ -553,16 +553,14 @@
                         <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>성과:</strong></p>
                         {{#repo_analyses_list}}
                         {{#has_achievements}}
-                        <div style="margin-top: 4px; margin-left: 4px;">
+                        <div style="margin-left: 4px; margin-top: 4px;">
                             <div style="font-weight: 600; color: #FF6A0D; font-size: 13px;">[{{label}}]</div>
                             <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text);">
                                 {{#achievements_grouped}}
-                                <div style="margin-bottom: 4px; padding: 4px 6px; background: rgba(255, 106, 13, 0.06); border-radius: 4px;">
-                                    <div><strong style="color: #FF6A0D;">{{category}}</strong></div>
-                                    {{#items}}
-                                    <div style="margin-left: 12px;">- {{title}}</div>
-                                    {{/items}}
-                                </div>
+                                <div style="font-weight: 600; margin-top: 4px;">{{category}}</div>
+                                {{#items}}
+                                <div style="margin-left: 12px;">• {{title}}</div>
+                                {{/items}}
                                 {{/achievements_grouped}}
                             </div>
                         </div>
@@ -576,12 +574,10 @@
                         <p style="font-size: 12px; color: var(--rmb-text-secondary); margin-bottom: 4px;"><strong>성과:</strong></p>
                         <div style="margin-left: 12px; font-size: 13px; color: var(--rmb-text);">
                             {{#achievements_grouped}}
-                            <div style="margin-bottom: 8px; padding: 6px 8px; background: rgba(255, 106, 13, 0.06); border-radius: 4px;">
-                                <div><strong style="color: #FF6A0D;">[{{category}}]</strong></div>
-                                {{#items}}
-                                <div style="margin-left: 12px; font-size: 13px;">- {{title}}</div>
-                                {{/items}}
-                            </div>
+                            <div style="font-weight: 600; margin-top: 4px;">{{category}}</div>
+                            {{#items}}
+                            <div style="margin-left: 12px;">• {{title}}</div>
+                            {{/items}}
                             {{/achievements_grouped}}
                         </div>
                     </div>
