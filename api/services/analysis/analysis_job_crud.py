@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
+from sqlalchemy.orm.attributes import flag_modified
 
 from api.models.job import Job
 from api.models.project import Project
@@ -188,8 +189,8 @@ class AnalysisJobService:
             else:
                 job.progress = int(((step_number - 1) / job.total_steps) * 100) + 5
 
-            # Update step results
-            step_results = job.step_results or {}
+            # Update step results (copy dict to trigger SQLAlchemy change detection)
+            step_results = dict(job.step_results or {})
             step_results[f"step_{step_number}"] = {
                 "name": step_name,
                 "status": status,
@@ -198,12 +199,14 @@ class AnalysisJobService:
             if result:
                 step_results[f"step_{step_number}"]["result_summary"] = str(result)[:500]
             job.step_results = step_results
+            flag_modified(job, "step_results")
 
-            # Save partial results
+            # Save partial results (copy dict to trigger change detection)
             if result and status == "completed":
-                partial_results = job.partial_results or {}
+                partial_results = dict(job.partial_results or {})
                 partial_results[step_name] = result
                 job.partial_results = partial_results
+                flag_modified(job, "partial_results")
 
             await db.commit()
 

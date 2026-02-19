@@ -4,6 +4,7 @@ Handles job creation, status tracking, and progress updates.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 from typing import Optional, Dict, Any
 import uuid
@@ -78,13 +79,14 @@ class TaskService:
 
             # Update step results
             if step_result:
-                step_results = job.step_results or {}
+                step_results = dict(job.step_results or {})
                 step_results[f"step_{current_step}"] = {
                     "name": step_name,
                     "result": step_result,
                     "completed_at": datetime.utcnow().isoformat()
                 }
                 job.step_results = step_results
+                flag_modified(job, "step_results")
 
             await self.db.flush()
             await self.db.refresh(job)
@@ -102,13 +104,14 @@ class TaskService:
             job.current_step = step_number
             job.step_name = step_name
 
-            step_results = job.step_results or {}
+            step_results = dict(job.step_results or {})
             step_results[f"step_{step_number}"] = {
                 "name": step_name,
                 "started_at": datetime.utcnow().isoformat(),
                 "status": "running"
             }
             job.step_results = step_results
+            flag_modified(job, "step_results")
 
             # Calculate progress
             job.progress = int((step_number - 1) / job.total_steps * 100)
@@ -126,14 +129,16 @@ class TaskService:
         """Mark a step as completed."""
         job = await self.get_job(task_id)
         if job:
-            step_results = job.step_results or {}
+            step_results = dict(job.step_results or {})
             step_key = f"step_{step_number}"
 
             if step_key in step_results:
-                step_results[step_key]["completed_at"] = datetime.utcnow().isoformat()
-                step_results[step_key]["status"] = "completed"
+                step_data = dict(step_results[step_key])
+                step_data["completed_at"] = datetime.utcnow().isoformat()
+                step_data["status"] = "completed"
                 if result:
-                    step_results[step_key]["result"] = result
+                    step_data["result"] = result
+                step_results[step_key] = step_data
             else:
                 step_results[step_key] = {
                     "completed_at": datetime.utcnow().isoformat(),
@@ -142,6 +147,7 @@ class TaskService:
                 }
 
             job.step_results = step_results
+            flag_modified(job, "step_results")
             job.progress = int(step_number / job.total_steps * 100)
 
             await self.db.flush()
@@ -167,7 +173,7 @@ class TaskService:
         """
         job = await self.get_job(task_id)
         if job:
-            step_results = job.step_results or {}
+            step_results = dict(job.step_results or {})
             step_key = f"step_{step_number}"
 
             step_results[step_key] = {
@@ -180,6 +186,7 @@ class TaskService:
                 step_results[step_key]["result"] = result
 
             job.step_results = step_results
+            flag_modified(job, "step_results")
             job.current_step = step_number + 1
             job.progress = int(step_number / job.total_steps * 100)
 
@@ -218,6 +225,7 @@ class TaskService:
             job.error_message = error_message
             if error_details:
                 job.error_details = error_details
+                flag_modified(job, "error_details")
             await self.db.flush()
             await self.db.refresh(job)
         return job
