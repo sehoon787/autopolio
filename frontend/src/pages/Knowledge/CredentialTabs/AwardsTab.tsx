@@ -75,6 +75,8 @@ export function AwardsTab() {
     dateConfig: { dateField: 'award_date' },
   })
 
+  if (!user) return null
+
   return (
     <div className="space-y-4">
       {/* Header with sort and add button */}

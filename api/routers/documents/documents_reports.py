@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal
 
 from api.database import get_db
-from api.services.report import ReportService
+from api.services.report import ReportService, ReportProjectService
 
 router = APIRouter()
 
@@ -135,7 +135,7 @@ async def get_detailed_report(
     Generate DETAILED_COMPLETION_REPORT style for a specific project.
     Returns structured data for detailed technical analysis view.
     """
-    report_service = ReportService(db)
+    report_service = ReportProjectService(db)
     try:
         report = await report_service.generate_detailed_report(project_id)
         return report
@@ -152,7 +152,7 @@ async def get_final_report(
     Generate FINAL_PROJECT_REPORT style for a specific project.
     Returns structured data for work/achievement summary view.
     """
-    report_service = ReportService(db)
+    report_service = ReportProjectService(db)
     try:
         report = await report_service.generate_final_report(project_id)
         return report
@@ -169,7 +169,7 @@ async def get_performance_summary_for_project(
     Generate PROJECT_PERFORMANCE_SUMMARY style for a specific project.
     Returns structured data for basic info, key tasks, achievements, and stats.
     """
-    report_service = ReportService(db)
+    report_service = ReportProjectService(db)
     try:
         report = await report_service.generate_performance_summary_for_project(project_id)
         return report

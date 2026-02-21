@@ -13,13 +13,12 @@ import {
   GitCommit,
   ClipboardList,
   Pencil,
-  Layers,
   Star,
   Bot,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { getRepoDisplayName } from '@/lib/repo-utils'
+import { BasicInfoPerRepoBreakdown } from './components/BasicInfoPerRepoBreakdown'
 import type { BasicInfoTabProps } from './types'
 
 export function BasicInfoTab({
@@ -34,17 +33,7 @@ export function BasicInfoTab({
   perRepoAnalyses,
 }: BasicInfoTabProps) {
   const [isEditingKeyTasks, setIsEditingKeyTasks] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const isMultiRepo = perRepoAnalyses && perRepoAnalyses.repo_count > 1
-
-  const toggleExpand = (key: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
 
   // Get company name from companies list
   const companyName = useMemo(() => {
@@ -243,7 +232,7 @@ export function BasicInfoTab({
             {isMultiRepo ? (
               <div className="space-y-5">
                 {perRepoAnalyses.analyses.map((repo) => {
-                  const repoName = repo.label || repo.repo_url.split('/').pop()?.replace('.git', '') || repo.repo_url
+                  const repoName = getRepoDisplayName(repo)
                   const tasks = repo.key_tasks || []
                   if (tasks.length === 0) return null
                   return (
@@ -440,189 +429,10 @@ export function BasicInfoTab({
 
       {/* Per-Repo Breakdown (multi-repo projects) */}
       {perRepoAnalyses && perRepoAnalyses.repo_count > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-indigo-500" />
-              {t('detail.basicInfo.perRepoBreakdown')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {perRepoAnalyses.analyses.map((repo) => {
-              const repoName = repo.label || repo.repo_url.split('/').pop()?.replace('.git', '') || repo.repo_url
-              return (
-                <div
-                  key={repo.repo_url}
-                  className="rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden"
-                >
-                  {/* Header */}
-                  <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">[{repoName}]</h4>
-                    {repo.is_primary && (
-                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 gap-1">
-                        <Star className="h-3 w-3" />
-                        Primary
-                      </Badge>
-                    )}
-                    {repo.primary_language && (
-                      <Badge variant="outline" className="text-xs">{repo.primary_language}</Badge>
-                    )}
-                    <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-                      {repo.user_commits} {t('detail.basicInfo.perRepoCommits')} · +{repo.lines_added.toLocaleString()} / -{repo.lines_deleted.toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="p-4 space-y-4">
-                    {/* Stats row */}
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-2">
-                        <span className="text-xs text-blue-600 dark:text-blue-400">{t('detail.basicInfo.totalCommits')}</span>
-                        <p className="text-base font-bold text-blue-700 dark:text-blue-300">{repo.total_commits}</p>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-950 rounded-lg p-2">
-                        <span className="text-xs text-green-600 dark:text-green-400">{t('detail.basicInfo.myCommits')}</span>
-                        <p className="text-base font-bold text-green-700 dark:text-green-300">{repo.user_commits}</p>
-                      </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-950 rounded-lg p-2">
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400">{t('detail.basicInfo.added')}</span>
-                        <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">+{repo.lines_added.toLocaleString()}</p>
-                      </div>
-                      <div className="bg-red-50 dark:bg-red-950 rounded-lg p-2">
-                        <span className="text-xs text-red-600 dark:text-red-400">{t('detail.basicInfo.deleted')}</span>
-                        <p className="text-base font-bold text-red-700 dark:text-red-300">-{repo.lines_deleted.toLocaleString()}</p>
-                      </div>
-                    </div>
-
-                    {/* Technologies */}
-                    {repo.detected_technologies.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('detail.basicInfo.techStack')}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {repo.detected_technologies.slice(0, 10).map((tech) => (
-                            <TechBadge key={tech} tech={tech} />
-                          ))}
-                          {repo.detected_technologies.length > 10 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{repo.detected_technologies.length - 10}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Key tasks */}
-                    {repo.key_tasks && repo.key_tasks.length > 0 && (() => {
-                      const taskKey = `${repo.repo_url}-tasks`
-                      const isTaskExpanded = expandedSections.has(taskKey)
-                      const taskLimit = 3
-                      const visibleTasks = isTaskExpanded ? repo.key_tasks : repo.key_tasks.slice(0, taskLimit)
-                      const taskRemaining = repo.key_tasks.length - taskLimit
-                      return (
-                        <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
-                            <ClipboardList className="h-3.5 w-3.5" />
-                            {t('detail.basicInfo.perRepoKeyTasks')}
-                          </p>
-                          <ul className="text-sm space-y-1">
-                            {visibleTasks.map((task, i) => (
-                              <li key={i} className="text-gray-700 dark:text-gray-300 flex items-start gap-2">
-                                <span className="text-blue-500 mt-1 text-xs">&#9679;</span>
-                                <InlineMarkdown>{task}</InlineMarkdown>
-                              </li>
-                            ))}
-                            {!isTaskExpanded && taskRemaining > 0 && (
-                              <li className="text-gray-400 dark:text-gray-500 text-xs pl-4">...</li>
-                            )}
-                          </ul>
-                          {taskRemaining > 0 && (
-                            <button
-                              onClick={() => toggleExpand(taskKey)}
-                              className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-1.5 flex items-center gap-1 transition-colors"
-                            >
-                              {isTaskExpanded ? (
-                                <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', '접기')}</>
-                              ) : (
-                                <><ChevronDown className="h-3 w-3" />+{taskRemaining} {t('detail.buttons.showMore', '더보기')}</>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Achievements */}
-                    {repo.detailed_achievements && Object.keys(repo.detailed_achievements).length > 0 && (() => {
-                      const achKey = `${repo.repo_url}-ach`
-                      const isAchExpanded = expandedSections.has(achKey)
-                      const achLimit = 2
-                      const allEntries = Object.entries(repo.detailed_achievements).filter(([, items]) => items.length > 0)
-                      const hiddenCount = allEntries.reduce((sum, [, items]) => sum + Math.max(0, items.length - achLimit), 0)
-                      return (
-                        <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
-                            <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                            {t('detail.basicInfo.perRepoAchievements')}
-                          </p>
-                          <div className="space-y-2">
-                            {allEntries.map(([category, items]) => {
-                              const visibleItems = isAchExpanded ? items : items.slice(0, achLimit)
-                              const hasTruncated = !isAchExpanded && items.length > achLimit
-                              return (
-                                <div key={category}>
-                                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">{category}</span>
-                                  <ul className="ml-3 mt-0.5 space-y-0.5">
-                                    {visibleItems.map((item, i) => (
-                                      <li key={i} className="text-xs text-gray-600 dark:text-gray-400">
-                                        - <InlineMarkdown>{item.title + (item.description ? `: ${item.description}` : '')}</InlineMarkdown>
-                                      </li>
-                                    ))}
-                                    {hasTruncated && (
-                                      <li className="text-xs text-gray-400 dark:text-gray-500">...</li>
-                                    )}
-                                  </ul>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          {hiddenCount > 0 && (
-                            <button
-                              onClick={() => toggleExpand(achKey)}
-                              className="text-xs text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 mt-1.5 flex items-center gap-1 transition-colors"
-                            >
-                              {isAchExpanded ? (
-                                <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', '접기')}</>
-                              ) : (
-                                <><ChevronDown className="h-3 w-3" />{t('detail.buttons.showMore', '더보기')}</>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Commit categories */}
-                    {repo.commit_categories && Object.keys(repo.commit_categories).length > 0 && (
-                      <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('detail.basicInfo.perRepoCommitTypes')}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {Object.entries(repo.commit_categories)
-                            .filter(([, count]) => count > 0)
-                            .sort(([, a], [, b]) => b - a)
-                            .slice(0, 6)
-                            .map(([type, count]) => (
-                              <Badge key={type} variant="outline" className="text-xs gap-1">
-                                {type} <span className="font-bold">{count}</span>
-                              </Badge>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
+        <BasicInfoPerRepoBreakdown
+          perRepoAnalyses={perRepoAnalyses}
+          t={t}
+        />
       )}
 
       {/* Not Analyzed State */}

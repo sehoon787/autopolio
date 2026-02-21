@@ -88,6 +88,8 @@ export function EducationsTab() {
     cleanFormData,
   })
 
+  if (!user) return null
+
   const getDegreeLabel = (degree: string | null) => {
     if (!degree) return null
     const option = DEGREE_OPTIONS.find(o => o.value === degree)

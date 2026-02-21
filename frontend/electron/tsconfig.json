@@ -10,6 +10,6 @@
     "outDir": ".",
     "rootDir": "."
   },
-  "include": ["main.ts", "services/**/*.ts", "types/**/*.ts", "utils/**/*.ts"],
+  "include": ["main.ts", "backend-manager.ts", "ipc/**/*.ts", "services/**/*.ts", "types/**/*.ts", "utils/**/*.ts"],
   "exclude": ["node_modules"]
 }

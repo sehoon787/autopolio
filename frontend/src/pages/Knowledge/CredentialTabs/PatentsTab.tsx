@@ -205,6 +205,8 @@ export function PatentsTab() {
     }
   }, [deleteMutation, t])
 
+  if (!user) return null
+
   const getPatentOfficeLabel = (code: string | null) => {
     if (!code) return null
     const option = PATENT_OFFICES.find(o => o.value === code)

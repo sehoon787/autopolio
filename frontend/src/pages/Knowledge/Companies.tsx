@@ -1,12 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -32,7 +30,8 @@ import { useUserStore } from '@/stores/userStore'
 import { companiesApi, projectsApi, Company, CompanyCreate, Project } from '@/api/knowledge'
 import { formatDate } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
-import { Plus, Pencil, Trash2, Building2, LayoutList, ChevronDown, ChevronRight, Link2, Unlink, ExternalLink, FolderOpen, Upload, X, ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building2, LayoutList, ChevronDown, ChevronRight, Link2, Unlink, ExternalLink, FolderOpen } from 'lucide-react'
+import CompanyFormDialog from './components/CompanyFormDialog'
 
 export default function CompaniesPage() {
   const { t } = useTranslation()
@@ -40,9 +39,11 @@ export default function CompaniesPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
+
+  if (!user) return null
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
-  const [formData, setFormData] = useState<CompanyCreate>({
+  const [formData, setFormData] = useState<CompanyCreate & { is_current: boolean }>({
     name: '',
     position: '',
     department: '',
@@ -147,15 +148,6 @@ export default function CompaniesPage() {
     },
     onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
   })
-
-  const logoInputRef = useRef<HTMLInputElement>(null)
-
-  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && editingCompany) {
-      uploadLogoMutation.mutate({ companyId: editingCompany.id, file })
-    }
-  }
 
   const resetForm = () => {
     setFormData({
@@ -433,158 +425,19 @@ export default function CompaniesPage() {
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingCompany ? t('companies:editCompany') : t('companies:newCompany')}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Logo Upload - Compact, only when editing */}
-            {editingCompany && (
-              <div className="flex items-center gap-3 pb-2 border-b">
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.gif,.webp,.svg"
-                  onChange={handleLogoSelect}
-                  className="hidden"
-                />
-                {editingCompany.logo_path ? (
-                  <img
-                    src={companiesApi.getLogoUrl(user!.id, editingCompany.id)}
-                    alt={editingCompany.name}
-                    className="w-10 h-10 rounded object-cover border cursor-pointer hover:opacity-80"
-                    onClick={() => logoInputRef.current?.click()}
-                  />
-                ) : (
-                  <div
-                    className="w-10 h-10 rounded bg-muted flex items-center justify-center border-2 border-dashed cursor-pointer hover:border-primary/50"
-                    onClick={() => logoInputRef.current?.click()}
-                  >
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadLogoMutation.isPending}
-                  >
-                    <Upload className="h-3 w-3 mr-1" />
-                    {editingCompany.logo_path ? t('companies:changeLogo') : t('companies:uploadLogo')}
-                  </Button>
-                  {editingCompany.logo_path && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-red-500 hover:text-red-600"
-                      onClick={() => {
-                        if (confirm(t('companies:confirmDeleteLogo'))) {
-                          deleteLogoMutation.mutate(editingCompany.id)
-                        }
-                      }}
-                      disabled={deleteLogoMutation.isPending}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t('companies:companyName')} *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="position">{t('companies:position')}</Label>
-                <Input
-                  id="position"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="department">{t('companies:department')}</Label>
-                <Input
-                  id="department"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">{t('companies:location')}</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start_date">{t('companies:startDate')}</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date || ''}
-                  max={formData.end_date || undefined}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end_date">{t('companies:endDate')}</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date || ''}
-                  min={formData.start_date || undefined}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                  disabled={formData.is_current}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_current"
-                checked={formData.is_current}
-                onChange={(e) => setFormData({ ...formData, is_current: e.target.checked, end_date: '' })}
-              />
-              <Label htmlFor="is_current">{t('companies:currentlyWorking')}</Label>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">{t('companies:description')}</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t('common:cancel')}
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingCompany ? t('common:edit') : t('common:add')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CompanyFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        editingCompany={editingCompany}
+        formData={formData}
+        setFormData={setFormData}
+        onSubmit={handleSubmit}
+        userId={user!.id}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        uploadLogoMutation={uploadLogoMutation}
+        deleteLogoMutation={deleteLogoMutation}
+        t={t}
+      />
 
       {/* Link Project Dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>

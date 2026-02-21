@@ -84,6 +84,8 @@ export function CertificationsTab() {
     dateConfig: { dateField: 'issue_date' },
   })
 
+  if (!user) return null
+
   return (
     <div className="space-y-4">
       {/* Header with sort and add button */}

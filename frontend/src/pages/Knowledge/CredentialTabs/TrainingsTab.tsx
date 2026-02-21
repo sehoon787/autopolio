@@ -114,6 +114,8 @@ export function TrainingsTab() {
     },
   })
 
+  if (!user) return null
+
   const handleMoveUp = (index: number) => {
     if (index === 0) return
     const newItems = [...sort.sortedItems]

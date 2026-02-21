@@ -17,8 +17,6 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 
 from .github_api_client import GitHubApiClient
-from api.services.analysis.repo_analyzer import RepoAnalyzer
-from api.services.analysis.contribution_analyzer import ContributionAnalyzer
 from .github_exceptions import (
     GitHubServiceError,
     GitHubRateLimitError,
@@ -34,14 +32,20 @@ from .github_constants import (
     parse_iso_datetime,
     call_llm_generate,
 )
-from api.services.analysis.contributor_analyzer import (
-    parse_conventional_commit as _parse_conventional_commit,
-    detect_work_areas as _detect_work_areas,
-    extract_file_extensions as _extract_file_extensions,
-    detect_technologies_from_files as _detect_technologies_from_files,
-)
-
 logger = logging.getLogger(__name__)
+
+
+def _get_lazy_imports():
+    """Lazy imports to avoid circular dependency with analysis modules."""
+    from api.services.analysis.repo_analyzer import RepoAnalyzer
+    from api.services.analysis.contribution_analyzer import ContributionAnalyzer
+    from api.services.analysis.contributor_analyzer import (
+        parse_conventional_commit,
+        detect_work_areas,
+        extract_file_extensions,
+        detect_technologies_from_files,
+    )
+    return RepoAnalyzer, ContributionAnalyzer, parse_conventional_commit, detect_work_areas, extract_file_extensions, detect_technologies_from_files
 
 
 class GitHubService:
@@ -70,8 +74,9 @@ class GitHubService:
         self.access_token = access_token
         self.timeout = timeout or self.DEFAULT_TIMEOUT
 
-        # Initialize internal modules
+        # Initialize internal modules (lazy to avoid circular imports)
         self._api = GitHubApiClient(access_token, self.timeout)
+        RepoAnalyzer, ContributionAnalyzer, _, _, _, _ = _get_lazy_imports()
         self._repo_analyzer = RepoAnalyzer(self._api)
         self._contribution_analyzer = ContributionAnalyzer(self._api)
 
@@ -306,19 +311,23 @@ class GitHubService:
 
     def _parse_conventional_commit(self, message: str) -> Dict[str, Any]:
         """Parse Conventional Commit message format."""
-        return _parse_conventional_commit(message)
+        _, _, parse_cc, _, _, _ = _get_lazy_imports()
+        return parse_cc(message)
 
     def _detect_work_areas(self, file_paths: List[str]) -> List[str]:
         """Detect work areas from a list of file paths."""
-        return _detect_work_areas(file_paths)
+        _, _, _, detect_wa, _, _ = _get_lazy_imports()
+        return detect_wa(file_paths)
 
     def _extract_file_extensions(self, file_paths: List[str]) -> Dict[str, int]:
         """Extract and count file extensions from file paths."""
-        return _extract_file_extensions(file_paths)
+        _, _, _, _, extract_fe, _ = _get_lazy_imports()
+        return extract_fe(file_paths)
 
     def _detect_technologies_from_files(self, file_paths: List[str]) -> List[str]:
         """Detect technologies based on file paths and extensions."""
-        return _detect_technologies_from_files(file_paths)
+        _, _, _, _, _, detect_tf = _get_lazy_imports()
+        return detect_tf(file_paths)
 
     # ==========================================================================
     # LLM Content Generation (delegated to content_generator module)

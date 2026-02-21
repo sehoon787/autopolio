@@ -9,7 +9,8 @@ Sub-routers:
 - github_analysis: Repository analysis, AI description generation
 - github_batch: Bulk import and batch analysis
 - github_jobs: Background analysis jobs, status tracking
-- github_edits: Inline editing, contributor analysis, code quality
+- github_edits: Inline editing of analysis content
+- github_contributor: Contributor analysis, code quality, detailed commits
 """
 from fastapi import APIRouter
 
@@ -19,6 +20,7 @@ from .github_analysis import router as analysis_router
 from .github_batch import router as batch_router
 from .github_jobs import router as jobs_router
 from .github_edits import router as edits_router
+from .github_contributor import router as contributor_router
 
 # Create main router
 router = APIRouter()
@@ -40,5 +42,7 @@ router.include_router(batch_router)
 router.include_router(jobs_router)
 
 # Edit endpoints: /analysis/{project_id}/effective, /analysis/{project_id}/content, /analysis/{project_id}/reset/{field}
-# Extended analysis: /contributors/{project_id}, /contributor-analysis/{project_id}, /code-quality/{project_id}, /detailed-commits/{project_id}
 router.include_router(edits_router)
+
+# Contributor endpoints: /contributors/{project_id}, /contributor-analysis/{project_id}, /code-quality/{project_id}, /detailed-commits/{project_id}
+router.include_router(contributor_router)

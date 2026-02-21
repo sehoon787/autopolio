@@ -96,6 +96,8 @@ export function PublicationsTab() {
     getItemName: (item) => item.title || '',
   })
 
+  if (!user) return null
+
   const getTypeLabel = (type: string | null) => {
     if (!type) return null
     const option = PUBLICATION_TYPES.find(o => o.value === type)

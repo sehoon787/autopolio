@@ -1,8 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,11 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import { useToast } from '@/components/ui/use-toast'
-import { useUserStore } from '@/stores/userStore'
-import { useSelection } from '@/hooks/useSelection'
-import { githubApi, GitHubRepo } from '@/api/github'
-import { projectsApi, ProjectRepositoryCreate } from '@/api/knowledge'
+import { GitHubRepo } from '@/api/github'
 import { isElectron } from '@/lib/electron'
 import {
   Github,
@@ -31,416 +23,47 @@ import {
   X,
   Layers,
 } from 'lucide-react'
+import { useRepoSelector, BundleRepoEntry } from './hooks/useRepoSelector'
 
 export default function RepoSelector() {
-  const navigate = useNavigate()
-  const { t } = useTranslation('github')
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
-  const { user, setUser } = useUserStore()
-  const selection = useSelection<string>()
-
-  // State
-  const [searchQuery, setSearchQuery] = useState('')
-  const [languageFilter, setLanguageFilter] = useState<string>('all')
-  const [ownerFilter, setOwnerFilter] = useState<string>('all')
-
-  // Track Electron CLI auth state separately
-  const [cliAuthStatus, setCliAuthStatus] = useState<{
-    checked: boolean
-    authenticated: boolean
-    username: string | null
-  }>({ checked: false, authenticated: false, username: null })
-
-  // Step 1a: For Electron, check CLI auth status directly (no backend needed)
-  useEffect(() => {
-    if (!isElectron() || !window.electron) return
-
-    const checkCLIAuth = async () => {
-      try {
-        const status = await window.electron!.getGitHubCLIStatus()
-        setCliAuthStatus({
-          checked: true,
-          authenticated: status.authenticated,
-          username: status.username,
-        })
-        console.log('[RepoSelector] CLI auth status:', status.authenticated, status.username)
-      } catch (error) {
-        console.error('[RepoSelector] Failed to check CLI auth:', error)
-        setCliAuthStatus({ checked: true, authenticated: false, username: null })
-      }
-    }
-    checkCLIAuth()
-  }, [])
-
-  // Step 1b: Check backend GitHub connection status (both Web and Electron)
-  // In Electron, App.tsx syncGitHubCLI saves the token to the backend,
-  // so we can also check backend status to know if token sync completed.
   const {
-    data: statusData,
-    isLoading: statusLoading,
-    isError: statusError,
-  } = useQuery({
-    queryKey: ['github-status', user?.id],
-    queryFn: () => githubApi.getStatus(user!.id),
-    enabled: !!user?.id,  // Check backend status for both Web and Electron
-    retry: 1,
-    staleTime: 30000,
-  })
-
-  // Determine connection status based on environment
-  const githubStatus = statusData?.data
-  const isConnectedWeb = githubStatus?.connected === true && githubStatus?.valid === true
-  const isConnectedElectron = isElectron() && cliAuthStatus.authenticated
-  const isConnected = isElectron() ? isConnectedElectron : isConnectedWeb
-  const canFetchRepos = isConnected
-
-  // Sync userStore with actual GitHub status (Web mode only)
-  useEffect(() => {
-    if (!isElectron() && githubStatus && user) {
-      const needsUpdate =
-        (githubStatus.connected && githubStatus.valid &&
-          (user.github_username !== githubStatus.github_username ||
-           user.github_avatar_url !== githubStatus.avatar_url)) ||
-        (!githubStatus.connected && user.github_username)
-
-      if (needsUpdate) {
-        setUser({
-          ...user,
-          github_username: githubStatus.connected && githubStatus.valid ? githubStatus.github_username : null,
-          github_avatar_url: githubStatus.connected && githubStatus.valid ? githubStatus.avatar_url : null,
-        })
-      }
-    }
-  }, [githubStatus, user, setUser])
-
-  // Electron: sync CLI auth to backend (save token for API calls like import-repos)
-  const [tokenSynced, setTokenSynced] = useState(false)
-  
-  useEffect(() => {
-    if (!isElectron() || !cliAuthStatus.authenticated || !user?.id || tokenSynced) return
-
-    const syncTokenToBackend = async () => {
-      try {
-        // Get token from gh CLI
-        const tokenResult = await window.electron!.getGitHubToken()
-        if (!tokenResult.success || !tokenResult.token) {
-          console.warn('[RepoSelector] Failed to get GitHub token from CLI')
-          return
-        }
-
-        // Save token to backend for API operations (import-repos, analyze, etc.)
-        console.log('[RepoSelector] Syncing GitHub token to backend for user:', user.id)
-        const saveResult = await githubApi.saveToken(user.id, tokenResult.token)
-        
-        // CRITICAL: Handle user_id from response
-        const actualUserId = saveResult.data.user_id
-        console.log('[RepoSelector] Token saved. Requested user:', user.id, 'Actual user:', actualUserId)
-        
-        if (actualUserId !== user.id) {
-          // Token was saved to a different user (GitHub account already linked to another user)
-          console.log('[RepoSelector] User merged! Updating userStore from', user.id, 'to', actualUserId)
-          setUser({
-            ...user,
-            id: actualUserId,
-            github_username: saveResult.data.github_username || cliAuthStatus.username,
-            github_avatar_url: saveResult.data.github_avatar_url || null,
-          })
-        } else {
-          // Update user store with CLI username if needed
-          if (cliAuthStatus.username && user.github_username !== cliAuthStatus.username) {
-            setUser({
-              ...user,
-              github_username: cliAuthStatus.username,
-            })
-          }
-        }
-        
-        setTokenSynced(true)
-        console.log('[RepoSelector] GitHub token synced successfully')
-      } catch (error) {
-        console.error('[RepoSelector] Failed to sync token to backend:', error)
-        // Don't block - repos list still works via CLI, only import will fail
-      }
-    }
-
-    syncTokenToBackend()
-  }, [cliAuthStatus, user, tokenSynced, setUser])
-
-  // Determine if backend has the GitHub token synced (Electron + Web)
-  const isBackendTokenSynced = statusData?.data?.connected === true && statusData?.data?.valid === true
-
-  // Step 2: Fetch repos
-  // Priority: Use backend API when token is synced (consistent results for both Electron and Web)
-  // Fallback: Use gh CLI directly in Electron if backend token not synced yet
-  const { data: reposData, isLoading: reposLoading, isFetching: reposFetching, isError: reposError, refetch } = useQuery({
-    queryKey: ['github-repos', user?.id, isBackendTokenSynced ? 'backend' : (isElectron() ? 'cli' : 'api')],
-    queryFn: async () => {
-      // If backend has the token, always use backend API (same results for Web + Electron)
-      if (isBackendTokenSynced && user?.id) {
-        console.log('[RepoSelector] Fetching repos via backend API (token synced)...')
-        return githubApi.getRepos(user.id, true)
-      }
-      // Electron fallback: Use gh CLI directly if backend token not synced yet
-      if (isElectron() && window.electron) {
-        console.log('[RepoSelector] Fetching repos via gh CLI (token not yet synced)...')
-        const result = await window.electron.listGitHubRepos()
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to fetch repos via CLI')
-        }
-        return { data: { repos: result.repos, total: result.total, has_more: false } }
-      }
-      // Web: Use backend API (requires OAuth token)
-      console.log('[RepoSelector] Fetching repos via backend API...')
-      return githubApi.getRepos(user!.id, true)
-    },
-    enabled: canFetchRepos && (isElectron() ? cliAuthStatus.checked : !!user?.id),
-    retry: 1,
-  })
-
-  // Loading state: for Electron, check CLI status; for Web, check backend status
-  const isCheckingAuth = isElectron() ? !cliAuthStatus.checked : statusLoading
-  const isLoading = isCheckingAuth || (canFetchRepos && reposLoading)
-  const isRefreshing = canFetchRepos && reposFetching && !reposLoading
-  const isError = reposError
-
-  // Virtual list scroll container ref
-  const parentRef = useRef<HTMLDivElement>(null)
-
-  // Note: CLI returns GitHubRepoFromCLI, API returns GitHubRepo - they have same structure
-  const repos: GitHubRepo[] = (reposData?.data?.repos as GitHubRepo[]) || []
-  const totalRepos = reposData?.data?.total || 0
-
-  // Get unique languages for filter
-  const languages = useMemo(() => {
-    const langSet = new Set<string>()
-    repos.forEach((repo) => {
-      if (repo.language) langSet.add(repo.language)
-    })
-    return Array.from(langSet).sort()
-  }, [repos])
-
-  // Filtered repos
-  const filteredRepos = useMemo(() => {
-    const githubUsername = user?.github_username?.toLowerCase() || ''
-
-    return repos.filter((repo) => {
-      const matchesSearch = searchQuery === '' ||
-        repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
-
-      const matchesLanguage = languageFilter === 'all' || repo.language === languageFilter
-
-      // Owner filter logic
-      const isOwned = repo.owner?.toLowerCase() === githubUsername
-      const isFork = repo.fork === true
-      let matchesOwner = true
-      if (ownerFilter === 'owned') {
-        matchesOwner = isOwned && !isFork
-      } else if (ownerFilter === 'forked') {
-        matchesOwner = isFork
-      } else if (ownerFilter === 'contributed') {
-        matchesOwner = isOwned
-      }
-
-      return matchesSearch && matchesLanguage && matchesOwner
-    })
-  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username])
-
-  // Virtual list configuration with dynamic measurement
-  const virtualizer = useVirtualizer({
-    count: filteredRepos.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 88,
-    overscan: 5,
-    measureElement: (el) => el?.getBoundingClientRect().height ?? 88,
-  })
-
-  // Track the actual user_id where token was saved (may differ due to merge)
-  const [actualUserId, setActualUserId] = useState<number | null>(null)
-  
-  // Import mutation
-  const importMutation = useMutation({
-    mutationFn: async (repoUrls: string[]) => {
-      let targetUserId = actualUserId || user!.id
-      
-      // Electron: Ensure token is synced to backend before importing
-      if (isElectron() && window.electron && !tokenSynced) {
-        console.log('[RepoSelector] Syncing token before import...')
-        const tokenResult = await window.electron.getGitHubToken()
-        if (tokenResult.success && tokenResult.token) {
-          const saveResult = await githubApi.saveToken(user!.id, tokenResult.token)
-          setTokenSynced(true)
-          
-          // IMPORTANT: saveToken may return a different user_id if GitHub account was merged
-          const returnedUserId = saveResult.data?.user_id
-          if (returnedUserId && returnedUserId !== user!.id) {
-            console.log(`[RepoSelector] Token saved to user ${returnedUserId} (merged from ${user!.id})`)
-            setActualUserId(returnedUserId)
-            targetUserId = returnedUserId
-            
-            // Update user store if needed
-            if (saveResult.data?.github_username) {
-              setUser({
-                ...user!,
-                id: returnedUserId,
-                github_username: saveResult.data.github_username,
-                github_avatar_url: saveResult.data.github_avatar_url || null,
-              })
-            }
-          }
-          console.log('[RepoSelector] Token synced, using user_id:', targetUserId)
-        } else {
-          throw new Error('Failed to get GitHub token from CLI')
-        }
-      }
-      
-      return githubApi.importRepos(targetUserId, repoUrls, false)
-    },
-    onSuccess: (response) => {
-      const { imported, failed, results } = response.data
-
-      if (imported > 0) {
-        toast({
-          title: t('importSuccess'),
-          description: failed > 0
-            ? t('importSuccessWithFailed', { count: imported, failed })
-            : t('importSuccessDesc', { count: imported }),
-        })
-
-        // Clear selection
-        selection.deselectAll()
-
-        // Invalidate projects query
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
-      } else {
-        toast({
-          title: t('importFailed'),
-          description: results[0]?.message || t('importFailedDesc'),
-          variant: 'destructive',
-        })
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('errorTitle'),
-        description: error?.response?.data?.detail || t('errorDesc'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  // Bundle dialog state
-  const [bundleDialogOpen, setBundleDialogOpen] = useState(false)
-  const [bundleProjectName, setBundleProjectName] = useState('')
-  const [bundleRepos, setBundleRepos] = useState<Array<{
-    url: string
-    name: string
-    label: string
-    isPrimary: boolean
-  }>>([])
-
-  // Handlers
-  const handleImport = () => {
-    if (selection.selectedCount === 0) {
-      toast({
-        title: t('selectionRequired'),
-        description: t('selectionRequiredDesc'),
-        variant: 'destructive',
-      })
-      return
-    }
-    importMutation.mutate(selection.getSelectedArray())
-  }
-
-  const handleOpenBundleDialog = useCallback(() => {
-    const selectedUrls = selection.getSelectedArray()
-    const repoEntries = selectedUrls.map((url, index) => {
-      const repo = repos.find((r) => r.clone_url === url)
-      return {
-        url,
-        name: repo?.name || url.split('/').pop()?.replace('.git', '') || url,
-        label: '',
-        isPrimary: index === 0,
-      }
-    })
-    setBundleRepos(repoEntries)
-    setBundleProjectName(repoEntries[0]?.name || '')
-    setBundleDialogOpen(true)
-  }, [selection, repos])
-
-  const handleBundleSetPrimary = useCallback((url: string) => {
-    setBundleRepos((prev) =>
-      prev.map((r) => ({ ...r, isPrimary: r.url === url }))
-    )
-  }, [])
-
-  const handleBundleLabelChange = useCallback((url: string, label: string) => {
-    setBundleRepos((prev) =>
-      prev.map((r) => r.url === url ? { ...r, label } : r)
-    )
-  }, [])
-
-  // Bundle create mutation
-  const bundleCreateMutation = useMutation({
-    mutationFn: async () => {
-      const targetUserId = actualUserId || user!.id
-      const primaryRepo = bundleRepos.find((r) => r.isPrimary) || bundleRepos[0]
-
-      // Fetch repo info + technologies for primary repo
-      const [repoInfoRes, techRes] = await Promise.all([
-        githubApi.getRepoInfo(targetUserId, primaryRepo.url),
-        githubApi.detectTechnologies(targetUserId, primaryRepo.url),
-      ])
-
-      const repoInfo = repoInfoRes.data
-      const technologies = techRes.data?.technologies || []
-
-      const repositories: ProjectRepositoryCreate[] = bundleRepos.map((r) => ({
-        git_url: r.url,
-        label: r.label || undefined,
-        is_primary: r.isPrimary,
-      }))
-
-      return projectsApi.create(targetUserId, {
-        name: bundleProjectName,
-        short_description: repoInfo.description || undefined,
-        git_url: primaryRepo.url,
-        project_type: 'personal',
-        status: 'pending',
-        start_date: repoInfo.start_date
-          ? new Date(repoInfo.start_date).toISOString().split('T')[0]
-          : undefined,
-        technologies,
-        repositories,
-      })
-    },
-    onSuccess: () => {
-      toast({
-        title: t('bundleDialog.success'),
-        description: t('bundleDialog.successDesc', {
-          name: bundleProjectName,
-          count: bundleRepos.length,
-        }),
-      })
-      setBundleDialogOpen(false)
-      selection.deselectAll()
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('bundleDialog.error'),
-        description: error?.response?.data?.detail || t('bundleDialog.errorDesc'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const clearFilters = () => {
-    setSearchQuery('')
-    setLanguageFilter('all')
-    setOwnerFilter('all')
-  }
+    navigate,
+    t,
+    queryClient,
+    isCheckingAuth,
+    statusError,
+    isConnected,
+    githubStatus,
+    repos,
+    totalRepos,
+    filteredRepos,
+    isLoading,
+    isRefreshing,
+    isError,
+    refetch,
+    searchQuery,
+    setSearchQuery,
+    languageFilter,
+    setLanguageFilter,
+    ownerFilter,
+    setOwnerFilter,
+    languages,
+    clearFilters,
+    selection,
+    parentRef,
+    virtualizer,
+    importMutation,
+    handleImport,
+    bundleDialogOpen,
+    setBundleDialogOpen,
+    bundleProjectName,
+    setBundleProjectName,
+    bundleRepos,
+    handleOpenBundleDialog,
+    handleBundleSetPrimary,
+    handleBundleLabelChange,
+    bundleCreateMutation,
+  } = useRepoSelector()
 
   // Render: Loading state (checking GitHub/CLI status)
   if (isCheckingAuth) {
@@ -827,7 +450,7 @@ interface BundleDialogProps {
   onOpenChange: (open: boolean) => void
   projectName: string
   onProjectNameChange: (name: string) => void
-  repos: Array<{ url: string; name: string; label: string; isPrimary: boolean }>
+  repos: BundleRepoEntry[]
   onSetPrimary: (url: string) => void
   onLabelChange: (url: string, label: string) => void
   onSubmit: () => void

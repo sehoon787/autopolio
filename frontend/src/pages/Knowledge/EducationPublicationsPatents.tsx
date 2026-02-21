@@ -36,6 +36,8 @@ export default function EducationPublicationsPatentsPage() {
     enabled: !!user?.id,
   })
 
+  if (!user) return null
+
   // Split education counts
   const allEducations = educationsData?.data || []
   const academicCount = allEducations.filter(

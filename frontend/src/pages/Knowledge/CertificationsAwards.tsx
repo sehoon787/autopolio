@@ -29,6 +29,8 @@ export default function CertificationsAwardsPage() {
     enabled: !!user?.id,
   })
 
+  if (!user) return null
+
   const certificationsCount = certificationsData?.data?.length ?? 0
   const awardsCount = awardsData?.data?.length ?? 0
 

@@ -22,6 +22,8 @@ export default function ActivitiesPage() {
     enabled: !!user?.id,
   })
 
+  if (!user) return null
+
   const allActivities = activitiesData?.data || []
   const volunteerCount = allActivities.filter((a) => a.activity_type === 'volunteer').length
   const externalCount = allActivities.filter((a) => a.activity_type === 'external').length

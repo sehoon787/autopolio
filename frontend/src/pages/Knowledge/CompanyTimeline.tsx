@@ -272,6 +272,8 @@ export default function CompanyTimelinePage() {
     enabled: !!user?.id,
   })
 
+  if (!user) return null
+
   const companySummaries = groupedData?.data?.companies || []
   const totalCompanies = groupedData?.data?.total_companies || 0
   const totalProjects = groupedData?.data?.total_projects || 0

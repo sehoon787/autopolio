@@ -3,17 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -28,60 +18,14 @@ import { UniversityResult } from '@/api/lookup'
 import { formatDate } from '@/lib/utils'
 import { Plus, Pencil, Trash2, GraduationCap, Globe, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
-import { UniversityAutocomplete, UniversityInfoDisplay, MajorAutocomplete } from '@/components/Autocomplete'
 import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
-
-// Academic degree options (formal education)
-const ACADEMIC_DEGREE_OPTIONS = [
-  { value: 'high_school', label: 'credentials:academicEducation.degrees.highSchool' },
-  { value: 'associate', label: 'credentials:academicEducation.degrees.associate' },
-  { value: 'bachelor', label: 'credentials:academicEducation.degrees.bachelor' },
-  { value: 'master', label: 'credentials:academicEducation.degrees.master' },
-  { value: 'doctorate', label: 'credentials:academicEducation.degrees.doctorate' },
-]
-
-// Graduation status options
-const GRADUATION_STATUS_OPTIONS = [
-  { value: 'graduated', label: 'credentials:academicEducation.graduationStatus.graduated' },
-  { value: 'enrolled', label: 'credentials:academicEducation.graduationStatus.enrolled' },
-  { value: 'completed', label: 'credentials:academicEducation.graduationStatus.completed' },
-  { value: 'withdrawn', label: 'credentials:academicEducation.graduationStatus.withdrawn' },
-]
-
-// Degree types that should show university autocomplete
-const UNIVERSITY_DEGREE_TYPES = ['associate', 'bachelor', 'master', 'doctorate']
-
-interface FormData extends EducationCreate {
-  school_name: string
-  major: string
-  degree: string
-  start_date: string
-  end_date: string
-  graduation_status: string
-  gpa: string
-  description: string
-  school_country?: string
-  school_country_code?: string
-  school_state?: string
-  school_domain?: string
-  school_web_page?: string
-}
-
-const INITIAL_FORM_DATA: FormData = {
-  school_name: '',
-  major: '',
-  degree: '',
-  start_date: '',
-  end_date: '',
-  graduation_status: '',
-  gpa: '',
-  description: '',
-  school_country: '',
-  school_country_code: '',
-  school_state: '',
-  school_domain: '',
-  school_web_page: '',
-}
+import {
+  ACADEMIC_DEGREE_OPTIONS,
+  GRADUATION_STATUS_OPTIONS,
+  FormData,
+  INITIAL_FORM_DATA,
+} from './academicEducationConstants'
+import { AcademicEducationFormDialog } from './components/AcademicEducationFormDialog'
 
 export function AcademicEducationTab() {
   const { t } = useTranslation()
@@ -100,7 +44,7 @@ export function AcademicEducationTab() {
   })
 
   // Filter only academic education items
-  const items = useMemo(() => 
+  const items = useMemo(() =>
     (itemsData?.data || []).filter(
       (item) => ACADEMIC_DEGREE_OPTIONS.some((opt) => opt.value === item.degree) || !item.degree
     ),
@@ -225,6 +169,8 @@ export function AcademicEducationTab() {
     }
   }, [deleteMutation, t])
 
+  if (!user) return null
+
   const getDegreeLabel = (degree: string | null) => {
     if (!degree) return null
     const option = ACADEMIC_DEGREE_OPTIONS.find((o) => o.value === degree)
@@ -246,9 +192,6 @@ export function AcademicEducationTab() {
       default: return 'secondary'
     }
   }
-
-  const showUniversityAutocomplete = UNIVERSITY_DEGREE_TYPES.includes(formData.degree)
-  const isEnrolled = formData.graduation_status === 'enrolled'
 
   const getCountryFlag = (code: string | null) => {
     if (!code || code.length !== 2) return '🌍'
@@ -425,205 +368,18 @@ export function AcademicEducationTab() {
       )}
 
       {/* Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingItem
-                ? t('credentials:academicEducation.edit')
-                : t('credentials:academicEducation.new')}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Degree selection first */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="degree">{t('credentials:academicEducation.degree')} *</Label>
-                <Select
-                  value={formData.degree || ''}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      degree: value,
-                      // Clear university metadata when changing degree type
-                      school_country: '',
-                      school_country_code: '',
-                      school_state: '',
-                      school_domain: '',
-                      school_web_page: '',
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('credentials:academicEducation.selectDegree')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACADEMIC_DEGREE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="graduation_status">{t('credentials:academicEducation.graduationStatusLabel')} *</Label>
-                <Select
-                  value={formData.graduation_status || ''}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      graduation_status: value,
-                      // Clear end_date if enrolled
-                      end_date: value === 'enrolled' ? '' : prev.end_date,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('credentials:academicEducation.selectGraduationStatus')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GRADUATION_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="school_name">{t('credentials:academicEducation.schoolName')} *</Label>
-                {showUniversityAutocomplete ? (
-                  <UniversityAutocomplete
-                    value={formData.school_name}
-                    onChange={(name) => setFormData(prev => ({ ...prev, school_name: name }))}
-                    onSelect={handleUniversitySelect}
-                    placeholder={t('credentials:academicEducation.schoolNamePlaceholder')}
-                  />
-                ) : (
-                  <Input
-                    id="school_name"
-                    value={formData.school_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
-                    placeholder={t('credentials:academicEducation.schoolName')}
-                    required
-                  />
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="major">{t('credentials:academicEducation.major')}</Label>
-                {showUniversityAutocomplete ? (
-                  <MajorAutocomplete
-                    value={formData.major || ''}
-                    onChange={(name) => setFormData(prev => ({ ...prev, major: name }))}
-                    placeholder={t('credentials:academicEducation.major')}
-                  />
-                ) : (
-                  <Input
-                    id="major"
-                    value={formData.major}
-                    onChange={(e) => setFormData(prev => ({ ...prev, major: e.target.value }))}
-                    placeholder={t('credentials:academicEducation.major')}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* University metadata display (read-only) */}
-            {showUniversityAutocomplete && formData.school_country && (
-              <UniversityInfoDisplay
-                country={formData.school_country}
-                countryCode={formData.school_country_code}
-                state={formData.school_state}
-                domain={formData.school_domain}
-                webPage={formData.school_web_page}
-              />
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="gpa">{t('credentials:academicEducation.gpa')}</Label>
-                <Input
-                  id="gpa"
-                  value={formData.gpa}
-                  onChange={(e) => setFormData(prev => ({ ...prev, gpa: e.target.value }))}
-                  placeholder="3.5/4.0"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start_date">{t('credentials:academicEducation.startDate')}</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date || ''}
-                  max={formData.end_date || undefined}
-                  onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end_date">{t('credentials:academicEducation.endDate')}</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date || ''}
-                  min={formData.start_date || undefined}
-                  onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                  disabled={isEnrolled}
-                />
-                {isEnrolled && (
-                  <p className="text-xs text-muted-foreground">
-                    {t('credentials:academicEducation.enrolledNoEndDate')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">{t('credentials:academicEducation.description')}</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-                placeholder={t('credentials:academicEducation.descriptionPlaceholder')}
-              />
-            </div>
-
-            {editingItem && (
-              <div className="space-y-2">
-                <Label>{t('credentials:attachment.title')}</Label>
-                <AttachmentUpload
-                  userId={user!.id}
-                  credentialType="educations"
-                  credentialId={editingItem.id}
-                  attachmentPath={editingItem.attachment_path}
-                  attachmentName={editingItem.attachment_name}
-                  attachmentSize={editingItem.attachment_size}
-                  mode="full"
-                />
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t('common:cancel')}
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending || !formData.degree || !formData.graduation_status}
-              >
-                {editingItem ? t('common:edit') : t('common:add')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AcademicEducationFormDialog
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        editingItem={editingItem}
+        formData={formData}
+        setFormData={setFormData}
+        onSubmit={handleSubmit}
+        onUniversitySelect={handleUniversitySelect}
+        createIsPending={createMutation.isPending}
+        updateIsPending={updateMutation.isPending}
+        userId={user!.id}
+      />
     </div>
   )
 }

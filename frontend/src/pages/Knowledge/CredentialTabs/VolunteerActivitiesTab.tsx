@@ -115,6 +115,8 @@ export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabP
     crud.setIsDialogOpen(true)
   }, [activityType, crud])
 
+  if (!user) return null
+
   const getTypeLabel = (type: string | null) => {
     if (!type) return null
     const option = ACTIVITY_TYPES.find(o => o.value === type)
