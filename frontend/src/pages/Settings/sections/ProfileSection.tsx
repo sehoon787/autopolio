@@ -79,9 +79,11 @@ export default function ProfileSection() {
     mutationFn: (data: UserProfileUpdate) =>
       usersApi.updateProfile(user!.id, data),
     onSuccess: () => {
-      // Reset initialization flag so form can reinitialize with saved values
-      setIsInitialized(false)
+      // Invalidate for background freshness (other components using this query).
+      // Do NOT reset isInitialized — the form already shows the correct saved values.
+      // Resetting would cause re-initialization from stale cache before refetch completes.
       queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] })
+      setHasModified(false)
       toast({
         title: t('profile.saved'),
       })
