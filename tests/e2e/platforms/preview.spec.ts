@@ -22,6 +22,7 @@ import {
   getPlatformTemplates,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
@@ -200,6 +201,10 @@ test.describe('Platform Preview with Real Data', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should toggle real data switch', async ({ page }) => {

@@ -22,6 +22,7 @@ import {
   createTestProject,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_PROJECT } from '../fixtures/test-data'
@@ -47,6 +48,10 @@ test.describe('Projects CRUD', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display projects list page', async ({ page }) => {
@@ -212,6 +217,10 @@ test.describe('Projects with Technologies', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should display technology badges on project cards', async ({ page, request }) => {
     // Create project with technologies via API
     const project = await createTestProject(request, testContext.user!.id, undefined, {
@@ -254,6 +263,10 @@ test.describe('Projects View Toggle', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should toggle between list and kanban view', async ({ page }) => {

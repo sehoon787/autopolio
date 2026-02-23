@@ -3,7 +3,7 @@
  * Uses Playwright's request context to make API calls.
  */
 
-import { APIRequestContext, request as playwrightRequest } from '@playwright/test'
+import { APIRequestContext, request as playwrightRequest, Page } from '@playwright/test'
 import {
   TEST_USER,
   TEST_COMPANY,
@@ -28,6 +28,23 @@ export async function createApiContext(): Promise<APIRequestContext> {
   return playwrightRequest.newContext({
     baseURL: API_BASE.replace('/api', ''),
   })
+}
+
+// ==================== Browser Auth ====================
+
+/**
+ * Sets up browser localStorage so the frontend recognizes the test user.
+ * Must be called BEFORE page.goto() to any page that requires user context.
+ * Uses addInitScript so it runs on every subsequent navigation in the test.
+ */
+export async function loginAsTestUser(page: Page, user: TestUser): Promise<void> {
+  await page.addInitScript(({ id, name, email }) => {
+    localStorage.setItem('user_id', String(id))
+    localStorage.setItem('user-storage', JSON.stringify({
+      state: { user: { id, name, email }, isGuest: false },
+      version: 0,
+    }))
+  }, { id: user.id, name: user.name, email: user.email })
 }
 
 // ==================== Users ====================

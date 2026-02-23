@@ -7,6 +7,7 @@ import {
   createTestUser,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_COMPANY, TEST_PROJECT } from '../fixtures/test-data'
@@ -91,6 +92,10 @@ test.describe('First Company Creation', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should create first company via dialog', async ({ page }) => {
     await page.goto('/knowledge/companies')
     await page.waitForLoadState('domcontentloaded')
@@ -153,6 +158,10 @@ test.describe('First Project Creation', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should create first project via dialog', async ({ page }) => {
     await page.goto('/knowledge/projects')
     await page.waitForLoadState('domcontentloaded')
@@ -213,6 +222,10 @@ test.describe('Dashboard After Onboarding', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should show dashboard with stats cards', async ({ page }) => {

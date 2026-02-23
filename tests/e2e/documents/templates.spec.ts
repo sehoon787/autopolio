@@ -29,6 +29,7 @@ import {
   createTestTemplate,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
@@ -52,6 +53,10 @@ test.describe('Template List Page', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display templates page heading', async ({ page }) => {
@@ -129,6 +134,10 @@ test.describe('Template Editor - New Template', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should navigate to create new template page', async ({ page }) => {
@@ -225,6 +234,10 @@ test.describe('Template Editor - Edit Existing', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display Edit Template heading', async ({ page }) => {

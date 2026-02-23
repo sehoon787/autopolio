@@ -28,6 +28,7 @@ import {
   createTestProject,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { API_BASE_URL } from '../runtimeConfig'
@@ -59,6 +60,10 @@ test.describe('Project Detail Page', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display project name as heading', async ({ page }) => {
@@ -205,6 +210,10 @@ test.describe('Project Achievements', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should display achievements section in Basic Info', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
@@ -262,6 +271,10 @@ test.describe('Project Analysis Section', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should show analyze button for project with git URL', async ({ page }) => {

@@ -10,6 +10,7 @@ import {
   initPlatformTemplates,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_COMPANY, TEST_PROJECT } from '../fixtures/test-data'
@@ -35,6 +36,10 @@ test.describe('Complete Portfolio Workflow', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should complete workflow from company to platform preview', async ({ page }) => {
@@ -131,6 +136,10 @@ test.describe('Template Customization', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should display templates with system and clone options', async ({ page }) => {
     await page.goto('/templates')
     await page.waitForLoadState('domcontentloaded')
@@ -152,6 +161,31 @@ test.describe('Template Customization', () => {
 })
 
 test.describe('Cross-Feature Navigation', () => {
+  let testContext: TestDataContext
+
+  test.beforeAll(async () => {
+    const request = await createApiContext()
+    try {
+      const user = await createTestUser(request)
+      testContext = { user }
+    } finally {
+      await request.dispose()
+    }
+  })
+
+  test.afterAll(async () => {
+    const request = await createApiContext()
+    try {
+      await cleanupTestData(request, testContext)
+    } finally {
+      await request.dispose()
+    }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should navigate between all main sections', async ({ page }) => {
     // Dashboard
     await page.goto('/dashboard')

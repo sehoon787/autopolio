@@ -21,6 +21,7 @@ import {
   createTestCompany,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_COMPANY } from '../fixtures/test-data'
@@ -45,6 +46,10 @@ test.describe('Companies CRUD', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display companies list page', async ({ page }) => {
@@ -209,6 +214,10 @@ test.describe('Companies Timeline View', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should navigate to timeline view', async ({ page }) => {

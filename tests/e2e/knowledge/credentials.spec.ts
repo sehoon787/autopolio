@@ -34,6 +34,7 @@ import {
   createTestEducation,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 import { TEST_CERTIFICATION, TEST_EDUCATION, TEST_AWARD } from '../fixtures/test-data'
@@ -58,6 +59,10 @@ test.describe('Credentials Page', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display credentials page with heading', async ({ page }) => {
@@ -136,6 +141,10 @@ test.describe('Certifications CRUD', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should create a new certification', async ({ page }) => {
@@ -267,6 +276,10 @@ test.describe('Education CRUD', () => {
     }
   })
 
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+  })
+
   test('should display education empty state', async ({ page }) => {
     await page.goto('/knowledge/credentials')
     await page.waitForLoadState('domcontentloaded')
@@ -368,6 +381,10 @@ test.describe('Awards CRUD', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should create a new award', async ({ page }) => {

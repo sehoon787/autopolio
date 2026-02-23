@@ -16,6 +16,7 @@ import {
   createTestUser,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
@@ -39,6 +40,10 @@ test.describe('Document List Page', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display documents page heading', async ({ page }) => {

@@ -29,6 +29,7 @@ import {
   createTestProject,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
@@ -52,6 +53,10 @@ test.describe('Generate Page Structure', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should display generate page heading', async ({ page }) => {
@@ -153,6 +158,10 @@ test.describe('Generate Page with Projects', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should show project in selection list', async ({ page }) => {
