@@ -11,8 +11,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only — 1 retry to save time */
-  retries: process.env.CI ? 1 : 0,
+  /* No retries on CI — fail fast to stay within timeout */
+  retries: 0,
   /* Opt out of parallel tests on CI */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use */
@@ -34,11 +34,11 @@ export default defineConfig({
     /* Video — disabled on CI to save resources */
     video: process.env.CI ? 'off' : 'on-first-retry',
 
-    /* Action timeout — prevent individual clicks/fills from hanging */
-    actionTimeout: 10000,
+    /* Action timeout — fail fast on mismatched selectors */
+    actionTimeout: 5000,
 
     /* Navigation timeout */
-    navigationTimeout: 15000,
+    navigationTimeout: 10000,
   },
 
   /* Configure projects for major browsers */

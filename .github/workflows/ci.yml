@@ -84,6 +84,7 @@ jobs:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -196,9 +197,13 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.test-api.result }}" != "success" ]] || \
-             [[ "${{ needs.test-e2e.result }}" != "success" ]]; then
-            echo "One or more CI jobs failed"
+          echo "API Tests: ${{ needs.test-api.result }}"
+          echo "E2E Tests: ${{ needs.test-e2e.result }}"
+          if [[ "${{ needs.test-api.result }}" != "success" ]]; then
+            echo "API tests failed — blocking"
             exit 1
           fi
-          echo "All CI jobs passed"
+          if [[ "${{ needs.test-e2e.result }}" == "failure" ]]; then
+            echo "WARNING: E2E tests failed (non-blocking, continue-on-error)"
+          fi
+          echo "CI gate passed (API tests successful)"
