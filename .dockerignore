@@ -46,5 +46,22 @@ result/
 # Misc
 *.log
 *.tmp
+*.png
+*.json
 .DS_Store
 Thumbs.db
+
+# Frontend (not needed for API build)
+frontend/node_modules/
+frontend/dist-electron/
+frontend/release/
+frontend/release-build/
+frontend/release-new/
+frontend/python-runtime/
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e/
+frontend/electron/
+
+# Claude
+.claude/

@@ -1,8 +1,15 @@
 node_modules/
 dist-electron/
 release/
+release-build/
 release-new/
 electron/
+python-runtime/
+playwright-report/
+test-results/
+e2e/
+build/
+scripts/
 *.log
 .DS_Store
 Thumbs.db
