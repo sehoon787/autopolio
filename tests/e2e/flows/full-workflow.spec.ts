@@ -87,7 +87,7 @@ test.describe('Complete Portfolio Workflow', () => {
     await projectDialog.locator('#start_date').fill(TEST_PROJECT.start_date)
     await projectDialog.locator('#role').fill(TEST_PROJECT.role)
 
-    await projectDialog.getByRole('button', { name: 'Add' }).click()
+    await projectDialog.locator('button[type="submit"]').click()
 
     // Project should appear in the list
     await expect(

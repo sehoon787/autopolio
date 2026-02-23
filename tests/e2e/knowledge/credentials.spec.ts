@@ -98,9 +98,9 @@ test.describe('Credentials Page', () => {
     await page.getByRole('tab', { name: /Certifications & Awards/ }).click()
     await page.waitForTimeout(300)
 
-    // Should show Certifications sub-tab
-    await expect(page.getByRole('tab', { name: /^Certifications/ })).toBeVisible()
-    await expect(page.getByRole('tab', { name: /^Awards/ })).toBeVisible()
+    // Should show Certifications sub-tab (use exact to avoid matching "Certifications & Awards" parent tab)
+    await expect(page.getByRole('tab', { name: 'Certifications', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Awards', exact: true })).toBeVisible()
 
     // Click on "Activities" tab
     await page.getByRole('tab', { name: /^Activities/ }).first().click()
@@ -200,8 +200,8 @@ test.describe('Certifications CRUD', () => {
     await page.getByRole('tab', { name: /Certifications & Awards/ }).click()
     await page.waitForTimeout(500)
 
-    // Wait for certification to appear
-    const certCard = page.locator('[class*="bg-card"]', { hasText: cert.name || 'AWS Solutions Architect' }).first()
+    // Wait for certification to appear (filter by icon to target individual card, not parent container)
+    const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'AWS Solutions Architect' }).filter({ has: page.locator('svg.lucide-pencil') }).first()
     await expect(certCard).toBeVisible({ timeout: 5000 })
 
     // Click edit (Pencil) button on the card
@@ -239,8 +239,8 @@ test.describe('Certifications CRUD', () => {
     await page.getByRole('tab', { name: /Certifications & Awards/ }).click()
     await page.waitForTimeout(500)
 
-    // Wait for certification to appear
-    const certCard = page.locator('[class*="bg-card"]', { hasText: cert.name || 'Delete Me Cert' }).first()
+    // Wait for certification to appear (filter by icon to target individual card, not parent container)
+    const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'Delete Me Cert' }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
     await expect(certCard).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler - delete uses browser confirm()
@@ -435,10 +435,10 @@ test.describe('Awards CRUD', () => {
     await page.getByRole('tab', { name: /^Awards/ }).click()
     await page.waitForTimeout(300)
 
-    // Wait for an award card to exist
-    const awardCard = page.locator('[class*="bg-card"]').filter({ hasText: /E2E Award/ }).first()
+    // Wait for an award card to exist (filter by icon to target individual card)
+    const awardCard = page.locator('[class*="bg-card"]').filter({ hasText: /E2E Award/ }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
 
-    if (await awardCard.isVisible()) {
+    if (await awardCard.isVisible().catch(() => false)) {
       // Set up dialog handler - delete uses browser confirm()
       page.on('dialog', (dialog) => dialog.accept())
 

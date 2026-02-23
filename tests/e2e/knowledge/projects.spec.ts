@@ -96,8 +96,8 @@ test.describe('Projects CRUD', () => {
     await dialog.locator('#role').fill(TEST_PROJECT.role)
     await dialog.locator('#team_size').fill(String(TEST_PROJECT.team_size))
 
-    // Click "Add" button in dialog footer
-    await dialog.getByRole('button', { name: 'Add', exact: true }).click()
+    // Click submit button in dialog footer (multiple "Add" buttons exist: tag input, cancel area, submit)
+    await dialog.locator('button[type="submit"]').click()
 
     // Verify project appears in list
     await expect(page.getByText(projectName)).toBeVisible({ timeout: 5000 })
@@ -118,8 +118,8 @@ test.describe('Projects CRUD', () => {
     // Wait for project to appear
     await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
 
-    // Click edit (Pencil) icon button on the project card
-    const projectCard = page.locator('[class*="card"]', { hasText: project.name }).first()
+    // Click edit (Pencil) icon button on the project card (filter by icon to target individual card)
+    const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-pencil') }).first()
     await projectCard.locator('button').filter({ has: page.locator('svg.lucide-pencil') }).click()
 
     // Wait for edit dialog
@@ -154,8 +154,8 @@ test.describe('Projects CRUD', () => {
     // Wait for project to appear
     await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
 
-    // Click delete (Trash2) icon button on the project card
-    const projectCard = page.locator('[class*="card"]', { hasText: project.name }).first()
+    // Click delete (Trash2) icon button on the project card (filter by icon to target individual card)
+    const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
     await projectCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
 
     // AlertDialog should appear with "Delete Project" title

@@ -202,8 +202,8 @@ test.describe('Template Editor - New Template', () => {
     await page.goto('/templates/new/edit')
     await page.waitForLoadState('domcontentloaded')
 
-    // Preview panel heading
-    await expect(page.getByText('Preview')).toBeVisible({ timeout: 5000 })
+    // Preview panel heading (use heading role to avoid matching Preview button and empty state text)
+    await expect(page.getByRole('heading', { name: 'Preview' })).toBeVisible({ timeout: 5000 })
 
     // Tab triggers
     await expect(page.getByRole('tab', { name: 'Rendered' })).toBeVisible({ timeout: 5000 })

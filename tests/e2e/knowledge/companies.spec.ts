@@ -114,10 +114,8 @@ test.describe('Companies CRUD', () => {
     // Wait for company to appear
     await expect(page.getByText(company.name)).toBeVisible({ timeout: 5000 })
 
-    // Find the company card and click the edit (Pencil) icon button
-    // The Pencil button is the first icon button in the card's action area
-    const companyCard = page.locator('[class*="bg-card"]', { hasText: company.name }).first()
-    // Edit button is a ghost icon button with Pencil icon - first in the pair
+    // Find the individual company card (filter by having pencil icon to avoid matching parent container)
+    const companyCard = page.locator('[class*="bg-card"]').filter({ hasText: company.name }).filter({ has: page.locator('svg.lucide-pencil') }).first()
     await companyCard.locator('button').filter({ has: page.locator('svg.lucide-pencil') }).click()
 
     // Wait for edit dialog
@@ -156,8 +154,8 @@ test.describe('Companies CRUD', () => {
     // Company delete uses browser confirm() dialog
     page.on('dialog', (dialog) => dialog.accept())
 
-    // Find the company card and click the delete (Trash2) icon button
-    const companyCard = page.locator('[class*="bg-card"]', { hasText: company.name }).first()
+    // Find the individual company card (filter by having trash icon to avoid matching parent container)
+    const companyCard = page.locator('[class*="bg-card"]').filter({ hasText: company.name }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
     await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
 
     // Verify deleted - company should no longer be visible

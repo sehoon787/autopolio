@@ -226,7 +226,7 @@ export async function createTestEducation(
   // user_id is a query parameter, not body data
   const response = await request.post(`${API_BASE}/knowledge/credentials/educations?user_id=${userId}`, {
     data: {
-      school: `${TEST_EDUCATION.school} ${timestamp}`,
+      school_name: `${TEST_EDUCATION.school} ${timestamp}`,
       degree: TEST_EDUCATION.degree,
       field_of_study: TEST_EDUCATION.field_of_study,
       start_date: TEST_EDUCATION.start_date,

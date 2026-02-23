@@ -192,8 +192,8 @@ test.describe('First Project Creation', () => {
     await dialog.locator('#start_date').fill(TEST_PROJECT.start_date)
     await dialog.locator('#role').fill(TEST_PROJECT.role)
 
-    // Submit the form via the "Add" button
-    await dialog.getByRole('button', { name: 'Add' }).click()
+    // Submit the form via the submit button (multiple "Add" buttons in dialog)
+    await dialog.locator('button[type="submit"]').click()
 
     // Project should appear in the list
     await expect(
