@@ -42,6 +42,11 @@ def _extract_token_and_provider(job) -> tuple:
         options = job.input_data.get("options", {})
         llm_provider = options.get("provider") or options.get("cli_mode")
 
+    if job.status == "completed":
+        logger.debug("[TokenExtract] task_id=%s, token_usage=%s, llm_provider=%s, output_data=%s",
+                     job.task_id, token_usage, llm_provider,
+                     {k: v for k, v in (job.output_data or {}).items() if k != "analysis_id"})
+
     return token_usage, llm_provider
 
 

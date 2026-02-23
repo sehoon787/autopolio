@@ -216,14 +216,17 @@ Respond in the following JSON format:
             elif "```" in json_str:
                 json_str = json_str.split("```")[1].split("```")[0]
 
-            return json.loads(json_str.strip())
+            result = json.loads(json_str.strip())
+            result["token_usage"] = tokens
+            return result
         except json.JSONDecodeError:
             # Return raw response if JSON parsing fails
             return {
                 "summary": response or "",
                 "key_features": [],
                 "technical_highlights": [],
-                "role_description": ""
+                "role_description": "",
+                "token_usage": tokens,
             }
 
     async def generate_multi_repo_summary(

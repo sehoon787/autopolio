@@ -238,6 +238,10 @@ class AnalysisJobService:
             if output_data:
                 job.output_data = output_data
 
+            logger.info("[CompleteJob] task_id=%s, total_tokens=%s, output_data_keys=%s",
+                        task_id,
+                        output_data.get("total_tokens") if output_data else None,
+                        list(output_data.keys()) if output_data else None)
             await db.commit()
 
     async def fail_job(

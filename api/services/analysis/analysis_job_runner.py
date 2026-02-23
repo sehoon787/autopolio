@@ -548,6 +548,7 @@ async def run_background_analysis(
                 logger.warning("[BackgroundAnalysis] Failed to create ContributorAnalysis: %s", e)
 
         # Complete the job
+        logger.info("[BackgroundAnalysis] Completing: task_id=%s, total_tokens=%d", task_id, total_tokens)
         await service.complete_job(task_id, {
             "analysis_id": analysis_id,
             "total_tokens": total_tokens,

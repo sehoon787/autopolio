@@ -320,6 +320,9 @@ class CLILLMService:
                 + usage.get("cache_creation_input_tokens", 0)
                 + usage.get("cache_read_input_tokens", 0)
             )
+            if token_count == 0:
+                logger.warning("[CLI] Claude Code: 'usage' field present=%s, keys=%s",
+                               "usage" in data, list(usage.keys()) if usage else "empty")
         elif self.cli_type == "gemini_cli" and "response" in data:
             # Gemini format
             content = data["response"] if isinstance(data["response"], str) else str(data["response"])
@@ -328,8 +331,14 @@ class CLILLMService:
             for model_data in models.values():
                 tokens = model_data.get("tokens", {})
                 token_count += tokens.get("total", 0)
+            if token_count == 0:
+                logger.warning("[CLI] Gemini CLI: 'stats' field present=%s, stats_keys=%s, models_keys=%s",
+                               "stats" in data, list(stats.keys()) if stats else "empty",
+                               list(models.keys()) if models else "empty")
         else:
             # Unknown format, return raw
+            logger.warning("[CLI] Unrecognized JSON format for %s. Top-level keys: %s",
+                           self.cli_type, list(data.keys()))
             content = raw_output
 
         return content or raw_output, token_count

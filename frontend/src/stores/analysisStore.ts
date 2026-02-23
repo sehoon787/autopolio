@@ -108,12 +108,14 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
           // Track completed jobs for token usage (only once per task_id)
           if (job.status === 'completed' && !alreadyProcessed) {
             const provider = mapProviderToUsageKey(job.llm_provider)
+            console.log(`[AnalysisStore] Completed job: task_id=${job.task_id}, llm_provider=${job.llm_provider}, provider_key=${provider}, token_usage=${job.token_usage}`)
             if (provider) {
               useUsageStore.getState().incrementLLMCallCount(provider)
               if (job.token_usage && job.token_usage > 0) {
                 useUsageStore.getState().trackTokenUsage(provider, job.token_usage)
               }
-              console.log(`[AnalysisStore] Tracked call for ${provider}, tokens: ${job.token_usage ?? 0}`)
+            } else {
+              console.warn(`[AnalysisStore] Could not map llm_provider "${job.llm_provider}" to usage key — tokens NOT tracked`)
             }
             newProcessedTaskIds.add(job.task_id)
           } else if (isFinished && !alreadyProcessed) {

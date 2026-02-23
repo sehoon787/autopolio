@@ -180,6 +180,7 @@ async def run_multi_repo_background_analysis(
             except Exception as e:
                 logger.warning("[MultiRepoAnalysis] Combined AI summary failed: %s", e)
 
+        logger.info("[MultiRepoAnalysis] Completing: task_id=%s, total_tokens=%d", task_id, total_tokens)
         await service.complete_job(task_id, {
             "total_tokens": total_tokens,
             "repos_succeeded": succeeded,
