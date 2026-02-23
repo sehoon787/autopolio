@@ -1,5 +1,19 @@
 /**
- * E2E tests for GitHub repository management.
+ * E2E tests for GitHub repository pages.
+ *
+ * Key UI details:
+ * - Setup page (/setup): heading "Get Started with Autopolio", "Login with GitHub" button
+ * - GitHub settings page (/setup/github): heading "GitHub Connection",
+ *   card title "GitHub Account", "Connect with GitHub" button when not connected
+ * - Repo selector page (/github/repos):
+ *   - When not connected: shows "GitHub Connection Required" heading,
+ *     description text, and "Connect GitHub" button that navigates to /setup/github
+ *   - When connected: heading "GitHub Repositories", subtitle "Select repositories
+ *     to import as projects", search input, owner filter, language filter,
+ *     repo list with selectable tiles, "Import Selected" button
+ *
+ * In CI, GitHub is NOT connected (no OAuth token), so tests focus on the
+ * "not connected" state and UI structure verification.
  */
 
 import { test, expect } from '@playwright/test'
@@ -10,148 +24,124 @@ import {
   TestDataContext,
 } from '../fixtures/api-helpers'
 
-test.describe('GitHub Repository List', () => {
-  let testContext: TestDataContext
+test.describe('GitHub Setup Page', () => {
+  test('should display setup page with welcome heading', async ({ page }) => {
+    await page.goto('/setup')
+    await page.waitForLoadState('domcontentloaded')
 
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      const user = await createTestUser(request)
-      testContext = { user }
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should display GitHub setup page', async ({ page }) => {
-    await page.goto('/setup/github')
-
-    // Should show GitHub connection UI
+    // The setup page shows "Get Started with Autopolio" heading
     await expect(
-      page.locator('text=GitHub').first()
-    ).toBeVisible({ timeout: 10000 })
+      page.getByRole('heading', { name: /Get Started with Autopolio/ })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should display Login with GitHub button on setup page', async ({ page }) => {
+    await page.goto('/setup')
+    await page.waitForLoadState('domcontentloaded')
+
+    // The main login button reads "Login with GitHub"
+    await expect(
+      page.getByRole('button', { name: /Login with GitHub/ })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should display GitHub settings page heading', async ({ page }) => {
+    await page.goto('/setup/github')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Page heading is "GitHub Connection"
+    await expect(
+      page.getByRole('heading', { name: /GitHub Connection/ })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should display GitHub Account card', async ({ page }) => {
+    await page.goto('/setup/github')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Card title is "GitHub Account"
+    await expect(
+      page.getByText('GitHub Account')
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('should show connect button when not connected', async ({ page }) => {
     await page.goto('/setup/github')
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for connect button or connection status
-    const connectBtn = page.locator(
-      'button:has-text("연결"), button:has-text("Connect"), a:has-text("GitHub")'
-    ).first()
+    // When not connected, shows "Connect with GitHub" button or features list
+    // The connect button text is "Connect with GitHub" (setup.connect)
+    const connectBtn = page.getByRole('button', { name: /Connect with GitHub/ })
+    const connectedText = page.getByText('Connected')
 
-    const connectedStatus = page.locator(
-      'text=연결됨, text=Connected'
-    ).first()
-
-    // Either connect button or connected status should be visible
-    await expect(connectBtn.or(connectedStatus)).toBeVisible({ timeout: 10000 })
-  })
-
-  test('should show repository list when connected', async ({ page }) => {
-    // Note: This test assumes GitHub is connected
-    await page.goto('/github/repos')
-    await page.waitForLoadState('domcontentloaded')
-
-    // May show repos or "not connected" message
-    const repoList = page.locator('[data-testid="repo-list"], [data-testid="repository-list"]')
-    const notConnected = page.locator('text=연결되지 않음, text=Not connected, text=GitHub 연결')
-
-    await expect(repoList.or(notConnected)).toBeVisible({ timeout: 10000 })
+    // Either we see the connect button (not connected) or "Connected" text
+    await expect(connectBtn.or(connectedText)).toBeVisible({ timeout: 5000 })
   })
 })
 
-test.describe('GitHub Repository Selection', () => {
-  test('should allow selecting repositories to import', async ({ page }) => {
+test.describe('GitHub Repository Selector - Not Connected State', () => {
+  test('should show connection required message', async ({ page }) => {
     await page.goto('/github/repos')
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for repo checkboxes or selection UI
-    const checkbox = page.locator(
-      '[data-testid="repo-checkbox"], input[type="checkbox"]'
-    ).first()
+    // When not connected, the page shows "GitHub Connection Required" heading
+    // or "Checking GitHub connection..." while loading, or the repo list if connected
+    const connectionRequired = page.getByText('GitHub Connection Required')
+    const checking = page.getByText('Checking GitHub connection...')
+    const repoTitle = page.getByRole('heading', { name: /GitHub Repositories/ })
 
-    if (await checkbox.isVisible()) {
-      // Click to select
-      await checkbox.click()
-
-      // Look for import button
-      const importBtn = page.locator(
-        'button:has-text("가져오기"), button:has-text("Import"), button:has-text("선택")'
-      )
-
-      await expect(importBtn).toBeVisible()
-    }
+    await expect(
+      connectionRequired.or(checking).or(repoTitle)
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should show technology detection after selecting repo', async ({ page }) => {
+  test('should show connect button on connection required page', async ({ page }) => {
     await page.goto('/github/repos')
     await page.waitForLoadState('domcontentloaded')
 
-    const checkbox = page.locator('[data-testid="repo-checkbox"]').first()
+    // Wait for the connection check to complete
+    await page.waitForTimeout(1000)
 
-    if (await checkbox.isVisible()) {
-      await checkbox.click()
-      await page.waitForLoadState('domcontentloaded')
+    // If not connected, shows "Connect GitHub" button
+    const connectBtn = page.getByRole('button', { name: /Connect GitHub/ })
+    const repoTitle = page.getByRole('heading', { name: /GitHub Repositories/ })
 
-      // Technology badges may appear
-      const techBadges = page.locator(
-        '[data-testid="detected-technologies"], [data-testid="tech-badge"]'
-      )
-
-      // Give time for detection
-      await page.waitForTimeout(2000)
-    }
+    // Either we see the connect button (not connected) or the repo page (connected)
+    await expect(connectBtn.or(repoTitle)).toBeVisible({ timeout: 5000 })
   })
-})
 
-test.describe('GitHub Connection Flow', () => {
-  test('should initiate OAuth flow on connect click', async ({ page }) => {
-    await page.goto('/setup/github')
+  test('should show connection required description text', async ({ page }) => {
+    await page.goto('/github/repos')
     await page.waitForLoadState('domcontentloaded')
 
-    const connectBtn = page.locator(
-      'button:has-text("연결"), button:has-text("Connect GitHub")'
-    ).first()
+    // Wait for loading to finish
+    await page.waitForTimeout(1000)
+
+    // If not connected, shows description about connecting
+    const descText = page.getByText('Please connect your GitHub account to import repositories.')
+    const repoTitle = page.getByRole('heading', { name: /GitHub Repositories/ })
+
+    await expect(descText.or(repoTitle)).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should navigate to GitHub settings from connection required page', async ({ page }) => {
+    await page.goto('/github/repos')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Wait for loading to finish
+    await page.waitForTimeout(1000)
+
+    // If not connected, clicking "Connect GitHub" should navigate to /setup/github
+    const connectBtn = page.getByRole('button', { name: /Connect GitHub/ })
 
     if (await connectBtn.isVisible()) {
-      // Clicking should navigate to GitHub OAuth or open popup
-      const [popup] = await Promise.all([
-        page.waitForEvent('popup').catch(() => null),
-        connectBtn.click().catch(() => {}),
-      ])
+      await connectBtn.click()
 
-      // Either popup opened or we're redirected
-      if (popup) {
-        expect(popup.url()).toContain('github.com')
-        await popup.close()
-      }
-    }
-  })
-
-  test('should show disconnect option when connected', async ({ page }) => {
-    await page.goto('/setup/github')
-    await page.waitForLoadState('domcontentloaded')
-
-    // If connected, should show disconnect button
-    const disconnectBtn = page.locator(
-      'button:has-text("연결 해제"), button:has-text("Disconnect")'
-    ).first()
-
-    const connectedStatus = page.locator('text=연결됨, text=Connected')
-
-    if (await connectedStatus.isVisible()) {
-      await expect(disconnectBtn).toBeVisible()
+      // Should navigate to /setup/github with returnUrl
+      await page.waitForURL(/\/setup\/github/, { timeout: 5000 })
+      await expect(
+        page.getByRole('heading', { name: /GitHub Connection/ })
+      ).toBeVisible({ timeout: 5000 })
     }
   })
 })

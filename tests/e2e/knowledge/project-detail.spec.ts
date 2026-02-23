@@ -1,5 +1,24 @@
 /**
  * E2E tests for Project detail page.
+ *
+ * Selectors are based on the actual ProjectDetail page UI:
+ * - Project name displayed as h1 heading
+ * - Short description below the heading
+ * - Three tabs: "Basic Info", "Analysis Summary", "Detailed Analysis"
+ * - "Edit" button with Pencil icon
+ * - "Export" button with FileDown icon (only if analyzed)
+ * - "Analyze Repo" / "Re-analyze" button (only if git_url exists)
+ * - Analysis language selector dropdown (ko/en)
+ * - Status badges: "Analyzed" (green) or analysis progress
+ *
+ * Edit dialog:
+ * - Title: "Edit Project"
+ * - Form fields use "detail_edit_" prefix: id="detail_edit_name",
+ *   id="detail_edit_short_description", id="detail_edit_start_date", etc.
+ * - Dialog footer: Cancel + Save buttons
+ *
+ * Basic Info tab shows: Project Info section with Period, Company, Role,
+ *   Team Size, Tech Stack, Key Tasks, Achievements, Commit Statistics
  */
 
 import { test, expect } from '@playwright/test'
@@ -11,7 +30,6 @@ import {
   createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
-import { TEST_ACHIEVEMENT } from '../fixtures/test-data'
 import { API_BASE_URL } from '../runtimeConfig'
 
 test.describe('Project Detail Page', () => {
@@ -43,61 +61,122 @@ test.describe('Project Detail Page', () => {
     }
   })
 
-  test('should display project details', async ({ page }) => {
+  test('should display project name as heading', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
 
-    // Check project name is displayed
+    // Check project name is displayed as h1
     await expect(
-      page.locator(`text=${testContext.project!.name}`).first()
-    ).toBeVisible({ timeout: 10000 })
-
-    // Check description is displayed
-    await expect(
-      page.locator('text=comprehensive test project').first()
-    ).toBeVisible()
+      page.getByRole('heading', { name: testContext.project!.name })
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('should display project metadata', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Check role is displayed
+    // Check role is displayed somewhere on the page
     await expect(
-      page.locator('text=Lead Developer').first()
-    ).toBeVisible({ timeout: 10000 })
-
-    // Check company is displayed
-    await expect(
-      page.locator(`text=${testContext.company!.name}`).first()
-    ).toBeVisible()
+      page.getByText('Lead Developer').first()
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('should display technologies', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Check technologies are displayed
-    await expect(page.locator('text=Python').first()).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('text=React').first()).toBeVisible()
+    // Check technologies are displayed (as tech badges in Basic Info tab)
+    await expect(page.getByText('Python').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('React').first()).toBeVisible()
   })
 
-  test('should allow editing project from detail page', async ({ page }) => {
+  test('should display three tabs', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Click edit button
-    const editBtn = page.locator(
-      '[data-testid="edit-button"], button:has-text("편집"), button:has-text("Edit")'
-    ).first()
+    // Three tabs should be visible
+    await expect(page.getByRole('tab', { name: /Basic Info/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Analysis Summary/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Detailed Analysis/ })).toBeVisible()
+  })
 
-    if (await editBtn.isVisible()) {
-      await editBtn.click()
+  test('should switch between tabs', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
 
-      // Should open edit mode or navigate to edit page
-      await expect(
-        page.locator('input[name="name"], [data-testid="edit-form"]').first()
-      ).toBeVisible({ timeout: 10000 })
-    }
+    // Click on "Analysis Summary" tab
+    await page.getByRole('tab', { name: /Analysis Summary/ }).click()
+    await page.waitForTimeout(300)
+
+    // Click on "Detailed Analysis" tab
+    await page.getByRole('tab', { name: /Detailed Analysis/ }).click()
+    await page.waitForTimeout(300)
+
+    // Click back to "Basic Info" tab
+    await page.getByRole('tab', { name: /Basic Info/ }).click()
+    await page.waitForTimeout(300)
+  })
+
+  test('should show Edit button', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // "Edit" button should be visible in the header
+    await expect(
+      page.getByRole('button', { name: 'Edit' })
+    ).toBeVisible()
+  })
+
+  test('should open edit dialog', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Click "Edit" button
+    await page.getByRole('button', { name: 'Edit' }).click()
+
+    // Wait for edit dialog
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+
+    // Dialog title should be "Edit Project"
+    await expect(dialog.getByText('Edit Project')).toBeVisible()
+
+    // Form fields should be pre-filled (uses "detail_edit_" prefix)
+    const nameInput = dialog.locator('#detail_edit_name')
+    await expect(nameInput).toHaveValue(testContext.project!.name)
+
+    // Cancel the edit
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+
+    // Dialog should close
+    await expect(dialog).not.toBeVisible()
+  })
+
+  test('should edit project from detail page', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Click "Edit" button
+    await page.getByRole('button', { name: 'Edit' }).click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+
+    // Update the short description
+    const descInput = dialog.locator('#detail_edit_short_description')
+    await descInput.clear()
+    await descInput.fill('Updated description from E2E test')
+
+    // Click "Save" button
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    // Verify the dialog closes
+    await expect(dialog).not.toBeVisible({ timeout: 5000 })
+
+    // Verify updated description appears on the page
+    await expect(
+      page.getByText('Updated description from E2E test')
+    ).toBeVisible({ timeout: 5000 })
   })
 })
 
@@ -126,48 +205,14 @@ test.describe('Project Achievements', () => {
     }
   })
 
-  test('should add an achievement to project', async ({ page }) => {
+  test('should display achievements section in Basic Info', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for achievements section
-    const achievementSection = page.locator(
-      '[data-testid="achievements"], text=성과, text=Achievements'
-    ).first()
-
-    if (await achievementSection.isVisible()) {
-      // Click add achievement button
-      const addBtn = page.locator(
-        '[data-testid="add-achievement"], button:has-text("성과 추가"), button:has-text("Add Achievement")'
-      ).first()
-
-      if (await addBtn.isVisible()) {
-        await addBtn.click()
-
-        // Fill achievement form
-        await page.fill(
-          'input[name="metric_name"], input[name="metricName"]',
-          TEST_ACHIEVEMENT.metric_name
-        )
-        await page.fill(
-          'input[name="metric_value"], input[name="metricValue"]',
-          TEST_ACHIEVEMENT.metric_value
-        )
-
-        const descInput = page.locator('textarea[name="description"]')
-        if (await descInput.isVisible()) {
-          await descInput.fill(TEST_ACHIEVEMENT.description)
-        }
-
-        // Save
-        await page.click('button:has-text("저장"), button:has-text("Save")')
-
-        // Verify achievement is added
-        await expect(
-          page.locator(`text=${TEST_ACHIEVEMENT.metric_name}`).first()
-        ).toBeVisible({ timeout: 10000 })
-      }
-    }
+    // Basic Info tab is default - should show "Achievements" section heading
+    await expect(
+      page.getByText('Achievements').first()
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('should display existing achievements', async ({ page, request }) => {
@@ -188,12 +233,12 @@ test.describe('Project Achievements', () => {
 
     // Verify achievement is displayed
     await expect(
-      page.locator('text=API Achievement').first()
-    ).toBeVisible({ timeout: 10000 })
+      page.getByText('API Achievement').first()
+    ).toBeVisible({ timeout: 5000 })
   })
 })
 
-test.describe('Project Analysis Results', () => {
+test.describe('Project Analysis Section', () => {
   let testContext: TestDataContext
 
   test.beforeAll(async () => {
@@ -219,39 +264,37 @@ test.describe('Project Analysis Results', () => {
     }
   })
 
-  test('should show analysis section for project with git URL', async ({ page }) => {
+  test('should show analyze button for project with git URL', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for analysis section or analyze button
-    const analysisSection = page.locator(
-      '[data-testid="analysis-section"], text=분석, text=Analysis'
-    ).first()
-
-    const analyzeBtn = page.locator(
-      '[data-testid="analyze-button"], button:has-text("분석"), button:has-text("Analyze")'
-    ).first()
-
-    // Either analysis section or analyze button should be visible
-    await expect(analysisSection.or(analyzeBtn)).toBeVisible({ timeout: 10000 })
+    // "Analyze Repo" button should be visible since the project has a git_url
+    await expect(
+      page.getByRole('button', { name: 'Analyze Repo' })
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should allow editing analysis results', async ({ page }) => {
+  test('should show analysis language selector', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for edit analysis button
-    const editAnalysisBtn = page.locator(
-      '[data-testid="edit-analysis"], button:has-text("분석 수정"), button:has-text("Edit Analysis")'
-    ).first()
+    // Analysis language selector should be visible (a Select with ko/en options)
+    // It shows as a combobox button
+    const languageSelector = page.locator('button[role="combobox"]').first()
+    await expect(languageSelector).toBeVisible({ timeout: 5000 })
+  })
 
-    if (await editAnalysisBtn.isVisible()) {
-      await editAnalysisBtn.click()
+  test('should show not analyzed state in tabs', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
 
-      // Should show editable fields
-      await expect(
-        page.locator('textarea, input[type="text"]').first()
-      ).toBeVisible({ timeout: 10000 })
-    }
+    // Click on "Analysis Summary" tab
+    await page.getByRole('tab', { name: /Analysis Summary/ }).click()
+    await page.waitForTimeout(300)
+
+    // Should show "No analysis data" or similar message
+    await expect(
+      page.getByText(/No analysis data/).first()
+    ).toBeVisible({ timeout: 5000 })
   })
 })

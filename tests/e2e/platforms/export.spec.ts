@@ -1,5 +1,25 @@
 /**
- * E2E tests for Platform template export.
+ * E2E tests for Platform template export page.
+ *
+ * Selectors are based on the actual Export page UI:
+ * - Header: "Export {name}" (h1), e.g. "Export Saramin Resume"
+ * - Description: "Choose your preferred format to export your resume"
+ * - Back button: ghost icon button with ArrowLeft (navigates to /platforms)
+ * - Two-column layout: Export Options (left) + Preview (right)
+ * - Export Options card:
+ *   - CardTitle: "Export Options" (with Download icon)
+ *   - CardDescription: "Select the file format to export"
+ *   - RadioGroup with 3 format options:
+ *     - "HTML" with description
+ *     - "Markdown" with description
+ *     - "Word (DOCX)" with description
+ *   - Export button (full width): "Download {FORMAT}" (e.g. "Download HTML")
+ *   - Disabled if no analyzed data, shows alert: "No Analyzed Projects"
+ * - Preview card:
+ *   - CardTitle: "Preview" (with Eye icon)
+ *   - CardDescription: "Preview with your data applied"
+ *   - iframe (title="Resume Preview") or empty state "Preview not available"
+ * - Template info section at bottom of export options: template name, platform badge
  */
 
 import { test, expect } from '@playwright/test'
@@ -13,7 +33,7 @@ import {
   TestDataContext,
 } from '../fixtures/api-helpers'
 
-test.describe('Platform Export Page', () => {
+test.describe('Platform Export Page Structure', () => {
   let platformId: number
 
   test.beforeAll(async () => {
@@ -29,21 +49,37 @@ test.describe('Platform Export Page', () => {
     }
   })
 
-  test('should display export page', async ({ page }) => {
+  test('should display export page heading', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
     }
 
     await page.goto(`/platforms/${platformId}/export`)
+    await page.waitForLoadState('domcontentloaded')
 
-    // Should show export page
+    // Heading is "Export {template_name}" (h1)
+    const heading = page.getByRole('heading', { level: 1 })
+    await expect(heading).toBeVisible({ timeout: 5000 })
+    // Should contain "Export"
+    await expect(heading).toContainText('Export')
+  })
+
+  test('should show export description', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/export`)
+    await page.waitForLoadState('domcontentloaded')
+
     await expect(
-      page.locator('h1, h2').filter({ hasText: /내보내기|Export/i }).first()
-    ).toBeVisible({ timeout: 10000 })
+      page.getByText('Choose your preferred format to export your resume')
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should show export format options', async ({ page }) => {
+  test('should show Export Options card', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -52,32 +88,13 @@ test.describe('Platform Export Page', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Should have HTML, Markdown, Word options
-    const htmlBtn = page.locator('button:has-text("HTML")')
-    const mdBtn = page.locator('button:has-text("Markdown"), button:has-text("MD")')
-    const wordBtn = page.locator('button:has-text("Word"), button:has-text("DOCX")')
-
-    await expect(htmlBtn.or(mdBtn).or(wordBtn)).toBeVisible({ timeout: 10000 })
-  })
-})
-
-test.describe('HTML Export', () => {
-  let platformId: number
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      await initPlatformTemplates(request)
-      const platforms = await getPlatformTemplates(request)
-      if (platforms.length > 0) {
-        platformId = platforms[0].id
-      }
-    } finally {
-      await request.dispose()
-    }
+    await expect(page.getByText('Export Options')).toBeVisible({ timeout: 5000 })
+    await expect(
+      page.getByText('Select the file format to export')
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should export to HTML', async ({ page }) => {
+  test('should show format radio options', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -86,23 +103,13 @@ test.describe('HTML Export', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    const htmlBtn = page.locator('button:has-text("HTML")').first()
-
-    if (await htmlBtn.isVisible()) {
-      // Start waiting for download before clicking
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-      await htmlBtn.click()
-
-      try {
-        const download = await downloadPromise
-        expect(download.suggestedFilename()).toMatch(/\.html$/i)
-      } catch {
-        // May show download link instead of auto-download
-      }
-    }
+    // Three format options as radio items
+    await expect(page.getByLabel('HTML')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel('Markdown')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel('Word (DOCX)')).toBeVisible({ timeout: 5000 })
   })
 
-  test('should download HTML file with correct name', async ({ page }) => {
+  test('should show export button with Download text', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -111,40 +118,12 @@ test.describe('HTML Export', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    const htmlBtn = page.locator('button:has-text("HTML")').first()
-
-    if (await htmlBtn.isVisible()) {
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-      await htmlBtn.click()
-
-      try {
-        const download = await downloadPromise
-        const filename = download.suggestedFilename()
-        expect(filename).toMatch(/\.(html|htm)$/i)
-      } catch {
-        // Download might not trigger automatically
-      }
-    }
-  })
-})
-
-test.describe('Markdown Export', () => {
-  let platformId: number
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      await initPlatformTemplates(request)
-      const platforms = await getPlatformTemplates(request)
-      if (platforms.length > 0) {
-        platformId = platforms[0].id
-      }
-    } finally {
-      await request.dispose()
-    }
+    // Default format is HTML, so button should say "Download HTML"
+    const exportBtn = page.getByRole('button', { name: /Download/ })
+    await expect(exportBtn).toBeVisible({ timeout: 5000 })
   })
 
-  test('should export to Markdown', async ({ page }) => {
+  test('should show Preview card', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -153,39 +132,14 @@ test.describe('Markdown Export', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    const mdBtn = page.locator('button:has-text("Markdown"), button:has-text("MD")').first()
-
-    if (await mdBtn.isVisible()) {
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-      await mdBtn.click()
-
-      try {
-        const download = await downloadPromise
-        expect(download.suggestedFilename()).toMatch(/\.md$/i)
-      } catch {
-        // May show download link instead
-      }
-    }
-  })
-})
-
-test.describe('Word Export', () => {
-  let platformId: number
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      await initPlatformTemplates(request)
-      const platforms = await getPlatformTemplates(request)
-      if (platforms.length > 0) {
-        platformId = platforms[0].id
-      }
-    } finally {
-      await request.dispose()
-    }
+    // Preview card title
+    await expect(page.getByText('Preview')).toBeVisible({ timeout: 5000 })
+    await expect(
+      page.getByText('Preview with your data applied')
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should export to Word', async ({ page }) => {
+  test('should change format selection', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -194,57 +148,25 @@ test.describe('Word Export', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    const wordBtn = page.locator('button:has-text("Word"), button:has-text("DOCX")').first()
+    // Click on Markdown format option
+    await page.getByLabel('Markdown').click()
 
-    if (await wordBtn.isVisible()) {
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-      await wordBtn.click()
+    // Export button should update to show "Download MD"
+    await expect(
+      page.getByRole('button', { name: 'Download MD' })
+    ).toBeVisible({ timeout: 5000 })
 
-      try {
-        const download = await downloadPromise
-        expect(download.suggestedFilename()).toMatch(/\.docx$/i)
-      } catch {
-        // May show download link instead
-      }
-    }
-  })
-})
+    // Click on Word format option
+    await page.getByLabel('Word (DOCX)').click()
 
-test.describe('Export with Real User Data', () => {
-  let testContext: TestDataContext
-  let platformId: number
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      await initPlatformTemplates(request)
-      const platforms = await getPlatformTemplates(request)
-      if (platforms.length > 0) {
-        platformId = platforms[0].id
-      }
-
-      const user = await createTestUser(request)
-      const project = await createTestProject(request, user.id, undefined, {
-        name: 'Export Test Project',
-        description: 'Project for testing export functionality',
-      })
-      testContext = { user, project }
-    } finally {
-      await request.dispose()
-    }
+    // Export button should update to show "Download DOCX"
+    await expect(
+      page.getByRole('button', { name: 'Download DOCX' })
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should export with user data', async ({ page }) => {
-    if (!platformId || !testContext.user) {
+  test('should show template info section', async ({ page }) => {
+    if (!platformId) {
       test.skip()
       return
     }
@@ -252,32 +174,13 @@ test.describe('Export with Real User Data', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Toggle to use real data
-    const realDataToggle = page.locator(
-      '[data-testid="real-data-toggle"], input[type="checkbox"]'
-    ).first()
-
-    if (await realDataToggle.isVisible()) {
-      await realDataToggle.click()
-    }
-
-    // Export
-    const htmlBtn = page.locator('button:has-text("HTML")').first()
-    if (await htmlBtn.isVisible()) {
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-      await htmlBtn.click()
-
-      try {
-        const download = await downloadPromise
-        expect(download.suggestedFilename()).toMatch(/\.html$/i)
-      } catch {
-        // OK if download doesn't auto-trigger
-      }
-    }
+    // Template info shows "Template:" label and "Platform:" label
+    await expect(page.getByText('Template:')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Platform:')).toBeVisible({ timeout: 5000 })
   })
 })
 
-test.describe('Export Navigation', () => {
+test.describe('Platform Export Navigation', () => {
   test.beforeAll(async () => {
     const request = await createApiContext()
     try {
@@ -287,35 +190,24 @@ test.describe('Export Navigation', () => {
     }
   })
 
-  test('should navigate to export from list', async ({ page }) => {
+  test('should navigate to export from platforms list', async ({ page }) => {
     await page.goto('/platforms')
     await page.waitForLoadState('domcontentloaded')
 
-    const exportBtn = page.locator(
-      'button:has-text("내보내기"), button:has-text("Export")'
-    ).first()
+    // Click first Export button (may be disabled if no analyzed data, but still clickable via navigation)
+    // First try to find an enabled export button
+    const exportBtns = page.getByRole('button', { name: 'Export' })
+    await expect(exportBtns.first()).toBeVisible({ timeout: 5000 })
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click()
+    // Even if disabled, clicking may work for navigation (some implementations wrap in link)
+    // The actual button triggers navigate() so it works even when disabled for data check
+    // But the Export button IS disabled when no analyzed data - so we use Preview -> Export flow
+    const previewBtn = page.getByRole('button', { name: 'Preview' }).first()
+    await previewBtn.click()
+    await expect(page).toHaveURL(/\/platforms\/\d+\/preview/, { timeout: 5000 })
 
-      // Should navigate to export page
-      await expect(page).toHaveURL(/\/export/, { timeout: 10000 })
-    }
-  })
-
-  test('should navigate to export from preview', async ({ page }) => {
-    await page.goto('/platforms/1/preview')
-    await page.waitForLoadState('domcontentloaded')
-
-    const exportBtn = page.locator(
-      'button:has-text("내보내기"), button:has-text("Export"), a[href*="export"]'
-    ).first()
-
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click()
-
-      // Should navigate to export page
-      await expect(page).toHaveURL(/\/export/, { timeout: 10000 })
-    }
+    // From preview, click Export button
+    await page.getByRole('button', { name: 'Export' }).click()
+    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 5000 })
   })
 })

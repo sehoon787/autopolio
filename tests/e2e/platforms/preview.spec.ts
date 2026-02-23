@@ -1,5 +1,16 @@
 /**
- * E2E tests for Platform template preview.
+ * E2E tests for Platform template preview page.
+ *
+ * Selectors are based on the actual Preview page UI:
+ * - Header: template name as h1 (e.g. "Saramin Resume"), "System" badge (if system template)
+ * - Subtitle: "Resume Preview"
+ * - Buttons: "Print" (Printer icon), "Fullscreen" (Maximize2 icon), "Export" (Download icon)
+ * - Data source badge in card header: "Real Data" (green) or "Sample Data" (secondary)
+ * - Real data toggle: Switch with id="real-data-toggle", label "View real data"
+ * - iframe for HTML preview (title="HTML Preview")
+ * - Loading state: Loader2 spinner + "Loading preview..."
+ * - Fullscreen mode: full viewport iframe, "Print" button, "Exit Fullscreen" (Minimize2) button
+ * - Back button: ghost icon button with ArrowLeft (navigates to /platforms)
  */
 
 import { test, expect } from '@playwright/test'
@@ -14,7 +25,7 @@ import {
   TestDataContext,
 } from '../fixtures/api-helpers'
 
-test.describe('Platform Preview with Sample Data', () => {
+test.describe('Platform Preview Page', () => {
   let platformId: number
 
   test.beforeAll(async () => {
@@ -30,21 +41,7 @@ test.describe('Platform Preview with Sample Data', () => {
     }
   })
 
-  test('should display preview page', async ({ page }) => {
-    if (!platformId) {
-      test.skip()
-      return
-    }
-
-    await page.goto(`/platforms/${platformId}/preview`)
-
-    // Should show preview page
-    await expect(
-      page.locator('h1, h2').filter({ hasText: /미리보기|Preview/i }).first()
-    ).toBeVisible({ timeout: 10000 })
-  })
-
-  test('should show iframe with rendered template', async ({ page }) => {
+  test('should display template name as heading', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -53,12 +50,80 @@ test.describe('Platform Preview with Sample Data', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Should have iframe for preview
+    // Template name appears as h1
+    const heading = page.getByRole('heading', { level: 1 })
+    await expect(heading).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should show Resume Preview subtitle', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/preview`)
+    await page.waitForLoadState('domcontentloaded')
+
+    await expect(page.getByText('Resume Preview')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should show Print button', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/preview`)
+    await page.waitForLoadState('domcontentloaded')
+
+    await expect(
+      page.getByRole('button', { name: 'Print' })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should show Fullscreen button', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/preview`)
+    await page.waitForLoadState('domcontentloaded')
+
+    await expect(
+      page.getByRole('button', { name: 'Fullscreen' })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should show Export button', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/preview`)
+    await page.waitForLoadState('domcontentloaded')
+
+    await expect(
+      page.getByRole('button', { name: 'Export' })
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('should show iframe for HTML preview', async ({ page }) => {
+    if (!platformId) {
+      test.skip()
+      return
+    }
+
+    await page.goto(`/platforms/${platformId}/preview`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Wait for preview to load (either iframe appears or loading spinner)
     const iframe = page.locator('iframe')
     await expect(iframe).toBeVisible({ timeout: 10000 })
   })
 
-  test('should show sample data by default', async ({ page }) => {
+  test('should show data source badge', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -67,18 +132,14 @@ test.describe('Platform Preview with Sample Data', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for sample data indicator
-    const sampleIndicator = page.locator(
-      'text=샘플, text=Sample, [data-testid="sample-data-indicator"]'
-    )
-
-    // May have sample toggle or indicator
-    if (await sampleIndicator.isVisible()) {
-      await expect(sampleIndicator).toBeVisible()
-    }
+    // Wait for preview to load, then check for either "Sample Data" or "Real Data" badge
+    await page.waitForTimeout(2000)
+    const sampleBadge = page.getByText('Sample Data')
+    const realBadge = page.getByText('Real Data')
+    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 5000 })
   })
 
-  test('should have fullscreen preview option', async ({ page }) => {
+  test('should show real data toggle switch', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -87,18 +148,15 @@ test.describe('Platform Preview with Sample Data', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for fullscreen button
-    const fullscreenBtn = page.locator(
-      'button:has-text("전체화면"), button:has-text("Fullscreen"), button[aria-label*="fullscreen"]'
-    ).first()
+    // Switch with id="real-data-toggle"
+    const toggle = page.locator('#real-data-toggle')
+    await expect(toggle).toBeVisible({ timeout: 5000 })
 
-    if (await fullscreenBtn.isVisible()) {
-      await fullscreenBtn.click()
-      // Should expand to fullscreen
-    }
+    // Label text
+    await expect(page.getByText('View real data')).toBeVisible({ timeout: 5000 })
   })
 
-  test('should have print option', async ({ page }) => {
+  test('should navigate to export page on Export click', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -107,14 +165,9 @@ test.describe('Platform Preview with Sample Data', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for print button
-    const printBtn = page.locator(
-      'button:has-text("인쇄"), button:has-text("Print")'
-    ).first()
+    await page.getByRole('button', { name: 'Export' }).click()
 
-    if (await printBtn.isVisible()) {
-      await expect(printBtn).toBeVisible()
-    }
+    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 5000 })
   })
 })
 
@@ -149,7 +202,7 @@ test.describe('Platform Preview with Real Data', () => {
     }
   })
 
-  test('should toggle to real data', async ({ page }) => {
+  test('should toggle real data switch', async ({ page }) => {
     if (!platformId) {
       test.skip()
       return
@@ -158,91 +211,18 @@ test.describe('Platform Preview with Real Data', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for toggle to switch to real data
-    const realDataToggle = page.locator(
-      '[data-testid="real-data-toggle"], button:has-text("실제 데이터"), input[type="checkbox"]'
-    ).first()
+    // Toggle the real data switch
+    const toggle = page.locator('#real-data-toggle')
+    await expect(toggle).toBeVisible({ timeout: 5000 })
+    await toggle.click()
 
-    if (await realDataToggle.isVisible()) {
-      await realDataToggle.click()
-      await page.waitForLoadState('domcontentloaded')
+    // After toggling, should attempt to load real data
+    // Wait for preview to settle
+    await page.waitForTimeout(2000)
 
-      // Should show real data indicator
-      const realIndicator = page.locator(
-        'text=실제 데이터, text=Real Data'
-      )
-      if (await realIndicator.isVisible()) {
-        await expect(realIndicator).toBeVisible()
-      }
-    }
-  })
-
-  test('should show user projects in real data mode', async ({ page }) => {
-    if (!platformId || !testContext.project) {
-      test.skip()
-      return
-    }
-
-    await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('domcontentloaded')
-
-    // Toggle to real data
-    const toggle = page.locator('[data-testid="real-data-toggle"]').first()
-    if (await toggle.isVisible()) {
-      await toggle.click()
-      await page.waitForLoadState('domcontentloaded')
-
-      // Check if project name appears in preview
-      const iframe = page.frameLocator('iframe')
-      const projectName = iframe.locator(`text=${testContext.project.name}`)
-
-      // May take time to render
-      await page.waitForTimeout(2000)
-    }
-  })
-})
-
-test.describe('Platform Preview Navigation', () => {
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      await initPlatformTemplates(request)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should navigate to preview from list', async ({ page }) => {
-    await page.goto('/platforms')
-    await page.waitForLoadState('domcontentloaded')
-
-    // Click preview button
-    const previewBtn = page.locator(
-      'button:has-text("미리보기"), button:has-text("Preview")'
-    ).first()
-
-    if (await previewBtn.isVisible()) {
-      await previewBtn.click()
-
-      // Should navigate to preview page
-      await expect(page).toHaveURL(/\/preview/, { timeout: 10000 })
-    }
-  })
-
-  test('should navigate back to list from preview', async ({ page }) => {
-    await page.goto('/platforms/1/preview')
-    await page.waitForLoadState('domcontentloaded')
-
-    // Click back button
-    const backBtn = page.locator(
-      'button:has-text("뒤로"), button:has-text("Back"), a[href="/platforms"]'
-    ).first()
-
-    if (await backBtn.isVisible()) {
-      await backBtn.click()
-
-      // Should navigate back to list
-      await expect(page).toHaveURL('/platforms', { timeout: 10000 })
-    }
+    // The data source badge should update (may show "Real Data" or fall back to "Sample Data")
+    const sampleBadge = page.getByText('Sample Data')
+    const realBadge = page.getByText('Real Data')
+    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 5000 })
   })
 })

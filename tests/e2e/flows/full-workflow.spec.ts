@@ -12,7 +12,7 @@ import {
   createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
-import { TEST_COMPANY, TEST_PROJECT, TEST_ACHIEVEMENT } from '../fixtures/test-data'
+import { TEST_COMPANY, TEST_PROJECT } from '../fixtures/test-data'
 
 test.describe('Complete Portfolio Workflow', () => {
   let testContext: TestDataContext
@@ -37,103 +37,79 @@ test.describe('Complete Portfolio Workflow', () => {
     }
   })
 
-  test('should complete full workflow from company to export', async ({ page }) => {
+  test('should complete workflow from company to platform preview', async ({ page }) => {
     // Step 1: Create Company
     await page.goto('/knowledge/companies')
-    await page.click('button:has-text("추가"), button:has-text("Add")')
+    await page.waitForLoadState('domcontentloaded')
+
+    await expect(
+      page.getByRole('heading', { name: 'Company Management' })
+    ).toBeVisible({ timeout: 5000 })
+
+    await page.getByRole('button', { name: 'Add Company' }).click()
+
+    const companyDialog = page.getByRole('dialog')
+    await expect(companyDialog).toBeVisible({ timeout: 5000 })
 
     const companyName = `Workflow Company ${Date.now()}`
-    await page.fill('input[name="name"]', companyName)
-    await page.fill('input[name="position"]', TEST_COMPANY.position)
+    await companyDialog.locator('#name').fill(companyName)
+    await companyDialog.locator('#position').fill(TEST_COMPANY.position)
+    await companyDialog.locator('#start_date').fill(TEST_COMPANY.start_date)
 
-    const startDateInput = page.locator('input[name="start_date"]')
-    if (await startDateInput.isVisible()) {
-      await startDateInput.fill(TEST_COMPANY.start_date)
-    }
+    await companyDialog.getByRole('button', { name: 'Add' }).click()
 
-    await page.click('button:has-text("저장"), button:has-text("Save")')
-    await expect(page.locator(`text=${companyName}`).first()).toBeVisible({ timeout: 10000 })
+    // Company should appear in the list
+    await expect(
+      page.getByText(companyName).first()
+    ).toBeVisible({ timeout: 5000 })
 
     // Step 2: Create Project
     await page.goto('/knowledge/projects')
-    await page.click('button:has-text("추가"), button:has-text("Add"), button:has-text("새 프로젝트")')
-
-    const projectName = `Workflow Project ${Date.now()}`
-    await page.fill('input[name="name"]', projectName)
-
-    const descInput = page.locator('textarea[name="description"]')
-    if (await descInput.isVisible()) {
-      await descInput.fill(TEST_PROJECT.description)
-    }
-
-    // Select company
-    const companySelect = page.locator('select[name="company_id"]')
-    if (await companySelect.isVisible()) {
-      await companySelect.selectOption({ index: 1 })
-    }
-
-    await page.click('button:has-text("저장"), button:has-text("Save")')
-    await expect(page.locator(`text=${projectName}`).first()).toBeVisible({ timeout: 10000 })
-
-    // Step 3: Go to project detail and add achievement
-    await page.click(`text=${projectName}`)
     await page.waitForLoadState('domcontentloaded')
 
-    const addAchievementBtn = page.locator(
-      '[data-testid="add-achievement"], button:has-text("성과 추가")'
-    ).first()
+    await expect(
+      page.getByRole('heading', { name: 'Project Management' })
+    ).toBeVisible({ timeout: 5000 })
 
-    if (await addAchievementBtn.isVisible()) {
-      await addAchievementBtn.click()
-      await page.fill('input[name="metric_name"]', TEST_ACHIEVEMENT.metric_name)
-      await page.fill('input[name="metric_value"]', TEST_ACHIEVEMENT.metric_value)
-      await page.click('button:has-text("저장"), button:has-text("Save")')
-    }
+    await page.getByRole('button', { name: 'Add Project' }).click()
 
-    // Step 4: Preview platform template
+    const projectDialog = page.getByRole('dialog')
+    await expect(projectDialog).toBeVisible({ timeout: 5000 })
+
+    const projectName = `Workflow Project ${Date.now()}`
+    await projectDialog.locator('#name').fill(projectName)
+    await projectDialog.locator('#short_description').fill(TEST_PROJECT.description)
+    await projectDialog.locator('#start_date').fill(TEST_PROJECT.start_date)
+    await projectDialog.locator('#role').fill(TEST_PROJECT.role)
+
+    await projectDialog.getByRole('button', { name: 'Add' }).click()
+
+    // Project should appear in the list
+    await expect(
+      page.getByText(projectName).first()
+    ).toBeVisible({ timeout: 5000 })
+
+    // Step 3: Visit Platforms page
     await page.goto('/platforms')
     await page.waitForLoadState('domcontentloaded')
 
-    const previewBtn = page.locator('button:has-text("미리보기"), button:has-text("Preview")').first()
-    if (await previewBtn.isVisible()) {
+    await expect(
+      page.getByRole('heading', { name: 'Job Platforms' })
+    ).toBeVisible({ timeout: 5000 })
+
+    // Step 4: Click Preview on the first template card
+    const previewBtn = page.getByRole('button', { name: 'Preview' }).first()
+    if (await previewBtn.isVisible().catch(() => false)) {
       await previewBtn.click()
       await page.waitForLoadState('domcontentloaded')
 
-      // Should show preview
-      await expect(page.locator('iframe').first()).toBeVisible({ timeout: 10000 })
-    }
-
-    // Step 5: Toggle to real data
-    const realDataToggle = page.locator('[data-testid="real-data-toggle"]').first()
-    if (await realDataToggle.isVisible()) {
-      await realDataToggle.click()
-      await page.waitForLoadState('domcontentloaded')
-    }
-
-    // Step 6: Export document
-    const exportBtn = page.locator('button:has-text("내보내기"), button:has-text("Export")').first()
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click()
-      await page.waitForLoadState('domcontentloaded')
-
-      // Click Markdown export
-      const mdBtn = page.locator('button:has-text("Markdown")').first()
-      if (await mdBtn.isVisible()) {
-        const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
-        await mdBtn.click()
-
-        try {
-          const download = await downloadPromise
-          expect(download.suggestedFilename()).toMatch(/\.md$/i)
-        } catch {
-          // Download might not auto-trigger
-        }
-      }
+      // Preview page should have an iframe for the rendered template
+      await expect(page.locator('iframe').first()).toBeVisible({ timeout: 5000 })
     }
   })
 })
 
-test.describe('GitHub Analysis Workflow', () => {
+test.describe('Template Customization', () => {
   let testContext: TestDataContext
 
   test.beforeAll(async () => {
@@ -155,158 +131,23 @@ test.describe('GitHub Analysis Workflow', () => {
     }
   })
 
-  test('should create project with git URL and analyze', async ({ page }) => {
-    // Create project with git URL
-    await page.goto('/knowledge/projects')
-    await page.click('button:has-text("추가"), button:has-text("Add")')
-
-    const projectName = `GitHub Project ${Date.now()}`
-    await page.fill('input[name="name"]', projectName)
-
-    const gitUrlInput = page.locator('input[name="git_url"]')
-    if (await gitUrlInput.isVisible()) {
-      await gitUrlInput.fill('https://github.com/facebook/react')
-    }
-
-    await page.click('button:has-text("저장"), button:has-text("Save")')
-    await expect(page.locator(`text=${projectName}`).first()).toBeVisible({ timeout: 10000 })
-
-    // Navigate to project detail
-    await page.click(`text=${projectName}`)
-    await page.waitForLoadState('domcontentloaded')
-
-    // Look for analyze button
-    const analyzeBtn = page.locator(
-      '[data-testid="analyze-button"], button:has-text("분석")'
-    ).first()
-
-    if (await analyzeBtn.isVisible()) {
-      await analyzeBtn.click()
-
-      // Should show analysis in progress
-      await page.waitForTimeout(2000)
-    }
-  })
-})
-
-test.describe('Template Customization Workflow', () => {
-  let testContext: TestDataContext
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      const user = await createTestUser(request)
-      const project = await createTestProject(request, user.id)
-      testContext = { user, project }
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should clone and customize template', async ({ page }) => {
-    // Go to templates
+  test('should display templates with system and clone options', async ({ page }) => {
     await page.goto('/templates')
     await page.waitForLoadState('domcontentloaded')
 
-    // Clone first template
-    const cloneBtn = page.locator(
-      '[data-testid="clone-template"], button:has-text("복제")'
-    ).first()
+    // Page heading: "Template Management"
+    await expect(
+      page.getByRole('heading', { name: 'Template Management' })
+    ).toBeVisible({ timeout: 5000 })
 
-    if (await cloneBtn.isVisible()) {
-      await cloneBtn.click()
+    // "System Templates" section heading
+    await expect(
+      page.getByText('System Templates').first()
+    ).toBeVisible({ timeout: 5000 })
 
-      // Fill new name
-      const nameInput = page.locator('input[name="name"]').first()
-      if (await nameInput.isVisible()) {
-        await nameInput.fill(`Custom Template ${Date.now()}`)
-        await page.click('button:has-text("복제"), button:has-text("확인")')
-      }
-
-      await page.waitForLoadState('domcontentloaded')
-    }
-
-    // Edit the cloned template
-    const editBtn = page.locator('[data-testid="edit-template"]').first()
-    if (await editBtn.isVisible()) {
-      await editBtn.click()
-      await page.waitForLoadState('domcontentloaded')
-
-      // Modify content
-      const editor = page.locator('textarea').first()
-      if (await editor.isVisible()) {
-        await editor.fill('# Custom Template\n\n{{name}}\n\n{{description}}')
-        await page.click('button:has-text("저장"), button:has-text("Save")')
-      }
-    }
-  })
-})
-
-test.describe('Multi-Project Document Generation', () => {
-  let testContext: TestDataContext
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      const user = await createTestUser(request)
-      const company = await createTestCompany(request, user.id)
-
-      // Create multiple projects
-      const project1 = await createTestProject(request, user.id, company.id, {
-        name: `Multi Project 1 ${Date.now()}`,
-      })
-      const project2 = await createTestProject(request, user.id, undefined, {
-        name: `Multi Project 2 ${Date.now()}`,
-      })
-
-      testContext = { user, company, project: project1 }
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should generate document with multiple projects', async ({ page }) => {
-    await page.goto('/generate')
-    await page.waitForLoadState('domcontentloaded')
-
-    // Select multiple projects
-    const checkboxes = page.locator('[data-testid="project-checkbox"], input[type="checkbox"]')
-
-    if ((await checkboxes.count()) >= 2) {
-      await checkboxes.nth(0).click()
-      await checkboxes.nth(1).click()
-    }
-
-    // Select template
-    const templateSelect = page.locator('select[name="template"]')
-    if (await templateSelect.isVisible()) {
-      await templateSelect.selectOption({ index: 1 })
-    }
-
-    // Generate
-    const generateBtn = page.locator('button:has-text("생성"), button:has-text("Generate")').first()
-    if (await generateBtn.isVisible()) {
-      await generateBtn.click()
-      await page.waitForLoadState('domcontentloaded')
-    }
+    // "Clone" button should be visible on system templates
+    const cloneBtn = page.getByRole('button', { name: 'Clone' }).first()
+    await expect(cloneBtn).toBeVisible({ timeout: 5000 })
   })
 })
 
@@ -314,49 +155,73 @@ test.describe('Cross-Feature Navigation', () => {
   test('should navigate between all main sections', async ({ page }) => {
     // Dashboard
     await page.goto('/dashboard')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    const dashboardHeading = page.getByRole('heading').first()
+    await expect(dashboardHeading).toBeVisible({ timeout: 5000 })
 
     // Companies
     await page.goto('/knowledge/companies')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Company Management' })
+    ).toBeVisible({ timeout: 5000 })
 
     // Projects
     await page.goto('/knowledge/projects')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Project Management' })
+    ).toBeVisible({ timeout: 5000 })
 
     // Platforms
     await page.goto('/platforms')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Job Platforms' })
+    ).toBeVisible({ timeout: 5000 })
 
     // Templates
     await page.goto('/templates')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Template Management' })
+    ).toBeVisible({ timeout: 5000 })
 
     // Documents
     await page.goto('/documents')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Generated Documents' })
+    ).toBeVisible({ timeout: 5000 })
 
     // Settings
     await page.goto('/settings')
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(
+      page.getByRole('heading', { name: 'Settings' })
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should maintain navigation state', async ({ page }) => {
-    // Navigate through sidebar
+  test('should maintain navigation state via sidebar links', async ({ page }) => {
     await page.goto('/dashboard')
     await page.waitForLoadState('domcontentloaded')
 
+    // Navigate through sidebar links
     const navItems = [
-      { selector: 'a[href*="companies"]', url: /companies/ },
-      { selector: 'a[href*="projects"]', url: /projects/ },
-      { selector: 'a[href*="platforms"]', url: /platforms/ },
+      { href: '/knowledge/companies', heading: 'Company Management' },
+      { href: '/knowledge/projects', heading: 'Project Management' },
+      { href: '/platforms', heading: 'Job Platforms' },
     ]
 
     for (const item of navItems) {
-      const link = page.locator(item.selector).first()
-      if (await link.isVisible()) {
+      const link = page.locator(`a[href="${item.href}"]`).first()
+      if (await link.isVisible().catch(() => false)) {
         await link.click()
-        await expect(page).toHaveURL(item.url, { timeout: 10000 })
+        await page.waitForLoadState('domcontentloaded')
+        await expect(page).toHaveURL(new RegExp(item.href.replace('/', '\\/')), { timeout: 5000 })
+        await expect(
+          page.getByRole('heading', { name: item.heading })
+        ).toBeVisible({ timeout: 5000 })
       }
     }
   })

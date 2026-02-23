@@ -1,5 +1,19 @@
 /**
- * E2E tests for GitHub repository analysis.
+ * E2E tests for GitHub repository analysis on project detail page.
+ *
+ * Key UI details (ProjectDetail.tsx):
+ * - Project name displayed as h1 heading
+ * - "Analyze Repo" button (when not analyzed, project has git_url)
+ * - "Re-analyze" button (when already analyzed)
+ * - Analysis language selector (ko/en) next to the analyze button
+ * - Three tabs: "Basic Info", "Analysis Summary", "Detailed Analysis"
+ * - When not analyzed:
+ *   - Summary tab shows "No analysis data" heading + "Analyze the project to see the analysis summary."
+ *   - Detail tab shows "No analysis data" heading + "Analyze the project to see the detailed analysis."
+ *   - Basic Info tab shows "Not yet analyzed" text in commit statistics area
+ *
+ * In CI, GitHub is NOT connected (no OAuth token), so actual analysis
+ * cannot be triggered. Tests focus on the pre-analysis UI state.
  */
 
 import { test, expect } from '@playwright/test'
@@ -11,16 +25,15 @@ import {
   TestDataContext,
 } from '../fixtures/api-helpers'
 
-test.describe('Project Analysis', () => {
+test.describe('Project Analysis UI - With Git URL', () => {
   let testContext: TestDataContext
 
   test.beforeAll(async () => {
     const request = await createApiContext()
     try {
       const user = await createTestUser(request)
-      // Create project with git URL
       const project = await createTestProject(request, user.id, undefined, {
-        name: `Analysis Test ${Date.now()}`,
+        name: `Analysis E2E ${Date.now()}`,
         git_url: 'https://github.com/facebook/react',
       })
       testContext = { user, project }
@@ -42,91 +55,71 @@ test.describe('Project Analysis', () => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for analyze button
-    const analyzeBtn = page.locator(
-      '[data-testid="analyze-button"], button:has-text("분석"), button:has-text("Analyze")'
-    ).first()
-
-    await expect(analyzeBtn).toBeVisible({ timeout: 10000 })
+    // "Analyze Repo" button should be visible since project has a git_url
+    await expect(
+      page.getByRole('button', { name: 'Analyze Repo' })
+    ).toBeVisible({ timeout: 5000 })
   })
 
-  test('should start analysis on button click', async ({ page }) => {
+  test('should show analysis language selector', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    const analyzeBtn = page.locator(
-      '[data-testid="analyze-button"], button:has-text("분석"), button:has-text("Analyze")'
-    ).first()
-
-    if (await analyzeBtn.isVisible()) {
-      await analyzeBtn.click()
-
-      // Should show loading state or progress
-      const loading = page.locator(
-        '[data-testid="analysis-loading"], text=분석 중, text=Analyzing'
-      )
-
-      // May show loading or redirect to analysis page
-      await page.waitForTimeout(2000)
-    }
+    // The language selector is a combobox (Select component) near the analyze button
+    const languageSelector = page.locator('button[role="combobox"]').first()
+    await expect(languageSelector).toBeVisible({ timeout: 5000 })
   })
 
-  test.skip('should show analysis results after completion', async ({ page }) => {
-    // This test may take a long time - skip in regular runs
+  test('should show no analysis data on Summary tab', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
 
-    // Wait for analysis to complete (long timeout)
-    await expect(
-      page.locator('text=분석 완료, text=Analysis Complete')
-    ).toBeVisible({ timeout: 180000 })
+    // Click "Analysis Summary" tab
+    await page.getByRole('tab', { name: /Analysis Summary/ }).click()
+    await page.waitForTimeout(300)
 
-    // Check for detected technologies
+    // Should show "No analysis data" heading
     await expect(
-      page.locator('[data-testid="detected-technologies"]')
+      page.getByText('No analysis data').first()
+    ).toBeVisible({ timeout: 5000 })
+
+    // Should show description text
+    await expect(
+      page.getByText('Analyze the project to see the analysis summary.')
     ).toBeVisible()
   })
-})
 
-test.describe('Batch Analysis', () => {
-  let testContext: TestDataContext
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      const user = await createTestUser(request)
-      testContext = { user }
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should allow selecting multiple projects for batch analysis', async ({ page }) => {
-    await page.goto('/knowledge/projects')
+  test('should show no analysis data on Detailed Analysis tab', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for batch selection mode or checkboxes
-    const batchBtn = page.locator(
-      'button:has-text("일괄 분석"), button:has-text("Batch"), button:has-text("전체 분석")'
-    ).first()
+    // Click "Detailed Analysis" tab
+    await page.getByRole('tab', { name: /Detailed Analysis/ }).click()
+    await page.waitForTimeout(300)
 
-    const checkboxes = page.locator('[data-testid="project-checkbox"], input[type="checkbox"]')
+    // Should show "No analysis data" heading
+    await expect(
+      page.getByText('No analysis data').first()
+    ).toBeVisible({ timeout: 5000 })
 
-    if (await batchBtn.isVisible()) {
-      await batchBtn.click()
-    }
+    // Should show description text
+    await expect(
+      page.getByText('Analyze the project to see the detailed analysis.')
+    ).toBeVisible()
+  })
+
+  test('should display three tabs on project detail', async ({ page }) => {
+    await page.goto(`/knowledge/projects/${testContext.project!.id}`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Verify all three tabs exist
+    await expect(page.getByRole('tab', { name: /Basic Info/ })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('tab', { name: /Analysis Summary/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Detailed Analysis/ })).toBeVisible()
   })
 })
 
-test.describe('Analysis Results Display', () => {
+test.describe('Project Analysis UI - Without Git URL', () => {
   let testContext: TestDataContext
 
   test.beforeAll(async () => {
@@ -134,7 +127,7 @@ test.describe('Analysis Results Display', () => {
     try {
       const user = await createTestUser(request)
       const project = await createTestProject(request, user.id, undefined, {
-        name: `Results Test ${Date.now()}`,
+        name: `No Git URL E2E ${Date.now()}`,
       })
       testContext = { user, project }
     } finally {
@@ -151,78 +144,38 @@ test.describe('Analysis Results Display', () => {
     }
   })
 
-  test('should display commit statistics if analyzed', async ({ page }) => {
+  test('should not show analyze button for project without git URL', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for commit stats section
-    const statsSection = page.locator(
-      '[data-testid="commit-stats"], text=커밋, text=Commits'
-    ).first()
+    // Wait for page to load
+    await page.waitForTimeout(500)
 
-    // May or may not have analysis data
-    if (await statsSection.isVisible()) {
-      await expect(statsSection).toBeVisible()
-    }
+    // "Analyze Repo" button should NOT be visible since project has no git_url
+    await expect(
+      page.getByRole('button', { name: 'Analyze Repo' })
+    ).not.toBeVisible()
   })
 
-  test('should allow editing analysis description', async ({ page }) => {
+  test('should still display tabs without git URL', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for edit analysis button
-    const editBtn = page.locator(
-      '[data-testid="edit-analysis"], button:has-text("분석 수정")'
-    ).first()
-
-    if (await editBtn.isVisible()) {
-      await editBtn.click()
-
-      // Should show editable textarea
-      const editArea = page.locator('textarea')
-      await expect(editArea.first()).toBeVisible({ timeout: 5000 })
-    }
-  })
-})
-
-test.describe('Contributor Analysis', () => {
-  let testContext: TestDataContext
-
-  test.beforeAll(async () => {
-    const request = await createApiContext()
-    try {
-      const user = await createTestUser(request)
-      const project = await createTestProject(request, user.id, undefined, {
-        name: `Contributor Test ${Date.now()}`,
-        git_url: 'https://github.com/facebook/react',
-      })
-      testContext = { user, project }
-    } finally {
-      await request.dispose()
-    }
+    // All three tabs should still be present
+    await expect(page.getByRole('tab', { name: /Basic Info/ })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('tab', { name: /Analysis Summary/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Detailed Analysis/ })).toBeVisible()
   })
 
-  test.afterAll(async () => {
-    const request = await createApiContext()
-    try {
-      await cleanupTestData(request, testContext)
-    } finally {
-      await request.dispose()
-    }
-  })
-
-  test('should show contributor section if available', async ({ page }) => {
+  test('should show not analyzed message in BasicInfo tab', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
     await page.waitForLoadState('domcontentloaded')
 
-    // Look for contributors section
-    const contributorSection = page.locator(
-      '[data-testid="contributors"], text=기여자, text=Contributors'
-    ).first()
-
-    // May or may not have contributor data
-    if (await contributorSection.isVisible()) {
-      await expect(contributorSection).toBeVisible()
-    }
+    // Basic Info tab is the default.
+    // For a project without git_url, the commit statistics section says
+    // "Not yet analyzed" and shows a description about registering a URL
+    await expect(
+      page.getByText('Not yet analyzed').first()
+    ).toBeVisible({ timeout: 5000 })
   })
 })

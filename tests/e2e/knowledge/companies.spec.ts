@@ -1,5 +1,18 @@
 /**
  * E2E tests for Companies management.
+ *
+ * Selectors are based on the actual Companies page UI:
+ * - Page heading: "Company Management" (h1)
+ * - Empty state: "No companies registered" + "Add First Company" button
+ * - "Add Company" button in header
+ * - Company cards with name (h3), position, date range
+ * - Edit/Delete icon buttons (Pencil/Trash2)
+ * - Delete uses browser confirm() dialog
+ * - "Timeline View" button navigates to /knowledge/companies/timeline
+ * - Dialog for add/edit with title "Add New Company" / "Edit Company"
+ * - Form fields use id attributes: name, position, department, location,
+ *   start_date, end_date, is_current (checkbox), description (textarea)
+ * - Dialog footer: Cancel + Add/Edit buttons
  */
 
 import { test, expect } from '@playwright/test'
@@ -10,7 +23,7 @@ import {
   createApiContext,
   TestDataContext,
 } from '../fixtures/api-helpers'
-import { SELECTORS, TEST_COMPANY } from '../fixtures/test-data'
+import { TEST_COMPANY } from '../fixtures/test-data'
 
 test.describe('Companies CRUD', () => {
   let testContext: TestDataContext
@@ -36,42 +49,53 @@ test.describe('Companies CRUD', () => {
 
   test('should display companies list page', async ({ page }) => {
     await page.goto('/knowledge/companies')
+    await page.waitForLoadState('domcontentloaded')
 
-    // Check page title or header
+    // Page heading: "Company Management"
     await expect(
-      page.locator('h1, h2').filter({ hasText: /회사|Companies|경력/i }).first()
+      page.getByRole('heading', { name: 'Company Management' })
+    ).toBeVisible()
+  })
+
+  test('should show empty state when no companies', async ({ page }) => {
+    await page.goto('/knowledge/companies')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Empty state text
+    await expect(page.getByText('No companies registered')).toBeVisible()
+
+    // "Add First Company" button
+    await expect(
+      page.getByRole('button', { name: 'Add First Company' })
     ).toBeVisible()
   })
 
   test('should create a new company', async ({ page }) => {
     await page.goto('/knowledge/companies')
+    await page.waitForLoadState('domcontentloaded')
 
-    // Click add button
-    await page.click(SELECTORS.BTN_ADD)
+    // Click "Add Company" button in header
+    await page.getByRole('button', { name: 'Add Company' }).click()
 
-    // Fill form
-    await page.fill(SELECTORS.INPUT_NAME, `E2E Company ${Date.now()}`)
-    await page.fill(SELECTORS.INPUT_POSITION, TEST_COMPANY.position)
+    // Wait for dialog to appear
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
 
-    // Fill department if field exists
-    const deptInput = page.locator(SELECTORS.INPUT_DEPARTMENT)
-    if (await deptInput.isVisible()) {
-      await deptInput.fill(TEST_COMPANY.department)
-    }
+    // Dialog title should be "Add New Company"
+    await expect(dialog.getByText('Add New Company')).toBeVisible()
 
-    // Fill start date
-    const startDateInput = page.locator(SELECTORS.INPUT_START_DATE)
-    if (await startDateInput.isVisible()) {
-      await startDateInput.fill(TEST_COMPANY.start_date)
-    }
+    // Fill form fields by id
+    const companyName = `E2E Company ${Date.now()}`
+    await dialog.locator('#name').fill(companyName)
+    await dialog.locator('#position').fill(TEST_COMPANY.position)
+    await dialog.locator('#department').fill(TEST_COMPANY.department)
+    await dialog.locator('#start_date').fill(TEST_COMPANY.start_date)
 
-    // Save
-    await page.click(SELECTORS.BTN_SAVE)
+    // Click "Add" button in dialog footer
+    await dialog.getByRole('button', { name: 'Add' }).click()
 
-    // Verify success - either success message or company appears in list
-    await expect(
-      page.locator('text=E2E Company').first()
-    ).toBeVisible({ timeout: 10000 })
+    // Verify company appears in list
+    await expect(page.getByText(companyName)).toBeVisible({ timeout: 5000 })
   })
 
   test('should edit an existing company', async ({ page, request }) => {
@@ -80,33 +104,35 @@ test.describe('Companies CRUD', () => {
     testContext.company = company
 
     await page.goto('/knowledge/companies')
-
-    // Wait for list to load
     await page.waitForLoadState('domcontentloaded')
 
-    // Find and click edit on the company
-    const companyRow = page.locator(`text=${company.name}`).first()
-    await expect(companyRow).toBeVisible({ timeout: 10000 })
+    // Wait for company to appear
+    await expect(page.getByText(company.name)).toBeVisible({ timeout: 5000 })
 
-    // Click edit button (may be in row or need to click on row first)
-    const editBtn = page.locator(SELECTORS.BTN_EDIT).first()
-    if (await editBtn.isVisible()) {
-      await editBtn.click()
-    } else {
-      // Try clicking on the company row to open edit
-      await companyRow.click()
-    }
+    // Find the company card and click the edit (Pencil) icon button
+    // The Pencil button is the first icon button in the card's action area
+    const companyCard = page.locator('.card', { hasText: company.name }).first()
+    // Edit button is a ghost icon button with Pencil icon - first in the pair
+    await companyCard.locator('button').filter({ has: page.locator('svg.lucide-pencil') }).click()
 
-    // Update name
-    const nameInput = page.locator(SELECTORS.INPUT_NAME)
+    // Wait for edit dialog
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+
+    // Dialog title should be "Edit Company"
+    await expect(dialog.getByText('Edit Company')).toBeVisible()
+
+    // Update the name
+    const nameInput = dialog.locator('#name')
     await nameInput.clear()
-    await nameInput.fill(`Updated Company ${Date.now()}`)
+    const updatedName = `Updated Company ${Date.now()}`
+    await nameInput.fill(updatedName)
 
-    // Save
-    await page.click(SELECTORS.BTN_SAVE)
+    // Click "Edit" button in dialog footer
+    await dialog.getByRole('button', { name: 'Edit' }).click()
 
     // Verify update
-    await expect(page.locator('text=Updated Company').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 5000 })
   })
 
   test('should delete a company', async ({ page, request }) => {
@@ -118,46 +144,39 @@ test.describe('Companies CRUD', () => {
     await page.goto('/knowledge/companies')
     await page.waitForLoadState('domcontentloaded')
 
-    // Find the company
-    const companyRow = page.locator(`text=${company.name}`).first()
-    await expect(companyRow).toBeVisible({ timeout: 10000 })
+    // Wait for company to appear
+    await expect(page.getByText(company.name)).toBeVisible({ timeout: 5000 })
 
-    // Click delete button
-    const deleteBtn = page.locator(SELECTORS.BTN_DELETE).first()
-    if (await deleteBtn.isVisible()) {
-      await deleteBtn.click()
-    } else {
-      // May need to open a menu first
-      await companyRow.click()
-      await page.click(SELECTORS.BTN_DELETE)
-    }
+    // Set up dialog handler BEFORE clicking delete
+    // Company delete uses browser confirm() dialog
+    page.on('dialog', (dialog) => dialog.accept())
 
-    // Confirm deletion
-    const confirmBtn = page.locator(SELECTORS.BTN_CONFIRM)
-    if (await confirmBtn.isVisible()) {
-      await confirmBtn.click()
-    }
+    // Find the company card and click the delete (Trash2) icon button
+    const companyCard = page.locator('.card', { hasText: company.name }).first()
+    await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
 
     // Verify deleted - company should no longer be visible
-    await expect(page.locator(`text=${company.name}`)).not.toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(company.name)).not.toBeVisible({ timeout: 5000 })
   })
 
   test('should show validation error for empty name', async ({ page }) => {
     await page.goto('/knowledge/companies')
-    await page.click(SELECTORS.BTN_ADD)
+    await page.waitForLoadState('domcontentloaded')
 
-    // Try to save without name
-    await page.fill(SELECTORS.INPUT_POSITION, 'Developer')
+    // Click "Add Company"
+    await page.getByRole('button', { name: 'Add Company' }).click()
 
-    // Attempt save
-    const saveBtn = page.locator(SELECTORS.BTN_SAVE)
-    await saveBtn.click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
 
-    // Should show error or prevent save
-    // Check for error message or that modal is still open
-    const error = page.locator(SELECTORS.ERROR)
-    const modal = page.locator(SELECTORS.MODAL)
-    await expect(error.or(modal)).toBeVisible()
+    // Fill only position, leave name empty
+    await dialog.locator('#position').fill('Developer')
+
+    // Click "Add" button - should not close dialog because name is required
+    await dialog.getByRole('button', { name: 'Add' }).click()
+
+    // Dialog should still be visible (form validation prevents submission)
+    await expect(dialog).toBeVisible()
   })
 })
 
@@ -168,16 +187,16 @@ test.describe('Companies Timeline View', () => {
     const request = await createApiContext()
     try {
       const user = await createTestUser(request)
-      const company1 = await createTestCompany(request, user.id, {
+      await createTestCompany(request, user.id, {
         name: 'Timeline Company 1',
         start_date: '2020-01-01',
         end_date: '2022-12-31',
       })
-      const company2 = await createTestCompany(request, user.id, {
+      await createTestCompany(request, user.id, {
         name: 'Timeline Company 2',
         start_date: '2023-01-01',
       })
-      testContext = { user, company: company2 }
+      testContext = { user }
     } finally {
       await request.dispose()
     }
@@ -192,12 +211,28 @@ test.describe('Companies Timeline View', () => {
     }
   })
 
-  test('should display timeline view', async ({ page }) => {
-    await page.goto('/knowledge/companies/timeline')
+  test('should navigate to timeline view', async ({ page }) => {
+    await page.goto('/knowledge/companies')
+    await page.waitForLoadState('domcontentloaded')
 
-    // Should show timeline or companies organized by time
+    // Click "Timeline View" button
+    await page.getByRole('button', { name: 'Timeline View' }).click()
+
+    // Should navigate to timeline page
+    await expect(page).toHaveURL(/\/knowledge\/companies\/timeline/)
+  })
+
+  test('should display timeline view with companies', async ({ page }) => {
+    await page.goto('/knowledge/companies/timeline')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Should show the timeline heading
     await expect(
-      page.locator('text=Timeline Company').first()
-    ).toBeVisible({ timeout: 10000 })
+      page.getByRole('heading', { name: 'Company Timeline' })
+    ).toBeVisible()
+
+    // Should show companies
+    await expect(page.getByText('Timeline Company 1')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Timeline Company 2')).toBeVisible({ timeout: 5000 })
   })
 })
