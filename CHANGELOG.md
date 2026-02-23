@@ -1,3 +1,7 @@
+## v1.19.1 (2026-02-23)
+
+
+
 # Changelog
 
 All notable changes to Autopolio will be documented in this file.
