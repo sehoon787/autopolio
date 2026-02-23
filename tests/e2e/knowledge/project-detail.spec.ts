@@ -91,8 +91,9 @@ test.describe('Project Detail Page', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Check technologies are displayed (as tech badges in Basic Info tab)
-    await expect(page.getByText('Python').first()).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('React').first()).toBeVisible()
+    // Use div[title] selector because TechBadge renders SVG with <title> that interferes with getByText
+    await expect(page.locator('div[title="Python"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('div[title="React"]').first()).toBeVisible()
   })
 
   test('should display three tabs', async ({ page }) => {

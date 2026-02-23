@@ -90,8 +90,9 @@ test.describe('Template List Page', () => {
     await page.goto('/templates')
     await page.waitForLoadState('domcontentloaded')
 
+    // Upload File is rendered as a label > Button asChild > span, not a real <button>
     await expect(
-      page.getByRole('button', { name: 'Upload File' })
+      page.getByText('Upload File')
     ).toBeVisible({ timeout: 5000 })
   })
 

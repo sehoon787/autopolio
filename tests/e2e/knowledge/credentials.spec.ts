@@ -201,7 +201,7 @@ test.describe('Certifications CRUD', () => {
     await page.waitForTimeout(500)
 
     // Wait for certification to appear
-    const certCard = page.locator('.card', { hasText: cert.name || 'AWS Solutions Architect' }).first()
+    const certCard = page.locator('[class*="bg-card"]', { hasText: cert.name || 'AWS Solutions Architect' }).first()
     await expect(certCard).toBeVisible({ timeout: 5000 })
 
     // Click edit (Pencil) button on the card
@@ -240,7 +240,7 @@ test.describe('Certifications CRUD', () => {
     await page.waitForTimeout(500)
 
     // Wait for certification to appear
-    const certCard = page.locator('.card', { hasText: cert.name || 'Delete Me Cert' }).first()
+    const certCard = page.locator('[class*="bg-card"]', { hasText: cert.name || 'Delete Me Cert' }).first()
     await expect(certCard).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler - delete uses browser confirm()
@@ -321,18 +321,15 @@ test.describe('Education CRUD', () => {
     await statusSelect.click()
     await page.getByRole('option', { name: 'Graduated' }).click()
 
-    // Fill school name (with bachelor's degree, it shows UniversityAutocomplete)
-    // Type the school name in the autocomplete input
-    const schoolNameInput = dialog.locator('input').first()
+    // Fill school name (with bachelor's degree, it shows UniversityAutocomplete or plain input)
+    // Use the school_name input directly
+    const schoolNameInput = dialog.locator('#school_name')
     await schoolNameInput.fill('Test University')
-    // Wait for autocomplete to settle, then press Escape to dismiss any dropdown
+    // Wait for autocomplete to settle, then click GPA field to dismiss any dropdown
     await page.waitForTimeout(300)
-    await page.keyboard.press('Escape')
-    // Re-focus on dialog since Escape might close it
-    // The dialog should still be open
-    await expect(dialog).toBeVisible()
 
-    // Fill GPA
+    // Fill GPA (clicking this also dismisses any autocomplete dropdown)
+    await dialog.locator('#gpa').click()
     await dialog.locator('#gpa').fill('3.8')
 
     // Fill dates
@@ -439,7 +436,7 @@ test.describe('Awards CRUD', () => {
     await page.waitForTimeout(300)
 
     // Wait for an award card to exist
-    const awardCard = page.locator('.card').filter({ hasText: /E2E Award/ }).first()
+    const awardCard = page.locator('[class*="bg-card"]').filter({ hasText: /E2E Award/ }).first()
 
     if (await awardCard.isVisible()) {
       // Set up dialog handler - delete uses browser confirm()

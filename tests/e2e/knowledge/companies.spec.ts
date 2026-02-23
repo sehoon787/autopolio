@@ -116,7 +116,7 @@ test.describe('Companies CRUD', () => {
 
     // Find the company card and click the edit (Pencil) icon button
     // The Pencil button is the first icon button in the card's action area
-    const companyCard = page.locator('.card', { hasText: company.name }).first()
+    const companyCard = page.locator('[class*="bg-card"]', { hasText: company.name }).first()
     // Edit button is a ghost icon button with Pencil icon - first in the pair
     await companyCard.locator('button').filter({ has: page.locator('svg.lucide-pencil') }).click()
 
@@ -157,7 +157,7 @@ test.describe('Companies CRUD', () => {
     page.on('dialog', (dialog) => dialog.accept())
 
     // Find the company card and click the delete (Trash2) icon button
-    const companyCard = page.locator('.card', { hasText: company.name }).first()
+    const companyCard = page.locator('[class*="bg-card"]', { hasText: company.name }).first()
     await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
 
     // Verify deleted - company should no longer be visible

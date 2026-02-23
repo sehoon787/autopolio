@@ -22,6 +22,7 @@ import {
   createTestProject,
   cleanupTestData,
   createApiContext,
+  loginAsTestUser,
   TestDataContext,
 } from '../fixtures/api-helpers'
 
@@ -49,6 +50,10 @@ test.describe('Project Analysis UI - With Git URL', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should show analyze button for project with git URL', async ({ page }) => {
@@ -142,6 +147,10 @@ test.describe('Project Analysis UI - Without Git URL', () => {
     } finally {
       await request.dispose()
     }
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
   })
 
   test('should not show analyze button for project without git URL', async ({ page }) => {

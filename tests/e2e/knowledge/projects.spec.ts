@@ -235,8 +235,9 @@ test.describe('Projects with Technologies', () => {
     await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
 
     // Technology badges should be visible on the card
-    await expect(page.getByText('Python').first()).toBeVisible()
-    await expect(page.getByText('React').first()).toBeVisible()
+    // Use div[title] selector because TechBadge renders SVG with <title> that interferes with getByText
+    await expect(page.locator('div[title="Python"]').first()).toBeVisible()
+    await expect(page.locator('div[title="React"]').first()).toBeVisible()
   })
 })
 

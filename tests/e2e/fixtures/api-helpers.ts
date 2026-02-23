@@ -198,7 +198,7 @@ export async function createTestCertification(
   request: APIRequestContext,
   userId: number,
   overrides: Partial<typeof TEST_CERTIFICATION> = {}
-): Promise<{ id: number }> {
+): Promise<{ id: number; name: string }> {
   const timestamp = Date.now()
   // user_id is a query parameter, not body data
   const response = await request.post(`${API_BASE}/knowledge/credentials/certifications?user_id=${userId}`, {
