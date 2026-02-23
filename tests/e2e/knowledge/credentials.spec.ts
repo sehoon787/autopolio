@@ -115,10 +115,10 @@ test.describe('Credentials Page', () => {
     await page.waitForTimeout(300)
 
     // Should show Education/Training/Publications sub-tabs
-    // Use exact match for "Education" to avoid matching "Education & Publications" parent tab
+    // Use exact match to avoid matching "Education & Publications" parent tab
     await expect(page.getByRole('tab', { name: 'Education', exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: /Training/ })).toBeVisible()
-    await expect(page.getByRole('tab', { name: /Publications/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Training', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Publications', exact: true })).toBeVisible()
   })
 })
 

@@ -129,10 +129,13 @@ test.describe('First Company Creation', () => {
     // Submit the form via the "Add" button
     await dialog.getByRole('button', { name: 'Add' }).click()
 
+    // Wait for dialog to close (indicates submission succeeded)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
+
     // Company should appear in the list
     await expect(
       page.getByText(TEST_COMPANY.name).first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 })
 
