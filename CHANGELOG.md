@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.18] - 2026-02-23
+
+### Security
+- **Electron .pyc bytecode packaging** - `.py` source files are no longer included in Electron builds; only compiled `.pyc` bytecode is packaged
+- **Conditional endpoint registration** - `/api/llm/keys` (decrypted API key retrieval) is now only registered when `AUTOPOLIO_RUNTIME=electron`, preventing exposure in Web/Docker deployments
+
+### Added
+- `frontend/scripts/prepare-electron-api.py` - Build script that copies `api/`, `config/`, `data/` to `_electron_api/`, compiles to `.pyc`, and removes `.py` sources
+- `api/routers/llm_keys.py` - Separated `/keys` endpoint for Electron-only registration
+- `AUTOPOLIO_RUNTIME` environment variable for runtime profile detection
+- `prepare:electron-api` npm script in build pipeline
+
+### Changed
+- `electron-builder.json` - `extraResources` now reads from `_electron_api/` (precompiled) instead of `../api` (raw source)
+- `python-env-manager.ts` - `findBackendPath()` now checks for `main.pyc` in addition to `main.py`
+- `backend-manager.ts` - Passes `AUTOPOLIO_RUNTIME=electron` to backend process
+- `electron:build` script now runs `prepare:electron-api` automatically before building
+
+---
+
 ## [1.16] - 2026-02-08
 
 ### Changed

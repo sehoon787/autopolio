@@ -914,6 +914,24 @@ portfolio/
 
 ## 버전 히스토리
 
+### v1.18 (2026-02-23)
+- **Electron Profile Build 보안 강화**
+  - `.py` 소스코드 제거 → `.pyc` 바이트코드만 패키징
+  - `frontend/scripts/prepare-electron-api.py` 빌드 스크립트 추가
+  - `compileall.compile_dir(legacy=True)`로 인플레이스 `.pyc` 컴파일
+  - Python 3.11 버전 호환성 검증
+  - `electron:build` 시 자동으로 `prepare:electron-api` 실행
+- **민감 엔드포인트 조건부 등록**
+  - `AUTOPOLIO_RUNTIME` 환경변수 기반 런타임 프로파일
+  - `/api/llm/keys` (복호화된 API 키 반환) → Electron 전용
+  - `api/routers/llm_keys.py`로 분리, `electron` 모드에서만 등록
+  - Web/Docker 모드에서는 404 반환 (엔드포인트 자체가 미등록)
+- **Electron 빌드 파이프라인 변경**
+  - `electron-builder.json`: `"from": "../api"` → `"from": "_electron_api/api"`
+  - `.pyc` 파일 포함, `.py` 파일 제외 (방어적 필터)
+  - `python-env-manager.ts`: `main.pyc` 존재 체크 추가
+  - `backend-manager.ts`: `AUTOPOLIO_RUNTIME=electron` 환경변수 전달
+
 ### v1.16 (2026-02-08)
 - **LLM 분석 병렬화**
   - Steps 5.2 (key_tasks + detailed_content) + 5.3 (development_timeline + achievements) `asyncio.gather` 병렬 실행
