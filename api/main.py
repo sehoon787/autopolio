@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
+from api import __version__
 from api.config import get_settings
 from api.database import init_db, close_db, cleanup_stale_jobs
 from api.routers import (
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Portfolio/Resume automation platform with GitHub analysis and LLM-powered summaries",
-    version="1.19.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -141,7 +142,7 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": settings.app_name,
-        "version": "1.19.0",
+        "version": __version__,
         "description": "Portfolio/Resume automation platform",
         "docs_url": "/docs",
         "health": "ok",
