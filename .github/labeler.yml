@@ -1,0 +1,48 @@
+# PR Labeler configuration
+# Used by .github/workflows/pr-labeler.yml
+
+api:
+  - changed-files:
+    - any-glob-to-any-file: 'api/**'
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'frontend/src/**'
+
+electron:
+  - changed-files:
+    - any-glob-to-any-file: 'frontend/electron/**'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**'
+
+config:
+  - changed-files:
+    - any-glob-to-any-file: 'config/**'
+
+docker:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'Dockerfile*'
+      - 'docker-compose*'
+      - 'frontend/Dockerfile'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - 'tests/e2e/package.json'

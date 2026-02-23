@@ -1,0 +1,77 @@
+name: Welcome New Contributors
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Welcome
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Welcome new contributors
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const author = isPR
+              ? context.payload.pull_request.user.login
+              : context.payload.issue.user.login;
+            const number = isPR
+              ? context.payload.pull_request.number
+              : context.payload.issue.number;
+
+            // Check if this is the user's first contribution
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              creator: author,
+              state: 'all',
+              per_page: 2,
+            });
+
+            // If this is their only issue/PR, it's their first
+            const isFirst = issues.length <= 1;
+
+            if (!isFirst) {
+              console.log(`${author} is a returning contributor`);
+              return;
+            }
+
+            const prMessage = `Welcome to Autopolio, @${author}! :tada:
+
+            Thank you for your first pull request! A maintainer will review it shortly.
+
+            **While you wait:**
+            - Make sure your PR description clearly explains the changes
+            - Check that all CI checks pass
+            - Feel free to ask questions in the comments
+
+            We appreciate your contribution! :heart:`;
+
+            const issueMessage = `Welcome to Autopolio, @${author}! :wave:
+
+            Thank you for opening your first issue! We'll look into it as soon as possible.
+
+            **To help us resolve this faster:**
+            - Provide as much detail as possible
+            - Include steps to reproduce (for bugs)
+            - Share your environment details (OS, browser, Electron version)
+
+            Thank you for helping improve Autopolio! :heart:`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: isPR ? prMessage : issueMessage,
+            });
+
+            console.log(`Welcomed first-time contributor: ${author}`);

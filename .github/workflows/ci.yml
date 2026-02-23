@@ -1,0 +1,185 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'frontend/src/**'
+      - 'tests/**'
+      - 'config/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile.api'
+      - 'frontend/Dockerfile'
+      - 'pyproject.toml'
+      - 'frontend/package.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'frontend/src/**'
+      - 'tests/**'
+      - 'config/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile.api'
+      - 'frontend/Dockerfile'
+      - 'pyproject.toml'
+      - 'frontend/package.json'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-api:
+    name: API Tests (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Create data directories
+        run: mkdir -p data result
+
+      - name: Create .env for tests
+        run: |
+          cat > .env << 'EOF'
+          DATABASE_URL=sqlite+aiosqlite:///./data/test.db
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
+          LLM_PROVIDER=openai
+          OPENAI_API_KEY=sk-test-dummy-key
+          GITHUB_CLIENT_ID=test-client-id
+          GITHUB_CLIENT_SECRET=test-client-secret
+          DEBUG=true
+          EOF
+
+      - name: Run API tests
+        run: uv run pytest tests/ -m "not requires_github" --tb=short -q
+        env:
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: |
+            tests/test-results/
+          retention-days: 7
+
+  test-e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for Docker
+        run: |
+          cat > .env << 'EOF'
+          DATABASE_URL=sqlite+aiosqlite:///./data/autopolio.db
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
+          LLM_PROVIDER=openai
+          OPENAI_API_KEY=sk-test-dummy-key
+          GITHUB_CLIENT_ID=test-client-id
+          GITHUB_CLIENT_SECRET=test-client-secret
+          DEBUG=true
+          EOF
+
+      - name: Build and start Docker containers
+        run: docker compose up -d --build
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for API..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8085/ > /dev/null 2>&1; then
+              echo "API is ready!"
+              break
+            fi
+            echo "Attempt $i/60..."
+            sleep 2
+          done
+
+      - name: Wait for Frontend to be ready
+        run: |
+          echo "Waiting for Frontend..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3035/ > /dev/null 2>&1; then
+              echo "Frontend is ready!"
+              break
+            fi
+            echo "Attempt $i/60..."
+            sleep 2
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install E2E test dependencies
+        working-directory: tests/e2e
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: tests/e2e
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        working-directory: tests/e2e
+        run: npx playwright test
+        env:
+          CI: true
+          FRONTEND_URL: http://localhost:3035
+          API_BASE_URL: http://localhost:8085/api
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: tests/e2e/test-results/
+          retention-days: 7
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose down
+
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [test-api, test-e2e]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.test-api.result }}" != "success" ]] || \
+             [[ "${{ needs.test-e2e.result }}" != "success" ]]; then
+            echo "One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All CI jobs passed"

@@ -1,0 +1,104 @@
+name: VirusTotal Scan
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  scan:
+    name: Scan Release Binaries
+    runs-on: ubuntu-latest
+    if: github.event.release.assets[0] != null
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          TAG="${{ github.event.release.tag_name }}"
+          gh release download "$TAG" \
+            --repo "${{ github.repository }}" \
+            --dir assets \
+            --pattern '*.exe' \
+            --pattern '*.dmg'
+          echo "=== Downloaded assets ==="
+          ls -la assets/
+
+      - name: Scan with VirusTotal
+        if: env.HAS_VT_KEY == 'true'
+        env:
+          HAS_VT_KEY: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          REPORT=""
+          for file in assets/*; do
+            if [ ! -f "$file" ]; then continue; fi
+            FILENAME=$(basename "$file")
+            FILESIZE=$(stat -c%s "$file")
+            echo "Scanning: $FILENAME ($FILESIZE bytes)"
+
+            # Upload to VirusTotal
+            RESPONSE=$(curl -s --request POST \
+              --url 'https://www.virustotal.com/api/v3/files' \
+              --header "x-apikey: $VT_API_KEY" \
+              --form "file=@$file")
+
+            ANALYSIS_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "")
+
+            if [ -z "$ANALYSIS_ID" ]; then
+              echo "Failed to upload $FILENAME"
+              REPORT="$REPORT\n| $FILENAME | Upload failed | - |"
+              continue
+            fi
+
+            echo "Analysis ID: $ANALYSIS_ID"
+            echo "Waiting for analysis..."
+            sleep 30
+
+            # Get analysis result
+            RESULT=$(curl -s --request GET \
+              --url "https://www.virustotal.com/api/v3/analyses/$ANALYSIS_ID" \
+              --header "x-apikey: $VT_API_KEY")
+
+            MALICIOUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['attributes']['stats'].get('malicious', 0))" 2>/dev/null || echo "?")
+            UNDETECTED=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['attributes']['stats'].get('undetected', 0))" 2>/dev/null || echo "?")
+
+            SHA256=$(sha256sum "$file" | cut -d' ' -f1)
+            VT_LINK="https://www.virustotal.com/gui/file/$SHA256"
+
+            REPORT="$REPORT\n| [$FILENAME]($VT_LINK) | $MALICIOUS/$((MALICIOUS + UNDETECTED)) | $([ "$MALICIOUS" = "0" ] && echo 'Clean' || echo 'Review needed') |"
+            echo "$FILENAME: $MALICIOUS detections"
+          done
+
+          # Add comment to release
+          if [ -n "$REPORT" ]; then
+            COMMENT="## VirusTotal Scan Results\n\n| File | Detections | Status |\n|------|-----------|--------|\n$REPORT\n\nScanned at: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo -e "$COMMENT" > vt-report.md
+            cat vt-report.md
+          fi
+
+      - name: Add scan results to release
+        if: env.HAS_VT_KEY == 'true' && hashFiles('vt-report.md') != ''
+        env:
+          HAS_VT_KEY: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          EXISTING_BODY=$(gh release view "$TAG" --repo "${{ github.repository }}" --json body -q .body)
+          NEW_BODY="$EXISTING_BODY
+
+          ---
+
+          $(cat vt-report.md)"
+          gh release edit "$TAG" \
+            --repo "${{ github.repository }}" \
+            --notes "$NEW_BODY"
+
+      - name: Skip (no API key)
+        if: env.HAS_VT_KEY != 'true'
+        env:
+          HAS_VT_KEY: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+        run: echo "VIRUSTOTAL_API_KEY not configured. Skipping scan."

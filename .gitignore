@@ -68,7 +68,28 @@ playwright-report/
 
 # Temporary files
 nul
+*.tmp
+
+# Debug/test screenshots (root level)
+/*.png
+
+# Debug/test JSON dumps (root level)
+/*_temp.json
+/*_check.json
+/*_result.json
+/docker_*.json
+/electron_*.json
+/openapi_*.json
+/verify_*.json
+/perrepo*.json
+/proj_*.json
+/projects_*.json
+/user_temp.json
+/job_status_temp.json
+
+# E2E test screenshots
 test_*.png
+test-*.png
 
 # Development scripts (logo extraction, template creation)
 /scripts/
@@ -82,6 +103,9 @@ test_*.png
 
 # Electron build artifacts
 frontend/release/
+frontend/release-build/
+frontend/release-new/
+frontend/dist-electron/
 frontend/python-runtime/
 frontend/_electron_api/
 extracted_asar/

@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.19] - 2026-02-23
+
+### Added
+- **GitHub Actions CI/CD 인프라** (`.github/`)
+  - **CI 테스트 파이프라인** (`ci.yml`): pytest API 테스트 + Playwright E2E 테스트 (Docker 기반)
+  - **코드 품질 검사** (`lint.yml`): Python ruff 린트/포맷 + TypeScript tsc 타입 체크
+  - **보안 스캔** (`security.yml`): CodeQL (JS/TS + Python) + Bandit 보안 분석, 주간 자동 실행
+  - **릴리즈 자동화** (`release.yml`): 태그 기반 Windows exe + macOS dmg 빌드, GitHub Release 생성, SHA256 체크섬
+  - **베타 릴리즈** (`beta-release.yml`): `v*-beta.*` / `v*-rc.*` 태그 기반 프리릴리즈
+  - **릴리즈 준비** (`prepare-release.yml`): 버전 범프, CHANGELOG 생성, 릴리즈 브랜치/PR 자동 생성
+  - **VirusTotal 스캔** (`virustotal.yml`): 릴리즈 바이너리 악성코드 스캔 + 결과 릴리즈 노트 첨부
+  - **PR 자동 라벨링** (`pr-labeler.yml` + `labeler.yml`): 변경 파일 경로 기반 자동 라벨 (api, frontend, electron, tests, ci, docs, docker, dependencies)
+  - **이슈 자동 라벨링** (`issue-auto-label.yml`): 이슈 제목/본문 키워드 기반 스마트 라벨링
+  - **Stale 관리** (`stale.yml`): 60일 비활성 이슈/PR 자동 경고, 14일 후 자동 종료
+  - **신규 기여자 환영** (`welcome.yml`): 첫 PR/이슈 작성자에게 환영 메시지
+  - **이슈 템플릿**: 버그 리포트 (`bug_report.yml`), 기능 요청 (`feature_request.yml`) 구조화된 양식
+
+- **테스트 실행 스크립트** (`tests/scripts/`)
+  - `run-all.{sh,bat}`: 전체 테스트 (Docker 확인 → pytest → Playwright) 마스터 오케스트레이터
+  - `run-api-tests.{sh,bat}`: API 테스트만 실행 (venv 자동 생성, 인자 전달)
+  - `run-e2e-tests.{sh,bat}`: E2E 테스트만 실행 (Playwright chromium 자동 설치)
+  - `setup-test-db.sh`: 테스트 DB 초기화 (백업 → 테이블 생성 → 템플릿 초기화)
+  - `generate-report.sh`: pytest HTML 리포트 + Playwright 리포트 생성
+  - Windows (`.bat`) + Unix (`.sh`) 크로스 플랫폼 지원
+
+- **Electron Python 런타임 번들러** (`frontend/scripts/download-python.cjs`)
+  - python-build-standalone에서 사전 빌드된 Python 3.11 다운로드
+  - 크로스 플랫폼 지원 (win32-x64, darwin-arm64, darwin-x64, linux-x64)
+  - pyproject.toml에서 의존성 자동 추출 및 설치
+  - site-packages 스트리핑 (테스트, 문서, __pycache__ 제거)로 번들 크기 최적화
+
+### Housekeeping
+- **임시 파일 대규모 정리**: 디버그 JSON 35개, 테스트 스크린샷 34개, tmp 파일 1개 삭제
+- **.gitignore 강화**
+  - `frontend/dist-electron/`, `frontend/release-build/`, `frontend/release-new/` 추가
+  - 루트 레벨 디버그 패턴: `/*.png`, `/*_temp.json`, `/*_check.json`, `/*_result.json`, `/docker_*.json`, `/electron_*.json`, `/openapi_*.json`, `/verify_*.json` 등
+  - `*.tmp` 패턴 추가
+
+---
+
 ## [1.18] - 2026-02-23
 
 ### Security

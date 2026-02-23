@@ -1,0 +1,76 @@
+name: Issue Auto Label
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    name: Auto Label Issue
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Label based on content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const text = `${title} ${body}`;
+
+            const labels = [];
+
+            // Bug indicators
+            if (/\b(bug|crash|error|broken|fail|exception|traceback|not working)\b/.test(text)) {
+              labels.push('bug');
+            }
+
+            // Feature request indicators
+            if (/\b(feature|request|enhancement|add support|would be nice|suggestion)\b/.test(text)) {
+              labels.push('enhancement');
+            }
+
+            // Documentation indicators
+            if (/\b(doc|documentation|readme|typo|grammar)\b/.test(text)) {
+              labels.push('documentation');
+            }
+
+            // Performance indicators
+            if (/\b(performance|slow|speed|memory|optimization|latency)\b/.test(text)) {
+              labels.push('performance');
+            }
+
+            // Security indicators
+            if (/\b(security|vulnerability|cve|xss|injection|auth)\b/.test(text)) {
+              labels.push('security');
+            }
+
+            // Component detection
+            if (/\b(electron|desktop|exe|dmg|installer)\b/.test(text)) {
+              labels.push('electron');
+            }
+            if (/\b(docker|container|compose)\b/.test(text)) {
+              labels.push('docker');
+            }
+            if (/\b(api|backend|fastapi|endpoint)\b/.test(text)) {
+              labels.push('api');
+            }
+            if (/\b(frontend|ui|react|component|css|style)\b/.test(text)) {
+              labels.push('frontend');
+            }
+
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels,
+              });
+              console.log(`Added labels: ${labels.join(', ')}`);
+            } else {
+              console.log('No matching labels found');
+            }
