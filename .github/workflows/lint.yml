@@ -10,6 +10,7 @@ on:
       - 'pyproject.toml'
       - 'frontend/package.json'
       - 'frontend/tsconfig*.json'
+      - '.github/workflows/lint.yml'
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - 'pyproject.toml'
       - 'frontend/package.json'
       - 'frontend/tsconfig*.json'
+      - '.github/workflows/lint.yml'
   workflow_dispatch:
 
 concurrency:
