@@ -139,6 +139,7 @@ class ProjectsAPI(BaseAPIModule):
     def add_achievement(
         self,
         project_id: int,
+        user_id: int,
         metric_name: str,
         metric_value: str,
         description: Optional[str] = None
@@ -148,6 +149,7 @@ class ProjectsAPI(BaseAPIModule):
 
         Args:
             project_id: Project ID
+            user_id: User ID (required by API)
             metric_name: Name of the metric
             metric_value: Value of the metric
             description: Achievement description
@@ -162,7 +164,11 @@ class ProjectsAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post(f"/knowledge/projects/{project_id}/achievements", json=data)
+        return self._post(
+            "/knowledge/achievements",
+            json=data,
+            params={"project_id": project_id, "user_id": user_id}
+        )
 
     def auto_detect_achievements(self, project_id: int) -> httpx.Response:
         """

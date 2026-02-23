@@ -18,7 +18,10 @@ class TestDocumentList:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
+        # API returns paginated response: {"documents": [...], "total": N, "page": N, "page_size": N}
+        assert "documents" in data
+        assert isinstance(data["documents"], list)
+        assert "total" in data
 
     def test_get_document_not_found(self, api_client):
         """Test getting non-existent document returns 404."""
@@ -77,8 +80,7 @@ class TestExport:
 
         response = api.export_preview(
             user_id=test_user["id"],
-            export_type="performance",
-            format="markdown"
+            report_type="summary"
         )
 
         assert response.status_code == 200
@@ -89,8 +91,7 @@ class TestExport:
 
         response = api.export_markdown(
             user_id=test_user["id"],
-            export_type="performance",
-            project_ids=[test_project["id"]]
+            report_type="summary"
         )
 
         assert response.status_code == 200
@@ -103,19 +104,18 @@ class TestExport:
 
         response = api.export_docx(
             user_id=test_user["id"],
-            export_type="performance",
-            project_ids=[test_project["id"]]
+            report_type="summary"
         )
 
         assert response.status_code == 200
 
-    def test_export_projects_type(self, api_client, test_user, test_project):
-        """Test exporting projects list."""
+    def test_export_detailed_type(self, api_client, test_user, test_project):
+        """Test exporting with detailed report type."""
         api = DocumentsAPI(api_client)
 
         response = api.export_markdown(
             user_id=test_user["id"],
-            export_type="projects"
+            report_type="detailed"
         )
 
         assert response.status_code == 200
@@ -183,7 +183,7 @@ class TestDocumentDownload:
         # Export first
         export_response = api.export_markdown(
             user_id=test_user["id"],
-            export_type="performance"
+            report_type="summary"
         )
 
         if export_response.status_code == 200:

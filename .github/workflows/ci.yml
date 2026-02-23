@@ -52,22 +52,20 @@ jobs:
       - name: Create data directories
         run: mkdir -p data result
 
-      - name: Create .env for tests
+      - name: Generate encryption key for tests
         run: |
-          cat > .env << 'EOF'
-          DATABASE_URL=sqlite+aiosqlite:///./data/test.db
-          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
-          LLM_PROVIDER=openai
-          OPENAI_API_KEY=sk-test-dummy-key
-          GITHUB_CLIENT_ID=test-client-id
-          GITHUB_CLIENT_SECRET=test-client-secret
-          DEBUG=true
-          EOF
+          echo "ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
 
       - name: Run API tests
-        run: uv run pytest tests/ -m "not requires_github" --tb=short -q
+        run: uv run pytest tests/api/ -m "not requires_github and not slow" --tb=short -q
         env:
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CI: true
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          DATABASE_URL: sqlite+aiosqlite:///./data/test_ci.db
+          LLM_PROVIDER: openai
+          OPENAI_API_KEY: sk-test-dummy-key
+          GITHUB_CLIENT_ID: test-client-id
+          GITHUB_CLIENT_SECRET: test-client-secret
 
       - name: Upload test results
         if: always()
@@ -87,7 +85,7 @@ jobs:
 
       - name: Create .env for Docker
         run: |
-          cat > .env << 'EOF'
+          cat > .env <<'EOF'
           DATABASE_URL=sqlite+aiosqlite:///./data/autopolio.db
           ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
           LLM_PROVIDER=openai

@@ -51,7 +51,6 @@ class TemplatesAPI(BaseAPIModule):
             Response with created template
         """
         data = {
-            "user_id": user_id,
             "name": name,
             "platform": platform,
             "template_content": template_content,
@@ -61,7 +60,7 @@ class TemplatesAPI(BaseAPIModule):
         if field_mappings:
             data["field_mappings"] = field_mappings
 
-        return self._post("/templates", json=data)
+        return self._post("/templates", json=data, params={"user_id": user_id})
 
     def get(self, template_id: int) -> httpx.Response:
         """
@@ -100,18 +99,22 @@ class TemplatesAPI(BaseAPIModule):
         """
         return self._delete(f"/templates/{template_id}")
 
-    def clone(self, template_id: int, new_name: str) -> httpx.Response:
+    def clone(self, template_id: int, new_name: str, user_id: int = None) -> httpx.Response:
         """
         Clone a template with a new name.
 
         Args:
             template_id: Template ID to clone
             new_name: Name for the new template
+            user_id: User ID (required by API)
 
         Returns:
             Response with cloned template
         """
-        return self._post(f"/templates/{template_id}/clone", json={"name": new_name})
+        params = {"new_name": new_name}
+        if user_id is not None:
+            params["user_id"] = user_id
+        return self._post(f"/templates/{template_id}/clone", params=params)
 
     def preview(
         self,

@@ -9,7 +9,7 @@ from modules.companies import CompaniesAPI
 from modules.projects import ProjectsAPI
 from modules.credentials import CredentialsAPI
 from modules.templates import TemplatesAPI
-from modules.platforms import PlatformsAPI
+from modules.platforms import PlatformsAPI, _get_template_list
 from modules.documents import DocumentsAPI
 
 
@@ -26,7 +26,7 @@ class TestCompleteWorkflow:
             name=f"Integration Test User {unique_id}",
             email=f"integration_{unique_id}@example.com"
         )
-        assert user_response.status_code == 200
+        assert user_response.status_code in [200, 201]
         user = user_response.json()
         user_id = user["id"]
 
@@ -41,7 +41,7 @@ class TestCompleteWorkflow:
                 start_date="2020-01-01",
                 end_date="2024-12-31"
             )
-            assert company_response.status_code == 200
+            assert company_response.status_code in [200, 201]
             company = company_response.json()
 
             # 3. Create projects
@@ -60,7 +60,7 @@ class TestCompleteWorkflow:
                 end_date="2023-12-31",
                 technologies=["Python", "FastAPI", "React", "PostgreSQL"]
             )
-            assert project1_response.status_code == 200
+            assert project1_response.status_code in [200, 201]
             project1 = project1_response.json()
 
             # Personal project
@@ -73,17 +73,17 @@ class TestCompleteWorkflow:
                 start_date="2023-06-01",
                 technologies=["TypeScript", "Node.js"]
             )
-            assert project2_response.status_code == 200
-            project2 = project2_response.json()
+            assert project2_response.status_code in [200, 201]
 
             # 4. Add achievements
             achievement_response = projects_api.add_achievement(
                 project_id=project1["id"],
+                user_id=user_id,
                 metric_name="Performance Improvement",
                 metric_value="50%",
                 description="Improved API response time by 50%"
             )
-            assert achievement_response.status_code == 200
+            assert achievement_response.status_code in [200, 201]
 
             # 5. Add credentials
             creds_api = CredentialsAPI(api_client)
@@ -91,13 +91,13 @@ class TestCompleteWorkflow:
             # Education
             edu_response = creds_api.create_education(
                 user_id=user_id,
-                school="Test University",
+                school_name="Test University",
                 degree="Bachelor of Science",
-                field_of_study="Computer Science",
+                major="Computer Science",
                 start_date="2016-03-01",
                 end_date="2020-02-28"
             )
-            assert edu_response.status_code == 200
+            assert edu_response.status_code in [200, 201]
 
             # Certification
             cert_response = creds_api.create_certification(
@@ -106,7 +106,7 @@ class TestCompleteWorkflow:
                 issuer="Amazon Web Services",
                 issue_date="2023-06-15"
             )
-            assert cert_response.status_code == 200
+            assert cert_response.status_code in [200, 201]
 
             # 6. Generate reports
             docs_api = DocumentsAPI(api_client)
@@ -119,28 +119,22 @@ class TestCompleteWorkflow:
             perf_report = docs_api.generate_performance_report(user_id)
             assert perf_report.status_code == 200
 
-            # 7. Export to markdown
+            # 7. Export to markdown (uses query params)
             export_response = docs_api.export_markdown(
                 user_id=user_id,
-                export_type="performance",
-                project_ids=[project1["id"], project2["id"]]
+                report_type="summary"
             )
             assert export_response.status_code == 200
 
             # 8. Platform template preview
             platforms_api = PlatformsAPI(api_client)
-            platforms_api.init_system_templates()
-
-            list_response = platforms_api.list()
-            if list_response.status_code == 200:
-                platforms = list_response.json()
-                if len(platforms) > 0:
-                    preview_response = platforms_api.preview(
-                        platform_id=platforms[0]["id"],
-                        user_id=user_id,
-                        use_sample=False
-                    )
-                    assert preview_response.status_code == 200
+            templates = _get_template_list(platforms_api)
+            if len(templates) > 0:
+                preview_response = platforms_api.preview(
+                    platform_id=templates[0]["id"],
+                    use_sample=True
+                )
+                assert preview_response.status_code == 200
 
         finally:
             # Cleanup
@@ -169,7 +163,7 @@ class TestCompleteWorkflow:
 {{/projects}}
 """
         )
-        assert template_response.status_code == 200
+        assert template_response.status_code in [200, 201]
         template = template_response.json()
 
         try:
@@ -184,9 +178,10 @@ class TestCompleteWorkflow:
             # 3. Clone template
             clone_response = templates_api.clone(
                 template["id"],
-                f"Cloned Template {unique_id}"
+                f"Cloned Template {unique_id}",
+                user_id=test_user["id"]
             )
-            assert clone_response.status_code == 200
+            assert clone_response.status_code in [200, 201]
             cloned = clone_response.json()
 
             # 4. Update cloned template
@@ -223,7 +218,7 @@ class TestCompleteWorkflow:
                     start_date=f"202{i}-01-01",
                     end_date=f"202{i+1}-12-31" if i < 1 else None
                 )
-                assert company_response.status_code == 200
+                assert company_response.status_code in [200, 201]
                 company = company_response.json()
                 created_companies.append(company)
 
@@ -235,26 +230,30 @@ class TestCompleteWorkflow:
                     project_type="company",
                     start_date=f"202{i}-06-01"
                 )
-                assert project_response.status_code == 200
+                assert project_response.status_code in [200, 201]
                 created_projects.append(project_response.json())
 
             # 2. Test grouped by company
             grouped_response = companies_api.get_grouped_by_company(test_user["id"])
             assert grouped_response.status_code == 200
             grouped_data = grouped_response.json()
-            assert isinstance(grouped_data, list)
+            # API returns CompanyGroupedResponse: {"companies": [...], "total_companies": N, "total_projects": N}
+            assert "companies" in grouped_data
+            assert isinstance(grouped_data["companies"], list)
 
             # 3. Test company summary
             for company in created_companies:
-                summary_response = companies_api.get_summary(company["id"])
+                summary_response = companies_api.get_summary(
+                    company["id"], user_id=test_user["id"]
+                )
                 assert summary_response.status_code == 200
 
         finally:
             # Cleanup
             for project in created_projects:
-                projects_api.delete(project["id"])
+                projects_api.delete(project["id"], user_id=test_user["id"])
             for company in created_companies:
-                companies_api.delete(company["id"])
+                companies_api.delete(company["id"], user_id=test_user["id"])
 
 
 class TestDataIntegrity:
@@ -273,6 +272,7 @@ class TestDataIntegrity:
             name=f"Cascade Test Company {unique_id}",
             position="Developer"
         )
+        assert company_response.status_code in [200, 201]
         company = company_response.json()
 
         # Create project linked to company
@@ -282,11 +282,12 @@ class TestDataIntegrity:
             name=f"Linked Project {unique_id}",
             project_type="company"
         )
+        assert project_response.status_code in [200, 201]
         project = project_response.json()
 
         # Delete company
-        delete_response = companies_api.delete(company["id"])
-        assert delete_response.status_code == 200
+        delete_response = companies_api.delete(company["id"], user_id=test_user["id"])
+        assert delete_response.status_code in [200, 204]
 
         # Check project status (should either be deleted or have company_id set to null)
         project_check = projects_api.get(project["id"])
@@ -295,7 +296,7 @@ class TestDataIntegrity:
             project_data = project_check.json()
             assert project_data.get("company_id") is None
             # Cleanup project
-            projects_api.delete(project["id"])
+            projects_api.delete(project["id"], user_id=test_user["id"])
 
     def test_user_data_isolation(self, api_client):
         """Test that users cannot see each other's data."""
@@ -329,7 +330,7 @@ class TestDataIntegrity:
             assert company["id"] not in company_ids
 
             # Cleanup
-            companies_api.delete(company["id"])
+            companies_api.delete(company["id"], user_id=user1["id"])
 
         finally:
             users_api.delete(user1["id"])

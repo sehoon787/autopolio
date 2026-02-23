@@ -152,6 +152,7 @@ class TestProjectAchievements:
 
         response = api.add_achievement(
             project_id=test_project["id"],
+            user_id=test_project["user_id"],
             metric_name="Performance Improvement",
             metric_value="50%",
             description="Improved API response time by 50%"
