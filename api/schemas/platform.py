@@ -5,8 +5,10 @@ from typing import Optional, List, Dict, Any
 
 # ===== Field Mapping Schemas =====
 
+
 class FieldDefinition(BaseModel):
     """Definition of a single field in the template."""
+
     name: str
     type: str  # text, email, tel, url, textarea, date, list
     label: str
@@ -17,6 +19,7 @@ class FieldDefinition(BaseModel):
 
 class SectionDefinition(BaseModel):
     """Definition of a section (experiences, projects, etc.)."""
+
     label: str
     label_en: Optional[str] = None
     fields: List[FieldDefinition]
@@ -24,14 +27,17 @@ class SectionDefinition(BaseModel):
 
 class FieldMappings(BaseModel):
     """Complete field mappings for a platform template."""
+
     common_fields: List[FieldDefinition]
     section_fields: Dict[str, SectionDefinition]
 
 
 # ===== Platform Template Schemas =====
 
+
 class PlatformTemplateBase(BaseModel):
     """Base schema for platform template."""
+
     name: str
     platform_key: str
     description: Optional[str] = None
@@ -42,6 +48,7 @@ class PlatformTemplateBase(BaseModel):
 
 class PlatformTemplateCreate(PlatformTemplateBase):
     """Schema for creating a platform template."""
+
     html_content: Optional[str] = None
     css_content: Optional[str] = None
     field_mappings: Optional[Dict[str, Any]] = None
@@ -50,6 +57,7 @@ class PlatformTemplateCreate(PlatformTemplateBase):
 
 class PlatformTemplateUpdate(BaseModel):
     """Schema for updating a platform template."""
+
     name: Optional[str] = None
     description: Optional[str] = None
     html_content: Optional[str] = None
@@ -61,6 +69,7 @@ class PlatformTemplateUpdate(BaseModel):
 
 class PlatformTemplateResponse(PlatformTemplateBase):
     """Response schema for platform template."""
+
     id: int
     user_id: Optional[int] = None
     html_content: Optional[str] = None
@@ -82,6 +91,7 @@ class PlatformTemplateResponse(PlatformTemplateBase):
 
 class PlatformTemplateListItem(BaseModel):
     """Simplified response for listing platform templates."""
+
     id: int
     name: str
     platform_key: str
@@ -97,14 +107,17 @@ class PlatformTemplateListItem(BaseModel):
 
 class PlatformTemplateListResponse(BaseModel):
     """Response for listing platform templates."""
+
     templates: List[PlatformTemplateListItem]
     total: int
 
 
 # ===== Render/Export Schemas =====
 
+
 class ExperienceData(BaseModel):
     """Experience data for rendering."""
+
     company_name: str
     position: Optional[str] = None
     start_date: Optional[str] = None
@@ -126,6 +139,7 @@ class ProjectData(BaseModel):
     - achievements_detailed_list: List of detailed achievements with category.
       Expected format: [{"category": "성능 개선", "title": "응답 시간 40% 단축", "description": "..."}]
     """
+
     name: str
     company_name: Optional[str] = None
     start_date: Optional[str] = None
@@ -139,13 +153,18 @@ class ProjectData(BaseModel):
     has_key_tasks: bool = False
     team_size: Optional[int] = None
     implementation_details: Optional[List[Dict[str, Any]]] = None
-    achievements_summary_list: Optional[List[Dict[str, Any]]] = None  # [{category, title}] - DEFAULT
-    achievements_detailed_list: Optional[List[Dict[str, Any]]] = None  # [{category, title, description}]
+    achievements_summary_list: Optional[List[Dict[str, Any]]] = (
+        None  # [{category, title}] - DEFAULT
+    )
+    achievements_detailed_list: Optional[List[Dict[str, Any]]] = (
+        None  # [{category, title, description}]
+    )
     has_achievements: bool = False
 
 
 class SkillsData(BaseModel):
     """Skills data for rendering."""
+
     languages: Optional[List[str]] = None
     frameworks: Optional[List[str]] = None
     databases: Optional[List[str]] = None
@@ -154,6 +173,7 @@ class SkillsData(BaseModel):
 
 class EducationData(BaseModel):
     """Education data for rendering."""
+
     school_name: str
     major: Optional[str] = None
     start_date: Optional[str] = None
@@ -163,6 +183,7 @@ class EducationData(BaseModel):
 
 class CertificationData(BaseModel):
     """Certification data for rendering."""
+
     name: str
     issuer: Optional[str] = None
     date: Optional[str] = None
@@ -170,6 +191,7 @@ class CertificationData(BaseModel):
 
 class RenderDataRequest(BaseModel):
     """Request schema for rendering a template with user data."""
+
     # Basic info
     name: str
     email: Optional[str] = None
@@ -209,18 +231,21 @@ class RenderDataRequest(BaseModel):
 
 class RenderResponse(BaseModel):
     """Response for template rendering."""
+
     html: str
     generated_date: str
 
 
 class ExportRequest(BaseModel):
     """Request for exporting a rendered template."""
+
     data: RenderDataRequest
     format: str = "html"  # html, docx, md
 
 
 class ExportResponse(BaseModel):
     """Response for template export."""
+
     filename: str
     download_url: str
     format: str
@@ -229,19 +254,23 @@ class ExportResponse(BaseModel):
 
 class PreviewRequest(BaseModel):
     """Request for template preview."""
+
     data: Optional[RenderDataRequest] = None
     use_sample_data: bool = True  # Use sample data when data is None
 
 
 class PreviewResponse(BaseModel):
     """Response for template preview (HTML for iframe)."""
+
     html: str
 
 
 # ===== Platform Info Schemas =====
 
+
 class PlatformInfo(BaseModel):
     """Information about a supported platform."""
+
     key: str
     name: str
     name_en: str
@@ -254,4 +283,5 @@ class PlatformInfo(BaseModel):
 
 class PlatformListResponse(BaseModel):
     """Response for listing supported platforms."""
+
     platforms: List[PlatformInfo]

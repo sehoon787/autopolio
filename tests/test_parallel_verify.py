@@ -8,10 +8,10 @@ that they run concurrently (total time ≈ max(delay_a, delay_b), not sum).
 Usage:
     uv run python -m pytest tests/test_parallel_verify.py -v
 """
+
 import asyncio
 import time
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # Simulated delays (seconds)
@@ -25,7 +25,7 @@ PARALLEL_THRESHOLD = 3.0  # anything under 3s proves parallel execution
 async def test_sync_endpoint_parallel_execution():
     """
     Verify the sync /analyze endpoint runs Steps 5.2+5.3 in parallel.
-    
+
     Mocks phase5_generate_key_tasks and phase5_generate_detailed_content
     with 2-second delays, then checks total elapsed < 3s.
     """
@@ -37,7 +37,10 @@ async def test_sync_endpoint_parallel_execution():
 
     async def mock_detailed_content(ctx, project_data):
         await asyncio.sleep(DELAY_DETAILED_CONTENT)
-        ctx.detailed_content = {"implementation_details": [], "development_timeline": ""}
+        ctx.detailed_content = {
+            "implementation_details": [],
+            "development_timeline": "",
+        }
         return ctx.detailed_content
 
     # Simulate the exact code path from github_analysis.py lines 142-148
@@ -47,7 +50,13 @@ async def test_sync_endpoint_parallel_execution():
         total_tokens = 0
 
     ctx = FakeCtx()
-    project_data = {"name": "test", "description": None, "role": None, "start_date": None, "end_date": None}
+    project_data = {
+        "name": "test",
+        "description": None,
+        "role": None,
+        "start_date": None,
+        "end_date": None,
+    }
 
     start = time.time()
     await asyncio.gather(
@@ -64,24 +73,32 @@ async def test_sync_endpoint_parallel_execution():
 
     # Verify both results were written
     assert ctx.key_tasks == ["task1", "task2", "task3"], "key_tasks not populated"
-    assert "implementation_details" in ctx.detailed_content, "detailed_content not populated"
+    assert "implementation_details" in ctx.detailed_content, (
+        "detailed_content not populated"
+    )
 
-    print(f"\n✅ Parallel execution verified: {elapsed:.2f}s (threshold: {PARALLEL_THRESHOLD}s)")
+    print(
+        f"\n✅ Parallel execution verified: {elapsed:.2f}s (threshold: {PARALLEL_THRESHOLD}s)"
+    )
 
 
 @pytest.mark.asyncio
 async def test_background_runner_parallel_execution():
     """
     Verify the background analysis runner runs Steps 5+6 in parallel.
-    
+
     Mirrors the asyncio.gather pattern from analysis_job_runner.py lines 304-306.
     """
 
-    async def mock_generate_key_tasks_bg(project_id, analysis_result, llm_service, language):
+    async def mock_generate_key_tasks_bg(
+        project_id, analysis_result, llm_service, language
+    ):
         await asyncio.sleep(DELAY_KEY_TASKS)
         return (["bg_task1", "bg_task2"], 100)  # (key_tasks, tokens)
 
-    async def mock_generate_detailed_content(project_data, analysis_data, llm_service, language):
+    async def mock_generate_detailed_content(
+        project_data, analysis_data, llm_service, language
+    ):
         await asyncio.sleep(DELAY_DETAILED_CONTENT)
         return ({"impl": "details"}, 200)  # (content, tokens)
 
@@ -110,7 +127,9 @@ async def test_background_runner_parallel_execution():
     assert detailed_content == {"impl": "details"}
     assert tokens_6 == 200
 
-    print(f"\n✅ Background parallel execution verified: {elapsed:.2f}s (threshold: {PARALLEL_THRESHOLD}s)")
+    print(
+        f"\n✅ Background parallel execution verified: {elapsed:.2f}s (threshold: {PARALLEL_THRESHOLD}s)"
+    )
 
 
 @pytest.mark.asyncio
@@ -137,7 +156,9 @@ async def test_error_in_one_does_not_block_other():
     elapsed = time.time() - start
 
     # Both should complete (not short-circuit)
-    assert elapsed >= 0.9, f"Completed too fast ({elapsed:.1f}s) — the successful task didn't run"
+    assert elapsed >= 0.9, (
+        f"Completed too fast ({elapsed:.1f}s) — the successful task didn't run"
+    )
     assert elapsed < 2.0, f"Took too long ({elapsed:.1f}s) — tasks ran sequentially"
 
     # Step 5 should be an exception
@@ -145,11 +166,15 @@ async def test_error_in_one_does_not_block_other():
     assert "LLM key_tasks failed" in str(results[0])
 
     # Step 6 should succeed
-    assert not isinstance(results[1], Exception), f"Step 6 should not fail: {results[1]}"
+    assert not isinstance(results[1], Exception), (
+        f"Step 6 should not fail: {results[1]}"
+    )
     content, tokens = results[1]
     assert content == {"impl": "success"}
 
-    print(f"\n✅ Error isolation verified: one failure doesn't block the other ({elapsed:.2f}s)")
+    print(
+        f"\n✅ Error isolation verified: one failure doesn't block the other ({elapsed:.2f}s)"
+    )
 
 
 @pytest.mark.asyncio
@@ -179,7 +204,7 @@ async def test_sequential_dependency_after_parallel():
 
     # Parallel: key_tasks + detailed_content
     key_tasks_result = None
-    
+
     async def capture_key_tasks():
         nonlocal key_tasks_result
         key_tasks_result = await mock_key_tasks()
@@ -190,7 +215,7 @@ async def test_sequential_dependency_after_parallel():
     )
 
     # Sequential: AI summary depends on key_tasks
-    summary = await mock_ai_summary(key_tasks_result)
+    await mock_ai_summary(key_tasks_result)
 
     # Verify ordering
     assert "ai_summary" in execution_order, "AI summary didn't run"

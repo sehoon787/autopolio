@@ -25,14 +25,17 @@ settings = get_settings()
 
 # ==================== Schemas ====================
 
+
 class OAuthConnectResponse(BaseModel):
     """Response for OAuth connect endpoint"""
+
     auth_url: str
     provider: str
 
 
 class OAuthIdentityResponse(BaseModel):
     """Response for OAuth identity"""
+
     id: int
     provider: str
     username: Optional[str]
@@ -44,15 +47,18 @@ class OAuthIdentityResponse(BaseModel):
 
 class OAuthIdentitiesResponse(BaseModel):
     """Response for list of OAuth identities"""
+
     identities: list[OAuthIdentityResponse]
 
 
 class AvailableProvidersResponse(BaseModel):
     """Response for available OAuth providers"""
+
     providers: list[dict]
 
 
 # ==================== Helper Functions ====================
+
 
 def encode_state(data: dict) -> str:
     """Encode state data to base64 string"""
@@ -85,7 +91,7 @@ def get_frontend_redirect_url(
     user_id: int,
     provider: str,
     is_electron: bool = False,
-    redirect_path: str = "/setup/github"
+    redirect_path: str = "/setup/github",
 ) -> str:
     """Get the frontend URL to redirect to after OAuth"""
     params = {
@@ -103,6 +109,7 @@ def get_frontend_redirect_url(
 
 # ==================== Endpoints ====================
 
+
 @router.get("/providers", response_model=AvailableProvidersResponse)
 async def get_available_providers():
     """
@@ -116,10 +123,16 @@ async def get_available_providers():
 @router.get("/{provider}/connect", response_model=OAuthConnectResponse)
 async def oauth_connect(
     provider: str,
-    redirect_path: str = Query("/setup/github", description="Path to redirect to after OAuth"),
-    is_electron: bool = Query(False, description="Whether request is from Electron app"),
+    redirect_path: str = Query(
+        "/setup/github", description="Path to redirect to after OAuth"
+    ),
+    is_electron: bool = Query(
+        False, description="Whether request is from Electron app"
+    ),
     user_id: Optional[int] = Query(None, description="User ID for account linking"),
-    frontend_origin: Optional[str] = Query(None, description="Frontend origin for redirect after OAuth"),
+    frontend_origin: Optional[str] = Query(
+        None, description="Frontend origin for redirect after OAuth"
+    ),
 ):
     """
     Start OAuth flow for a provider.
@@ -136,8 +149,7 @@ async def oauth_connect(
     # Validate provider
     if not OAuthProviderFactory.is_provider_configured(provider):
         raise HTTPException(
-            status_code=400,
-            detail=f"OAuth provider '{provider}' is not configured"
+            status_code=400, detail=f"OAuth provider '{provider}' is not configured"
         )
 
     # Get provider instance
@@ -175,7 +187,7 @@ async def oauth_callback(
     provider: str,
     code: str = Query(..., description="Authorization code from provider"),
     state: str = Query("", description="State parameter"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     OAuth callback handler.
@@ -197,8 +209,7 @@ async def oauth_callback(
     # Validate provider
     if not OAuthProviderFactory.is_provider_configured(provider):
         raise HTTPException(
-            status_code=400,
-            detail=f"OAuth provider '{provider}' is not configured"
+            status_code=400, detail=f"OAuth provider '{provider}' is not configured"
         )
 
     try:
@@ -239,7 +250,7 @@ async def oauth_callback(
 async def oauth_disconnect(
     provider: str,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Disconnect an OAuth provider from a user's account.
@@ -270,6 +281,7 @@ async def oauth_disconnect(
     # github_username is used to identify the user when they reconnect later
     if provider == "github":
         from api.models.user import User
+
         result = await db.execute(select(User).filter(User.id == user_id))
         user = result.scalar_one_or_none()
         if user and user.github_token_encrypted:
@@ -281,8 +293,7 @@ async def oauth_disconnect(
 
     if not disconnected:
         raise HTTPException(
-            status_code=404,
-            detail=f"OAuth connection for '{provider}' not found"
+            status_code=404, detail=f"OAuth connection for '{provider}' not found"
         )
 
     await db.commit()
@@ -291,8 +302,7 @@ async def oauth_disconnect(
 
 @router.get("/identities", response_model=OAuthIdentitiesResponse)
 async def get_oauth_identities(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """
     Get all OAuth identities for a user.
@@ -326,7 +336,7 @@ async def get_oauth_identities(
 async def set_primary_identity(
     provider: str,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Set an OAuth identity as the primary login method.
@@ -343,8 +353,7 @@ async def set_primary_identity(
     success = await oauth_service.set_primary_identity(user_id, provider)
     if not success:
         raise HTTPException(
-            status_code=404,
-            detail=f"OAuth connection for '{provider}' not found"
+            status_code=404, detail=f"OAuth connection for '{provider}' not found"
         )
 
     await db.commit()

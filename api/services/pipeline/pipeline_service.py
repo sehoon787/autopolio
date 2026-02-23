@@ -26,14 +26,13 @@ Fixed (v1.17):
   were never committed (only flushed), causing the pipeline to appear
   stuck at 'pending' when polled from frontend.
 """
+
 import logging
 import time
 import traceback
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
-logger = logging.getLogger(__name__)
 
 from api.models.user import User
 from api.services.core import TaskService, EncryptionService
@@ -52,6 +51,8 @@ from .pipeline_steps import (
     step_template_mapping,
     step_document_generation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineService:
@@ -73,9 +74,7 @@ class PipelineService:
         self.encryption = EncryptionService()
 
     async def run_pipeline(
-        self,
-        task_id: str,
-        request: PipelineRunRequest
+        self, task_id: str, request: PipelineRunRequest
     ) -> Dict[str, Any]:
         """Run the complete pipeline using its own DB session.
 
@@ -112,8 +111,7 @@ class PipelineService:
                 # Step 1: GitHub Analysis
                 logger.info("[Pipeline] Step 1: GitHub Analysis (task=%s)", task_id)
                 github_results = await step_github_analysis(
-                    db, self.user_id, task_service,
-                    request, user, self.encryption
+                    db, self.user_id, task_service, request, user, self.encryption
                 )
                 await db.commit()
 
@@ -132,10 +130,10 @@ class PipelineService:
                 await db.commit()
 
                 # Step 4: Achievement Detection
-                logger.info("[Pipeline] Step 4: Achievement Detection (task=%s)", task_id)
-                achievement_results = await step_achievement_detection(
-                    db, task_service, request, user
+                logger.info(
+                    "[Pipeline] Step 4: Achievement Detection (task=%s)", task_id
                 )
+                await step_achievement_detection(db, task_service, request, user)
                 await db.commit()
 
                 # Step 5: LLM Summarization
@@ -149,25 +147,36 @@ class PipelineService:
                 # Step 6: Template Mapping
                 logger.info("[Pipeline] Step 6: Template Mapping (task=%s)", task_id)
                 mapping_results = await step_template_mapping(
-                    db, self.user_id, task_service,
-                    request, user, summary_results, document_service
+                    db,
+                    self.user_id,
+                    task_service,
+                    request,
+                    user,
+                    summary_results,
+                    document_service,
                 )
                 await db.commit()
 
                 # Step 7: Document Generation
                 logger.info("[Pipeline] Step 7: Document Generation (task=%s)", task_id)
                 document = await step_document_generation(
-                    db, self.user_id, task_service,
-                    request, mapping_results, document_service
+                    db,
+                    self.user_id,
+                    task_service,
+                    request,
+                    mapping_results,
+                    document_service,
                 )
                 await db.commit()
 
                 # Calculate generation time
                 generation_time = time.time() - start_time
-                llm_provider = request.llm_provider or (user.preferred_llm if user else None)
+                llm_provider = request.llm_provider or (
+                    user.preferred_llm if user else None
+                )
 
                 # Complete the job
-                cli_mode = getattr(request, 'cli_mode', None)
+                cli_mode = getattr(request, "cli_mode", None)
                 output_data = {
                     "document_id": document.id,
                     "document_name": document.document_name,
@@ -185,15 +194,14 @@ class PipelineService:
                 await task_service.complete_job(task_id, output_data)
                 await db.commit()
 
-                logger.info("[Pipeline] Completed in %.1fs (task=%s)", generation_time, task_id)
+                logger.info(
+                    "[Pipeline] Completed in %.1fs (task=%s)", generation_time, task_id
+                )
                 return output_data
 
             except Exception as e:
                 tb_str = traceback.format_exc()
-                logger.error(
-                    "[Pipeline] Failed (task=%s): %s\n%s",
-                    task_id, e, tb_str
-                )
+                logger.error("[Pipeline] Failed (task=%s): %s\n%s", task_id, e, tb_str)
                 try:
                     await task_service.fail_job(
                         task_id,
@@ -201,9 +209,11 @@ class PipelineService:
                         {
                             "exception_type": type(e).__name__,
                             "traceback": tb_str[-2000:],
-                        }
+                        },
                     )
                     await db.commit()
                 except Exception as commit_err:
-                    logger.error("[Pipeline] Failed to save error state: %s", commit_err)
+                    logger.error(
+                        "[Pipeline] Failed to save error state: %s", commit_err
+                    )
                 raise

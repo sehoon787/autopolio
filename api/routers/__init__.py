@@ -7,4 +7,3 @@ Usage:
     from api.routers import github, documents, users, ...
     app.include_router(github.router, prefix="/api/github")
 """
-

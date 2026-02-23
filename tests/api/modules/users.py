@@ -72,7 +72,7 @@ class UsersAPI(BaseAPIModule):
         Returns:
             Response with user data
         """
-        return self._post("/users/get-or-create", json={
-            "email": email,
-            "name": name or email.split("@")[0]
-        })
+        return self._post(
+            "/users/get-or-create",
+            json={"email": email, "name": name or email.split("@")[0]},
+        )

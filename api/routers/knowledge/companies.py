@@ -14,13 +14,17 @@ from api.models.company import Company
 from api.models.user import User
 from api.models.project import Project, ProjectTechnology
 from api.schemas.company import (
-    CompanyCreate, CompanyUpdate, CompanyResponse,
-    CompanySummaryResponse, CompanyGroupedResponse, ProjectSummary
+    CompanyCreate,
+    CompanyUpdate,
+    CompanyResponse,
+    CompanySummaryResponse,
+    CompanyGroupedResponse,
+    ProjectSummary,
 )
 
 # Logo upload settings
 LOGO_DIR = "data/logos"
-ALLOWED_LOGO_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
+ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5MB
 
 router = APIRouter()
@@ -29,30 +33,92 @@ router = APIRouter()
 # Technology categories for grouping
 TECH_CATEGORIES = {
     "Backend": [
-        "Python", "FastAPI", "Django", "Flask", "Spring", "Spring Boot", "Java", "Kotlin",
-        "Node.js", "Express", "NestJS", "Go", "Rust", "Ruby", "Rails", "PHP", "Laravel",
-        ".NET", "C#", "ASP.NET"
+        "Python",
+        "FastAPI",
+        "Django",
+        "Flask",
+        "Spring",
+        "Spring Boot",
+        "Java",
+        "Kotlin",
+        "Node.js",
+        "Express",
+        "NestJS",
+        "Go",
+        "Rust",
+        "Ruby",
+        "Rails",
+        "PHP",
+        "Laravel",
+        ".NET",
+        "C#",
+        "ASP.NET",
     ],
     "Frontend": [
-        "React", "Vue", "Angular", "Next.js", "Nuxt.js", "Svelte", "TypeScript", "JavaScript",
-        "HTML", "CSS", "SCSS", "Tailwind CSS", "Bootstrap", "Material UI", "Ant Design"
+        "React",
+        "Vue",
+        "Angular",
+        "Next.js",
+        "Nuxt.js",
+        "Svelte",
+        "TypeScript",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "SCSS",
+        "Tailwind CSS",
+        "Bootstrap",
+        "Material UI",
+        "Ant Design",
     ],
     "Mobile": [
-        "Flutter", "React Native", "Swift", "SwiftUI", "Kotlin", "Android", "iOS",
-        "Xamarin", "Ionic"
+        "Flutter",
+        "React Native",
+        "Swift",
+        "SwiftUI",
+        "Kotlin",
+        "Android",
+        "iOS",
+        "Xamarin",
+        "Ionic",
     ],
     "Database": [
-        "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Oracle", "SQL Server",
-        "DynamoDB", "Cassandra", "Elasticsearch"
+        "PostgreSQL",
+        "MySQL",
+        "MongoDB",
+        "Redis",
+        "SQLite",
+        "Oracle",
+        "SQL Server",
+        "DynamoDB",
+        "Cassandra",
+        "Elasticsearch",
     ],
     "DevOps/Infra": [
-        "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Jenkins", "GitHub Actions",
-        "GitLab CI", "Terraform", "Ansible", "Nginx", "Linux"
+        "Docker",
+        "Kubernetes",
+        "AWS",
+        "GCP",
+        "Azure",
+        "Jenkins",
+        "GitHub Actions",
+        "GitLab CI",
+        "Terraform",
+        "Ansible",
+        "Nginx",
+        "Linux",
     ],
     "AI/ML": [
-        "TensorFlow", "PyTorch", "scikit-learn", "Keras", "OpenAI", "LangChain",
-        "Pandas", "NumPy", "OpenCV"
-    ]
+        "TensorFlow",
+        "PyTorch",
+        "scikit-learn",
+        "Keras",
+        "OpenAI",
+        "LangChain",
+        "Pandas",
+        "NumPy",
+        "OpenCV",
+    ],
 }
 
 
@@ -91,7 +157,7 @@ async def get_companies(
     user_id: int = Query(..., description="User ID"),
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all companies for a user."""
     result = await db.execute(
@@ -107,8 +173,7 @@ async def get_companies(
 
 @router.get("/grouped-by-company", response_model=CompanyGroupedResponse)
 async def get_companies_grouped(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """Get all companies with their projects grouped together."""
     # Get all companies for user
@@ -128,7 +193,11 @@ async def get_companies_grouped(
         projects_result = await db.execute(
             select(Project)
             .where(Project.company_id == company.id)
-            .options(selectinload(Project.technologies).selectinload(ProjectTechnology.technology))
+            .options(
+                selectinload(Project.technologies).selectinload(
+                    ProjectTechnology.technology
+                )
+            )
             .order_by(Project.start_date.desc())
         )
         projects = projects_result.scalars().all()
@@ -138,40 +207,50 @@ async def get_companies_grouped(
         project_summaries = []
 
         for project in projects:
-            tech_names = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+            tech_names = (
+                [pt.technology.name for pt in project.technologies if pt.technology]
+                if project.technologies
+                else []
+            )
             all_technologies.update(tech_names)
 
-            project_summaries.append(ProjectSummary(
-                id=project.id,
-                name=project.name,
-                start_date=project.start_date,
-                end_date=project.end_date,
-                role=project.role,
-                description=project.description,
-                git_url=project.git_url,
-                team_size=project.team_size,
-                technologies=tech_names
-            ))
+            project_summaries.append(
+                ProjectSummary(
+                    id=project.id,
+                    name=project.name,
+                    start_date=project.start_date,
+                    end_date=project.end_date,
+                    role=project.role,
+                    description=project.description,
+                    git_url=project.git_url,
+                    team_size=project.team_size,
+                    technologies=tech_names,
+                )
+            )
 
         sorted_technologies = sorted(list(all_technologies))
         tech_categories = categorize_technologies(sorted_technologies)
-        date_range = format_date_range(company.start_date, company.end_date, company.is_current)
+        date_range = format_date_range(
+            company.start_date, company.end_date, company.is_current
+        )
 
-        company_summaries.append(CompanySummaryResponse(
-            company=CompanyResponse.model_validate(company),
-            projects=project_summaries,
-            project_count=len(projects),
-            aggregated_tech_stack=sorted_technologies,
-            tech_categories=tech_categories,
-            date_range=date_range
-        ))
+        company_summaries.append(
+            CompanySummaryResponse(
+                company=CompanyResponse.model_validate(company),
+                projects=project_summaries,
+                project_count=len(projects),
+                aggregated_tech_stack=sorted_technologies,
+                tech_categories=tech_categories,
+                date_range=date_range,
+            )
+        )
 
         total_projects += len(projects)
 
     return CompanyGroupedResponse(
         companies=company_summaries,
         total_companies=len(companies),
-        total_projects=total_projects
+        total_projects=total_projects,
     )
 
 
@@ -179,7 +258,7 @@ async def get_companies_grouped(
 async def get_company(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get a specific company by ID."""
     result = await db.execute(
@@ -197,7 +276,7 @@ async def get_company(
 async def create_company(
     company_data: CompanyCreate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a new company."""
     # Verify user exists
@@ -205,10 +284,7 @@ async def create_company(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")
 
-    company = Company(
-        user_id=user_id,
-        **company_data.model_dump()
-    )
+    company = Company(user_id=user_id, **company_data.model_dump())
     db.add(company)
     await db.flush()
     await db.refresh(company)
@@ -220,7 +296,7 @@ async def update_company(
     company_id: int,
     company_data: CompanyUpdate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Update a company."""
     result = await db.execute(
@@ -243,7 +319,7 @@ async def update_company(
 async def delete_company(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete a company."""
     result = await db.execute(
@@ -260,7 +336,7 @@ async def delete_company(
 async def get_company_projects(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all projects for a company."""
     result = await db.execute(
@@ -281,7 +357,7 @@ async def get_company_projects(
         "company_id": company_id,
         "company_name": company.name,
         "projects": projects,
-        "total": len(projects)
+        "total": len(projects),
     }
 
 
@@ -290,7 +366,7 @@ async def link_project_to_company(
     company_id: int,
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Link an existing project to a company."""
     # Verify company exists and belongs to user
@@ -317,16 +393,18 @@ async def link_project_to_company(
     return {
         "message": "Project linked successfully",
         "company_id": company_id,
-        "project_id": project_id
+        "project_id": project_id,
     }
 
 
-@router.delete("/{company_id}/unlink-project/{project_id}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{company_id}/unlink-project/{project_id}", status_code=status.HTTP_200_OK
+)
 async def unlink_project_from_company(
     company_id: int,
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Unlink a project from a company (set company_id to NULL)."""
     # Verify company exists and belongs to user
@@ -346,7 +424,9 @@ async def unlink_project_from_company(
         raise HTTPException(status_code=404, detail="Project not found")
 
     if project.company_id != company_id:
-        raise HTTPException(status_code=400, detail="Project is not linked to this company")
+        raise HTTPException(
+            status_code=400, detail="Project is not linked to this company"
+        )
 
     # Unlink the project
     project.company_id = None
@@ -356,7 +436,7 @@ async def unlink_project_from_company(
     return {
         "message": "Project unlinked successfully",
         "company_id": company_id,
-        "project_id": project_id
+        "project_id": project_id,
     }
 
 
@@ -364,7 +444,7 @@ async def unlink_project_from_company(
 async def get_company_summary(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get company summary with aggregated tech stack and projects."""
     # Get company with projects
@@ -381,7 +461,11 @@ async def get_company_summary(
     projects_result = await db.execute(
         select(Project)
         .where(Project.company_id == company_id)
-        .options(selectinload(Project.technologies).selectinload(ProjectTechnology.technology))
+        .options(
+            selectinload(Project.technologies).selectinload(
+                ProjectTechnology.technology
+            )
+        )
         .order_by(Project.start_date.desc())
     )
     projects = projects_result.scalars().all()
@@ -391,20 +475,26 @@ async def get_company_summary(
     project_summaries = []
 
     for project in projects:
-        tech_names = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+        tech_names = (
+            [pt.technology.name for pt in project.technologies if pt.technology]
+            if project.technologies
+            else []
+        )
         all_technologies.update(tech_names)
 
-        project_summaries.append(ProjectSummary(
-            id=project.id,
-            name=project.name,
-            start_date=project.start_date,
-            end_date=project.end_date,
-            role=project.role,
-            description=project.description,
-            git_url=project.git_url,
-            team_size=project.team_size,
-            technologies=tech_names
-        ))
+        project_summaries.append(
+            ProjectSummary(
+                id=project.id,
+                name=project.name,
+                start_date=project.start_date,
+                end_date=project.end_date,
+                role=project.role,
+                description=project.description,
+                git_url=project.git_url,
+                team_size=project.team_size,
+                technologies=tech_names,
+            )
+        )
 
     # Sort technologies
     sorted_technologies = sorted(list(all_technologies))
@@ -413,7 +503,9 @@ async def get_company_summary(
     tech_categories = categorize_technologies(sorted_technologies)
 
     # Format date range
-    date_range = format_date_range(company.start_date, company.end_date, company.is_current)
+    date_range = format_date_range(
+        company.start_date, company.end_date, company.is_current
+    )
 
     return CompanySummaryResponse(
         company=CompanyResponse.model_validate(company),
@@ -421,7 +513,7 @@ async def get_company_summary(
         project_count=len(projects),
         aggregated_tech_stack=sorted_technologies,
         tech_categories=tech_categories,
-        date_range=date_range
+        date_range=date_range,
     )
 
 
@@ -430,7 +522,7 @@ async def upload_company_logo(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Upload a logo for a company."""
     # Verify company exists and belongs to user
@@ -442,11 +534,11 @@ async def upload_company_logo(
         raise HTTPException(status_code=404, detail="Company not found")
 
     # Validate file extension
-    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
     if file_ext not in ALLOWED_LOGO_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_LOGO_EXTENSIONS)}"
+            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_LOGO_EXTENSIONS)}",
         )
 
     # Check file size
@@ -454,7 +546,7 @@ async def upload_company_logo(
     if len(contents) > MAX_LOGO_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is {MAX_LOGO_SIZE // (1024*1024)}MB"
+            detail=f"File too large. Maximum size is {MAX_LOGO_SIZE // (1024 * 1024)}MB",
         )
 
     # Create logos directory if not exists
@@ -472,7 +564,7 @@ async def upload_company_logo(
     file_path = os.path.join(LOGO_DIR, unique_filename)
 
     # Save file
-    async with aiofiles.open(file_path, 'wb') as f:
+    async with aiofiles.open(file_path, "wb") as f:
         await f.write(contents)
 
     # Update company logo_path
@@ -483,7 +575,7 @@ async def upload_company_logo(
     return {
         "message": "Logo uploaded successfully",
         "logo_path": file_path,
-        "logo_url": f"/api/knowledge/companies/{company_id}/logo"
+        "logo_url": f"/api/knowledge/companies/{company_id}/logo",
     }
 
 
@@ -491,7 +583,7 @@ async def upload_company_logo(
 async def get_company_logo(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get the logo for a company."""
     result = await db.execute(
@@ -507,7 +599,7 @@ async def get_company_logo(
     return FileResponse(
         company.logo_path,
         media_type="image/png",
-        filename=os.path.basename(company.logo_path)
+        filename=os.path.basename(company.logo_path),
     )
 
 
@@ -515,7 +607,7 @@ async def get_company_logo(
 async def delete_company_logo(
     company_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete the logo for a company."""
     result = await db.execute(
@@ -533,7 +625,9 @@ async def delete_company_logo(
         try:
             os.remove(company.logo_path)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete logo file: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to delete logo file: {str(e)}"
+            )
 
     # Clear logo_path
     company.logo_path = None

@@ -3,7 +3,7 @@ OAuth Provider Factory - Creates and manages OAuth provider instances
 """
 
 import os
-from typing import Dict, List, Type, Optional
+from typing import Dict, List, Type
 
 from api.services.oauth.base import OAuthProvider
 from api.services.oauth.github_provider import GitHubOAuthProvider
@@ -74,7 +74,9 @@ class OAuthProviderFactory:
         for key, env_var in env_mappings.items():
             value = os.getenv(env_var)
             if not value:
-                raise ValueError(f"OAuth provider {provider_name} not configured: {env_var} not set")
+                raise ValueError(
+                    f"OAuth provider {provider_name} not configured: {env_var} not set"
+                )
             credentials[key] = value
 
         # Create provider instance
@@ -110,7 +112,9 @@ class OAuthProviderFactory:
         Returns:
             List of provider names that have all credentials configured
         """
-        return [name for name in cls._providers.keys() if cls.is_provider_configured(name)]
+        return [
+            name for name in cls._providers.keys() if cls.is_provider_configured(name)
+        ]
 
     @classmethod
     def get_all_providers(cls) -> List[str]:
@@ -132,9 +136,11 @@ class OAuthProviderFactory:
         """
         providers = []
         for name in cls._providers.keys():
-            providers.append({
-                "name": name,
-                "configured": cls.is_provider_configured(name),
-                "display_name": name.title(),
-            })
+            providers.append(
+                {
+                    "name": name,
+                    "configured": cls.is_provider_configured(name),
+                    "display_name": name.title(),
+                }
+            )
         return providers

@@ -4,7 +4,7 @@ Runs against whatever backend is currently running (Electron or Docker).
 
 Usage:
   python tests/scenario_test.py [base_url]
-  
+
   base_url defaults to http://localhost:8085
 """
 
@@ -47,7 +47,9 @@ def api_get(path, timeout=30):
 def api_post(path, data, timeout=60):
     url = f"{API}{path}"
     body = json.dumps(data).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
@@ -68,11 +70,12 @@ def api_delete(path, timeout=10):
 
 def test(name):
     """Decorator-like: prints test name, captures pass/fail."""
+
     def decorator(fn):
         def wrapper():
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"TEST: {name}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             try:
                 result = fn()
                 RESULTS[name] = "PASS" if result is not False else "FAIL"
@@ -80,7 +83,9 @@ def test(name):
             except Exception as e:
                 RESULTS[name] = f"ERROR: {e}"
                 print(f"  >> ERROR ✗: {e}")
+
         return wrapper
+
     return decorator
 
 
@@ -127,7 +132,9 @@ def test_users():
             gh_user = u
             break
     if gh_user:
-        log(f"GitHub user found: id={gh_user['id']}, username={gh_user['github_username']}")
+        log(
+            f"GitHub user found: id={gh_user['id']}, username={gh_user['github_username']}"
+        )
     else:
         log("WARNING: No GitHub-connected user found")
     return True
@@ -156,20 +163,22 @@ def test_github_repos():
     repos = data.get("repos", data if isinstance(data, list) else [])
     total = len(repos)
     log(f"Total repos fetched: {total}")
-    
+
     # Check has_more flag
     has_more = data.get("has_more", None)
     log(f"has_more: {has_more}")
-    
+
     # Show first 5
     for r in repos[:5]:
-        log(f"  - {r.get('full_name', r.get('name'))} ({r.get('language', 'N/A')}) ★{r.get('stargazers_count', 0)}")
-    
+        log(
+            f"  - {r.get('full_name', r.get('name'))} ({r.get('language', 'N/A')}) ★{r.get('stargazers_count', 0)}"
+        )
+
     # Count by type
     forks = sum(1 for r in repos if r.get("fork"))
     owned = sum(1 for r in repos if r.get("owner") == "sehoon787")
     log(f"Owned: {owned}, Forks: {forks}, Other: {total - owned - forks}")
-    
+
     RESULTS["_repo_count"] = total
     assert total > 0, "No repos returned"
     return True
@@ -239,16 +248,18 @@ def test_import():
     # Get repos
     data = api_get("/github/repos?user_id=25&fetch_all=true", timeout=120)
     repos = data.get("repos", data if isinstance(data, list) else [])
-    
+
     # Get existing projects to avoid duplicates
     proj_data = api_get("/knowledge/projects?user_id=25")
-    projects = proj_data if isinstance(proj_data, list) else proj_data.get("projects", [])
+    projects = (
+        proj_data if isinstance(proj_data, list) else proj_data.get("projects", [])
+    )
     existing_urls = set()
     for p in projects:
         url = (p.get("git_url") or "").lower().replace(".git", "")
         if url:
             existing_urls.add(url)
-    
+
     # Find a small non-fork, non-imported repo
     target = None
     for r in repos:
@@ -256,28 +267,30 @@ def test_import():
         if not r.get("fork") and url and url not in existing_urls:
             target = r
             break
-    
+
     if not target:
         log("All repos already imported, skipping")
         return True
-    
+
     git_url = target["html_url"]
     log(f"Importing: {target['name']} ({git_url})")
-    
+
     # Import
-    result = api_post(f"/github/import-repos?user_id=25", {"repo_urls": [git_url]}, timeout=60)
+    result = api_post(
+        "/github/import-repos?user_id=25", {"repo_urls": [git_url]}, timeout=60
+    )
     log(f"Import result: imported={result.get('imported')}")
-    
+
     assert result.get("imported", 0) >= 1, f"Import failed: {result}"
     project_id = result["results"][0].get("project_id")
     assert project_id, "No project_id returned"
     log(f"Created project id={project_id}")
-    
+
     # Store for cleanup & analysis test
     RESULTS["_test_project_id"] = project_id
     RESULTS["_test_git_url"] = git_url
     CLEANUP_IDS.append(("projects", project_id))
-    
+
     # Verify
     project = api_get(f"/knowledge/projects/{project_id}?user_id=25")
     assert project["git_url"] == git_url
@@ -292,21 +305,23 @@ def test_import():
 def test_start_analysis():
     project_id = RESULTS.get("_test_project_id")
     git_url = RESULTS.get("_test_git_url")
-    
+
     if not project_id or not git_url:
         log("No test project available, skipping")
         return True
-    
+
     log(f"Starting analysis for project {project_id}...")
-    
+
     # Try providers: gemini -> anthropic -> openai
     # NOTE: user_id, provider, language are QUERY params; git_url, project_id are BODY
     body = {"git_url": git_url, "project_id": project_id}
     providers = ["gemini", "anthropic", "openai"]
-    
+
     for i, provider in enumerate(providers):
         try:
-            qp = urllib.parse.urlencode({"user_id": 25, "provider": provider, "language": "ko"})
+            qp = urllib.parse.urlencode(
+                {"user_id": 25, "provider": provider, "language": "ko"}
+            )
             result = api_post(f"/github/analyze-background?{qp}", body, timeout=60)
             log(f"Analysis started with {provider}: task_id={result.get('task_id')}")
             RESULTS["_task_id"] = result.get("task_id")
@@ -327,36 +342,44 @@ def test_analysis_results():
     if not project_id:
         log("No test project, skipping")
         return True
-    
+
     if "_task_id" not in RESULTS:
         log("Analysis was not started, skipping")
         return True
-    
+
     log(f"Polling analysis status for project {project_id}...")
     max_wait = 120  # 2 minutes
     poll_interval = 5
     elapsed = 0
-    
+
     while elapsed < max_wait:
         try:
             status = api_get(f"/github/analysis-status/{project_id}?user_id=25")
             job_status = status.get("status", "") if status else ""
-            
+
             if job_status == "completed":
                 log(f"Analysis completed in {elapsed}s")
-                
+
                 # Get full analysis
                 analysis = api_get(f"/github/analysis/{project_id}")
                 log(f"  Commits: {analysis.get('total_commits', 'N/A')}")
-                log(f"  Technologies: {(analysis.get('detected_technologies') or [])[:8]}")
+                log(
+                    f"  Technologies: {(analysis.get('detected_technologies') or [])[:8]}"
+                )
                 log(f"  Key tasks: {len(analysis.get('key_tasks') or [])} items")
-                log(f"  Implementation details: {len(analysis.get('implementation_details') or [])} sections")
+                log(
+                    f"  Implementation details: {len(analysis.get('implementation_details') or [])} sections"
+                )
                 log(f"  AI Summary: {'Yes' if analysis.get('ai_summary') else 'No'}")
-                
+
                 # Verify required fields
-                assert analysis.get("total_commits") is not None, "Missing total_commits"
-                assert analysis.get("detected_technologies") is not None, "Missing detected_technologies"
-                
+                assert analysis.get("total_commits") is not None, (
+                    "Missing total_commits"
+                )
+                assert analysis.get("detected_technologies") is not None, (
+                    "Missing detected_technologies"
+                )
+
                 RESULTS["_analysis_data"] = {
                     "commits": analysis.get("total_commits"),
                     "tech_count": len(analysis.get("detected_technologies") or []),
@@ -364,7 +387,7 @@ def test_analysis_results():
                     "has_summary": bool(analysis.get("ai_summary")),
                 }
                 return True
-                
+
             elif job_status == "failed":
                 log(f"Analysis FAILED after {elapsed}s: {status.get('error_message')}")
                 return False
@@ -374,10 +397,10 @@ def test_analysis_results():
         except Exception as e:
             if elapsed % 15 == 0:
                 log(f"  Poll error: {e} ({elapsed}s)")
-        
+
         time.sleep(poll_interval)
         elapsed += poll_interval
-    
+
     log(f"Analysis did not complete within {max_wait}s (timeout - SKIP, not a failure)")
     return True  # Timeout is acceptable - analysis can be slow
 
@@ -412,9 +435,9 @@ def test_templates():
 # Cleanup
 # =============================================================================
 def cleanup():
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("CLEANUP")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for resource_type, resource_id in reversed(CLEANUP_IDS):
         try:
             if resource_type == "projects":
@@ -430,12 +453,12 @@ def cleanup():
 # Main
 # =============================================================================
 def main():
-    print(f"\n{'#'*60}")
-    print(f"# AUTOPOLIO SCENARIO TEST")
+    print(f"\n{'#' * 60}")
+    print("# AUTOPOLIO SCENARIO TEST")
     print(f"# Target: {BASE_URL}")
     print(f"# Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'#'*60}")
-    
+    print(f"{'#' * 60}")
+
     # Run all tests
     test_health()
     test_root()
@@ -451,19 +474,19 @@ def main():
     test_analysis_results()
     test_documents()
     test_templates()
-    
+
     # Cleanup
     cleanup()
-    
+
     # Summary
-    print(f"\n{'#'*60}")
-    print(f"# TEST SUMMARY")
-    print(f"{'#'*60}")
-    
+    print(f"\n{'#' * 60}")
+    print("# TEST SUMMARY")
+    print(f"{'#' * 60}")
+
     pass_count = 0
     fail_count = 0
     error_count = 0
-    
+
     for name, result in RESULTS.items():
         if name.startswith("_"):
             continue
@@ -477,10 +500,12 @@ def main():
             error_count += 1
             status = f"✗ {result}"
         print(f"  {status:40s} {name}")
-    
+
     total = pass_count + fail_count + error_count
-    print(f"\n  Total: {total} | Pass: {pass_count} | Fail: {fail_count} | Error: {error_count}")
-    
+    print(
+        f"\n  Total: {total} | Pass: {pass_count} | Fail: {fail_count} | Error: {error_count}"
+    )
+
     # Extra stats
     if "_repo_count" in RESULTS:
         print(f"\n  [Stats] Repo count: {RESULTS['_repo_count']}")
@@ -488,10 +513,12 @@ def main():
         print(f"  [Stats] Project count: {RESULTS['_project_count']}")
     if "_analysis_data" in RESULTS:
         d = RESULTS["_analysis_data"]
-        print(f"  [Stats] Analysis: {d['commits']} commits, {d['tech_count']} techs, {d['key_tasks']} tasks, summary={'Yes' if d['has_summary'] else 'No'}")
-    
-    print(f"\n{'#'*60}")
-    
+        print(
+            f"  [Stats] Analysis: {d['commits']} commits, {d['tech_count']} techs, {d['key_tasks']} tasks, summary={'Yes' if d['has_summary'] else 'No'}"
+        )
+
+    print(f"\n{'#' * 60}")
+
     return 0 if fail_count == 0 and error_count == 0 else 1
 
 

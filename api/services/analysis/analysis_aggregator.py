@@ -3,8 +3,8 @@ Analysis Aggregator - Merges multiple RepoAnalysis records into a single project
 
 Used when a project has multiple repositories (e.g., backend, frontend, infra).
 """
+
 from typing import List, Dict, Any, Optional
-from itertools import chain
 
 from api.models.repo_analysis import RepoAnalysis
 
@@ -73,7 +73,7 @@ def _merge_technologies(analyses: List[RepoAnalysis]) -> List[str]:
     seen = set()
     result = []
     for a in analyses:
-        for tech in (a.detected_technologies or []):
+        for tech in a.detected_technologies or []:
             if tech not in seen:
                 seen.add(tech)
                 result.append(tech)
@@ -82,7 +82,9 @@ def _merge_technologies(analyses: List[RepoAnalysis]) -> List[str]:
 
 def _merge_languages(analyses: List[RepoAnalysis]) -> Dict[str, float]:
     """Merge language percentages weighted by lines of code."""
-    total_lines = sum((a.lines_added or 0) + (a.lines_deleted or 0) for a in analyses) or 1
+    total_lines = (
+        sum((a.lines_added or 0) + (a.lines_deleted or 0) for a in analyses) or 1
+    )
     merged: Dict[str, float] = {}
 
     for a in analyses:
@@ -92,7 +94,10 @@ def _merge_languages(analyses: List[RepoAnalysis]) -> Dict[str, float]:
 
     # Normalize to 100%
     total = sum(merged.values()) or 1
-    return {k: round(v / total * 100, 1) for k, v in sorted(merged.items(), key=lambda x: -x[1])}
+    return {
+        k: round(v / total * 100, 1)
+        for k, v in sorted(merged.items(), key=lambda x: -x[1])
+    }
 
 
 def _compute_primary_language(analyses: List[RepoAnalysis]) -> Optional[str]:
@@ -129,7 +134,7 @@ def _merge_key_tasks(analyses: List[RepoAnalysis]) -> List[str]:
     seen = set()
     result = []
     for a in analyses:
-        for task in (a.key_tasks or []):
+        for task in a.key_tasks or []:
             normalized = task.strip().lower()
             if normalized not in seen:
                 seen.add(normalized)
@@ -141,7 +146,7 @@ def _merge_implementation_details(analyses: List[RepoAnalysis]) -> List[Dict[str
     """Merge implementation details from all repos."""
     result = []
     for a in analyses:
-        for detail in (a.implementation_details or []):
+        for detail in a.implementation_details or []:
             if isinstance(detail, dict):
                 result.append(detail)
     return result
@@ -151,13 +156,15 @@ def _merge_timelines(analyses: List[RepoAnalysis]) -> List[Dict[str, Any]]:
     """Merge development timelines."""
     result = []
     for a in analyses:
-        for entry in (a.development_timeline or []):
+        for entry in a.development_timeline or []:
             if isinstance(entry, dict):
                 result.append(entry)
     return result
 
 
-def _merge_detailed_achievements(analyses: List[RepoAnalysis]) -> Dict[str, List[Dict[str, Any]]]:
+def _merge_detailed_achievements(
+    analyses: List[RepoAnalysis],
+) -> Dict[str, List[Dict[str, Any]]]:
     """Merge detailed achievements by category."""
     merged: Dict[str, List[Dict[str, Any]]] = {}
     for a in analyses:
@@ -173,7 +180,9 @@ def _merge_detailed_achievements(analyses: List[RepoAnalysis]) -> Dict[str, List
 
 def _merge_ai_summaries(analyses: List[RepoAnalysis]) -> Optional[str]:
     """Use primary repo's AI summary, or concatenate all."""
-    primary = [a for a in analyses if a.project_repository and a.project_repository.is_primary]
+    primary = [
+        a for a in analyses if a.project_repository and a.project_repository.is_primary
+    ]
     if primary and primary[0].ai_summary:
         return primary[0].ai_summary
     summaries = [a.ai_summary for a in analyses if a.ai_summary]
@@ -185,7 +194,7 @@ def _merge_ai_key_features(analyses: List[RepoAnalysis]) -> List[str]:
     seen = set()
     result = []
     for a in analyses:
-        for feat in (a.ai_key_features or []):
+        for feat in a.ai_key_features or []:
             if feat not in seen:
                 seen.add(feat)
                 result.append(feat)
@@ -197,7 +206,7 @@ def _merge_architecture_patterns(analyses: List[RepoAnalysis]) -> List[str]:
     seen = set()
     result = []
     for a in analyses:
-        for pat in (a.architecture_patterns or []):
+        for pat in a.architecture_patterns or []:
             normalized = pat.strip().lower()
             if normalized not in seen:
                 seen.add(normalized)

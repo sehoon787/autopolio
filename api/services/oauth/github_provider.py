@@ -4,7 +4,6 @@ GitHub OAuth Provider - Implements OAuth for GitHub
 
 import httpx
 from urllib.parse import urlencode
-from typing import Optional
 
 from api.services.oauth.base import OAuthProvider, OAuthUserInfo
 
@@ -55,7 +54,9 @@ class GitHubOAuthProvider(OAuthProvider):
 
             data = response.json()
             if "error" in data:
-                raise ValueError(f"OAuth error: {data.get('error_description', data['error'])}")
+                raise ValueError(
+                    f"OAuth error: {data.get('error_description', data['error'])}"
+                )
 
             access_token = data.get("access_token")
             if not access_token:
@@ -81,7 +82,9 @@ class GitHubOAuthProvider(OAuthProvider):
             # Get primary email (might be private)
             email = user_data.get("email")
             if not email:
-                emails_response = await client.get(self.USER_EMAILS_URL, headers=headers)
+                emails_response = await client.get(
+                    self.USER_EMAILS_URL, headers=headers
+                )
                 if emails_response.status_code == 200:
                     emails = emails_response.json()
                     # Find primary verified email

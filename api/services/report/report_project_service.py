@@ -33,7 +33,6 @@ class ReportProjectService(ReportBaseService):
         """
         from types import SimpleNamespace
         from api.services.analysis.analysis_aggregator import aggregate_analyses
-        from api.models.project_repository import ProjectRepository
         from sqlalchemy.orm import selectinload as sinload
 
         # Get project with technologies and achievements
@@ -41,8 +40,10 @@ class ReportProjectService(ReportBaseService):
             select(Project)
             .where(Project.id == project_id)
             .options(
-                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                selectinload(Project.achievements)
+                selectinload(Project.technologies).selectinload(
+                    ProjectTechnology.technology
+                ),
+                selectinload(Project.achievements),
             )
         )
         project = project_result.scalar_one_or_none()
@@ -61,8 +62,12 @@ class ReportProjectService(ReportBaseService):
         analysis = None
         if analyses:
             primary = next(
-                (a for a in analyses if a.project_repository and a.project_repository.is_primary),
-                analyses[0]
+                (
+                    a
+                    for a in analyses
+                    if a.project_repository and a.project_repository.is_primary
+                ),
+                analyses[0],
             )
             if len(analyses) > 1:
                 # Multi-repo: aggregate into a SimpleNamespace for attribute access
@@ -75,11 +80,17 @@ class ReportProjectService(ReportBaseService):
         edits = None
         if analyses:
             primary_id = next(
-                (a.id for a in analyses if a.project_repository and a.project_repository.is_primary),
-                analyses[0].id
+                (
+                    a.id
+                    for a in analyses
+                    if a.project_repository and a.project_repository.is_primary
+                ),
+                analyses[0].id,
             )
             edits_result = await self.db.execute(
-                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == primary_id)
+                select(RepoAnalysisEdits).where(
+                    RepoAnalysisEdits.repo_analysis_id == primary_id
+                )
             )
             edits = edits_result.scalar_one_or_none()
 
@@ -95,7 +106,7 @@ class ReportProjectService(ReportBaseService):
             "project": project,
             "analysis": analysis,
             "edits": edits,
-            "company": company
+            "company": company,
         }
 
     def _get_effective_key_tasks(self, analysis: Any, edits: Any) -> List:
@@ -106,13 +117,21 @@ class ReportProjectService(ReportBaseService):
 
     def _get_effective_implementation_details(self, analysis: Any, edits: Any) -> List:
         """Get effective implementation_details (edited or original)"""
-        if edits and edits.implementation_details_modified and edits.implementation_details is not None:
+        if (
+            edits
+            and edits.implementation_details_modified
+            and edits.implementation_details is not None
+        ):
             return edits.implementation_details
         return analysis.implementation_details if analysis else []
 
     def _get_effective_detailed_achievements(self, analysis: Any, edits: Any) -> Dict:
         """Get effective detailed_achievements (edited or original)"""
-        if edits and edits.detailed_achievements_modified and edits.detailed_achievements is not None:
+        if (
+            edits
+            and edits.detailed_achievements_modified
+            and edits.detailed_achievements is not None
+        ):
             return edits.detailed_achievements
         return analysis.detailed_achievements if analysis else {}
 
@@ -139,12 +158,20 @@ class ReportProjectService(ReportBaseService):
             "git_url": project.git_url or "",
             "total_commits": analysis.total_commits if analysis else 0,
             "user_commits": analysis.user_commits if analysis else 0,
-            "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis and analysis.total_commits > 0 else 0,
+            "contribution_percent": round(
+                (analysis.user_commits / analysis.total_commits * 100), 1
+            )
+            if analysis and analysis.total_commits > 0
+            else 0,
             "lines_added": analysis.lines_added if analysis else 0,
             "lines_deleted": analysis.lines_deleted if analysis else 0,
-            "net_lines": (analysis.lines_added or 0) - (analysis.lines_deleted or 0) if analysis else 0,
+            "net_lines": (analysis.lines_added or 0) - (analysis.lines_deleted or 0)
+            if analysis
+            else 0,
             "files_changed": analysis.files_changed if analysis else 0,
-            "analyzed_at": analysis.analyzed_at.strftime("%Y-%m-%d %H:%M") if analysis and analysis.analyzed_at else None,
+            "analyzed_at": analysis.analyzed_at.strftime("%Y-%m-%d %H:%M")
+            if analysis and analysis.analyzed_at
+            else None,
         }
 
         # Commit analysis
@@ -167,11 +194,17 @@ class ReportProjectService(ReportBaseService):
         # Languages
         languages = []
         if analysis and analysis.languages:
-            for lang, percent in sorted(analysis.languages.items(), key=lambda x: x[1], reverse=True):
+            for lang, percent in sorted(
+                analysis.languages.items(), key=lambda x: x[1], reverse=True
+            ):
                 languages.append({"name": lang, "percent": round(percent, 1)})
 
         # Technologies
-        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+        technologies = (
+            [pt.technology.name for pt in project.technologies if pt.technology]
+            if project.technologies
+            else []
+        )
         detected_technologies = analysis.detected_technologies if analysis else []
 
         # Architecture patterns
@@ -188,19 +221,25 @@ class ReportProjectService(ReportBaseService):
                 category = ach.category or s["category_other"]
                 if category not in achievements_by_category:
                     achievements_by_category[category] = []
-                achievements_by_category[category].append({
-                    "metric_name": ach.metric_name,
-                    "metric_value": ach.metric_value,
-                    "description": ach.description,
-                    "before_value": getattr(ach, 'before_value', None),
-                    "after_value": getattr(ach, 'after_value', None),
-                })
+                achievements_by_category[category].append(
+                    {
+                        "metric_name": ach.metric_name,
+                        "metric_value": ach.metric_value,
+                        "description": ach.description,
+                        "before_value": getattr(ach, "before_value", None),
+                        "after_value": getattr(ach, "after_value", None),
+                    }
+                )
 
         # LLM-generated detailed content (v1.2) - use effective content
-        implementation_details = self._get_effective_implementation_details(analysis, edits)
+        implementation_details = self._get_effective_implementation_details(
+            analysis, edits
+        )
         development_timeline = analysis.development_timeline if analysis else []
         tech_stack_versions = analysis.tech_stack_versions if analysis else {}
-        detailed_achievements = self._get_effective_detailed_achievements(analysis, edits)
+        detailed_achievements = self._get_effective_detailed_achievements(
+            analysis, edits
+        )
 
         return {
             "report_type": "detailed",
@@ -211,13 +250,19 @@ class ReportProjectService(ReportBaseService):
                 "role": project.role,
                 "team_size": project.team_size,
                 "start_date": self._format_date(project.start_date),
-                "end_date": self._format_date(project.end_date) if project.end_date else s["ongoing"],
-                "date_range": self._format_date_range(project.start_date, project.end_date),
+                "end_date": self._format_date(project.end_date)
+                if project.end_date
+                else s["ongoing"],
+                "date_range": self._format_date_range(
+                    project.start_date, project.end_date
+                ),
             },
             "company": {
                 "name": company.name if company else s["freelancer"],
                 "position": company.position if company else None,
-            } if company else None,
+            }
+            if company
+            else None,
             "repository": repo_info,
             "commit_analysis": commit_analysis,
             "code_analysis": code_analysis,
@@ -234,7 +279,9 @@ class ReportProjectService(ReportBaseService):
             "detailed_achievements": detailed_achievements,
         }
 
-    async def generate_final_report(self, project_id: int, language: str = None) -> Dict[str, Any]:
+    async def generate_final_report(
+        self, project_id: int, language: str = None
+    ) -> Dict[str, Any]:
         """
         Generate FINAL_PROJECT_REPORT style - work/achievement summary
 
@@ -261,7 +308,11 @@ class ReportProjectService(ReportBaseService):
         }
 
         # Technologies
-        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+        technologies = (
+            [pt.technology.name for pt in project.technologies if pt.technology]
+            if project.technologies
+            else []
+        )
 
         # Key implementations (use effective - edited or original)
         effective_key_tasks = self._get_effective_key_tasks(analysis, edits)
@@ -272,11 +323,17 @@ class ReportProjectService(ReportBaseService):
             # Generate from commit categories
             categories = analysis.commit_categories
             if categories.get("feature", 0) > 0:
-                key_implementations.append(s["new_features"].format(count=categories['feature']))
+                key_implementations.append(
+                    s["new_features"].format(count=categories["feature"])
+                )
             if categories.get("fix", 0) > 0:
-                key_implementations.append(s["bug_fixes"].format(count=categories['fix']))
+                key_implementations.append(
+                    s["bug_fixes"].format(count=categories["fix"])
+                )
             if categories.get("refactor", 0) > 0:
-                key_implementations.append(s["refactoring"].format(count=categories['refactor']))
+                key_implementations.append(
+                    s["refactoring"].format(count=categories["refactor"])
+                )
 
         # Achievements with Before/After format
         achievements = []
@@ -288,9 +345,9 @@ class ReportProjectService(ReportBaseService):
                     "description": ach.description,
                 }
                 # Check if has before/after values
-                if hasattr(ach, 'before_value') and ach.before_value:
+                if hasattr(ach, "before_value") and ach.before_value:
                     achievement_data["before_value"] = ach.before_value
-                if hasattr(ach, 'after_value') and ach.after_value:
+                if hasattr(ach, "after_value") and ach.after_value:
                     achievement_data["after_value"] = ach.after_value
                 achievements.append(achievement_data)
 
@@ -304,14 +361,22 @@ class ReportProjectService(ReportBaseService):
                 "net_lines": net_lines,
                 "files_changed": analysis.files_changed or 0,
                 "commits": analysis.user_commits or 0,
-                "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis.total_commits > 0 else 0,
+                "contribution_percent": round(
+                    (analysis.user_commits / analysis.total_commits * 100), 1
+                )
+                if analysis.total_commits > 0
+                else 0,
             }
 
         # AI summary if available
-        ai_summary = {
-            "summary": project.ai_summary,
-            "key_features": project.ai_key_features,
-        } if project.ai_summary else None
+        ai_summary = (
+            {
+                "summary": project.ai_summary,
+                "key_features": project.ai_key_features,
+            }
+            if project.ai_summary
+            else None
+        )
 
         return {
             "report_type": "final",
@@ -323,7 +388,9 @@ class ReportProjectService(ReportBaseService):
             "ai_summary": ai_summary,
         }
 
-    async def generate_performance_summary_for_project(self, project_id: int) -> Dict[str, Any]:
+    async def generate_performance_summary_for_project(
+        self, project_id: int
+    ) -> Dict[str, Any]:
         """
         Generate PROJECT_PERFORMANCE_SUMMARY style for a single project
 
@@ -349,7 +416,11 @@ class ReportProjectService(ReportBaseService):
         }
 
         # Technologies
-        technologies = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+        technologies = (
+            [pt.technology.name for pt in project.technologies if pt.technology]
+            if project.technologies
+            else []
+        )
 
         # Key tasks (use effective - edited or original)
         key_tasks = self._get_effective_key_tasks(analysis, edits)
@@ -358,12 +429,14 @@ class ReportProjectService(ReportBaseService):
         achievements = []
         if project.achievements:
             for ach in project.achievements:
-                achievements.append({
-                    "metric_name": ach.metric_name,
-                    "metric_value": ach.metric_value,
-                    "description": ach.description,
-                    "category": ach.category,
-                })
+                achievements.append(
+                    {
+                        "metric_name": ach.metric_name,
+                        "metric_value": ach.metric_value,
+                        "description": ach.description,
+                        "category": ach.category,
+                    }
+                )
 
         # Statistics
         commit_stats = None
@@ -372,7 +445,11 @@ class ReportProjectService(ReportBaseService):
             commit_stats = {
                 "total_commits": analysis.total_commits or 0,
                 "user_commits": analysis.user_commits or 0,
-                "contribution_percent": round((analysis.user_commits / analysis.total_commits * 100), 1) if analysis.total_commits > 0 else 0,
+                "contribution_percent": round(
+                    (analysis.user_commits / analysis.total_commits * 100), 1
+                )
+                if analysis.total_commits > 0
+                else 0,
                 "categories": analysis.commit_categories or {},
             }
             code_stats = {
@@ -384,7 +461,9 @@ class ReportProjectService(ReportBaseService):
         return {
             "report_type": "performance_summary",
             "basic_info": basic_info,
-            "company": company.name if company else get_strings(self.language)["freelancer"],
+            "company": company.name
+            if company
+            else get_strings(self.language)["freelancer"],
             "technologies": technologies,
             "key_tasks": key_tasks,
             "achievements": achievements,

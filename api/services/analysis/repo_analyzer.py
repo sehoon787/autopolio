@@ -4,12 +4,12 @@ Repository Analyzer - Repository analysis and technology detection.
 Extracted from github_service.py for better modularity.
 Contains analysis methods that build on top of the API client.
 """
+
 import asyncio
 import base64
 import json
 import logging
-import re
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from collections import Counter
 
 import httpx
@@ -18,14 +18,9 @@ from .technology_detection_service import TechnologyDetectionService
 from api.services.github.github_constants import (
     MAX_CONCURRENT_FILE_CHECKS,
     MAX_CONCURRENT_COMMIT_DETAILS,
-    MAX_DETAILED_COMMITS,
     parse_iso_datetime,
 )
 from .contributor_analyzer import (
-    parse_conventional_commit,
-    detect_work_areas,
-    extract_file_extensions,
-    detect_technologies_from_files,
     detect_ai_tools,
 )
 
@@ -47,9 +42,7 @@ class RepoAnalyzer:
     # ==========================================================================
 
     async def get_commit_stats(
-        self,
-        git_url: str,
-        author: Optional[str] = None
+        self, git_url: str, author: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get commit statistics for a repository."""
         commits = await self.api.get_commits(git_url, author)
@@ -78,18 +71,28 @@ class RepoAnalyzer:
             "total_commits": len(commits),
             "commit_messages": commit_messages[:20],
             "commit_categories": dict(categories),
-            "first_commit_date": parse_iso_datetime(commits[-1]["commit"]["author"]["date"]) if commits else None,
-            "last_commit_date": parse_iso_datetime(commits[0]["commit"]["author"]["date"]) if commits else None,
+            "first_commit_date": parse_iso_datetime(
+                commits[-1]["commit"]["author"]["date"]
+            )
+            if commits
+            else None,
+            "last_commit_date": parse_iso_datetime(
+                commits[0]["commit"]["author"]["date"]
+            )
+            if commits
+            else None,
         }
 
     async def get_repo_stats(
         self,
         git_url: str,
         username: Optional[str] = None,
-        max_commits_for_stats: int = 100
+        max_commits_for_stats: int = 100,
     ) -> Dict[str, Any]:
         """Get comprehensive repository statistics including code changes."""
-        commits = await self.api.get_commits(git_url, username, per_page=100, max_pages=3)
+        commits = await self.api.get_commits(
+            git_url, username, per_page=100, max_pages=3
+        )
 
         total_additions = 0
         total_deletions = 0
@@ -120,7 +123,7 @@ class RepoAnalyzer:
             "lines_added": total_additions,
             "lines_deleted": total_deletions,
             "files_changed": len(files_touched),
-            "files_list": list(files_touched)[:50]
+            "files_list": list(files_touched)[:50],
         }
 
     # ==========================================================================
@@ -133,14 +136,13 @@ class RepoAnalyzer:
         owner: str,
         repo: str,
         filename: str,
-        tech_service: TechnologyDetectionService
+        tech_service: TechnologyDetectionService,
     ) -> List[str]:
         """Check a file that needs parsing and return detected technologies."""
         async with semaphore:
             try:
                 content = await self.api._request(
-                    "GET",
-                    f"/repos/{owner}/{repo}/contents/{filename}"
+                    "GET", f"/repos/{owner}/{repo}/contents/{filename}"
                 )
                 if isinstance(content, dict) and "content" in content:
                     decoded = base64.b64decode(content["content"]).decode("utf-8")
@@ -159,14 +161,13 @@ class RepoAnalyzer:
         owner: str,
         repo: str,
         filename: str,
-        techs: List[str]
+        techs: List[str],
     ) -> List[str]:
         """Check if a file exists and return associated technologies."""
         async with semaphore:
             try:
                 await self.api._request(
-                    "GET",
-                    f"/repos/{owner}/{repo}/contents/{filename}"
+                    "GET", f"/repos/{owner}/{repo}/contents/{filename}"
                 )
                 return techs
             except httpx.HTTPStatusError:
@@ -182,9 +183,14 @@ class RepoAnalyzer:
         tech_service = TechnologyDetectionService()
 
         parsed_files = [
-            "package.json", "requirements.txt", "pyproject.toml",
-            "composer.json", "pom.xml", "build.gradle",
-            "build.gradle.kts", "pubspec.yaml",
+            "package.json",
+            "requirements.txt",
+            "pyproject.toml",
+            "composer.json",
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "pubspec.yaml",
         ]
 
         presence_indicators = {
@@ -273,8 +279,7 @@ class RepoAnalyzer:
         # Parse package.json
         try:
             content = await self.api._request(
-                "GET",
-                f"/repos/{owner}/{repo}/contents/package.json"
+                "GET", f"/repos/{owner}/{repo}/contents/package.json"
             )
             if isinstance(content, dict) and "content" in content:
                 decoded = base64.b64decode(content["content"]).decode("utf-8")
@@ -282,16 +287,38 @@ class RepoAnalyzer:
                 deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
 
                 key_packages = [
-                    "react", "vue", "angular", "next", "nuxt", "svelte",
-                    "typescript", "vite", "webpack", "express", "nestjs",
-                    "redux", "@reduxjs/toolkit", "zustand", "axios",
-                    "tailwindcss", "@mui/material", "antd"
+                    "react",
+                    "vue",
+                    "angular",
+                    "next",
+                    "nuxt",
+                    "svelte",
+                    "typescript",
+                    "vite",
+                    "webpack",
+                    "express",
+                    "nestjs",
+                    "redux",
+                    "@reduxjs/toolkit",
+                    "zustand",
+                    "axios",
+                    "tailwindcss",
+                    "@mui/material",
+                    "antd",
                 ]
 
                 frontend = []
                 for name, version in deps.items():
-                    if any(k in name.lower() for k in key_packages) or len(frontend) < 15:
-                        clean_version = version.replace("^", "").replace("~", "").replace(">=", "").replace("<=", "")
+                    if (
+                        any(k in name.lower() for k in key_packages)
+                        or len(frontend) < 15
+                    ):
+                        clean_version = (
+                            version.replace("^", "")
+                            .replace("~", "")
+                            .replace(">=", "")
+                            .replace("<=", "")
+                        )
                         if clean_version and not clean_version.startswith("*"):
                             display_name = name.split("/")[-1] if "/" in name else name
                             frontend.append(f"{display_name} {clean_version}")
@@ -304,8 +331,7 @@ class RepoAnalyzer:
         # Parse requirements.txt
         try:
             content = await self.api._request(
-                "GET",
-                f"/repos/{owner}/{repo}/contents/requirements.txt"
+                "GET", f"/repos/{owner}/{repo}/contents/requirements.txt"
             )
             if isinstance(content, dict) and "content" in content:
                 decoded = base64.b64decode(content["content"]).decode("utf-8")
@@ -316,10 +342,14 @@ class RepoAnalyzer:
                         continue
                     if "==" in line:
                         name, version = line.split("==", 1)
-                        backend.append(f"{name.strip()} {version.strip().split(';')[0]}")
+                        backend.append(
+                            f"{name.strip()} {version.strip().split(';')[0]}"
+                        )
                     elif ">=" in line:
                         name, version = line.split(">=", 1)
-                        backend.append(f"{name.strip()} >={version.strip().split(',')[0]}")
+                        backend.append(
+                            f"{name.strip()} >={version.strip().split(',')[0]}"
+                        )
 
                 if backend:
                     versions["Backend"] = backend[:12]
@@ -329,8 +359,7 @@ class RepoAnalyzer:
         # Parse pyproject.toml
         try:
             content = await self.api._request(
-                "GET",
-                f"/repos/{owner}/{repo}/contents/pyproject.toml"
+                "GET", f"/repos/{owner}/{repo}/contents/pyproject.toml"
             )
             if isinstance(content, dict) and "content" in content:
                 decoded = base64.b64decode(content["content"]).decode("utf-8")
@@ -339,7 +368,10 @@ class RepoAnalyzer:
                     backend = []
                     in_deps = False
                     for line in decoded.split("\n"):
-                        if "[tool.poetry.dependencies]" in line or "[project.dependencies]" in line:
+                        if (
+                            "[tool.poetry.dependencies]" in line
+                            or "[project.dependencies]" in line
+                        ):
                             in_deps = True
                             continue
                         if in_deps:
@@ -367,13 +399,15 @@ class RepoAnalyzer:
         self,
         git_url: str,
         username: Optional[str] = None,
-        include_detailed_stats: bool = True
+        include_detailed_stats: bool = True,
     ) -> Dict[str, Any]:
         """Perform full repository analysis."""
         repo_info = await self.api.get_repo_info(git_url)
 
         languages = await self.api.get_repo_languages(git_url)
-        primary_language = max(languages.keys(), key=lambda k: languages[k]) if languages else None
+        primary_language = (
+            max(languages.keys(), key=lambda k: languages[k]) if languages else None
+        )
 
         commit_stats = await self.get_commit_stats(git_url, username)
 
@@ -390,7 +424,9 @@ class RepoAnalyzer:
 
         if include_detailed_stats:
             try:
-                repo_stats = await self.get_repo_stats(git_url, username, max_commits_for_stats=50)
+                repo_stats = await self.get_repo_stats(
+                    git_url, username, max_commits_for_stats=50
+                )
                 lines_added = repo_stats["lines_added"]
                 lines_deleted = repo_stats["lines_deleted"]
                 files_changed = repo_stats["files_changed"]
@@ -401,7 +437,11 @@ class RepoAnalyzer:
         ai_tools_detected = []
         try:
             all_commits = await self.api.get_commits(git_url, per_page=100, max_pages=5)
-            full_messages = [c["commit"]["message"] for c in all_commits if c.get("commit", {}).get("message")]
+            full_messages = [
+                c["commit"]["message"]
+                for c in all_commits
+                if c.get("commit", {}).get("message")
+            ]
             ai_tools_detected = detect_ai_tools(full_messages)
         except Exception as e:
             logger.warning("Failed to detect AI tools for %s: %s", git_url, e)
@@ -424,9 +464,7 @@ class RepoAnalyzer:
         }
 
     async def get_quick_repo_info(
-        self,
-        git_url: str,
-        username: Optional[str] = None
+        self, git_url: str, username: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get quick repository info for auto-fill."""
         repo_info = await self.api.get_repo_info(git_url)
@@ -436,16 +474,24 @@ class RepoAnalyzer:
         contribution_percent = 0
         user_commits_count = 0
         if username and commit_stats["total_commits"] > 0:
-            user_commits = await self.api.get_commits(git_url, username, per_page=100, max_pages=10)
+            user_commits = await self.api.get_commits(
+                git_url, username, per_page=100, max_pages=10
+            )
             user_commits_count = len(user_commits)
-            contribution_percent = round(user_commits_count / commit_stats["total_commits"] * 100)
+            contribution_percent = round(
+                user_commits_count / commit_stats["total_commits"] * 100
+            )
 
         return {
             "name": repo_info.get("name", ""),
             "description": repo_info.get("description", ""),
             "html_url": repo_info.get("html_url", ""),
-            "start_date": commit_stats["first_commit_date"].strftime('%Y-%m-%d') if commit_stats["first_commit_date"] else None,
-            "end_date": commit_stats["last_commit_date"].strftime('%Y-%m-%d') if commit_stats["last_commit_date"] else None,
+            "start_date": commit_stats["first_commit_date"].strftime("%Y-%m-%d")
+            if commit_stats["first_commit_date"]
+            else None,
+            "end_date": commit_stats["last_commit_date"].strftime("%Y-%m-%d")
+            if commit_stats["last_commit_date"]
+            else None,
             "team_size": contributors_count,
             "contribution_percent": contribution_percent,
             "total_commits": commit_stats["total_commits"],
@@ -465,8 +511,7 @@ class RepoAnalyzer:
             default_branch = repo_info.get("default_branch", "main")
 
             tree = await self.api._request(
-                "GET",
-                f"/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1"
+                "GET", f"/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1"
             )
 
             items = tree.get("tree", [])
@@ -485,21 +530,37 @@ class RepoAnalyzer:
             language_bytes: Counter = Counter()
 
             code_extensions = {
-                '.py', '.js', '.ts', '.tsx', '.jsx', '.go', '.rs', '.java',
-                '.kt', '.swift', '.rb', '.php', '.cs', '.cpp', '.c', '.dart',
-                '.scala', '.vue', '.svelte'
+                ".py",
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".go",
+                ".rs",
+                ".java",
+                ".kt",
+                ".swift",
+                ".rb",
+                ".php",
+                ".cs",
+                ".cpp",
+                ".c",
+                ".dart",
+                ".scala",
+                ".vue",
+                ".svelte",
             }
-            test_patterns = ['test', 'spec', '__tests__', 'tests/', 'test/']
-            doc_extensions = {'.md', '.rst', '.txt', '.adoc'}
-            config_extensions = {'.json', '.yaml', '.yml', '.toml', '.ini', '.env'}
+            test_patterns = ["test", "spec", "__tests__", "tests/", "test/"]
+            doc_extensions = {".md", ".rst", ".txt", ".adoc"}
+            config_extensions = {".json", ".yaml", ".yml", ".toml", ".ini", ".env"}
 
             for f in files:
                 path = f.get("path", "").lower()
                 size = f.get("size", 0)
 
                 ext = ""
-                if '.' in path.split('/')[-1]:
-                    ext = '.' + path.split('.')[-1]
+                if "." in path.split("/")[-1]:
+                    ext = "." + path.split(".")[-1]
 
                 is_test = any(p in path for p in test_patterns)
                 is_doc = ext in doc_extensions
@@ -526,12 +587,16 @@ class RepoAnalyzer:
             language_distribution = {}
             if total_code_bytes > 0:
                 for ext, bytes_count in language_bytes.most_common(10):
-                    language_distribution[ext] = round(bytes_count / total_code_bytes * 100, 2)
+                    language_distribution[ext] = round(
+                        bytes_count / total_code_bytes * 100, 2
+                    )
 
             return {
                 "total_files": total_files,
                 "total_lines": sum(file_sizes) // 50,
-                "avg_file_size": round(sum(file_sizes) / len(file_sizes), 2) if file_sizes else 0,
+                "avg_file_size": round(sum(file_sizes) / len(file_sizes), 2)
+                if file_sizes
+                else 0,
                 "max_file_size": max(file_sizes) if file_sizes else 0,
                 "test_file_ratio": round(test_ratio * 100, 2),
                 "doc_file_ratio": round(doc_ratio * 100, 2),

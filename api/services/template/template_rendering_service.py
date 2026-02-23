@@ -9,6 +9,7 @@ Supports:
 - Boolean conditionals: {{#has_field}}...{{/has_field}}
 - Nested sections
 """
+
 import re
 import logging
 from typing import List, Dict, Any, Tuple
@@ -20,8 +21,8 @@ class TemplateRenderingService:
     """Service for rendering Mustache-like templates."""
 
     def __init__(self):
-        self.field_pattern = r'\{\{([^}]+)\}\}'
-        self.section_pattern = r'\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}'
+        self.field_pattern = r"\{\{([^}]+)\}\}"
+        self.section_pattern = r"\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}"
 
     def extract_fields(self, template_content: str) -> List[str]:
         """Extract all field names used in a template.
@@ -49,28 +50,37 @@ class TemplateRenderingService:
         # First handle boolean conditionals (e.g., {{#has_description}}...{{/has_description}})
         for key, value in item_data.items():
             if isinstance(value, bool):
-                bool_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                bool_pattern = rf"\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}"
                 if value:
-                    result = re.sub(bool_pattern, r'\1', result, flags=re.DOTALL)
+                    result = re.sub(bool_pattern, r"\1", result, flags=re.DOTALL)
                 else:
-                    result = re.sub(bool_pattern, '', result, flags=re.DOTALL)
+                    result = re.sub(bool_pattern, "", result, flags=re.DOTALL)
 
         # Handle nested list sections (e.g., achievements_detailed_list inside projects)
         for key, value in item_data.items():
             if isinstance(value, list) and value and isinstance(value[0], dict):
-                nested_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                nested_pattern = rf"\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}"
                 nested_match = re.search(nested_pattern, result, flags=re.DOTALL)
                 if nested_match:
                     nested_template = nested_match.group(1)
                     nested_output = []
                     for nested_item in value:
-                        nested_text = self.render_section_item(nested_template, nested_item)
+                        nested_text = self.render_section_item(
+                            nested_template, nested_item
+                        )
                         # Replace simple placeholders
                         for nkey, nvalue in nested_item.items():
                             if not isinstance(nvalue, (list, dict, bool)):
-                                nested_text = nested_text.replace(f"{{{{{nkey}}}}}", str(nvalue) if nvalue else "")
+                                nested_text = nested_text.replace(
+                                    f"{{{{{nkey}}}}}", str(nvalue) if nvalue else ""
+                                )
                         nested_output.append(nested_text.strip())
-                    result = re.sub(nested_pattern, '\n'.join(nested_output), result, flags=re.DOTALL)
+                    result = re.sub(
+                        nested_pattern,
+                        "\n".join(nested_output),
+                        result,
+                        flags=re.DOTALL,
+                    )
 
         # Replace simple field placeholders
         for key, value in item_data.items():
@@ -86,10 +96,7 @@ class TemplateRenderingService:
         return result
 
     def render_template(
-        self,
-        template_content: str,
-        data: Dict[str, Any],
-        max_nesting_levels: int = 3
+        self, template_content: str, data: Dict[str, Any], max_nesting_levels: int = 3
     ) -> Tuple[str, List[str]]:
         """Render a Mustache-like template with data.
 
@@ -107,7 +114,9 @@ class TemplateRenderingService:
         # Process sections FIRST (must happen before simple field replacement)
         # Process multiple times to handle nested sections
         for _ in range(max_nesting_levels):
-            section_matches = list(re.finditer(self.section_pattern, preview_text, re.DOTALL))
+            section_matches = list(
+                re.finditer(self.section_pattern, preview_text, re.DOTALL)
+            )
             if not section_matches:
                 break
 
@@ -120,19 +129,25 @@ class TemplateRenderingService:
                     for item in data[section_name]:
                         item_text = self.render_section_item(section_template, item)
                         section_output.append(item_text)
-                    preview_text = preview_text.replace(match.group(0), "".join(section_output), 1)
+                    preview_text = preview_text.replace(
+                        match.group(0), "".join(section_output), 1
+                    )
                 elif section_name in data and isinstance(data[section_name], bool):
                     # Handle boolean conditional sections
                     if data[section_name]:
-                        preview_text = preview_text.replace(match.group(0), section_template, 1)
+                        preview_text = preview_text.replace(
+                            match.group(0), section_template, 1
+                        )
                     else:
                         preview_text = preview_text.replace(match.group(0), "", 1)
                 else:
-                    preview_text = preview_text.replace(match.group(0), f"[{section_name} 항목 없음]", 1)
+                    preview_text = preview_text.replace(
+                        match.group(0), f"[{section_name} 항목 없음]", 1
+                    )
 
         # NOW replace simple fields (after section processing)
         for field in fields_used:
-            if field.startswith('#') or field.startswith('/'):
+            if field.startswith("#") or field.startswith("/"):
                 continue
             value = data.get(field, f"[{field}]")
             if isinstance(value, (list, dict)):
@@ -142,9 +157,7 @@ class TemplateRenderingService:
         return preview_text, fields_used
 
     def render_to_html(
-        self,
-        template_content: str,
-        data: Dict[str, Any]
+        self, template_content: str, data: Dict[str, Any]
     ) -> Tuple[str, str, List[str]]:
         """Render template and convert to HTML.
 
@@ -161,7 +174,9 @@ class TemplateRenderingService:
 
         # Convert markdown to HTML for preview
         try:
-            preview_html = markdown.markdown(preview_text, extensions=['tables', 'fenced_code'])
+            preview_html = markdown.markdown(
+                preview_text, extensions=["tables", "fenced_code"]
+            )
         except Exception:
             preview_html = f"<pre>{preview_text}</pre>"
 
@@ -182,7 +197,7 @@ DEFAULT_SAMPLE_DATA = {
             "department": "개발팀",
             "start_date": "2022.01",
             "end_date": "현재",
-            "description": "웹 서비스 개발 및 팀 리드"
+            "description": "웹 서비스 개발 및 팀 리드",
         }
     ],
     "projects": [
@@ -200,35 +215,35 @@ DEFAULT_SAMPLE_DATA = {
                 {
                     "metric_name": "성능 향상",
                     "metric_value": "40% 개선",
-                    "description": "API 응답 시간 최적화"
+                    "description": "API 응답 시간 최적화",
                 }
             ],
             "achievements_summary_list": [
                 {"category": "성능 향상", "title": "40% 개선"},
                 {"category": "기능 개발", "title": "주문 시스템 구축"},
-                {"category": "코드 품질", "title": "테스트 커버리지 85%"}
+                {"category": "코드 품질", "title": "테스트 커버리지 85%"},
             ],
             "achievements_detailed_list": [
                 {
                     "category": "성능 향상",
                     "title": "40% 개선",
                     "description": "API 응답 시간 최적화",
-                    "has_description": True
+                    "has_description": True,
                 },
                 {
                     "category": "기능 개발",
                     "title": "주문 시스템 구축",
                     "description": "실시간 재고 관리 및 결제 시스템 구현",
-                    "has_description": True
+                    "has_description": True,
                 },
                 {
                     "category": "코드 품질",
                     "title": "테스트 커버리지 85%",
                     "description": "",
-                    "has_description": False
-                }
+                    "has_description": False,
+                },
             ],
-            "links": {"github": "https://github.com/example"}
+            "links": {"github": "https://github.com/example"},
         }
-    ]
+    ],
 }

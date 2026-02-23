@@ -4,6 +4,7 @@ Contribution Analyzer - User contribution analysis for GitHub repositories.
 Extracted from github_service.py for better modularity.
 Contains methods for analyzing user contributions with code diffs.
 """
+
 import asyncio
 import logging
 from typing import Dict, List, Any, Optional
@@ -40,7 +41,7 @@ class ContributionAnalyzer:
         total_commits: int,
         user_lines_added: int,
         total_lines_added: int,
-        work_areas: Optional[List[str]] = None
+        work_areas: Optional[List[str]] = None,
     ) -> int:
         """
         Calculate weighted contribution percentage.
@@ -82,10 +83,7 @@ class ContributionAnalyzer:
         return min(max(round(weighted), 0), 100)
 
     async def analyze_contributor(
-        self,
-        git_url: str,
-        username: str,
-        commit_limit: int = 100
+        self, git_url: str, username: str, commit_limit: int = 100
     ) -> Dict[str, Any]:
         """Analyze a specific contributor's activity in a repository.
 
@@ -101,7 +99,7 @@ class ContributionAnalyzer:
             git_url,
             author=username,
             per_page=100,
-            max_pages=max(1, commit_limit // 100)
+            max_pages=max(1, commit_limit // 100),
         )
 
         if not commits:
@@ -117,7 +115,7 @@ class ContributionAnalyzer:
                 "commit_types": {},
             }
 
-        commits_to_analyze = commits[:min(MAX_DETAILED_COMMITS, len(commits))]
+        commits_to_analyze = commits[: min(MAX_DETAILED_COMMITS, len(commits))]
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_COMMIT_DETAILS)
         tasks = [
             self.api._get_commit_details_safe(semaphore, git_url, c["sha"])
@@ -146,25 +144,29 @@ class ContributionAnalyzer:
             commit_types[parsed["type"]] += 1
 
             full_message = commit["commit"]["message"]
-            short_message = full_message.split('\n')[0][:100]
-            detailed_commits.append({
-                "sha": commit["sha"],
-                "short_sha": commit["sha"][:7],
-                "message": short_message,
-                "full_message": full_message if len(full_message) > 100 else None,
-                "author": commit["commit"]["author"]["name"],
-                "author_email": commit["commit"]["author"].get("email"),
-                "date": commit["commit"]["author"]["date"],
-                "commit_type": parsed["type"],
-                "type_label": parsed["type_label"],
-                "scope": parsed["scope"],
-                "description": parsed.get("description") or short_message,
-                "is_breaking": parsed.get("is_breaking", False),
-                "files_changed": result.get("files_changed", 0),
-                "lines_added": result.get("additions", 0),
-                "lines_deleted": result.get("deletions", 0),
-                "work_areas": detect_work_areas([f.get("filename", "") for f in result.get("files", [])]),
-            })
+            short_message = full_message.split("\n")[0][:100]
+            detailed_commits.append(
+                {
+                    "sha": commit["sha"],
+                    "short_sha": commit["sha"][:7],
+                    "message": short_message,
+                    "full_message": full_message if len(full_message) > 100 else None,
+                    "author": commit["commit"]["author"]["name"],
+                    "author_email": commit["commit"]["author"].get("email"),
+                    "date": commit["commit"]["author"]["date"],
+                    "commit_type": parsed["type"],
+                    "type_label": parsed["type_label"],
+                    "scope": parsed["scope"],
+                    "description": parsed.get("description") or short_message,
+                    "is_breaking": parsed.get("is_breaking", False),
+                    "files_changed": result.get("files_changed", 0),
+                    "lines_added": result.get("additions", 0),
+                    "lines_deleted": result.get("deletions", 0),
+                    "work_areas": detect_work_areas(
+                        [f.get("filename", "") for f in result.get("files", [])]
+                    ),
+                }
+            )
 
         work_areas = detect_work_areas(all_files)
         file_extensions = extract_file_extensions(all_files)
@@ -173,8 +175,12 @@ class ContributionAnalyzer:
         first_commit_date = None
         last_commit_date = None
         if commits:
-            last_commit_date = parse_iso_datetime(commits[0]["commit"]["author"]["date"])
-            first_commit_date = parse_iso_datetime(commits[-1]["commit"]["author"]["date"])
+            last_commit_date = parse_iso_datetime(
+                commits[0]["commit"]["author"]["date"]
+            )
+            first_commit_date = parse_iso_datetime(
+                commits[-1]["commit"]["author"]["date"]
+            )
 
         return {
             "username": username,
@@ -195,7 +201,7 @@ class ContributionAnalyzer:
         git_url: str,
         username: str,
         max_commits: int = 30,
-        max_total_patch_size: int = 50000
+        max_total_patch_size: int = 50000,
     ) -> Dict[str, Any]:
         """Get user's significant code contributions with actual code diffs for LLM analysis.
 
@@ -211,10 +217,7 @@ class ContributionAnalyzer:
         logger.info(f"Collecting code contributions for {username} from {git_url}")
 
         commits = await self.api.get_commits(
-            git_url,
-            author=username,
-            per_page=100,
-            max_pages=1
+            git_url, author=username, per_page=100, max_pages=1
         )
 
         if not commits:
@@ -265,21 +268,25 @@ class ContributionAnalyzer:
 
                 if current_patch_size + len(patch) <= max_total_patch_size:
                     if patch:
-                        commit_patches.append({
-                            "filename": filename,
-                            "additions": f.get("additions", 0),
-                            "deletions": f.get("deletions", 0),
-                            "status": f.get("status", "modified"),
-                            "patch": patch
-                        })
+                        commit_patches.append(
+                            {
+                                "filename": filename,
+                                "additions": f.get("additions", 0),
+                                "deletions": f.get("deletions", 0),
+                                "status": f.get("status", "modified"),
+                                "patch": patch,
+                            }
+                        )
                         commit_patch_size += len(patch)
 
             current_patch_size += commit_patch_size
 
             contribution = {
                 "sha": commit["sha"][:7],
-                "message": message.split('\n')[0][:200],
-                "full_message": message[:500] if len(message) <= 500 else message[:500] + "...",
+                "message": message.split("\n")[0][:200],
+                "full_message": message[:500]
+                if len(message) <= 500
+                else message[:500] + "...",
                 "author": commit["commit"]["author"]["name"],
                 "date": commit["commit"]["author"]["date"],
                 "commit_type": parsed["type"],
@@ -298,7 +305,9 @@ class ContributionAnalyzer:
             total_deletions += result.get("deletions", 0)
 
             if current_patch_size >= max_total_patch_size:
-                logger.info(f"Reached patch size limit at commit {i+1}/{len(commits_to_analyze)}")
+                logger.info(
+                    f"Reached patch size limit at commit {i + 1}/{len(commits_to_analyze)}"
+                )
                 break
 
         work_areas = detect_work_areas(all_files)
@@ -319,10 +328,7 @@ class ContributionAnalyzer:
         }
 
     async def get_detailed_commits(
-        self,
-        git_url: str,
-        author: Optional[str] = None,
-        limit: int = 50
+        self, git_url: str, author: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get detailed commit information with Conventional Commit parsing.
 
@@ -338,7 +344,7 @@ class ContributionAnalyzer:
             git_url,
             author=author,
             per_page=min(100, limit),
-            max_pages=max(1, limit // 100)
+            max_pages=max(1, limit // 100),
         )
 
         commits_to_analyze = commits[:limit]
@@ -360,23 +366,31 @@ class ContributionAnalyzer:
             file_paths = [f.get("filename", "") for f in files]
             work_areas = detect_work_areas(file_paths)
 
-            result.append({
-                "sha": commit["sha"],
-                "short_sha": commit["sha"][:7],
-                "message": commit["commit"]["message"].split('\n')[0],
-                "full_message": commit["commit"]["message"],
-                "author": commit["commit"]["author"]["name"],
-                "author_email": commit["commit"]["author"].get("email"),
-                "date": commit["commit"]["author"]["date"],
-                "commit_type": parsed["type"],
-                "type_label": parsed["type_label"],
-                "scope": parsed["scope"],
-                "description": parsed["description"],
-                "is_breaking": parsed["is_breaking"],
-                "files_changed": detail.get("files_changed", 0) if isinstance(detail, dict) else 0,
-                "lines_added": detail.get("additions", 0) if isinstance(detail, dict) else 0,
-                "lines_deleted": detail.get("deletions", 0) if isinstance(detail, dict) else 0,
-                "work_areas": work_areas,
-            })
+            result.append(
+                {
+                    "sha": commit["sha"],
+                    "short_sha": commit["sha"][:7],
+                    "message": commit["commit"]["message"].split("\n")[0],
+                    "full_message": commit["commit"]["message"],
+                    "author": commit["commit"]["author"]["name"],
+                    "author_email": commit["commit"]["author"].get("email"),
+                    "date": commit["commit"]["author"]["date"],
+                    "commit_type": parsed["type"],
+                    "type_label": parsed["type_label"],
+                    "scope": parsed["scope"],
+                    "description": parsed["description"],
+                    "is_breaking": parsed["is_breaking"],
+                    "files_changed": detail.get("files_changed", 0)
+                    if isinstance(detail, dict)
+                    else 0,
+                    "lines_added": detail.get("additions", 0)
+                    if isinstance(detail, dict)
+                    else 0,
+                    "lines_deleted": detail.get("deletions", 0)
+                    if isinstance(detail, dict)
+                    else 0,
+                    "work_areas": work_areas,
+                }
+            )
 
         return result

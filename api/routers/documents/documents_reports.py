@@ -1,4 +1,5 @@
 """Report generation endpoints for documents."""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +13,7 @@ router = APIRouter()
 
 @router.get("/projects")
 async def generate_projects_report(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """
     Generate PROJECTS.md style report.
@@ -22,19 +22,14 @@ async def generate_projects_report(
     report_service = ReportService(db)
     try:
         content = await report_service.generate_projects_md(user_id)
-        return {
-            "report_type": "projects_md",
-            "content": content,
-            "format": "markdown"
-        }
+        return {"report_type": "projects_md", "content": content, "format": "markdown"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/performance")
 async def generate_performance_report(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """
     Generate PROJECT_PERFORMANCE_SUMMARY.md style report.
@@ -46,7 +41,7 @@ async def generate_performance_report(
         return {
             "report_type": "performance_summary",
             "content": content,
-            "format": "markdown"
+            "format": "markdown",
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -54,8 +49,7 @@ async def generate_performance_report(
 
 @router.get("/company-integrated")
 async def generate_company_integrated_report(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """
     Generate company-integrated report.
@@ -67,7 +61,7 @@ async def generate_company_integrated_report(
         return {
             "report_type": "company_integrated",
             "content": content,
-            "format": "markdown"
+            "format": "markdown",
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -75,8 +69,7 @@ async def generate_company_integrated_report(
 
 @router.get("/all")
 async def generate_all_reports(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """
     Generate all report formats at once.
@@ -87,7 +80,7 @@ async def generate_all_reports(
         reports = await report_service.generate_full_report(user_id)
         return {
             "reports": reports,
-            "formats": ["projects_md", "performance_summary", "company_integrated"]
+            "formats": ["projects_md", "performance_summary", "company_integrated"],
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -97,7 +90,7 @@ async def generate_all_reports(
 async def download_report(
     report_type: Literal["projects", "performance", "company-integrated"] = "projects",
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Download a report as markdown file.
@@ -118,19 +111,14 @@ async def download_report(
         return Response(
             content=content,
             media_type="text/markdown",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/project/{project_id}/detailed")
-async def get_detailed_report(
-    project_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_detailed_report(project_id: int, db: AsyncSession = Depends(get_db)):
     """
     Generate DETAILED_COMPLETION_REPORT style for a specific project.
     Returns structured data for detailed technical analysis view.
@@ -144,10 +132,7 @@ async def get_detailed_report(
 
 
 @router.get("/project/{project_id}/final")
-async def get_final_report(
-    project_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_final_report(project_id: int, db: AsyncSession = Depends(get_db)):
     """
     Generate FINAL_PROJECT_REPORT style for a specific project.
     Returns structured data for work/achievement summary view.
@@ -162,8 +147,7 @@ async def get_final_report(
 
 @router.get("/project/{project_id}/summary")
 async def get_performance_summary_for_project(
-    project_id: int,
-    db: AsyncSession = Depends(get_db)
+    project_id: int, db: AsyncSession = Depends(get_db)
 ):
     """
     Generate PROJECT_PERFORMANCE_SUMMARY style for a specific project.
@@ -171,7 +155,9 @@ async def get_performance_summary_for_project(
     """
     report_service = ReportProjectService(db)
     try:
-        report = await report_service.generate_performance_summary_for_project(project_id)
+        report = await report_service.generate_performance_summary_for_project(
+            project_id
+        )
         return report
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

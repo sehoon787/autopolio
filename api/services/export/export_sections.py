@@ -4,6 +4,7 @@ Export Sections - Project section generation for different report styles.
 Extracted from export_service.py for better modularity.
 Contains methods for generating project sections in summary, detailed, and final formats.
 """
+
 from typing import List, Dict, Any, Optional
 from datetime import date
 
@@ -15,12 +16,15 @@ from api.services.report.report_strings import get_strings
 CODE_CONTRIBUTION_KEYWORDS = ["코드 기여", "Code Contribution", "code contribution"]
 
 
-def filter_achievements(achievements: List[ProjectAchievement]) -> List[ProjectAchievement]:
+def filter_achievements(
+    achievements: List[ProjectAchievement],
+) -> List[ProjectAchievement]:
     """Filter out code contribution achievements (lines added/deleted is not a real achievement)."""
     if not achievements:
         return []
     return [
-        a for a in achievements
+        a
+        for a in achievements
         if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
     ]
 
@@ -38,7 +42,9 @@ class ExportSectionGenerator:
         self.language = language
         self._s = get_strings(language)
 
-    def _format_date_range(self, start_date: Optional[date], end_date: Optional[date]) -> str:
+    def _format_date_range(
+        self, start_date: Optional[date], end_date: Optional[date]
+    ) -> str:
         """Format date range as string."""
         if start_date and end_date:
             return f"{start_date.strftime('%Y.%m')} ~ {end_date.strftime('%Y.%m')}"
@@ -83,23 +89,25 @@ class ExportSectionGenerator:
                 for data in projects_data:
                     if data["project"].name in cat_projects:
                         if data["project"].technologies:
-                            main_techs.extend([
-                                pt.technology.name for pt in data["project"].technologies
-                                if pt.technology
-                            ])
+                            main_techs.extend(
+                                [
+                                    pt.technology.name
+                                    for pt in data["project"].technologies
+                                    if pt.technology
+                                ]
+                            )
                 main_techs = list(set(main_techs))[:3]
                 tech_str = ", ".join(main_techs) if main_techs else "-"
                 lines.append(f"| **{cat_name}** | {len(cat_projects)} | {tech_str} |")
 
-        lines.append(f"| **{s['overview_total']}** | **{len(projects_data)}** | **{s['overview_various_tech']}** |")
+        lines.append(
+            f"| **{s['overview_total']}** | **{len(projects_data)}** | **{s['overview_various_tech']}** |"
+        )
         lines.append("")
         return "\n".join(lines)
 
     def generate_project_section_summary(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate a summary project section with key tasks and achievements (요약 형식)."""
         s = self._s
@@ -126,10 +134,18 @@ class ExportSectionGenerator:
                 self._append_per_repo_key_tasks(lines, all_analyses)
         else:
             key_tasks = self._base._get_effective_key_tasks(analysis, edits)
-            implementation_details = self._base._get_effective_implementation_details(analysis, edits)
+            implementation_details = self._base._get_effective_implementation_details(
+                analysis, edits
+            )
 
-            all_tasks = key_tasks if isinstance(key_tasks, list) and key_tasks else (
-                implementation_details if isinstance(implementation_details, list) else []
+            all_tasks = (
+                key_tasks
+                if isinstance(key_tasks, list) and key_tasks
+                else (
+                    implementation_details
+                    if isinstance(implementation_details, list)
+                    else []
+                )
             )
 
             if all_tasks:
@@ -145,7 +161,9 @@ class ExportSectionGenerator:
         # Achievements section
         if has_multi_repo and all_analyses:
             has_any_achievements = any(
-                self._base._get_effective_detailed_achievements(ad["analysis"], ad["edits"])
+                self._base._get_effective_detailed_achievements(
+                    ad["analysis"], ad["edits"]
+                )
                 for ad in all_analyses
             ) or bool(filter_achievements(project.achievements))
             if has_any_achievements:
@@ -153,10 +171,14 @@ class ExportSectionGenerator:
                 lines.append("")
                 self._append_per_repo_achievements(lines, all_analyses, project)
         else:
-            detailed_achievements = self._base._get_effective_detailed_achievements(analysis, edits)
+            detailed_achievements = self._base._get_effective_detailed_achievements(
+                analysis, edits
+            )
             achievements = filter_achievements(project.achievements)
 
-            has_achievements = (detailed_achievements and isinstance(detailed_achievements, dict)) or bool(achievements)
+            has_achievements = (
+                detailed_achievements and isinstance(detailed_achievements, dict)
+            ) or bool(achievements)
             if has_achievements:
                 lines.append(f"### 2. {s['section_achievements']}")
                 lines.append("")
@@ -170,48 +192,57 @@ class ExportSectionGenerator:
         if include_code_stats and analysis:
             lines.append(f"### 3. {s['section_code_stats']}")
             lines.append("")
-            lines.append(f"- **{s['label_total_commits']}**: {analysis.total_commits or 0}")
-            lines.append(f"- **{s['label_user_commits']}**: {analysis.user_commits or 0}")
+            lines.append(
+                f"- **{s['label_total_commits']}**: {analysis.total_commits or 0}"
+            )
+            lines.append(
+                f"- **{s['label_user_commits']}**: {analysis.user_commits or 0}"
+            )
             if analysis.total_commits and analysis.total_commits > 0:
-                contribution = round((analysis.user_commits or 0) / analysis.total_commits * 100, 1)
+                contribution = round(
+                    (analysis.user_commits or 0) / analysis.total_commits * 100, 1
+                )
                 lines.append(f"- **{s['label_contribution_rate']}**: {contribution}%")
             lines.append(f"- **{s['label_added_lines']}**: {analysis.lines_added or 0}")
-            lines.append(f"- **{s['label_deleted_lines']}**: {analysis.lines_deleted or 0}")
+            lines.append(
+                f"- **{s['label_deleted_lines']}**: {analysis.lines_deleted or 0}"
+            )
             lines.append("")
 
         lines.append("")
         return "\n".join(lines)
 
     def generate_project_section_detailed(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate a detailed project section (상세 형식) - DETAILED_COMPLETION_REPORT style."""
         from .export_sections_detailed import generate_project_section_detailed
+
         return generate_project_section_detailed(self, data, idx, include_code_stats)
 
     def generate_project_section_final(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate a final project section (상세 요약 형식) - FINAL_PROJECT_REPORT style."""
         from .export_sections_detailed import generate_project_section_final
+
         return generate_project_section_final(self, data, idx, include_code_stats)
 
     def _append_detailed_achievements_with_before_after(
-        self,
-        lines: List[str],
-        detailed_achievements: Dict
+        self, lines: List[str], detailed_achievements: Dict
     ) -> None:
         """Append detailed achievements with before/after format."""
-        from .export_sections_detailed import append_detailed_achievements_with_before_after
-        append_detailed_achievements_with_before_after(self, lines, detailed_achievements)
+        from .export_sections_detailed import (
+            append_detailed_achievements_with_before_after,
+        )
 
-    def _append_detailed_achievements(self, lines: List[str], detailed_achievements: Dict) -> None:
+        append_detailed_achievements_with_before_after(
+            self, lines, detailed_achievements
+        )
+
+    def _append_detailed_achievements(
+        self, lines: List[str], detailed_achievements: Dict
+    ) -> None:
         """Append detailed achievements (from LLM) to lines."""
         s = self._s
         for category, items in detailed_achievements.items():
@@ -235,9 +266,7 @@ class ExportSectionGenerator:
             lines.append("")
 
     def _append_achievements_by_category(
-        self,
-        lines: List[str],
-        achievements: List[ProjectAchievement]
+        self, lines: List[str], achievements: List[ProjectAchievement]
     ) -> None:
         """Append achievements grouped by category."""
         s = self._s
@@ -264,10 +293,7 @@ class ExportSectionGenerator:
     # ==========================================================================
 
     def _append_per_repo_key_tasks(
-        self,
-        lines: List[str],
-        all_analyses: List[Dict],
-        limit: int = 0
+        self, lines: List[str], all_analyses: List[Dict], limit: int = 0
     ) -> None:
         """Append key tasks grouped by repo label for multi-repo projects."""
         for ad in all_analyses:
@@ -291,12 +317,14 @@ class ExportSectionGenerator:
         lines: List[str],
         all_analyses: List[Dict],
         project: Any,
-        compact: bool = False
+        compact: bool = False,
     ) -> None:
         """Append achievements grouped by repo label for multi-repo projects."""
         for ad in all_analyses:
             label = ad.get("label", "")
-            detailed = self._base._get_effective_detailed_achievements(ad["analysis"], ad["edits"])
+            detailed = self._base._get_effective_detailed_achievements(
+                ad["analysis"], ad["edits"]
+            )
             if not detailed or not isinstance(detailed, dict):
                 continue
             lines.append(f"#### [{label}]")
@@ -312,7 +340,11 @@ class ExportSectionGenerator:
                             title = item.get("title", "")
                             description = item.get("description", "")
                             if compact:
-                                lines.append(f"- {title}: {description}" if description else f"- {title}")
+                                lines.append(
+                                    f"- {title}: {description}"
+                                    if description
+                                    else f"- {title}"
+                                )
                             else:
                                 lines.append(f"- **{title}**")
                                 if description:
@@ -322,15 +354,14 @@ class ExportSectionGenerator:
                 lines.append("")
 
     def _append_per_repo_implementation(
-        self,
-        lines: List[str],
-        all_analyses: List[Dict],
-        limit: int = 0
+        self, lines: List[str], all_analyses: List[Dict], limit: int = 0
     ) -> None:
         """Append implementation details grouped by repo label for multi-repo projects."""
         for ad in all_analyses:
             label = ad.get("label", "")
-            impl = self._base._get_effective_implementation_details(ad["analysis"], ad["edits"])
+            impl = self._base._get_effective_implementation_details(
+                ad["analysis"], ad["edits"]
+            )
             if not impl or not isinstance(impl, list):
                 continue
             lines.append(f"#### [{label}]")

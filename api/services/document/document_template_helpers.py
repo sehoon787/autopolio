@@ -3,13 +3,14 @@ Document Template Helpers - Template rendering and data preparation utilities.
 
 Provides functions for template rendering, data flattening, and skill categorization.
 """
+
 from collections import OrderedDict
 from typing import Dict, List, Any
 from datetime import datetime
 import re
 
 
-def flatten_dict(d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
+def flatten_dict(d: Dict, parent_key: str = "", sep: str = ".") -> Dict:
     """Flatten nested dictionary."""
     items = []
     for k, v in d.items():
@@ -49,7 +50,7 @@ def render_sections(template: str, data: Dict[str, Any]) -> str:
     """Render section loops in template with recursive support for nested sections."""
     # Pattern for sections: {{#section}}...{{/section}}
     # Using non-greedy matching for innermost sections first
-    section_pattern = r'\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}'
+    section_pattern = r"\{\{#(\w+)\}\}(.*?)\{\{/\1\}\}"
 
     def render_item(item_data: Dict[str, Any], content: str) -> str:
         """Recursively render a single item with its nested sections."""
@@ -59,19 +60,23 @@ def render_sections(template: str, data: Dict[str, Any]) -> str:
         # e.g., {{#has_description}}...{{/has_description}}
         for key, value in item_data.items():
             if isinstance(value, bool):
-                bool_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                bool_pattern = rf"\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}"
                 if value:
                     # True - keep the content inside
-                    result = re.sub(bool_pattern, r'\1', result, flags=re.DOTALL)
+                    result = re.sub(bool_pattern, r"\1", result, flags=re.DOTALL)
                 else:
                     # False - remove the entire section
-                    result = re.sub(bool_pattern, '', result, flags=re.DOTALL)
+                    result = re.sub(bool_pattern, "", result, flags=re.DOTALL)
 
         # Then, recursively process any nested sections within this item
         for key, value in item_data.items():
-            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+            if (
+                isinstance(value, list)
+                and len(value) > 0
+                and isinstance(value[0], dict)
+            ):
                 # This is a nested section (like achievements inside projects)
-                nested_pattern = rf'\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}'
+                nested_pattern = rf"\{{\{{#{key}\}}\}}(.*?)\{{\{{/{key}\}}\}}"
                 nested_match = re.search(nested_pattern, result, flags=re.DOTALL)
                 if nested_match:
                     nested_content = nested_match.group(1)
@@ -81,27 +86,43 @@ def render_sections(template: str, data: Dict[str, Any]) -> str:
                         # First handle boolean conditional sections
                         for nkey, nvalue in nested_item.items():
                             if isinstance(nvalue, bool):
-                                bool_pattern = rf'\{{\{{#{nkey}\}}\}}(.*?)\{{\{{/{nkey}\}}\}}'
+                                bool_pattern = (
+                                    rf"\{{\{{#{nkey}\}}\}}(.*?)\{{\{{/{nkey}\}}\}}"
+                                )
                                 if nvalue:
                                     # True - keep the content inside
                                     nested_item_content = re.sub(
-                                        bool_pattern, r'\1', nested_item_content, flags=re.DOTALL
+                                        bool_pattern,
+                                        r"\1",
+                                        nested_item_content,
+                                        flags=re.DOTALL,
                                     )
                                 else:
                                     # False - remove the entire section
                                     nested_item_content = re.sub(
-                                        bool_pattern, '', nested_item_content, flags=re.DOTALL
+                                        bool_pattern,
+                                        "",
+                                        nested_item_content,
+                                        flags=re.DOTALL,
                                     )
                         # Then replace simple placeholders
                         for nkey, nvalue in nested_item.items():
                             placeholder = f"{{{{{nkey}}}}}"
                             nested_item_content = nested_item_content.replace(
                                 placeholder,
-                                str(nvalue if nvalue is not None and not isinstance(nvalue, bool) else '')
+                                str(
+                                    nvalue
+                                    if nvalue is not None
+                                    and not isinstance(nvalue, bool)
+                                    else ""
+                                ),
                             )
                         nested_rendered.append(nested_item_content.strip())
                     result = re.sub(
-                        nested_pattern, '\n'.join(nested_rendered), result, flags=re.DOTALL
+                        nested_pattern,
+                        "\n".join(nested_rendered),
+                        result,
+                        flags=re.DOTALL,
                     )
 
         # Then replace simple field placeholders
@@ -117,7 +138,7 @@ def render_sections(template: str, data: Dict[str, Any]) -> str:
                     result = result.replace(placeholder, "")
                 # Lists of dicts are handled by nested section logic above
             elif not isinstance(value, dict):
-                result = result.replace(placeholder, str(value or ''))
+                result = result.replace(placeholder, str(value or ""))
 
         return result
 
@@ -158,33 +179,126 @@ def categorize_skills(projects: List[Dict[str, Any]]) -> Dict[str, str]:
     # Skill category mappings
     categories = {
         "programming_languages": {
-            "Python", "JavaScript", "TypeScript", "Java", "Kotlin", "Go", "Rust",
-            "C", "C++", "C#", "PHP", "Ruby", "Swift", "Dart", "Scala", "R",
-            "MATLAB", "Perl", "Shell", "Bash", "PowerShell", "SQL", "HTML", "CSS"
+            "Python",
+            "JavaScript",
+            "TypeScript",
+            "Java",
+            "Kotlin",
+            "Go",
+            "Rust",
+            "C",
+            "C++",
+            "C#",
+            "PHP",
+            "Ruby",
+            "Swift",
+            "Dart",
+            "Scala",
+            "R",
+            "MATLAB",
+            "Perl",
+            "Shell",
+            "Bash",
+            "PowerShell",
+            "SQL",
+            "HTML",
+            "CSS",
         },
         "frameworks": {
-            "React", "Vue", "Angular", "Next.js", "Nuxt.js", "Svelte", "Django",
-            "Flask", "FastAPI", "Spring", "Spring Boot", "Express", "NestJS",
-            "Rails", "Laravel", "ASP.NET", "Flutter", "React Native", "Electron",
-            "Tailwind CSS", "Bootstrap", "Material-UI", "MUI", "Ant Design",
-            "Redux", "MobX", "Zustand", "TanStack Query", "jQuery"
+            "React",
+            "Vue",
+            "Angular",
+            "Next.js",
+            "Nuxt.js",
+            "Svelte",
+            "Django",
+            "Flask",
+            "FastAPI",
+            "Spring",
+            "Spring Boot",
+            "Express",
+            "NestJS",
+            "Rails",
+            "Laravel",
+            "ASP.NET",
+            "Flutter",
+            "React Native",
+            "Electron",
+            "Tailwind CSS",
+            "Bootstrap",
+            "Material-UI",
+            "MUI",
+            "Ant Design",
+            "Redux",
+            "MobX",
+            "Zustand",
+            "TanStack Query",
+            "jQuery",
         },
         "databases": {
-            "PostgreSQL", "MySQL", "MariaDB", "MongoDB", "Redis", "SQLite",
-            "Oracle", "SQL Server", "DynamoDB", "Cassandra", "Elasticsearch",
-            "InfluxDB", "Neo4j", "Firebase", "Supabase", "CockroachDB"
+            "PostgreSQL",
+            "MySQL",
+            "MariaDB",
+            "MongoDB",
+            "Redis",
+            "SQLite",
+            "Oracle",
+            "SQL Server",
+            "DynamoDB",
+            "Cassandra",
+            "Elasticsearch",
+            "InfluxDB",
+            "Neo4j",
+            "Firebase",
+            "Supabase",
+            "CockroachDB",
         },
         "tools": {
-            "Git", "GitHub", "GitLab", "Bitbucket", "Docker", "Kubernetes",
-            "Jenkins", "CircleCI", "GitHub Actions", "Terraform", "Ansible",
-            "Webpack", "Vite", "Babel", "ESLint", "Prettier", "Jest", "Pytest",
-            "Playwright", "Cypress", "Selenium", "Postman", "Swagger", "Grafana",
-            "Prometheus", "Nginx", "Apache", "VS Code", "IntelliJ", "Figma"
+            "Git",
+            "GitHub",
+            "GitLab",
+            "Bitbucket",
+            "Docker",
+            "Kubernetes",
+            "Jenkins",
+            "CircleCI",
+            "GitHub Actions",
+            "Terraform",
+            "Ansible",
+            "Webpack",
+            "Vite",
+            "Babel",
+            "ESLint",
+            "Prettier",
+            "Jest",
+            "Pytest",
+            "Playwright",
+            "Cypress",
+            "Selenium",
+            "Postman",
+            "Swagger",
+            "Grafana",
+            "Prometheus",
+            "Nginx",
+            "Apache",
+            "VS Code",
+            "IntelliJ",
+            "Figma",
         },
         "cloud": {
-            "AWS", "GCP", "Google Cloud", "Azure", "Heroku", "Vercel", "Netlify",
-            "DigitalOcean", "Cloudflare", "Firebase", "Supabase", "Render"
-        }
+            "AWS",
+            "GCP",
+            "Google Cloud",
+            "Azure",
+            "Heroku",
+            "Vercel",
+            "Netlify",
+            "DigitalOcean",
+            "Cloudflare",
+            "Firebase",
+            "Supabase",
+            "Render",
+        },
     }
 
     result = {cat: set() for cat in categories}
@@ -205,8 +319,7 @@ def categorize_skills(projects: List[Dict[str, Any]]) -> Dict[str, str]:
 
 
 def build_project_company_data(
-    projects: List[Dict[str, Any]],
-    companies: List[Dict[str, Any]]
+    projects: List[Dict[str, Any]], companies: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """Build project data enriched with company info."""
     # Build company lookup by ID
@@ -225,41 +338,53 @@ def build_project_company_data(
         achievements_detailed_list = p.get("achievements_detailed_list", [])
 
         # If achievements lists not provided, build from raw achievements
-        if not achievements_summary_list and not achievements_detailed_list and raw_achievements:
+        if (
+            not achievements_summary_list
+            and not achievements_detailed_list
+            and raw_achievements
+        ):
             achievements_summary_list = []
             achievements_detailed_list = []
             for a in raw_achievements:
                 # Check if already in correct format (has 'category' and 'title')
                 if "category" in a and "title" in a:
                     # Summary: title only, no description
-                    achievements_summary_list.append({
-                        "category": a.get("category", "성과"),
-                        "title": a.get("title", ""),
-                    })
+                    achievements_summary_list.append(
+                        {
+                            "category": a.get("category", "성과"),
+                            "title": a.get("title", ""),
+                        }
+                    )
                     # Detailed: with description
-                    achievements_detailed_list.append({
-                        "category": a.get("category", "성과"),
-                        "title": a.get("title", ""),
-                        "description": a.get("description", ""),
-                        "has_description": bool(a.get("description"))
-                    })
+                    achievements_detailed_list.append(
+                        {
+                            "category": a.get("category", "성과"),
+                            "title": a.get("title", ""),
+                            "description": a.get("description", ""),
+                            "has_description": bool(a.get("description")),
+                        }
+                    )
                 else:
                     # Legacy format: metric_name/metric_value
                     display_category = a.get("metric_name", "성과")
                     title = a.get("metric_value", "")
                     description = a.get("description", "")
                     # Summary: title only
-                    achievements_summary_list.append({
-                        "category": display_category,
-                        "title": title,
-                    })
+                    achievements_summary_list.append(
+                        {
+                            "category": display_category,
+                            "title": title,
+                        }
+                    )
                     # Detailed: with description
-                    achievements_detailed_list.append({
-                        "category": display_category,
-                        "title": title,
-                        "description": description,
-                        "has_description": bool(description)
-                    })
+                    achievements_detailed_list.append(
+                        {
+                            "category": display_category,
+                            "title": title,
+                            "description": description,
+                            "has_description": bool(description),
+                        }
+                    )
 
         # Build achievements_grouped from summary_list
         grouped_dict = OrderedDict()
@@ -273,32 +398,38 @@ def build_project_company_data(
             for cat, items in grouped_dict.items()
         ]
 
-        enriched_projects.append({
-            "name": p.get("name", ""),
-            "short_description": p.get("short_description", ""),
-            "description": p.get("description", "") or p.get("ai_summary", ""),
-            "start_date": str(p.get("start_date", "")),
-            "end_date": str(p.get("end_date", "")) if p.get("end_date") else "진행중",
-            "role": p.get("role", ""),
-            "team_size": p.get("team_size", ""),
-            "contribution_percent": p.get("contribution_percent", ""),
-            "technologies": (
-                ", ".join(p.get("technologies", []))
-                if isinstance(p.get("technologies"), list)
-                else p.get("technologies", "")
-            ),
-            "key_tasks": p.get("key_tasks", []),
-            "achievements": raw_achievements,  # Keep original for backward compatibility
-            "achievements_summary_list": achievements_summary_list,  # Default: title only
-            "achievements_detailed_list": achievements_detailed_list,  # With description
-            "achievements_grouped": achievements_grouped,  # Grouped by category
-            "has_achievements": bool(achievements_summary_list or achievements_detailed_list),
-            "links": p.get("links", {}),
-            # Company info for project
-            "company_name": company.get("name", ""),
-            "department": company.get("department", ""),
-            "position": company.get("position", ""),
-        })
+        enriched_projects.append(
+            {
+                "name": p.get("name", ""),
+                "short_description": p.get("short_description", ""),
+                "description": p.get("description", "") or p.get("ai_summary", ""),
+                "start_date": str(p.get("start_date", "")),
+                "end_date": str(p.get("end_date", ""))
+                if p.get("end_date")
+                else "진행중",
+                "role": p.get("role", ""),
+                "team_size": p.get("team_size", ""),
+                "contribution_percent": p.get("contribution_percent", ""),
+                "technologies": (
+                    ", ".join(p.get("technologies", []))
+                    if isinstance(p.get("technologies"), list)
+                    else p.get("technologies", "")
+                ),
+                "key_tasks": p.get("key_tasks", []),
+                "achievements": raw_achievements,  # Keep original for backward compatibility
+                "achievements_summary_list": achievements_summary_list,  # Default: title only
+                "achievements_detailed_list": achievements_detailed_list,  # With description
+                "achievements_grouped": achievements_grouped,  # Grouped by category
+                "has_achievements": bool(
+                    achievements_summary_list or achievements_detailed_list
+                ),
+                "links": p.get("links", {}),
+                # Company info for project
+                "company_name": company.get("name", ""),
+                "department": company.get("department", ""),
+                "position": company.get("position", ""),
+            }
+        )
 
     return {"projects": enriched_projects}
 
@@ -328,7 +459,9 @@ def calculate_total_experience(companies: List[Dict[str, Any]]) -> str:
                 else:
                     end_date = datetime.now()
 
-                months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+                months = (end_date.year - start_date.year) * 12 + (
+                    end_date.month - start_date.month
+                )
                 total_months += max(0, months)
             except (ValueError, TypeError):
                 continue

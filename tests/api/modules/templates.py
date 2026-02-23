@@ -33,7 +33,7 @@ class TemplatesAPI(BaseAPIModule):
         template_content: str = "",
         field_mappings: Optional[dict] = None,
         is_default: bool = False,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """
         Create a new template.
@@ -55,7 +55,7 @@ class TemplatesAPI(BaseAPIModule):
             "platform": platform,
             "template_content": template_content,
             "is_default": is_default,
-            **kwargs
+            **kwargs,
         }
         if field_mappings:
             data["field_mappings"] = field_mappings
@@ -99,7 +99,9 @@ class TemplatesAPI(BaseAPIModule):
         """
         return self._delete(f"/templates/{template_id}")
 
-    def clone(self, template_id: int, new_name: str, user_id: int = None) -> httpx.Response:
+    def clone(
+        self, template_id: int, new_name: str, user_id: int = None
+    ) -> httpx.Response:
         """
         Clone a template with a new name.
 
@@ -120,7 +122,7 @@ class TemplatesAPI(BaseAPIModule):
         self,
         template_content: str,
         user_id: int,
-        project_ids: Optional[List[int]] = None
+        project_ids: Optional[List[int]] = None,
     ) -> httpx.Response:
         """
         Preview template with user data.
@@ -156,7 +158,7 @@ class TemplatesAPI(BaseAPIModule):
         user_id: int,
         file_content: bytes,
         filename: str,
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> httpx.Response:
         """
         Upload a custom template file.

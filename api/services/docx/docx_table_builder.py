@@ -4,6 +4,7 @@ DOCX Table Builder - Table creation utilities for Word documents.
 Extracted from docx_generator.py for better modularity.
 Contains cell styling helpers and table creation methods.
 """
+
 import re
 from collections import OrderedDict
 from typing import Dict, List, Any
@@ -19,11 +20,11 @@ from docx.oxml import OxmlElement
 def _strip_markdown(text: str) -> str:
     """Strip markdown syntax from text for clean DOCX rendering."""
     # Remove heading prefixes
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
     # Remove bold markers
-    text = text.replace('**', '')
+    text = text.replace("**", "")
     # Remove italic markers (single *)
-    text = re.sub(r'(?<!\*)\*(?!\*)', '', text)
+    text = re.sub(r"(?<!\*)\*(?!\*)", "", text)
     return text.strip()
 
 
@@ -54,15 +55,15 @@ class DocxTableBuilder:
         tcPr = tc.get_or_add_tcPr()
 
         # Remove existing borders
-        for old_border in tcPr.findall(qn('w:tcBorders')):
+        for old_border in tcPr.findall(qn("w:tcBorders")):
             tcPr.remove(old_border)
 
-        tcBorders = OxmlElement('w:tcBorders')
-        for border_name in ['top', 'left', 'bottom', 'right']:
-            border = OxmlElement(f'w:{border_name}')
-            border.set(qn('w:val'), 'single')
-            border.set(qn('w:sz'), str(size))
-            border.set(qn('w:color'), color)
+        tcBorders = OxmlElement("w:tcBorders")
+        for border_name in ["top", "left", "bottom", "right"]:
+            border = OxmlElement(f"w:{border_name}")
+            border.set(qn("w:val"), "single")
+            border.set(qn("w:sz"), str(size))
+            border.set(qn("w:color"), color)
             tcBorders.append(border)
         tcPr.append(tcBorders)
 
@@ -70,8 +71,8 @@ class DocxTableBuilder:
         """Set cell background color."""
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
-        shading = OxmlElement('w:shd')
-        shading.set(qn('w:fill'), color)
+        shading = OxmlElement("w:shd")
+        shading.set(qn("w:fill"), color)
         tcPr.append(shading)
 
     def merge_cells_vertically(self, table, col_idx: int, start_row: int, end_row: int):
@@ -83,11 +84,11 @@ class DocxTableBuilder:
 
             if row_idx == start_row:
                 # First cell - vMerge restart
-                vMerge = OxmlElement('w:vMerge')
-                vMerge.set(qn('w:val'), 'restart')
+                vMerge = OxmlElement("w:vMerge")
+                vMerge.set(qn("w:val"), "restart")
             else:
                 # Subsequent cells - vMerge continue
-                vMerge = OxmlElement('w:vMerge')
+                vMerge = OxmlElement("w:vMerge")
                 # Clear the cell text
                 cell.text = ""
 
@@ -99,24 +100,24 @@ class DocxTableBuilder:
         python-docx cell.width doesn't always work, so we set widths via XML.
         """
         tbl = table._tbl
-        tblPr = tbl.tblPr if tbl.tblPr is not None else OxmlElement('w:tblPr')
+        tblPr = tbl.tblPr if tbl.tblPr is not None else OxmlElement("w:tblPr")
 
         # Remove existing width settings
-        for old_width in tblPr.findall(qn('w:tblW')):
+        for old_width in tblPr.findall(qn("w:tblW")):
             tblPr.remove(old_width)
 
         # Set table width to auto
-        tblW = OxmlElement('w:tblW')
-        tblW.set(qn('w:type'), 'auto')
+        tblW = OxmlElement("w:tblW")
+        tblW.set(qn("w:type"), "auto")
         tblPr.append(tblW)
 
         if tbl.tblPr is None:
             tbl.insert(0, tblPr)
 
         # Set column widths using tblGrid
-        tblGrid = tbl.find(qn('w:tblGrid'))
+        tblGrid = tbl.find(qn("w:tblGrid"))
         if tblGrid is None:
-            tblGrid = OxmlElement('w:tblGrid')
+            tblGrid = OxmlElement("w:tblGrid")
             tbl.insert(1, tblGrid)
         else:
             # Clear existing gridCol elements
@@ -124,13 +125,13 @@ class DocxTableBuilder:
                 tblGrid.remove(col)
 
         for width in widths:
-            gridCol = OxmlElement('w:gridCol')
+            gridCol = OxmlElement("w:gridCol")
             # Convert cm to twips (1 cm = 567 twips)
             if isinstance(width, Cm):
                 twips = int(width.cm * 567)
             else:
                 twips = int(width * 567)
-            gridCol.set(qn('w:w'), str(twips))
+            gridCol.set(qn("w:w"), str(twips))
             tblGrid.append(gridCol)
 
         # Also set cell widths directly
@@ -150,7 +151,7 @@ class DocxTableBuilder:
         run.font.bold = bold
         run.font.color.rgb = RGBColor(0, 0, 0)
         # Set East Asian font
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), self.font_body)
+        run._element.rPr.rFonts.set(qn("w:eastAsia"), self.font_body)
 
     # ==========================================================================
     # Table Creation Methods
@@ -162,7 +163,7 @@ class DocxTableBuilder:
         section_title: str,
         rows: List[tuple],
         title_rows: int = None,
-        value_bold: bool = False
+        value_bold: bool = False,
     ):
         """Create a standard info table with section header in first column.
 
@@ -228,10 +229,7 @@ class DocxTableBuilder:
         return table
 
     def create_career_table_with_bold_company(
-        self,
-        doc: Document,
-        section_title: str,
-        rows: List[tuple]
+        self, doc: Document, section_title: str, rows: List[tuple]
     ):
         """Create career table with bold company name in first row's value.
 
@@ -298,7 +296,7 @@ class DocxTableBuilder:
         self,
         doc: Document,
         projects: List[Dict[str, Any]],
-        section_title: str = "주요 프로젝트"
+        section_title: str = "주요 프로젝트",
     ):
         """Create project section table in 2-column format matching original layout."""
         if not projects:
@@ -354,7 +352,9 @@ class DocxTableBuilder:
 
             # Project name with period
             para = cell1.add_paragraph()
-            period = f"{project.get('start_date', '')} ~ {project.get('end_date', '진행중')}"
+            period = (
+                f"{project.get('start_date', '')} ~ {project.get('end_date', '진행중')}"
+            )
             project_line = f"프로젝트: {project.get('name', '')} ({period})"
             run = para.add_run(project_line)
             self.set_run_font(run, self.size_table_content, bold=True)
@@ -373,7 +373,7 @@ class DocxTableBuilder:
 
             # Description (strip any markdown syntax)
             if project.get("description"):
-                clean_desc = _strip_markdown(project['description'])
+                clean_desc = _strip_markdown(project["description"])
                 if clean_desc:
                     para = cell1.add_paragraph()
                     run = para.add_run(clean_desc)
@@ -412,7 +412,9 @@ class DocxTableBuilder:
         achievements_summary = project.get("achievements_summary_list", [])
 
         use_detailed = achievements_detailed and len(achievements_detailed) > 0
-        achievements_list = achievements_detailed if use_detailed else achievements_summary
+        achievements_list = (
+            achievements_detailed if use_detailed else achievements_summary
+        )
 
         if not achievements_list:
             achievements_list = project.get("achievements", [])
@@ -455,7 +457,9 @@ class DocxTableBuilder:
                             para = cell.add_paragraph()
                             para.paragraph_format.left_indent = Pt(24)
                             run = para.add_run(f"→ {desc}")
-                            self.set_run_font(run, self.size_table_content - 1, bold=False)
+                            self.set_run_font(
+                                run, self.size_table_content - 1, bold=False
+                            )
         else:
             for ach in achievements_list:
                 ach_text = str(ach).replace("**", "")
@@ -467,7 +471,7 @@ class DocxTableBuilder:
         self,
         doc: Document,
         skills_data: Dict[str, str],
-        section_title: str = "기술스택"
+        section_title: str = "기술스택",
     ):
         """Create skills table matching original format.
 
@@ -530,11 +534,15 @@ class DocxTableBuilder:
         row_idx = 0
 
         if row1_value:
-            self._fill_skills_row(table, row_idx, section_title, row1_label, row1_value, row_idx == 0)
+            self._fill_skills_row(
+                table, row_idx, section_title, row1_label, row1_value, row_idx == 0
+            )
             row_idx += 1
 
         if row2_value:
-            self._fill_skills_row(table, row_idx, section_title, row2_label, row2_value, row_idx == 0)
+            self._fill_skills_row(
+                table, row_idx, section_title, row2_label, row2_value, row_idx == 0
+            )
 
         # Merge section header cells vertically if multiple rows
         if num_rows > 1:
@@ -550,7 +558,7 @@ class DocxTableBuilder:
         section_title: str,
         label: str,
         value: str,
-        add_title: bool
+        add_title: bool,
     ):
         """Fill a single row in skills table."""
         cell0 = table.cell(row_idx, 0)

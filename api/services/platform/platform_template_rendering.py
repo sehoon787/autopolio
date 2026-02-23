@@ -4,11 +4,8 @@ Platform Template Rendering
 Handles rendering templates with user data or sample data.
 """
 
-from typing import Dict, Any
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.models.platform_template import PlatformTemplate
 from api.schemas.platform import (
     RenderDataRequest,
     ExperienceData,
@@ -32,7 +29,7 @@ class PlatformTemplateRendering:
         crud: PlatformTemplateCRUD,
         renderer: TemplateRenderer,
         exporter: TemplateExporter,
-        data_collector: UserDataCollector
+        data_collector: UserDataCollector,
     ):
         self.db = db
         self.crud = crud
@@ -41,9 +38,7 @@ class PlatformTemplateRendering:
         self.data_collector = data_collector
 
     async def render_with_user_data(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> str:
         """
         Render a template with user-provided data
@@ -64,10 +59,7 @@ class PlatformTemplateRendering:
 
         return self.renderer.render(template.html_content, render_data)
 
-    async def render_with_sample_data(
-        self,
-        template_id: int
-    ) -> str:
+    async def render_with_sample_data(self, template_id: int) -> str:
         """
         Render a template with sample data for preview without connected projects
 
@@ -87,17 +79,15 @@ class PlatformTemplateRendering:
         # Add platform logo (Wanted uses smaller padding for larger logo)
         logo_padding = 3 if template.platform_key == "wanted" else 8
         sample_data["platform_logo"] = get_platform_logo(template.platform_key)
-        sample_data["platform_logo_svg"] = get_platform_logo_svg(template.platform_key, 40, logo_padding)
+        sample_data["platform_logo_svg"] = get_platform_logo_svg(
+            template.platform_key, 40, logo_padding
+        )
         sample_data["platform_color"] = get_platform_color(template.platform_key)
         sample_data["platform_name"] = template.name
 
         return self.renderer.render(template.html_content, sample_data)
 
-    async def render_from_db(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def render_from_db(self, template_id: int, user_id: int) -> str:
         """
         Render a template with data from the database
 
@@ -127,22 +117,22 @@ class PlatformTemplateRendering:
         has_projects = len(render_data.get("projects", [])) > 0
 
         if not has_companies and not has_projects:
-            raise ValueError("No companies or projects found. Please add your career information first.")
+            raise ValueError(
+                "No companies or projects found. Please add your career information first."
+            )
 
         # Add platform logo (Wanted uses smaller padding for larger logo)
         logo_padding = 3 if template.platform_key == "wanted" else 8
         render_data["platform_logo"] = get_platform_logo(template.platform_key)
-        render_data["platform_logo_svg"] = get_platform_logo_svg(template.platform_key, 40, logo_padding)
+        render_data["platform_logo_svg"] = get_platform_logo_svg(
+            template.platform_key, 40, logo_padding
+        )
         render_data["platform_color"] = get_platform_color(template.platform_key)
         render_data["platform_name"] = template.name
 
         return self.renderer.render(template.html_content, render_data)
 
-    async def render_markdown_from_db(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def render_markdown_from_db(self, template_id: int, user_id: int) -> str:
         """
         Render a template as Markdown with data from the database
 
@@ -166,28 +156,36 @@ class PlatformTemplateRendering:
             # achievements can be a list or string, ensure it's a list
             exp_achievements = exp.get("achievements_list") or exp.get("achievements")
             if isinstance(exp_achievements, str):
-                exp_achievements = [a.strip() for a in exp_achievements.split("\n") if a.strip()]
+                exp_achievements = [
+                    a.strip() for a in exp_achievements.split("\n") if a.strip()
+                ]
 
-            experiences.append(ExperienceData(
-                company_name=exp.get("company_name", ""),
-                position=exp.get("position"),
-                start_date=exp.get("start_date"),
-                end_date=exp.get("end_date"),
-                description=exp.get("description"),
-                achievements=exp_achievements if exp_achievements else None,
-            ))
+            experiences.append(
+                ExperienceData(
+                    company_name=exp.get("company_name", ""),
+                    position=exp.get("position"),
+                    start_date=exp.get("start_date"),
+                    end_date=exp.get("end_date"),
+                    description=exp.get("description"),
+                    achievements=exp_achievements if exp_achievements else None,
+                )
+            )
 
         # Build projects
         projects = self._build_projects_from_data(render_data.get("projects", []))
 
         # Build skills
         skills_data = render_data.get("skills_categorized", {})
-        skills = SkillsData(
-            languages=skills_data.get("languages", []),
-            frameworks=skills_data.get("frameworks", []),
-            databases=skills_data.get("databases", []),
-            tools=skills_data.get("tools", []),
-        ) if skills_data else None
+        skills = (
+            SkillsData(
+                languages=skills_data.get("languages", []),
+                frameworks=skills_data.get("frameworks", []),
+                databases=skills_data.get("databases", []),
+                tools=skills_data.get("tools", []),
+            )
+            if skills_data
+            else None
+        )
 
         data = RenderDataRequest(
             name=render_data.get("name", ""),
@@ -206,12 +204,11 @@ class PlatformTemplateRendering:
         )
 
         # Pass platform_key for platform-specific formatting
-        return self.exporter.generate_markdown(data, template.name, template.platform_key)
+        return self.exporter.generate_markdown(
+            data, template.name, template.platform_key
+        )
 
-    async def render_markdown_with_sample_data(
-        self,
-        template_id: int
-    ) -> str:
+    async def render_markdown_with_sample_data(self, template_id: int) -> str:
         """
         Render a template as Markdown with sample data for preview
 
@@ -231,14 +228,16 @@ class PlatformTemplateRendering:
         # Build experiences from sample data
         experiences = []
         for exp in sample_data.get("experiences", []):
-            experiences.append(ExperienceData(
-                company_name=exp.get("company_name", exp.get("company", "")),
-                position=exp.get("position"),
-                start_date=exp.get("start_date"),
-                end_date=exp.get("end_date") if not exp.get("is_current") else None,
-                description=exp.get("description"),
-                achievements=exp.get("achievements"),
-            ))
+            experiences.append(
+                ExperienceData(
+                    company_name=exp.get("company_name", exp.get("company", "")),
+                    position=exp.get("position"),
+                    start_date=exp.get("start_date"),
+                    end_date=exp.get("end_date") if not exp.get("is_current") else None,
+                    description=exp.get("description"),
+                    achievements=exp.get("achievements"),
+                )
+            )
 
         # Build projects from sample data
         projects = []
@@ -252,29 +251,37 @@ class PlatformTemplateRendering:
             ach = proj.get("achievements")
             ach_list = None
             if isinstance(ach, str):
-                ach_list = [a.strip().lstrip("• ") for a in ach.split("\n") if a.strip()]
+                ach_list = [
+                    a.strip().lstrip("• ") for a in ach.split("\n") if a.strip()
+                ]
             elif isinstance(ach, list):
                 ach_list = ach
 
-            projects.append(ProjectData(
-                name=proj.get("name", ""),
-                company_name=proj.get("company"),
-                start_date=proj.get("start_date"),
-                end_date=proj.get("end_date"),
-                description=proj.get("description"),
-                role=proj.get("role"),
-                technologies=tech_list if tech_list else None,
-                achievements=ach_list if ach_list else None,
-            ))
+            projects.append(
+                ProjectData(
+                    name=proj.get("name", ""),
+                    company_name=proj.get("company"),
+                    start_date=proj.get("start_date"),
+                    end_date=proj.get("end_date"),
+                    description=proj.get("description"),
+                    role=proj.get("role"),
+                    technologies=tech_list if tech_list else None,
+                    achievements=ach_list if ach_list else None,
+                )
+            )
 
         # Build skills from sample data
         skills_cat = sample_data.get("skills_categorized", {})
-        skills = SkillsData(
-            languages=skills_cat.get("languages", []),
-            frameworks=skills_cat.get("frameworks", []),
-            databases=skills_cat.get("databases", []),
-            tools=skills_cat.get("tools", []),
-        ) if skills_cat else None
+        skills = (
+            SkillsData(
+                languages=skills_cat.get("languages", []),
+                frameworks=skills_cat.get("frameworks", []),
+                databases=skills_cat.get("databases", []),
+                tools=skills_cat.get("tools", []),
+            )
+            if skills_cat
+            else None
+        )
 
         data = RenderDataRequest(
             name=sample_data.get("name", "홍길동"),
@@ -293,7 +300,9 @@ class PlatformTemplateRendering:
         )
 
         # Pass platform_key for platform-specific formatting
-        return self.exporter.generate_markdown(data, template.name, template.platform_key)
+        return self.exporter.generate_markdown(
+            data, template.name, template.platform_key
+        )
 
     def _build_projects_from_data(self, projects_data: list) -> list:
         """Build ProjectData list from raw project data"""
@@ -308,7 +317,11 @@ class PlatformTemplateRendering:
             ach_list = proj.get("achievements")  # String version
             if isinstance(ach_list, str):
                 # Strip bullet prefixes (• or -) since markdown will add its own
-                ach_list = [a.strip().lstrip("•").lstrip("-").strip() for a in ach_list.split("\n") if a.strip()]
+                ach_list = [
+                    a.strip().lstrip("•").lstrip("-").strip()
+                    for a in ach_list.split("\n")
+                    if a.strip()
+                ]
             elif not ach_list:
                 # Fall back to achievements_list (list of dicts)
                 ach_list_raw = proj.get("achievements_list")
@@ -327,20 +340,22 @@ class PlatformTemplateRendering:
                             ach_list.append(ach)
 
             key_tasks = proj.get("key_tasks_list", [])
-            projects.append(ProjectData(
-                name=proj.get("name", ""),
-                company_name=proj.get("company_name"),
-                start_date=proj.get("start_date"),
-                end_date=proj.get("end_date"),
-                description=proj.get("description"),
-                role=proj.get("role"),
-                technologies=tech_list if tech_list else None,
-                achievements=ach_list if ach_list else None,
-                # Extended fields for platform-specific exports
-                key_tasks_list=key_tasks if key_tasks else None,
-                has_key_tasks=len(key_tasks) > 0 if key_tasks else False,
-                team_size=proj.get("team_size"),
-                implementation_details=proj.get("implementation_details"),
-                has_achievements=bool(ach_list),
-            ))
+            projects.append(
+                ProjectData(
+                    name=proj.get("name", ""),
+                    company_name=proj.get("company_name"),
+                    start_date=proj.get("start_date"),
+                    end_date=proj.get("end_date"),
+                    description=proj.get("description"),
+                    role=proj.get("role"),
+                    technologies=tech_list if tech_list else None,
+                    achievements=ach_list if ach_list else None,
+                    # Extended fields for platform-specific exports
+                    key_tasks_list=key_tasks if key_tasks else None,
+                    has_key_tasks=len(key_tasks) > 0 if key_tasks else False,
+                    team_size=proj.get("team_size"),
+                    implementation_details=proj.get("implementation_details"),
+                    has_achievements=bool(ach_list),
+                )
+            )
         return projects

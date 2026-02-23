@@ -34,8 +34,14 @@ class TemplateRenderer:
 
         # Process list lengths for conditional rendering (backwards compatibility)
         list_keys = [
-            "experiences", "projects", "educations", "certifications",
-            "awards", "publications", "volunteer_activities", "activities"
+            "experiences",
+            "projects",
+            "educations",
+            "certifications",
+            "awards",
+            "publications",
+            "volunteer_activities",
+            "activities",
         ]
         for key in list_keys:
             if key in data and data[key]:

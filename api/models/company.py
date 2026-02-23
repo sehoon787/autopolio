@@ -31,4 +31,6 @@ class Company(Base):
 
     # Relationships
     user = relationship("User", back_populates="companies")
-    projects = relationship("Project", back_populates="company", cascade="all, delete-orphan")
+    projects = relationship(
+        "Project", back_populates="company", cascade="all, delete-orphan"
+    )

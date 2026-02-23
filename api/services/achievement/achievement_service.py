@@ -6,6 +6,7 @@ Detects quantitative achievements from:
 2. Project descriptions
 3. LLM-based generation for richer achievements
 """
+
 from typing import Dict, List, Any, Optional, Tuple
 import re
 from api.services.llm import LLMService
@@ -14,14 +15,12 @@ from .achievement_patterns import (
     COMMIT_ACHIEVEMENT_PATTERNS,
     CATEGORY_KEYWORDS,
     CATEGORY_MAP,
-    ORDERED_CATEGORIES,
     translate_metric_name,
     translate_template,
     translate_commit_metric,
     translate_commit_template,
     translate_category,
     get_ordered_categories,
-    get_category_keywords,
 )
 
 
@@ -56,17 +55,25 @@ class AchievementService:
 
                     if value:
                         metric_value = template.format(value=value)
-                        achievements.append({
-                            "metric_name": translate_metric_name(metric_name, language),
-                            "metric_value": translate_template(metric_value, language),
-                            "category": category,
-                            "evidence": match.group(0),
-                            "source": "pattern_match"
-                        })
+                        achievements.append(
+                            {
+                                "metric_name": translate_metric_name(
+                                    metric_name, language
+                                ),
+                                "metric_value": translate_template(
+                                    metric_value, language
+                                ),
+                                "category": category,
+                                "evidence": match.group(0),
+                                "source": "pattern_match",
+                            }
+                        )
 
         return achievements
 
-    def detect_from_commits(self, commit_messages: List[str], language: str = "ko") -> List[Dict[str, Any]]:
+    def detect_from_commits(
+        self, commit_messages: List[str], language: str = "ko"
+    ) -> List[Dict[str, Any]]:
         """Detect achievements from commit messages.
 
         Args:
@@ -92,13 +99,19 @@ class AchievementService:
                     value = match.group(1) if match.groups() else None
                     if value:
                         metric_value = template.format(value=value)
-                        achievements.append({
-                            "metric_name": translate_commit_metric(metric_name, language),
-                            "metric_value": translate_commit_template(metric_value, language),
-                            "category": "commit",
-                            "evidence": msg,
-                            "source": "commit_pattern"
-                        })
+                        achievements.append(
+                            {
+                                "metric_name": translate_commit_metric(
+                                    metric_name, language
+                                ),
+                                "metric_value": translate_commit_template(
+                                    metric_value, language
+                                ),
+                                "category": "commit",
+                                "evidence": msg,
+                                "source": "commit_pattern",
+                            }
+                        )
 
         # Deduplicate by metric_name + metric_value
         seen = set()
@@ -111,7 +124,9 @@ class AchievementService:
 
         return unique_achievements
 
-    def detect_from_description(self, description: str, language: str = "ko") -> List[Dict[str, Any]]:
+    def detect_from_description(
+        self, description: str, language: str = "ko"
+    ) -> List[Dict[str, Any]]:
         """Detect achievements from project description."""
         return self.detect_from_text(description, language)
 
@@ -122,7 +137,7 @@ class AchievementService:
         lines_deleted: int,
         files_changed: int,
         commit_categories: Dict[str, int],
-        language: str = "ko"
+        language: str = "ko",
     ) -> List[Dict[str, Any]]:
         """Generate achievements from code statistics.
 
@@ -158,7 +173,7 @@ class AchievementService:
                 "refactoring": "Code Refactoring",
                 "refactor_count": "{count} refactors",
                 "refactor_desc": "Improved code quality and maintainability",
-            }
+            },
         }
 
         t = translations.get(language, translations["ko"])
@@ -172,31 +187,41 @@ class AchievementService:
 
             if total > 0 and feature_count > 0:
                 feature_ratio = round(feature_count / total * 100)
-                achievements.append({
-                    "metric_name": t["feature_dev"],
-                    "metric_value": t["features_count"].format(count=feature_count),
-                    "description": t["feature_ratio_desc"].format(ratio=feature_ratio),
-                    "category": "contribution",
-                    "source": "code_stats"
-                })
+                achievements.append(
+                    {
+                        "metric_name": t["feature_dev"],
+                        "metric_value": t["features_count"].format(count=feature_count),
+                        "description": t["feature_ratio_desc"].format(
+                            ratio=feature_ratio
+                        ),
+                        "category": "contribution",
+                        "source": "code_stats",
+                    }
+                )
 
             if fix_count > 0:
-                achievements.append({
-                    "metric_name": t["bug_fix"],
-                    "metric_value": t["fixes_count"].format(count=fix_count),
-                    "description": t["bug_fix_desc"],
-                    "category": "quality",
-                    "source": "code_stats"
-                })
+                achievements.append(
+                    {
+                        "metric_name": t["bug_fix"],
+                        "metric_value": t["fixes_count"].format(count=fix_count),
+                        "description": t["bug_fix_desc"],
+                        "category": "quality",
+                        "source": "code_stats",
+                    }
+                )
 
             if refactor_count > 0:
-                achievements.append({
-                    "metric_name": t["refactoring"],
-                    "metric_value": t["refactor_count"].format(count=refactor_count),
-                    "description": t["refactor_desc"],
-                    "category": "quality",
-                    "source": "code_stats"
-                })
+                achievements.append(
+                    {
+                        "metric_name": t["refactoring"],
+                        "metric_value": t["refactor_count"].format(
+                            count=refactor_count
+                        ),
+                        "description": t["refactor_desc"],
+                        "category": "quality",
+                        "source": "code_stats",
+                    }
+                )
 
         return achievements
 
@@ -205,7 +230,7 @@ class AchievementService:
         project_data: Dict[str, Any],
         commit_summary: Optional[str] = None,
         existing_achievements: Optional[List[Dict[str, Any]]] = None,
-        language: str = "ko"
+        language: str = "ko",
     ) -> List[Dict[str, Any]]:
         """Generate achievements using LLM based on project data.
 
@@ -225,7 +250,9 @@ class AchievementService:
                     for a in existing_achievements
                 )
                 if language == "en":
-                    existing_list = f"\nPreviously detected achievements:\n{existing_list_items}"
+                    existing_list = (
+                        f"\nPreviously detected achievements:\n{existing_list_items}"
+                    )
                 else:
                     existing_list = f"\n기존에 감지된 성과:\n{existing_list_items}"
 
@@ -233,19 +260,19 @@ class AchievementService:
                 prompt = f"""Based on the following project information, extract quantitative achievements suitable for a resume.
 
 Project Info:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
-- Team size: {project_data.get('team_size', 'N/A')}
-- Contribution: {project_data.get('contribution_percent', 'N/A')}%
-- Tech stack: {', '.join(project_data.get('technologies', []))}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
+- Team size: {project_data.get("team_size", "N/A")}
+- Contribution: {project_data.get("contribution_percent", "N/A")}%
+- Tech stack: {", ".join(project_data.get("technologies", []))}
 
 Code stats:
-- Total commits: {project_data.get('total_commits', 'N/A')}
-- Lines added: {project_data.get('lines_added', 'N/A')}
-- Lines deleted: {project_data.get('lines_deleted', 'N/A')}
+- Total commits: {project_data.get("total_commits", "N/A")}
+- Lines added: {project_data.get("lines_added", "N/A")}
+- Lines deleted: {project_data.get("lines_deleted", "N/A")}
 
-Commit summary: {commit_summary or 'N/A'}
+Commit summary: {commit_summary or "N/A"}
 {existing_list}
 
 Generate 3-5 quantitative achievements as a JSON array.
@@ -275,19 +302,19 @@ Notes:
                 prompt = f"""다음 프로젝트 정보를 바탕으로 이력서에 적합한 정량적 성과를 추출해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
-- 팀 규모: {project_data.get('team_size', 'N/A')}명
-- 기여도: {project_data.get('contribution_percent', 'N/A')}%
-- 기술 스택: {', '.join(project_data.get('technologies', []))}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
+- 팀 규모: {project_data.get("team_size", "N/A")}명
+- 기여도: {project_data.get("contribution_percent", "N/A")}%
+- 기술 스택: {", ".join(project_data.get("technologies", []))}
 
 코드 통계:
-- 총 커밋: {project_data.get('total_commits', 'N/A')}
-- 추가된 라인: {project_data.get('lines_added', 'N/A')}
-- 삭제된 라인: {project_data.get('lines_deleted', 'N/A')}
+- 총 커밋: {project_data.get("total_commits", "N/A")}
+- 추가된 라인: {project_data.get("lines_added", "N/A")}
+- 삭제된 라인: {project_data.get("lines_deleted", "N/A")}
 
-커밋 요약: {commit_summary or 'N/A'}
+커밋 요약: {commit_summary or "N/A"}
 {existing_list}
 
 위 정보를 바탕으로 3-5개의 정량적 성과를 JSON 배열로 작성해주세요.
@@ -320,13 +347,13 @@ Notes:
                 system_prompt = "당신은 개발자 이력서 작성을 돕는 전문가입니다. 프로젝트 정보를 바탕으로 정량적 성과를 추출하세요."
 
             # Handle both LLMService (has provider) and CLILLMService (is the provider)
-            if hasattr(llm_service, 'provider'):
+            if hasattr(llm_service, "provider"):
                 # API-based LLM service (OpenAI, Anthropic, Gemini)
                 response = await llm_service.provider.generate(
                     prompt,
                     system_prompt=system_prompt,
                     max_tokens=1500,
-                    temperature=0.3
+                    temperature=0.3,
                 )
             else:
                 # CLI-based LLM service (Claude Code CLI, Gemini CLI)
@@ -335,6 +362,7 @@ Notes:
 
             # Parse JSON response
             import json
+
             json_str = response
             if "```json" in response:
                 json_str = response.split("```json")[1].split("```")[0]
@@ -350,7 +378,7 @@ Notes:
 
             return achievements
 
-        except Exception as e:
+        except Exception:
             return []
 
     async def detect_all(
@@ -358,7 +386,7 @@ Notes:
         project_data: Dict[str, Any],
         commit_messages: Optional[List[str]] = None,
         use_llm: bool = True,
-        language: str = "ko"
+        language: str = "ko",
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Detect all achievements from various sources.
@@ -374,12 +402,14 @@ Notes:
             "pattern_detected": 0,
             "code_stats_generated": 0,
             "llm_generated": 0,
-            "total": 0
+            "total": 0,
         }
 
         # 1. Detect from project description
         if project_data.get("description"):
-            desc_achievements = self.detect_from_description(project_data["description"], language)
+            desc_achievements = self.detect_from_description(
+                project_data["description"], language
+            )
             for a in desc_achievements:
                 a["source_type"] = "description"
             all_achievements.extend(desc_achievements)
@@ -400,7 +430,7 @@ Notes:
             lines_deleted=project_data.get("lines_deleted", 0),
             files_changed=project_data.get("files_changed", 0),
             commit_categories=project_data.get("commit_categories", {}),
-            language=language
+            language=language,
         )
         for a in code_stats_achievements:
             a["source_type"] = "code_stats"
@@ -413,7 +443,7 @@ Notes:
                 project_data,
                 commit_summary=project_data.get("commit_summary"),
                 existing_achievements=all_achievements,
-                language=language
+                language=language,
             )
             for a in llm_achievements:
                 a["source_type"] = "llm"
@@ -438,9 +468,7 @@ Notes:
         return unique_achievements, stats
 
     def categorize_achievements(
-        self,
-        achievements: List[Dict[str, Any]],
-        language: str = "ko"
+        self, achievements: List[Dict[str, Any]], language: str = "ko"
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Categorize achievements by type for better organization.
@@ -449,7 +477,6 @@ Notes:
             language: Output language ("ko" or "en") for category names
         """
         categorized: Dict[str, List[Dict[str, Any]]] = {}
-        other_label = translate_category("기타", language)
 
         for achievement in achievements:
             # Get text to match
@@ -473,7 +500,9 @@ Notes:
             # Use existing category if present, otherwise use matched or "기타"
             if achievement.get("category"):
                 existing_cat = achievement["category"].lower()
-                final_category_ko = CATEGORY_MAP.get(existing_cat, matched_category_ko or "기타")
+                final_category_ko = CATEGORY_MAP.get(
+                    existing_cat, matched_category_ko or "기타"
+                )
             else:
                 final_category_ko = matched_category_ko or "기타"
 
@@ -504,7 +533,7 @@ Notes:
         db,  # AsyncSession
         project,  # Project model
         repo_analysis,  # RepoAnalysis model
-        language: str = "ko"
+        language: str = "ko",
     ) -> int:
         """
         Auto-detect achievements from analysis data and save to DB.
@@ -545,7 +574,7 @@ Notes:
             project_data=project_data,
             commit_messages=commit_messages,
             use_llm=False,
-            language=language
+            language=language,
         )
 
         if not achievements:

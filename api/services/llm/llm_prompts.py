@@ -59,16 +59,16 @@ PROMPTS: Dict[str, Dict[str, str]] = {
 - Designed PostgreSQL database and optimized JPA/Hibernate queries
 - Containerized with Docker + Docker Compose and set up CI/CD""",
         "user_edit_context": "\n\nNote: This is what the user previously wrote. Reference this but improve with new analysis:\n",
-    }
+    },
 }
 
 
 def get_prompts(language: str = "ko") -> Dict[str, str]:
     """Get prompts for the specified language, defaulting to Korean.
-    
+
     Args:
         language: Language code ('ko' for Korean, 'en' for English)
-        
+
     Returns:
         Dictionary of prompt templates for the specified language
     """
@@ -77,11 +77,11 @@ def get_prompts(language: str = "ko") -> Dict[str, str]:
 
 def get_system_prompt(prompt_key: str, language: str = "ko") -> str:
     """Get a specific system prompt.
-    
+
     Args:
         prompt_key: Key of the prompt (e.g., 'system_resume', 'system_key_tasks')
         language: Language code
-        
+
     Returns:
         The prompt string, or empty string if not found
     """
@@ -91,11 +91,11 @@ def get_system_prompt(prompt_key: str, language: str = "ko") -> str:
 
 def get_style_prompt(style: str, language: str = "ko") -> str:
     """Get style-specific prompt.
-    
+
     Args:
         style: Style name ('professional', 'casual', 'technical')
         language: Language code
-        
+
     Returns:
         The style prompt string
     """

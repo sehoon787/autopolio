@@ -8,13 +8,12 @@ Based on portfolio project's report styles:
 Project-level reports are in report_project_service.py (ReportProjectService).
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.project import Project
 from .report_base import ReportBaseService
 from .report_strings import get_strings
-from .report_project_service import ReportProjectService
 
 
 class ReportService(ReportBaseService):
@@ -54,15 +53,23 @@ class ReportService(ReportBaseService):
             company = companies.get(project.company_id) if project.company_id else None
             company_name = company.name if company else s["freelancer"]
 
-            tech_names = [pt.technology.name for pt in project.technologies if pt.technology] if project.technologies else []
+            tech_names = (
+                [pt.technology.name for pt in project.technologies if pt.technology]
+                if project.technologies
+                else []
+            )
             tech_str = ", ".join(tech_names) if tech_names else s["unspecified"]
 
             lines.append(f"## {idx}. {project.name}")
             lines.append("")
-            lines.append(f"- **{s['period']}**: {self._format_date_range(project.start_date, project.end_date)}")
+            lines.append(
+                f"- **{s['period']}**: {self._format_date_range(project.start_date, project.end_date)}"
+            )
             lines.append(f"- **{s['company']}**: {company_name}")
             if project.team_size:
-                lines.append(f"- **{s['team_size']}**: {s['team_size_value'].format(count=project.team_size)}")
+                lines.append(
+                    f"- **{s['team_size']}**: {s['team_size_value'].format(count=project.team_size)}"
+                )
             if project.role:
                 lines.append(f"- **{s['role']}**: {project.role}")
             if project.description:
@@ -97,8 +104,7 @@ class ReportService(ReportBaseService):
         ]
 
         projects_with_achievements = [
-            p for p in projects
-            if p.achievements and len(p.achievements) > 0
+            p for p in projects if p.achievements and len(p.achievements) > 0
         ]
 
         if not projects_with_achievements:
@@ -114,7 +120,9 @@ class ReportService(ReportBaseService):
                 lines.append("")
 
             for achievement in project.achievements:
-                value_str = f" ({achievement.metric_value})" if achievement.metric_value else ""
+                value_str = (
+                    f" ({achievement.metric_value})" if achievement.metric_value else ""
+                )
                 lines.append(f"- **{achievement.metric_name}**{value_str}")
                 if achievement.description:
                     lines.append(f"  - {achievement.description}")
@@ -159,20 +167,60 @@ class ReportService(ReportBaseService):
         # Technology categorization
         TECH_CATEGORIES = {
             "Backend": [
-                "Python", "FastAPI", "Django", "Flask", "Spring", "Spring Boot", "Java", "Kotlin",
-                "Node.js", "Express", "NestJS", "Go", "Rust", "Ruby", "Rails", "PHP", "Laravel"
+                "Python",
+                "FastAPI",
+                "Django",
+                "Flask",
+                "Spring",
+                "Spring Boot",
+                "Java",
+                "Kotlin",
+                "Node.js",
+                "Express",
+                "NestJS",
+                "Go",
+                "Rust",
+                "Ruby",
+                "Rails",
+                "PHP",
+                "Laravel",
             ],
             "Frontend": [
-                "React", "Vue", "Angular", "Next.js", "Nuxt.js", "Svelte", "TypeScript", "JavaScript"
+                "React",
+                "Vue",
+                "Angular",
+                "Next.js",
+                "Nuxt.js",
+                "Svelte",
+                "TypeScript",
+                "JavaScript",
             ],
             "Mobile": [
-                "Flutter", "React Native", "Swift", "SwiftUI", "Kotlin", "Android", "iOS"
+                "Flutter",
+                "React Native",
+                "Swift",
+                "SwiftUI",
+                "Kotlin",
+                "Android",
+                "iOS",
             ],
             "Database": [
-                "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Oracle", "SQL Server"
+                "PostgreSQL",
+                "MySQL",
+                "MongoDB",
+                "Redis",
+                "SQLite",
+                "Oracle",
+                "SQL Server",
             ],
             "DevOps": [
-                "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Jenkins", "GitHub Actions"
+                "Docker",
+                "Kubernetes",
+                "AWS",
+                "GCP",
+                "Azure",
+                "Jenkins",
+                "GitHub Actions",
             ],
         }
 
@@ -205,10 +253,16 @@ class ReportService(ReportBaseService):
             all_techs = set()
             for project in company_projects:
                 if project.technologies:
-                    all_techs.update(pt.technology.name for pt in project.technologies if pt.technology)
+                    all_techs.update(
+                        pt.technology.name
+                        for pt in project.technologies
+                        if pt.technology
+                    )
 
             tech_categories = categorize_tech(list(all_techs))
-            date_range = self._format_date_range(company.start_date, company.end_date, company.is_current)
+            date_range = self._format_date_range(
+                company.start_date, company.end_date, company.is_current
+            )
 
             lines.append(f"## ■ {company.name} ({date_range})")
             if company.position:
@@ -224,11 +278,17 @@ class ReportService(ReportBaseService):
             if company_projects:
                 lines.append(f"   **[{s['main_projects']}]**")
                 for idx, project in enumerate(company_projects, 1):
-                    project_date_range = self._format_date_range(project.start_date, project.end_date)
+                    project_date_range = self._format_date_range(
+                        project.start_date, project.end_date
+                    )
                     lines.append(f"   {idx}. **{project.name}** ({project_date_range})")
                     if project.description:
                         # Truncate long descriptions
-                        desc = project.description[:150] + "..." if len(project.description) > 150 else project.description
+                        desc = (
+                            project.description[:150] + "..."
+                            if len(project.description) > 150
+                            else project.description
+                        )
                         lines.append(f"      {desc}")
                     if project.role:
                         lines.append(f"      {s['role']}: {project.role}")
@@ -245,10 +305,16 @@ class ReportService(ReportBaseService):
             lines.append(f"## ■ {s['freelancer_section']}")
             lines.append("")
             for idx, project in enumerate(freelance_projects, 1):
-                project_date_range = self._format_date_range(project.start_date, project.end_date)
+                project_date_range = self._format_date_range(
+                    project.start_date, project.end_date
+                )
                 lines.append(f"   {idx}. **{project.name}** ({project_date_range})")
                 if project.description:
-                    desc = project.description[:150] + "..." if len(project.description) > 150 else project.description
+                    desc = (
+                        project.description[:150] + "..."
+                        if len(project.description) > 150
+                        else project.description
+                    )
                     lines.append(f"      {desc}")
                 if project.role:
                     lines.append(f"      {s['role']}: {project.role}")
@@ -261,5 +327,7 @@ class ReportService(ReportBaseService):
         return {
             "projects_md": await self.generate_projects_md(user_id),
             "performance_summary": await self.generate_performance_summary(user_id),
-            "company_integrated": await self.generate_company_integrated_report(user_id),
+            "company_integrated": await self.generate_company_integrated_report(
+                user_id
+            ),
         }

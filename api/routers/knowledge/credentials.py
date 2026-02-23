@@ -17,14 +17,28 @@ from typing import Literal
 
 from api.database import get_db
 from api.models.credentials import (
-    Certification, Award, Education, Publication, VolunteerActivity
+    Certification,
+    Award,
+    Education,
+    Publication,
+    VolunteerActivity,
 )
 from api.schemas.credentials import (
-    CertificationCreate, CertificationUpdate, CertificationResponse,
-    AwardCreate, AwardUpdate, AwardResponse,
-    EducationCreate, EducationUpdate, EducationResponse,
-    PublicationCreate, PublicationUpdate, PublicationResponse,
-    VolunteerActivityCreate, VolunteerActivityUpdate, VolunteerActivityResponse,
+    CertificationCreate,
+    CertificationUpdate,
+    CertificationResponse,
+    AwardCreate,
+    AwardUpdate,
+    AwardResponse,
+    EducationCreate,
+    EducationUpdate,
+    EducationResponse,
+    PublicationCreate,
+    PublicationUpdate,
+    PublicationResponse,
+    VolunteerActivityCreate,
+    VolunteerActivityUpdate,
+    VolunteerActivityResponse,
 )
 from api.services.core import attachment_service
 from .crud_factory import create_credential_crud_endpoints
@@ -34,8 +48,7 @@ router = APIRouter()
 
 # Type alias for credential types (used in attachment endpoints)
 CredentialType = Literal[
-    "certifications", "awards", "educations", 
-    "publications", "volunteer_activities"
+    "certifications", "awards", "educations", "publications", "volunteer_activities"
 ]
 
 # Model mapping for attachment endpoints
@@ -44,7 +57,7 @@ MODEL_MAP = {
     "awards": Award,
     "educations": Education,
     "publications": Publication,
-    "volunteer_activities": VolunteerActivity
+    "volunteer_activities": VolunteerActivity,
 }
 
 
@@ -122,13 +135,14 @@ router.include_router(volunteer_activities_router)
 # Attachment Endpoints (unified for all credential types)
 # ============================================================
 
+
 @router.post("/{credential_type}/{id}/attachment")
 async def upload_attachment(
     credential_type: CredentialType,
     id: int,
     user_id: int = Query(..., description="User ID"),
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Upload an attachment file for a credential."""
     model = MODEL_MAP.get(credential_type)
@@ -142,8 +156,7 @@ async def upload_attachment(
     credential = result.scalar_one_or_none()
     if not credential:
         raise HTTPException(
-            status_code=404, 
-            detail=f"{credential_type[:-1].title()} not found"
+            status_code=404, detail=f"{credential_type[:-1].title()} not found"
         )
 
     # Delete existing attachment if any
@@ -167,7 +180,7 @@ async def upload_attachment(
         "message": "Attachment uploaded successfully",
         "attachment_path": relative_path,
         "attachment_name": original_name,
-        "attachment_size": file_size
+        "attachment_size": file_size,
     }
 
 
@@ -176,7 +189,7 @@ async def download_attachment(
     credential_type: CredentialType,
     id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Download an attachment file for a credential."""
     model = MODEL_MAP.get(credential_type)
@@ -190,8 +203,7 @@ async def download_attachment(
     credential = result.scalar_one_or_none()
     if not credential:
         raise HTTPException(
-            status_code=404,
-            detail=f"{credential_type[:-1].title()} not found"
+            status_code=404, detail=f"{credential_type[:-1].title()} not found"
         )
 
     if not credential.attachment_path:
@@ -206,18 +218,18 @@ async def download_attachment(
     )
 
     return FileResponse(
-        path=full_path,
-        filename=credential.attachment_name,
-        media_type=content_type
+        path=full_path, filename=credential.attachment_name, media_type=content_type
     )
 
 
-@router.delete("/{credential_type}/{id}/attachment", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{credential_type}/{id}/attachment", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_attachment(
     credential_type: CredentialType,
     id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete an attachment file for a credential."""
     model = MODEL_MAP.get(credential_type)
@@ -231,8 +243,7 @@ async def delete_attachment(
     credential = result.scalar_one_or_none()
     if not credential:
         raise HTTPException(
-            status_code=404,
-            detail=f"{credential_type[:-1].title()} not found"
+            status_code=404, detail=f"{credential_type[:-1].title()} not found"
         )
 
     if not credential.attachment_path:

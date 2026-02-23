@@ -1,4 +1,5 @@
 """Multi-repo background analysis execution."""
+
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List
@@ -39,8 +40,12 @@ async def run_multi_repo_background_analysis(
     from api.services.github import GitHubService
     from .analysis_job_crud import AnalysisJobService
 
-    logger.info("[MultiRepoAnalysis] Starting task_id=%s, project_id=%d, repos=%d",
-                task_id, project_id, len(repositories))
+    logger.info(
+        "[MultiRepoAnalysis] Starting task_id=%s, project_id=%d, repos=%d",
+        task_id,
+        project_id,
+        len(repositories),
+    )
 
     async with AsyncSessionLocal() as db:
         service = AnalysisJobService(db)
@@ -71,7 +76,11 @@ async def run_multi_repo_background_analysis(
             llm_service = LLMService(provider, api_key=api_key)
         else:
             llm_service = LLMService(api_key=api_key)
-        logger.info("[MultiRepoAnalysis] LLM: provider=%s, has_api_key=%s", provider, bool(api_key))
+        logger.info(
+            "[MultiRepoAnalysis] LLM: provider=%s, has_api_key=%s",
+            provider,
+            bool(api_key),
+        )
     except Exception as e:
         logger.warning("[MultiRepoAnalysis] LLM service not available: %s", e)
 
@@ -94,8 +103,13 @@ async def run_multi_repo_background_analysis(
             step_offset = repo_idx * STEPS_PER_REPO
             label_prefix = f"[{label}] "
 
-            logger.info("[MultiRepoAnalysis] Repo %d/%d: %s (%s)",
-                        repo_idx + 1, repo_count, label, git_url)
+            logger.info(
+                "[MultiRepoAnalysis] Repo %d/%d: %s (%s)",
+                repo_idx + 1,
+                repo_count,
+                label,
+                git_url,
+            )
 
             try:
                 repo_tokens = await _analyze_single_repo_for_multi(
@@ -128,14 +142,20 @@ async def run_multi_repo_background_analysis(
                     global_step = step_offset + remaining_step
                     try:
                         await service.update_step_progress(
-                            task_id, global_step, "failed", {"error": str(e)[:200]})
+                            task_id, global_step, "failed", {"error": str(e)[:200]}
+                        )
                     except Exception as inner_e:
-                        logger.warning("[MultiRepoAnalysis] Failed to mark step %d as failed: %s",
-                                       global_step, inner_e)
+                        logger.warning(
+                            "[MultiRepoAnalysis] Failed to mark step %d as failed: %s",
+                            global_step,
+                            inner_e,
+                        )
 
         # After all repos: merge technologies at project level
         if all_detected_techs:
-            unique_techs = list(dict.fromkeys(all_detected_techs))  # preserve order, dedupe
+            unique_techs = list(
+                dict.fromkeys(all_detected_techs)
+            )  # preserve order, dedupe
             async with AsyncSessionLocal() as db:
                 await db.execute(
                     ProjectTechnology.__table__.delete().where(
@@ -151,11 +171,13 @@ async def run_multi_repo_background_analysis(
                         tech = Technology(name=tech_name)
                         db.add(tech)
                         await db.flush()
-                    db.add(ProjectTechnology(
-                        project_id=project_id,
-                        technology_id=tech.id,
-                        is_primary=0,
-                    ))
+                    db.add(
+                        ProjectTechnology(
+                            project_id=project_id,
+                            technology_id=tech.id,
+                            is_primary=0,
+                        )
+                    )
                 await db.commit()
 
         if succeeded == 0:
@@ -169,7 +191,10 @@ async def run_multi_repo_background_analysis(
         # Generate combined AI summary across all repos
         if llm_service and succeeded > 0:
             try:
-                logger.info("[MultiRepoAnalysis] Generating combined AI summary for project %d", project_id)
+                logger.info(
+                    "[MultiRepoAnalysis] Generating combined AI summary for project %d",
+                    project_id,
+                )
                 combined_tokens = await _generate_combined_ai_summary(
                     project_id=project_id,
                     llm_service=llm_service,
@@ -180,14 +205,25 @@ async def run_multi_repo_background_analysis(
             except Exception as e:
                 logger.warning("[MultiRepoAnalysis] Combined AI summary failed: %s", e)
 
-        logger.info("[MultiRepoAnalysis] Completing: task_id=%s, total_tokens=%d", task_id, total_tokens)
-        await service.complete_job(task_id, {
-            "total_tokens": total_tokens,
-            "repos_succeeded": succeeded,
-            "repos_failed": len(failed_repos),
-        })
-        logger.info("[MultiRepoAnalysis] Completed task_id=%s (%d/%d repos succeeded)",
-                    task_id, succeeded, repo_count)
+        logger.info(
+            "[MultiRepoAnalysis] Completing: task_id=%s, total_tokens=%d",
+            task_id,
+            total_tokens,
+        )
+        await service.complete_job(
+            task_id,
+            {
+                "total_tokens": total_tokens,
+                "repos_succeeded": succeeded,
+                "repos_failed": len(failed_repos),
+            },
+        )
+        logger.info(
+            "[MultiRepoAnalysis] Completed task_id=%s (%d/%d repos succeeded)",
+            task_id,
+            succeeded,
+            repo_count,
+        )
 
     except AnalysisCancelledException:
         logger.info("[MultiRepoAnalysis] Cancelled task_id=%s", task_id)
@@ -231,7 +267,9 @@ async def _analyze_single_repo_for_multi(
         raise AnalysisCancelledException()
 
     await service.update_step_progress(
-        task_id, gs(1), "running",
+        task_id,
+        gs(1),
+        "running",
         step_name_override=f"{label_prefix}repository_info",
     )
 
@@ -251,32 +289,45 @@ async def _analyze_single_repo_for_multi(
     if await service.check_cancelled(task_id):
         raise AnalysisCancelledException()
     await service.update_step_progress(
-        task_id, gs(2), "running",
+        task_id,
+        gs(2),
+        "running",
         step_name_override=f"{label_prefix}technology_detection",
     )
 
     detected_techs = analysis_result.get("detected_technologies", [])
     all_detected_techs.extend(detected_techs)
-    await service.update_step_progress(task_id, gs(2), "completed", {"technologies": detected_techs})
+    await service.update_step_progress(
+        task_id, gs(2), "completed", {"technologies": detected_techs}
+    )
 
     # --- Step 3: Commit analysis ---
     if await service.check_cancelled(task_id):
         raise AnalysisCancelledException()
     await service.update_step_progress(
-        task_id, gs(3), "running",
+        task_id,
+        gs(3),
+        "running",
         step_name_override=f"{label_prefix}commit_analysis",
     )
 
-    await service.update_step_progress(task_id, gs(3), "completed", {
-        "summary": analysis_result.get("commit_messages_summary"),
-        "categories": analysis_result.get("commit_categories", {}),
-    })
+    await service.update_step_progress(
+        task_id,
+        gs(3),
+        "completed",
+        {
+            "summary": analysis_result.get("commit_messages_summary"),
+            "categories": analysis_result.get("commit_categories", {}),
+        },
+    )
 
     # --- Step 4: Role detection ---
     if await service.check_cancelled(task_id):
         raise AnalysisCancelledException()
     await service.update_step_progress(
-        task_id, gs(4), "running",
+        task_id,
+        gs(4),
+        "running",
         step_name_override=f"{label_prefix}role_detection",
     )
 
@@ -284,7 +335,9 @@ async def _analyze_single_repo_for_multi(
         technologies=detected_techs,
         commit_messages=analysis_result.get("commit_messages", [])[:100],
     )
-    await service.update_step_progress(task_id, gs(4), "completed", {"detected_role": detected_role})
+    await service.update_step_progress(
+        task_id, gs(4), "completed", {"detected_role": detected_role}
+    )
 
     # --- Save basic results to DB ---
     analysis_id = await save_repo_basic_results(
@@ -306,15 +359,20 @@ async def _analyze_single_repo_for_multi(
     detailed_content: Dict[str, Any] = {}
     if llm_service:
         from api.services.llm.cli_llm_service import CLILLMService
+
         is_cli_mode = isinstance(llm_service, CLILLMService)
 
         await service.update_step_progress(
-            task_id, gs(5), "running",
+            task_id,
+            gs(5),
+            "running",
             step_name_override=f"{label_prefix}llm_key_tasks",
         )
 
         async with AsyncSessionLocal() as db:
-            proj_result = await db.execute(select(Project).where(Project.id == project_id))
+            proj_result = await db.execute(
+                select(Project).where(Project.id == project_id)
+            )
             project = proj_result.scalar_one_or_none()
             project_data = {
                 "name": project.name,
@@ -336,39 +394,72 @@ async def _analyze_single_repo_for_multi(
 
         if is_cli_mode:
             # CLI mode: sequential to avoid concurrent subprocess conflicts
-            logger.info("[MultiRepoAnalysis] %sCLI mode — running Steps 5→6 sequentially", label_prefix)
+            logger.info(
+                "[MultiRepoAnalysis] %sCLI mode — running Steps 5→6 sequentially",
+                label_prefix,
+            )
 
             try:
                 key_tasks, tokens = await _generate_key_tasks_bg(
                     project_id, analysis_result, llm_service, language
                 )
                 repo_tokens += tokens
-                logger.info("[MultiRepoAnalysis] %sStep 5: %d key tasks, %d tokens", label_prefix, len(key_tasks), tokens)
+                logger.info(
+                    "[MultiRepoAnalysis] %sStep 5: %d key tasks, %d tokens",
+                    label_prefix,
+                    len(key_tasks),
+                    tokens,
+                )
             except Exception as e:
-                logger.error("[MultiRepoAnalysis] %sStep 5 failed: %s: %s", label_prefix, type(e).__name__, e)
+                logger.error(
+                    "[MultiRepoAnalysis] %sStep 5 failed: %s: %s",
+                    label_prefix,
+                    type(e).__name__,
+                    e,
+                )
 
-            await service.update_step_progress(task_id, gs(5), "completed", {"tasks": key_tasks})
-            await service.update_step_progress(task_id, gs(6), "running",
-                                               step_name_override=f"{label_prefix}llm_detailed_content")
+            await service.update_step_progress(
+                task_id, gs(5), "completed", {"tasks": key_tasks}
+            )
+            await service.update_step_progress(
+                task_id,
+                gs(6),
+                "running",
+                step_name_override=f"{label_prefix}llm_detailed_content",
+            )
 
             try:
-                detailed_content, tokens = await github_service.generate_detailed_content(
+                (
+                    detailed_content,
+                    tokens,
+                ) = await github_service.generate_detailed_content(
                     project_data=project_data,
                     analysis_data=analysis_data_for_step6,
                     llm_service=llm_service,
                     language=language,
                 )
                 repo_tokens += tokens
-                logger.info("[MultiRepoAnalysis] %sStep 6: impl=%d, tokens=%d", label_prefix,
-                            len(detailed_content.get("implementation_details", [])), tokens)
+                logger.info(
+                    "[MultiRepoAnalysis] %sStep 6: impl=%d, tokens=%d",
+                    label_prefix,
+                    len(detailed_content.get("implementation_details", [])),
+                    tokens,
+                )
             except Exception as e:
-                logger.error("[MultiRepoAnalysis] %sStep 6 failed: %s: %s", label_prefix, type(e).__name__, e)
+                logger.error(
+                    "[MultiRepoAnalysis] %sStep 6 failed: %s: %s",
+                    label_prefix,
+                    type(e).__name__,
+                    e,
+                )
         else:
             # API mode: parallel
             await service.update_step_progress(task_id, gs(6), "running")
 
             results = await asyncio.gather(
-                _generate_key_tasks_bg(project_id, analysis_result, llm_service, language),
+                _generate_key_tasks_bg(
+                    project_id, analysis_result, llm_service, language
+                ),
                 github_service.generate_detailed_content(
                     project_data=project_data,
                     analysis_data=analysis_data_for_step6,
@@ -382,17 +473,30 @@ async def _analyze_single_repo_for_multi(
                 key_tasks, tokens = results[0]
                 repo_tokens += tokens
             else:
-                logger.warning("[MultiRepoAnalysis] Key tasks failed for %s: %s", label_prefix, results[0])
+                logger.warning(
+                    "[MultiRepoAnalysis] Key tasks failed for %s: %s",
+                    label_prefix,
+                    results[0],
+                )
 
             if not isinstance(results[1], Exception):
                 detailed_content, tokens = results[1]
                 repo_tokens += tokens
             else:
-                logger.warning("[MultiRepoAnalysis] Detailed content failed for %s: %s", label_prefix, results[1])
+                logger.warning(
+                    "[MultiRepoAnalysis] Detailed content failed for %s: %s",
+                    label_prefix,
+                    results[1],
+                )
 
-    await service.update_step_progress(task_id, gs(5), "completed", {"tasks": key_tasks})
     await service.update_step_progress(
-        task_id, gs(6), "completed", detailed_content,
+        task_id, gs(5), "completed", {"tasks": key_tasks}
+    )
+    await service.update_step_progress(
+        task_id,
+        gs(6),
+        "completed",
+        detailed_content,
         step_name_override=f"{label_prefix}llm_detailed_content",
     )
 
@@ -406,7 +510,9 @@ async def _analyze_single_repo_for_multi(
     if llm_service:
         try:
             async with AsyncSessionLocal() as db:
-                proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                proj_result = await db.execute(
+                    select(Project).where(Project.id == project_id)
+                )
                 project = proj_result.scalar_one_or_none()
                 if project:
                     summary_project_data = {
@@ -416,13 +522,19 @@ async def _analyze_single_repo_for_multi(
                         "team_size": project.team_size,
                         "contribution_percent": project.contribution_percent,
                         "technologies": detected_techs,
-                        "start_date": str(project.start_date) if project.start_date else None,
+                        "start_date": str(project.start_date)
+                        if project.start_date
+                        else None,
                         "end_date": str(project.end_date) if project.end_date else None,
                         "total_commits": analysis_result.get("total_commits", 0),
-                        "commit_summary": analysis_result.get("commit_messages_summary", ""),
+                        "commit_summary": analysis_result.get(
+                            "commit_messages_summary", ""
+                        ),
                     }
                     summary_result = await llm_service.generate_project_summary(
-                        summary_project_data, style=summary_style, language=language,
+                        summary_project_data,
+                        style=summary_style,
+                        language=language,
                     )
                     if summary_result:
                         ai_summary = summary_result.get("summary", "")
@@ -430,7 +542,9 @@ async def _analyze_single_repo_for_multi(
                         # Add only the per-call token usage from summary (not cumulative total_tokens_used)
                         repo_tokens += summary_result.get("token_usage", 0)
         except Exception as e:
-            logger.warning("[MultiRepoAnalysis] AI summary failed for %s: %s", label_prefix, e)
+            logger.warning(
+                "[MultiRepoAnalysis] AI summary failed for %s: %s", label_prefix, e
+            )
 
     # Save LLM results
     if llm_service:
@@ -470,7 +584,9 @@ async def _analyze_single_repo_for_multi(
                     repo_analysis.tech_stack_versions = tech_versions
                     await db.commit()
     except Exception as e:
-        logger.warning("[MultiRepoAnalysis] Tech versions failed for %s: %s", label_prefix, e)
+        logger.warning(
+            "[MultiRepoAnalysis] Tech versions failed for %s: %s", label_prefix, e
+        )
 
     if await service.check_cancelled(task_id):
         raise AnalysisCancelledException()
@@ -486,7 +602,13 @@ async def _analyze_single_repo_for_multi(
                 label_prefix=label_prefix,
             )
         except Exception as e:
-            logger.warning("[MultiRepoAnalysis] ContributorAnalysis failed for %s: %s", label_prefix, e)
+            logger.warning(
+                "[MultiRepoAnalysis] ContributorAnalysis failed for %s: %s",
+                label_prefix,
+                e,
+            )
 
-    logger.info("[MultiRepoAnalysis] Repo %s completed (tokens=%d)", label_prefix, repo_tokens)
+    logger.info(
+        "[MultiRepoAnalysis] Repo %s completed (tokens=%d)", label_prefix, repo_tokens
+    )
     return repo_tokens

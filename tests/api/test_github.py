@@ -80,8 +80,7 @@ class TestGitHubTechnologyDetection:
 
         # Use a well-known public repository
         response = api.detect_technologies(
-            user_id=test_user["id"],
-            git_url="https://github.com/facebook/react"
+            user_id=test_user["id"], git_url="https://github.com/facebook/react"
         )
 
         # May fail if not connected
@@ -95,8 +94,7 @@ class TestGitHubTechnologyDetection:
         api = GitHubAPI(api_client)
 
         response = api.get_repo_info(
-            user_id=test_user["id"],
-            git_url="https://github.com/facebook/react"
+            user_id=test_user["id"], git_url="https://github.com/facebook/react"
         )
 
         if response.status_code == 200:
@@ -117,13 +115,13 @@ class TestGitHubAnalysis:
         api_client.put(
             f"/knowledge/projects/{test_personal_project['id']}",
             params={"user_id": test_user["id"]},
-            json={"git_url": "https://github.com/facebook/react"}
+            json={"git_url": "https://github.com/facebook/react"},
         )
 
         response = api.analyze(
             user_id=test_user["id"],
             project_id=test_personal_project["id"],
-            git_url="https://github.com/facebook/react"
+            git_url="https://github.com/facebook/react",
         )
 
         # May return task ID for async operation
@@ -244,10 +242,7 @@ class TestGitHubFullWorkflow:
 
         git_url = repos[0].get("html_url") or repos[0].get("clone_url")
 
-        response = api.detect_technologies(
-            user_id=github_user["id"],
-            git_url=git_url
-        )
+        response = api.detect_technologies(user_id=github_user["id"], git_url=git_url)
 
         assert response.status_code == 200
         data = response.json()
@@ -309,8 +304,8 @@ class TestGitHubFullWorkflow:
                 "role": "Developer",
                 "project_type": "personal",
                 "git_url": git_url,
-                "start_date": "2024-01-01"
-            }
+                "start_date": "2024-01-01",
+            },
         )
         assert project_response.status_code in [200, 201]
         project = project_response.json()
@@ -320,12 +315,10 @@ class TestGitHubFullWorkflow:
         try:
             # Step 4: Trigger analysis (commits only for speed)
             analyze_response = api.analyze(
-                user_id=user_id,
-                project_id=project_id,
-                git_url=git_url
+                user_id=user_id, project_id=project_id, git_url=git_url
             )
             assert analyze_response.status_code in [200, 202]
-            print(f"Analysis started")
+            print("Analysis started")
 
             # Step 5: Wait for analysis to complete (poll status)
             max_wait = 60  # seconds
@@ -336,8 +329,7 @@ class TestGitHubFullWorkflow:
             while elapsed < max_wait:
                 # Check project analysis status
                 project_check = api_client.get(
-                    f"/knowledge/projects/{project_id}",
-                    params={"user_id": user_id}
+                    f"/knowledge/projects/{project_id}", params={"user_id": user_id}
                 )
                 if project_check.status_code == 200:
                     proj_data = project_check.json()
@@ -353,8 +345,7 @@ class TestGitHubFullWorkflow:
             if analysis_complete:
                 # Get analysis data
                 final_project = api_client.get(
-                    f"/knowledge/projects/{project_id}",
-                    params={"user_id": user_id}
+                    f"/knowledge/projects/{project_id}", params={"user_id": user_id}
                 ).json()
 
                 assert final_project.get("is_analyzed") is True
@@ -362,20 +353,23 @@ class TestGitHubFullWorkflow:
                 # Check if repo_analysis exists
                 if final_project.get("repo_analysis"):
                     ra = final_project["repo_analysis"]
-                    print(f"Analysis results:")
+                    print("Analysis results:")
                     print(f"  - Total commits: {ra.get('total_commits', 'N/A')}")
-                    print(f"  - Technologies: {ra.get('detected_technologies', [])[:5]}")
+                    print(
+                        f"  - Technologies: {ra.get('detected_technologies', [])[:5]}"
+                    )
             else:
-                print(f"Analysis did not complete within {max_wait}s (may be running async)")
+                print(
+                    f"Analysis did not complete within {max_wait}s (may be running async)"
+                )
                 # Don't fail - analysis might be running in background
 
         finally:
             # Cleanup: Delete the test project
             api_client.delete(
-                f"/knowledge/projects/{project_id}",
-                params={"user_id": user_id}
+                f"/knowledge/projects/{project_id}", params={"user_id": user_id}
             )
-            print(f"Cleaned up test project")
+            print("Cleaned up test project")
 
     @pytest.mark.requires_github
     @pytest.mark.slow
@@ -399,7 +393,7 @@ class TestGitHubFullWorkflow:
         target_repo = min(
             [r for r in repos if not r.get("fork", False)] or repos,
             key=lambda r: r.get("size", 0),
-            default=repos[0] if repos else None
+            default=repos[0] if repos else None,
         )
 
         if target_repo is None:
@@ -418,8 +412,8 @@ class TestGitHubFullWorkflow:
                 "role": "Developer",
                 "project_type": "personal",
                 "git_url": git_url,
-                "start_date": "2024-01-01"
-            }
+                "start_date": "2024-01-01",
+            },
         )
         project = project_response.json()
         project_id = project["id"]
@@ -427,9 +421,7 @@ class TestGitHubFullWorkflow:
         try:
             # Run full analysis
             analyze_response = api.analyze(
-                user_id=user_id,
-                project_id=project_id,
-                git_url=git_url
+                user_id=user_id, project_id=project_id, git_url=git_url
             )
             assert analyze_response.status_code in [200, 202]
 
@@ -440,8 +432,7 @@ class TestGitHubFullWorkflow:
 
             while elapsed < max_wait:
                 project_check = api_client.get(
-                    f"/knowledge/projects/{project_id}",
-                    params={"user_id": user_id}
+                    f"/knowledge/projects/{project_id}", params={"user_id": user_id}
                 )
                 if project_check.status_code == 200:
                     proj_data = project_check.json()
@@ -452,6 +443,5 @@ class TestGitHubFullWorkflow:
 
         finally:
             api_client.delete(
-                f"/knowledge/projects/{project_id}",
-                params={"user_id": user_id}
+                f"/knowledge/projects/{project_id}", params={"user_id": user_id}
             )

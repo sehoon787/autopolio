@@ -2,7 +2,6 @@
 User API tests.
 """
 
-import pytest
 from uuid import uuid4
 from modules.users import UsersAPI
 
@@ -16,8 +15,7 @@ class TestUsersCRUD:
         unique_id = uuid4().hex[:8]
 
         response = api.create(
-            name=f"Test User {unique_id}",
-            email=f"test_{unique_id}@example.com"
+            name=f"Test User {unique_id}", email=f"test_{unique_id}@example.com"
         )
 
         assert response.status_code in [200, 201]
@@ -33,10 +31,7 @@ class TestUsersCRUD:
         """Test creating user with duplicate email fails."""
         api = UsersAPI(api_client)
 
-        response = api.create(
-            name="Duplicate User",
-            email=test_user["email"]
-        )
+        response = api.create(name="Duplicate User", email=test_user["email"])
 
         # Should fail or return existing user
         assert response.status_code in [400, 409, 200]
@@ -64,10 +59,7 @@ class TestUsersCRUD:
         """Test updating user data."""
         api = UsersAPI(api_client)
 
-        response = api.update(
-            test_user["id"],
-            name="Updated Name"
-        )
+        response = api.update(test_user["id"], name="Updated Name")
 
         assert response.status_code == 200
         data = response.json()
@@ -80,8 +72,7 @@ class TestUsersCRUD:
 
         # Create user first
         create_response = api.create(
-            name=f"To Delete {unique_id}",
-            email=f"delete_{unique_id}@example.com"
+            name=f"To Delete {unique_id}", email=f"delete_{unique_id}@example.com"
         )
         user_id = create_response.json()["id"]
 
@@ -103,10 +94,7 @@ class TestUsersCRUD:
         unique_id = uuid4().hex[:8]
         email = f"getorcreate_{unique_id}@example.com"
 
-        response = api.get_or_create(
-            email=email,
-            name=f"GetOrCreate User {unique_id}"
-        )
+        response = api.get_or_create(email=email, name=f"GetOrCreate User {unique_id}")
 
         # Endpoint may not exist (405) or work (200/201)
         if response.status_code in [200, 201]:
@@ -125,10 +113,7 @@ class TestUsersCRUD:
         """
         api = UsersAPI(api_client)
 
-        response = api.get_or_create(
-            email=test_user["email"],
-            name="Different Name"
-        )
+        response = api.get_or_create(email=test_user["email"], name="Different Name")
 
         # Endpoint may not exist (405) or work (200)
         if response.status_code == 200:
@@ -145,10 +130,7 @@ class TestUserValidation:
         """Test creating user with invalid email fails."""
         api = UsersAPI(api_client)
 
-        response = api.create(
-            name="Invalid Email User",
-            email="not-an-email"
-        )
+        response = api.create(name="Invalid Email User", email="not-an-email")
 
         assert response.status_code in [400, 422]
 
@@ -160,10 +142,7 @@ class TestUserValidation:
         api = UsersAPI(api_client)
         unique_id = uuid4().hex[:8]
 
-        response = api.create(
-            name="",
-            email=f"empty_name_{unique_id}@example.com"
-        )
+        response = api.create(name="", email=f"empty_name_{unique_id}@example.com")
 
         # API may allow empty names (201) or reject (400/422)
         assert response.status_code in [200, 201, 400, 422]

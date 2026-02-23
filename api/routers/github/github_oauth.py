@@ -2,6 +2,7 @@
 
 Handles OAuth flow, connection status, and token management.
 """
+
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
@@ -28,19 +29,27 @@ async def github_connect(
     redirect_url: Optional[str] = None,
     frontend_origin: Optional[str] = None,
     is_electron: bool = False,
-    user_id: Optional[int] = None
+    user_id: Optional[int] = None,
 ):
     """Initiate GitHub OAuth flow."""
     import json
     import base64
 
-    logger.info("[GitHub Connect] Called with redirect_url=%s, frontend_origin=%s, is_electron=%s, user_id=%s", redirect_url, frontend_origin, is_electron, user_id)
-    logger.debug("[GitHub Connect] settings.github_client_id=%s", settings.github_client_id)
+    logger.info(
+        "[GitHub Connect] Called with redirect_url=%s, frontend_origin=%s, is_electron=%s, user_id=%s",
+        redirect_url,
+        frontend_origin,
+        is_electron,
+        user_id,
+    )
+    logger.debug(
+        "[GitHub Connect] settings.github_client_id=%s", settings.github_client_id
+    )
 
     if not settings.github_client_id:
         raise HTTPException(
             status_code=500,
-            detail="GitHub OAuth not configured. Set GITHUB_CLIENT_ID in environment."
+            detail="GitHub OAuth not configured. Set GITHUB_CLIENT_ID in environment.",
         )
 
     # Build authorization URL
@@ -55,12 +64,12 @@ async def github_connect(
         "path": redirect_url or "/",
         "origin": frontend_origin,  # Can be None, will use settings.frontend_url as fallback
         "is_electron": is_electron,  # Flag to use custom protocol for callback
-        "user_id": user_id  # Existing user to link GitHub to (instead of creating new)
+        "user_id": user_id,  # Existing user to link GitHub to (instead of creating new)
     }
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
 
     # URL encode the redirect_uri to prevent parsing issues
-    encoded_redirect_uri = quote(settings.github_redirect_uri, safe='')
+    encoded_redirect_uri = quote(settings.github_redirect_uri, safe="")
 
     auth_url = (
         f"https://github.com/login/oauth/authorize"
@@ -75,9 +84,7 @@ async def github_connect(
 
 @router.get("/callback")
 async def github_callback(
-    code: str,
-    state: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    code: str, state: Optional[str] = None, db: AsyncSession = Depends(get_db)
 ):
     """Handle GitHub OAuth callback.
 
@@ -102,7 +109,7 @@ async def github_callback(
                 "client_secret": settings.github_client_secret,
                 "code": code,
             },
-            headers={"Accept": "application/json"}
+            headers={"Accept": "application/json"},
         )
 
     if token_response.status_code != 200:
@@ -132,7 +139,9 @@ async def github_callback(
             if state_data.get("origin"):
                 frontend_origin = state_data["origin"]
             is_electron = state_data.get("is_electron", False)
-            existing_user_id = state_data.get("user_id")  # Existing user to link GitHub to
+            existing_user_id = state_data.get(
+                "user_id"
+            )  # Existing user to link GitHub to
         except Exception:
             # Fallback: old format (plain redirect path)
             redirect_path = state
@@ -147,13 +156,13 @@ async def github_callback(
         email=github_user.get("email"),
         avatar_url=github_user.get("avatar_url"),
         access_token=access_token,
-        raw_data=github_user
+        raw_data=github_user,
     )
 
     identity, is_new_user = await oauth_service.create_or_update_identity(
         provider="github",
         user_info=oauth_user_info,
-        user_id=existing_user_id  # Link to existing user if provided
+        user_id=existing_user_id,  # Link to existing user if provided
     )
 
     # Get the user from the identity
@@ -164,14 +173,26 @@ async def github_callback(
         user = result.scalar_one_or_none()
 
     if is_new_user:
-        logger.info("[GitHub Callback] Created new user id=%s for GitHub username=%s (provider_user_id=%s)",
-                    user.id, github_user["login"], github_user["id"])
+        logger.info(
+            "[GitHub Callback] Created new user id=%s for GitHub username=%s (provider_user_id=%s)",
+            user.id,
+            github_user["login"],
+            github_user["id"],
+        )
     elif existing_user_id:
-        logger.info("[GitHub Callback] Linked GitHub to existing user id=%s, username=%s (provider_user_id=%s)",
-                    existing_user_id, github_user["login"], github_user["id"])
+        logger.info(
+            "[GitHub Callback] Linked GitHub to existing user id=%s, username=%s (provider_user_id=%s)",
+            existing_user_id,
+            github_user["login"],
+            github_user["id"],
+        )
     else:
-        logger.info("[GitHub Callback] Updated existing user id=%s, username=%s (provider_user_id=%s)",
-                    user.id, github_user["login"], github_user["id"])
+        logger.info(
+            "[GitHub Callback] Updated existing user id=%s, username=%s (provider_user_id=%s)",
+            user.id,
+            github_user["login"],
+            github_user["id"],
+        )
 
     await db.commit()
 
@@ -180,18 +201,20 @@ async def github_callback(
         # Electron: use custom protocol so browser opens Electron app
         # Format: autopolio://oauth-callback?user_id=...&github_connected=...&path=...
         from urllib.parse import quote as url_quote
+
         frontend_url = f"autopolio://oauth-callback?user_id={user.id}&github_connected=true&path={url_quote(redirect_path)}"
     else:
         # Web: redirect to frontend origin
-        frontend_url = f"{frontend_origin}{redirect_path}?user_id={user.id}&github_connected=true"
+        frontend_url = (
+            f"{frontend_origin}{redirect_path}?user_id={user.id}&github_connected=true"
+        )
 
     return RedirectResponse(url=frontend_url)
 
 
 @router.get("/status")
 async def get_github_status(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """Check if GitHub is connected for a user."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -212,7 +235,7 @@ async def get_github_status(
                 "connected": True,
                 "github_username": user_info.get("login"),
                 "avatar_url": user_info.get("avatar_url"),
-                "valid": True
+                "valid": True,
             }
         except Exception:
             # Token is invalid or expired
@@ -221,21 +244,20 @@ async def get_github_status(
                 "github_username": user.github_username,
                 "avatar_url": user.github_avatar_url,
                 "valid": False,
-                "message": "GitHub token has expired or is invalid. Please reconnect."
+                "message": "GitHub token has expired or is invalid. Please reconnect.",
             }
 
     return {
         "connected": False,
         "github_username": None,
         "avatar_url": None,
-        "valid": False
+        "valid": False,
     }
 
 
 @router.delete("/disconnect")
 async def disconnect_github(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """Disconnect GitHub account from user."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -254,13 +276,13 @@ async def disconnect_github(
 async def save_github_token(
     user_id: int = Query(..., description="User ID"),
     token: str = Query(..., description="GitHub access token from gh CLI"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Save GitHub token from desktop app (via gh CLI).
-    
+
     This endpoint is used by the Electron desktop app to save tokens
     obtained through the GitHub CLI device code flow.
-    
+
     IMPORTANT: Handles UNIQUE constraint on github_username by:
     1. First verifying the token and getting GitHub user info
     2. Checking if another user already has this github_username
@@ -289,7 +311,9 @@ async def save_github_token(
         # Update the existing user's token instead of creating a duplicate
         logger.info(
             "GitHub username '%s' already linked to user %s, updating that user instead of %s",
-            github_username, existing_user.id, user_id
+            github_username,
+            existing_user.id,
+            user_id,
         )
         target_user = existing_user
         merged_from_user_id = user_id  # Track the original request
@@ -323,27 +347,44 @@ async def save_github_token(
             "message": "GitHub token saved successfully",
             "user_id": target_user.id,  # Return the actual user ID that was updated
             "github_username": target_user.github_username,
-            "github_avatar_url": target_user.github_avatar_url
+            "github_avatar_url": target_user.github_avatar_url,
         }
-        
+
         # If we merged to a different user, include that info
         if merged_from_user_id is not None:
             response["merged_from_user_id"] = merged_from_user_id
-            response["message"] = f"GitHub account already linked to user {target_user.id}, token updated there"
-            logger.info("Token saved for existing user %s (requested by user %s)", 
-                       target_user.id, merged_from_user_id)
-        
+            response["message"] = (
+                f"GitHub account already linked to user {target_user.id}, token updated there"
+            )
+            logger.info(
+                "Token saved for existing user %s (requested by user %s)",
+                target_user.id,
+                merged_from_user_id,
+            )
+
         return response
     except Exception as commit_error:
         await db.rollback()
         error_type = type(commit_error).__name__
         error_msg = str(commit_error)
-        logger.error("Failed to commit token for user %s: [%s] %s", target_user.id, error_type, error_msg)
-        
+        logger.error(
+            "Failed to commit token for user %s: [%s] %s",
+            target_user.id,
+            error_type,
+            error_msg,
+        )
+
         # Provide more specific error messages
         if "UNIQUE constraint" in error_msg:
-            raise HTTPException(status_code=409, detail=f"GitHub username already linked to another user: {error_msg}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"GitHub username already linked to another user: {error_msg}",
+            )
         elif "database is locked" in error_msg.lower():
-            raise HTTPException(status_code=503, detail="Database is busy, please retry")
+            raise HTTPException(
+                status_code=503, detail="Database is busy, please retry"
+            )
         else:
-            raise HTTPException(status_code=500, detail=f"Database error: [{error_type}] {error_msg}")
+            raise HTTPException(
+                status_code=500, detail=f"Database error: [{error_type}] {error_msg}"
+            )

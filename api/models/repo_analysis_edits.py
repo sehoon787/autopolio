@@ -11,15 +11,20 @@ from api.database import Base
 
 class RepoAnalysisEdits(Base):
     """User edits for repository analysis content."""
+
     __tablename__ = "repo_analysis_edits"
 
     id = Column(Integer, primary_key=True, index=True)
-    repo_analysis_id = Column(Integer, ForeignKey("repo_analyses.id"), unique=True, nullable=False)
+    repo_analysis_id = Column(
+        Integer, ForeignKey("repo_analyses.id"), unique=True, nullable=False
+    )
 
     # User-edited content (null means use original)
     key_tasks = Column(JSON, nullable=True)  # List of strings
     implementation_details = Column(JSON, nullable=True)  # List of {title, items}
-    detailed_achievements = Column(JSON, nullable=True)  # Dict of {category: [{title, description}]}
+    detailed_achievements = Column(
+        JSON, nullable=True
+    )  # Dict of {category: [{title, description}]}
 
     # Track which fields have been modified
     key_tasks_modified = Column(Boolean, default=False)

@@ -2,7 +2,7 @@
 Documents API module for testing.
 """
 
-from typing import Optional, List, Literal
+from typing import List, Literal
 import httpx
 from .base import BaseAPIModule
 
@@ -38,37 +38,30 @@ class DocumentsAPI(BaseAPIModule):
     # Report generation endpoints
 
     def generate_projects_report(
-        self,
-        user_id: int,
-        format: str = "markdown"
+        self, user_id: int, format: str = "markdown"
     ) -> httpx.Response:
         """Generate PROJECTS.md style report."""
-        return self._get("/documents/reports/projects", params={
-            "user_id": user_id,
-            "format": format
-        })
+        return self._get(
+            "/documents/reports/projects", params={"user_id": user_id, "format": format}
+        )
 
     def generate_performance_report(
-        self,
-        user_id: int,
-        format: str = "markdown"
+        self, user_id: int, format: str = "markdown"
     ) -> httpx.Response:
         """Generate performance summary report."""
-        return self._get("/documents/reports/performance", params={
-            "user_id": user_id,
-            "format": format
-        })
+        return self._get(
+            "/documents/reports/performance",
+            params={"user_id": user_id, "format": format},
+        )
 
     def generate_company_report(
-        self,
-        user_id: int,
-        format: str = "markdown"
+        self, user_id: int, format: str = "markdown"
     ) -> httpx.Response:
         """Generate company-integrated report."""
-        return self._get("/documents/reports/company-integrated", params={
-            "user_id": user_id,
-            "format": format
-        })
+        return self._get(
+            "/documents/reports/company-integrated",
+            params={"user_id": user_id, "format": format},
+        )
 
     # Export endpoints (all use Query params, not JSON body)
 
@@ -77,45 +70,54 @@ class DocumentsAPI(BaseAPIModule):
         user_id: int,
         report_type: Literal["detailed", "final", "summary"] = "summary",
         include_code_stats: bool = False,
-        language: str = "ko"
+        language: str = "ko",
     ) -> httpx.Response:
         """Preview export content."""
-        return self._get("/documents/export/preview", params={
-            "user_id": user_id,
-            "report_type": report_type,
-            "include_code_stats": include_code_stats,
-            "language": language,
-        })
+        return self._get(
+            "/documents/export/preview",
+            params={
+                "user_id": user_id,
+                "report_type": report_type,
+                "include_code_stats": include_code_stats,
+                "language": language,
+            },
+        )
 
     def export_markdown(
         self,
         user_id: int,
         report_type: Literal["detailed", "final", "summary"] = "summary",
         include_code_stats: bool = False,
-        language: str = "ko"
+        language: str = "ko",
     ) -> httpx.Response:
         """Export to Markdown file. Returns {"filename": ..., "download_url": ...}."""
-        return self._post("/documents/export/markdown", params={
-            "user_id": user_id,
-            "report_type": report_type,
-            "include_code_stats": include_code_stats,
-            "language": language,
-        })
+        return self._post(
+            "/documents/export/markdown",
+            params={
+                "user_id": user_id,
+                "report_type": report_type,
+                "include_code_stats": include_code_stats,
+                "language": language,
+            },
+        )
 
     def export_docx(
         self,
         user_id: int,
         report_type: Literal["detailed", "final", "summary"] = "summary",
         include_code_stats: bool = False,
-        language: str = "ko"
+        language: str = "ko",
     ) -> httpx.Response:
         """Export to Word document. Returns {"filename": ..., "download_url": ...}."""
-        return self._post("/documents/export/docx", params={
-            "user_id": user_id,
-            "report_type": report_type,
-            "include_code_stats": include_code_stats,
-            "language": language,
-        })
+        return self._post(
+            "/documents/export/docx",
+            params={
+                "user_id": user_id,
+                "report_type": report_type,
+                "include_code_stats": include_code_stats,
+                "language": language,
+            },
+        )
 
     def download_export(self, filename: str) -> httpx.Response:
         """Download an exported file."""
@@ -128,15 +130,18 @@ class DocumentsAPI(BaseAPIModule):
         user_id: int,
         template_id: int,
         project_ids: List[int],
-        output_format: str = "docx"
+        output_format: str = "docx",
     ) -> httpx.Response:
         """Run document generation pipeline."""
-        return self._post("/pipeline/run", json={
-            "user_id": user_id,
-            "template_id": template_id,
-            "project_ids": project_ids,
-            "output_format": output_format
-        })
+        return self._post(
+            "/pipeline/run",
+            json={
+                "user_id": user_id,
+                "template_id": template_id,
+                "project_ids": project_ids,
+                "output_format": output_format,
+            },
+        )
 
     def get_pipeline_status(self, task_id: str) -> httpx.Response:
         """Get pipeline task status."""

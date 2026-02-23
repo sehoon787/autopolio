@@ -23,14 +23,16 @@ class PlatformTemplateInit:
         db: AsyncSession,
         templates_dir: Path,
         config_dir: Path,
-        crud: PlatformTemplateCRUD
+        crud: PlatformTemplateCRUD,
     ):
         self.db = db
         self.templates_dir = templates_dir
         self.config_dir = config_dir
         self.crud = crud
 
-    async def _load_templates_from_config(self) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    async def _load_templates_from_config(
+        self,
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """Load platform config and HTML templates from files
 
         Returns:
@@ -40,7 +42,7 @@ class PlatformTemplateInit:
         if not config_path.exists():
             return {}, {}
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         platforms = config.get("platforms", {})
@@ -51,12 +53,14 @@ class PlatformTemplateInit:
             if template_file:
                 template_path = self.templates_dir / template_file
                 if template_path.exists():
-                    with open(template_path, 'r', encoding='utf-8') as f:
+                    with open(template_path, "r", encoding="utf-8") as f:
                         html_contents[platform_key] = f.read()
 
         return platforms, html_contents
 
-    async def init_system_templates(self, force_update: bool = False) -> List[PlatformTemplate]:
+    async def init_system_templates(
+        self, force_update: bool = False
+    ) -> List[PlatformTemplate]:
         """Initialize system templates from YAML config and HTML files
 
         Args:

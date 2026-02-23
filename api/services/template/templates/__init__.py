@@ -1,6 +1,7 @@
 """
 Templates module - Contains template content strings for the application.
 """
+
 from .career_templates import (
     CAREER_DESCRIPTION_TEMPLATE,
     CAREER_DESCRIPTION_NO_PERSONAL_TEMPLATE,

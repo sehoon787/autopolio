@@ -12,6 +12,7 @@ Sub-routers:
 - github_edits: Inline editing of analysis content
 - github_contributor: Contributor analysis, code quality, detailed commits
 """
+
 from fastapi import APIRouter
 
 from .github_oauth import router as oauth_router

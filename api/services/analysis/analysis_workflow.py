@@ -8,6 +8,7 @@ This module extracts common analysis logic to reduce code duplication between:
 Each phase is a standalone function that can be called independently,
 enabling flexible composition of analysis workflows.
 """
+
 import logging
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from dataclasses import dataclass, field
@@ -30,12 +31,16 @@ if TYPE_CHECKING:
 def _get_github_service(token: str) -> "GitHubService":
     """Lazy import GitHubService to avoid circular imports."""
     from api.services.github import GitHubService
+
     return GitHubService(token)
 
 
-def _get_achievement_service(llm_provider: Optional[str] = None) -> "AchievementService":
+def _get_achievement_service(
+    llm_provider: Optional[str] = None,
+) -> "AchievementService":
     """Lazy import AchievementService to avoid circular imports."""
     from api.services.achievement import AchievementService
+
     return AchievementService(llm_provider=llm_provider)
 
 
@@ -45,6 +50,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AnalysisContext:
     """Context object holding state across analysis phases."""
+
     # User info
     user_id: int
     github_token: str
@@ -53,7 +59,9 @@ class AnalysisContext:
     # Project info
     project_id: Optional[int] = None
     git_url: str = ""
-    project_repository_id: Optional[int] = None  # Which ProjectRepository we're analyzing
+    project_repository_id: Optional[int] = (
+        None  # Which ProjectRepository we're analyzing
+    )
 
     # Analysis settings
     language: str = "ko"
@@ -85,6 +93,7 @@ class AnalysisContext:
 
 class AnalysisWorkflowError(Exception):
     """Base exception for analysis workflow errors."""
+
     def __init__(self, message: str, phase: str):
         self.message = message
         self.phase = phase
@@ -95,35 +104,33 @@ async def phase1_validate_user(
     db: AsyncSession,
     user_id: int,
     project_id: Optional[int] = None,
-    language: Optional[str] = None
+    language: Optional[str] = None,
 ) -> AnalysisContext:
     """
     Phase 1: Validate user and gather initial context.
-    
+
     Returns an AnalysisContext with validated user info and settings.
     """
     encryption = EncryptionService()
-    
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user or not user.github_token_encrypted:
         raise AnalysisWorkflowError(
-            "GitHub is not connected. Please connect GitHub first.",
-            "validate_user"
+            "GitHub is not connected. Please connect GitHub first.", "validate_user"
         )
-    
+
     try:
         token = encryption.decrypt(user.github_token_encrypted)
         github_username = user.github_username
     except Exception:
         raise AnalysisWorkflowError(
-            "GitHub token is corrupted. Please reconnect.",
-            "validate_user"
+            "GitHub token is corrupted. Please reconnect.", "validate_user"
         )
-    
+
     # Determine language
-    analysis_language = language or getattr(user, 'preferred_language', 'ko') or 'ko'
+    analysis_language = language or getattr(user, "preferred_language", "ko") or "ko"
 
     # Extract user's decrypted LLM API keys
     user_api_keys: Dict[str, str] = {}
@@ -145,19 +152,18 @@ async def phase1_validate_user(
         language=analysis_language,
         user_api_keys=user_api_keys,
     )
-    
+
     # If project exists, get existing edits for context
     if project_id:
-        proj_result = await db.execute(
-            select(Project).where(Project.id == project_id)
-        )
+        proj_result = await db.execute(select(Project).where(Project.id == project_id))
         project = proj_result.scalar_one_or_none()
         if not project:
             raise AnalysisWorkflowError("Project not found", "validate_user")
-        
+
         # Get existing analysis and user edits (use first for multi-repo compat)
         existing_analysis_result = await db.execute(
-            select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+            select(RepoAnalysis)
+            .where(RepoAnalysis.project_id == project_id)
             .order_by(RepoAnalysis.id.asc())
         )
         existing_analysis = existing_analysis_result.scalars().first()
@@ -168,44 +174,45 @@ async def phase1_validate_user(
                 )
             )
             ctx.existing_edits = edits_result.scalar_one_or_none()
-    
-    logger.info("[Phase1] User validated, project_id=%s, language=%s", 
-                project_id, analysis_language)
+
+    logger.info(
+        "[Phase1] User validated, project_id=%s, language=%s",
+        project_id,
+        analysis_language,
+    )
     return ctx
 
 
 async def phase2_create_project_if_needed(
-    db: AsyncSession,
-    ctx: AnalysisContext,
-    git_url: str
+    db: AsyncSession, ctx: AnalysisContext, git_url: str
 ) -> int:
     """
     Phase 2: Create project if not exists.
-    
+
     Returns project_id.
     """
     ctx.git_url = git_url
-    
+
     if ctx.project_id:
         return ctx.project_id
-    
+
     # Initialize GitHub service if needed
     if not ctx.github_service:
         ctx.github_service = _get_github_service(ctx.github_token)
-    
+
     repo_info = await ctx.github_service.get_repo_info(git_url)
-    
+
     project = Project(
         user_id=ctx.user_id,
         name=repo_info["name"],
         description=repo_info.get("description"),
         git_url=git_url,
-        project_type="personal"
+        project_type="personal",
     )
     db.add(project)
     await db.commit()
     await db.refresh(project)
-    
+
     ctx.project_id = project.id
     logger.info("[Phase2] Created project_id=%s", project.id)
     return project.id
@@ -214,46 +221,43 @@ async def phase2_create_project_if_needed(
 async def phase3_run_github_analysis(ctx: AnalysisContext) -> Dict[str, Any]:
     """
     Phase 3: Run GitHub repository analysis.
-    
+
     This is the main HTTP operation - no DB connection during this phase.
     Returns the raw analysis result.
     """
     if not ctx.github_service:
         ctx.github_service = _get_github_service(ctx.github_token)
-    
+
     logger.info("[Phase3] Starting analyze_repository for %s", ctx.git_url)
     analysis_result = await ctx.github_service.analyze_repository(
-        ctx.git_url,
-        ctx.github_username
+        ctx.git_url, ctx.github_username
     )
-    
+
     ctx.analysis_result = analysis_result
-    logger.info("[Phase3] Detected %d technologies", 
-                len(analysis_result.get('detected_technologies', [])))
+    logger.info(
+        "[Phase3] Detected %d technologies",
+        len(analysis_result.get("detected_technologies", [])),
+    )
     return analysis_result
 
 
 async def phase4_save_analysis(
-    db: AsyncSession,
-    ctx: AnalysisContext,
-    llm_provider: Optional[str] = None
+    db: AsyncSession, ctx: AnalysisContext, llm_provider: Optional[str] = None
 ) -> int:
     """
     Phase 4: Save analysis results to database.
-    
+
     - Updates or creates RepoAnalysis
     - Saves detected technologies
     - Auto-detects role
     - Auto-detects achievements
-    
+
     Returns analysis_id.
     """
     # Re-fetch project
-    proj_result = await db.execute(
-        select(Project).where(Project.id == ctx.project_id)
-    )
+    proj_result = await db.execute(select(Project).where(Project.id == ctx.project_id))
     project = proj_result.scalar_one_or_none()
-    
+
     # Check for existing analysis — match by project_repository_id if available,
     # otherwise fall back to project_id + git_url match
     analysis_result = ctx.analysis_result
@@ -282,25 +286,25 @@ async def phase4_save_analysis(
             project_id=ctx.project_id,
             project_repository_id=ctx.project_repository_id,
             git_url=ctx.git_url,
-            **analysis_result
+            **analysis_result,
         )
         db.add(repo_analysis)
-    
+
     # Auto-detect role if not already set
     if not project.role:
         role_service = RoleService()
         detected_role, _ = role_service.detect_role(
-            technologies=analysis_result.get('detected_technologies', []),
-            commit_messages=analysis_result.get('commit_messages', [])[:100],
+            technologies=analysis_result.get("detected_technologies", []),
+            commit_messages=analysis_result.get("commit_messages", [])[:100],
         )
         project.role = detected_role
-    
+
     # Mark project as analyzed
     project.is_analyzed = 1
     project.git_url = ctx.git_url
-    
+
     # Save detected technologies
-    detected_techs = analysis_result.get('detected_technologies', [])
+    detected_techs = analysis_result.get("detected_technologies", [])
     if detected_techs:
         await db.execute(
             ProjectTechnology.__table__.delete().where(
@@ -319,12 +323,14 @@ async def phase4_save_analysis(
             project_tech = ProjectTechnology(
                 project_id=ctx.project_id,
                 technology_id=tech.id,
-                is_primary=1 if tech_name == analysis_result.get('primary_language') else 0
+                is_primary=1
+                if tech_name == analysis_result.get("primary_language")
+                else 0,
             )
             db.add(project_tech)
-    
+
     await db.flush()
-    
+
     # Auto-detect achievements
     try:
         achievement_service = _get_achievement_service(llm_provider=llm_provider)
@@ -333,33 +339,33 @@ async def phase4_save_analysis(
         )
     except Exception as e:
         logger.warning("Failed to auto-detect achievements: %s", e)
-    
+
     # Calculate suggested contribution percent
     try:
         if not ctx.github_service:
             ctx.github_service = _get_github_service(ctx.github_token)
-        
+
         user_commits = repo_analysis.user_commits or 0
         total_commits = repo_analysis.total_commits or 0
         user_lines = repo_analysis.lines_added or 0
         total_lines = repo_analysis.lines_added or 0
-        
+
         if total_commits > 0:
             suggested = ctx.github_service.calculate_contribution_percent(
                 user_commits=user_commits,
                 total_commits=total_commits,
                 user_lines_added=user_lines,
                 total_lines_added=total_lines,
-                work_areas=None
+                work_areas=None,
             )
             repo_analysis.suggested_contribution_percent = suggested
             logger.info("[Phase4] Suggested contribution: %d%%", suggested)
     except Exception as e:
         logger.warning("Failed to calculate suggested contribution: %s", e)
-    
+
     await db.commit()
     await db.refresh(repo_analysis)
-    
+
     ctx.analysis_id = repo_analysis.id
     logger.info("[Phase4] Analysis saved, id=%s", repo_analysis.id)
     return repo_analysis.id
@@ -367,11 +373,3 @@ async def phase4_save_analysis(
 
 # --- Phase 5-6 functions live in analysis_workflow_llm.py ---
 # Re-export for backward compatibility (importers of this module get all phases)
-from .analysis_workflow_llm import (  # noqa: E402
-    phase5_collect_code_contributions,
-    phase5_generate_key_tasks,
-    phase5_generate_detailed_content,
-    phase5_generate_ai_summary,
-    phase5_save_llm_results,
-    phase6_extract_tech_versions,
-)

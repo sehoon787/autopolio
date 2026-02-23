@@ -2,7 +2,6 @@
 Companies API tests.
 """
 
-import pytest
 from uuid import uuid4
 from modules.companies import CompaniesAPI
 
@@ -20,7 +19,7 @@ class TestCompanyCRUD:
             name=f"Test Company {unique_id}",
             position="Software Engineer",
             department="Engineering",
-            start_date="2024-01-01"
+            start_date="2024-01-01",
         )
 
         assert response.status_code in [200, 201]
@@ -70,7 +69,7 @@ class TestCompanyCRUD:
             test_company["id"],
             test_user["id"],
             name="Updated Company Name",
-            position="Senior Engineer"
+            position="Senior Engineer",
         )
 
         assert response.status_code == 200
@@ -86,7 +85,7 @@ class TestCompanyCRUD:
             test_company["id"],
             test_user["id"],
             start_date="2023-01-01",
-            end_date="2024-12-31"
+            end_date="2024-12-31",
         )
 
         assert response.status_code == 200
@@ -100,9 +99,7 @@ class TestCompanyCRUD:
 
         # Create company first
         create_response = api.create(
-            user_id=test_user["id"],
-            name="To Delete Company",
-            position="Developer"
+            user_id=test_user["id"], name="To Delete Company", position="Developer"
         )
         company_id = create_response.json()["id"]
 
@@ -119,7 +116,9 @@ class TestCompanyCRUD:
 class TestCompanyAdvanced:
     """Test advanced company features."""
 
-    def test_get_company_summary(self, api_client, test_user, test_company, test_project):
+    def test_get_company_summary(
+        self, api_client, test_user, test_company, test_project
+    ):
         """Test getting company summary with projects."""
         api = CompaniesAPI(api_client)
 
@@ -129,7 +128,9 @@ class TestCompanyAdvanced:
         data = response.json()
         assert "projects" in data or "project_count" in data
 
-    def test_get_grouped_by_company(self, api_client, test_user, test_company, test_project):
+    def test_get_grouped_by_company(
+        self, api_client, test_user, test_company, test_project
+    ):
         """Test getting projects grouped by company."""
         api = CompaniesAPI(api_client)
 
@@ -151,7 +152,7 @@ class TestCompanyAdvanced:
             user_id=test_user["id"],
             name=f"Described Company {unique_id}",
             position="Developer",
-            description="A great company to work for"
+            description="A great company to work for",
         )
 
         assert response.status_code in [200, 201]
@@ -171,7 +172,7 @@ class TestCompanyValidation:
         response = api._post(
             "/knowledge/companies",
             params={"user_id": test_user["id"]},
-            json={"position": "Developer"}
+            json={"position": "Developer"},
         )
 
         assert response.status_code in [400, 422]
@@ -181,9 +182,7 @@ class TestCompanyValidation:
         api = CompaniesAPI(api_client)
 
         response = api.create(
-            user_id=99999,
-            name="Invalid User Company",
-            position="Developer"
+            user_id=99999, name="Invalid User Company", position="Developer"
         )
 
         assert response.status_code in [400, 404]
@@ -196,7 +195,7 @@ class TestCompanyValidation:
             user_id=test_user["id"],
             name="Bad Date Company",
             position="Developer",
-            start_date="not-a-date"
+            start_date="not-a-date",
         )
 
         assert response.status_code in [400, 422]

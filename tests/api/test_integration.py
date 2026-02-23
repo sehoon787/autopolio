@@ -2,7 +2,6 @@
 Integration tests for complete workflows.
 """
 
-import pytest
 from uuid import uuid4
 from modules.users import UsersAPI
 from modules.companies import CompaniesAPI
@@ -24,7 +23,7 @@ class TestCompleteWorkflow:
         users_api = UsersAPI(api_client)
         user_response = users_api.create(
             name=f"Integration Test User {unique_id}",
-            email=f"integration_{unique_id}@example.com"
+            email=f"integration_{unique_id}@example.com",
         )
         assert user_response.status_code in [200, 201]
         user = user_response.json()
@@ -39,7 +38,7 @@ class TestCompleteWorkflow:
                 position="Software Engineer",
                 department="Engineering",
                 start_date="2020-01-01",
-                end_date="2024-12-31"
+                end_date="2024-12-31",
             )
             assert company_response.status_code in [200, 201]
             company = company_response.json()
@@ -58,7 +57,7 @@ class TestCompleteWorkflow:
                 project_type="company",
                 start_date="2022-01-01",
                 end_date="2023-12-31",
-                technologies=["Python", "FastAPI", "React", "PostgreSQL"]
+                technologies=["Python", "FastAPI", "React", "PostgreSQL"],
             )
             assert project1_response.status_code in [200, 201]
             project1 = project1_response.json()
@@ -71,7 +70,7 @@ class TestCompleteWorkflow:
                 role="Solo Developer",
                 project_type="personal",
                 start_date="2023-06-01",
-                technologies=["TypeScript", "Node.js"]
+                technologies=["TypeScript", "Node.js"],
             )
             assert project2_response.status_code in [200, 201]
 
@@ -81,7 +80,7 @@ class TestCompleteWorkflow:
                 user_id=user_id,
                 metric_name="Performance Improvement",
                 metric_value="50%",
-                description="Improved API response time by 50%"
+                description="Improved API response time by 50%",
             )
             assert achievement_response.status_code in [200, 201]
 
@@ -95,7 +94,7 @@ class TestCompleteWorkflow:
                 degree="Bachelor of Science",
                 major="Computer Science",
                 start_date="2016-03-01",
-                end_date="2020-02-28"
+                end_date="2020-02-28",
             )
             assert edu_response.status_code in [200, 201]
 
@@ -104,7 +103,7 @@ class TestCompleteWorkflow:
                 user_id=user_id,
                 name="AWS Solutions Architect",
                 issuer="Amazon Web Services",
-                issue_date="2023-06-15"
+                issue_date="2023-06-15",
             )
             assert cert_response.status_code in [200, 201]
 
@@ -121,8 +120,7 @@ class TestCompleteWorkflow:
 
             # 7. Export to markdown (uses query params)
             export_response = docs_api.export_markdown(
-                user_id=user_id,
-                report_type="summary"
+                user_id=user_id, report_type="summary"
             )
             assert export_response.status_code == 200
 
@@ -131,8 +129,7 @@ class TestCompleteWorkflow:
             templates = _get_template_list(platforms_api)
             if len(templates) > 0:
                 preview_response = platforms_api.preview(
-                    platform_id=templates[0]["id"],
-                    use_sample=True
+                    platform_id=templates[0]["id"], use_sample=True
                 )
                 assert preview_response.status_code == 200
 
@@ -161,7 +158,7 @@ class TestCompleteWorkflow:
 
 **Technologies:** {{#technologies}}{{.}}, {{/technologies}}
 {{/projects}}
-"""
+""",
         )
         assert template_response.status_code in [200, 201]
         template = template_response.json()
@@ -171,15 +168,13 @@ class TestCompleteWorkflow:
             preview_response = templates_api.preview(
                 template_content=template["template_content"],
                 user_id=test_user["id"],
-                project_ids=[test_project["id"]]
+                project_ids=[test_project["id"]],
             )
             assert preview_response.status_code == 200
 
             # 3. Clone template
             clone_response = templates_api.clone(
-                template["id"],
-                f"Cloned Template {unique_id}",
-                user_id=test_user["id"]
+                template["id"], f"Cloned Template {unique_id}", user_id=test_user["id"]
             )
             assert clone_response.status_code in [200, 201]
             cloned = clone_response.json()
@@ -187,7 +182,7 @@ class TestCompleteWorkflow:
             # 4. Update cloned template
             update_response = templates_api.update(
                 cloned["id"],
-                template_content=template["template_content"] + "\n\n*Updated*"
+                template_content=template["template_content"] + "\n\n*Updated*",
             )
             assert update_response.status_code == 200
 
@@ -213,10 +208,10 @@ class TestCompleteWorkflow:
             for i in range(2):
                 company_response = companies_api.create(
                     user_id=test_user["id"],
-                    name=f"Timeline Company {i+1} {unique_id}",
-                    position=f"Position {i+1}",
+                    name=f"Timeline Company {i + 1} {unique_id}",
+                    position=f"Position {i + 1}",
                     start_date=f"202{i}-01-01",
-                    end_date=f"202{i+1}-12-31" if i < 1 else None
+                    end_date=f"202{i + 1}-12-31" if i < 1 else None,
                 )
                 assert company_response.status_code in [200, 201]
                 company = company_response.json()
@@ -226,9 +221,9 @@ class TestCompleteWorkflow:
                 project_response = projects_api.create(
                     user_id=test_user["id"],
                     company_id=company["id"],
-                    name=f"Project at Company {i+1} {unique_id}",
+                    name=f"Project at Company {i + 1} {unique_id}",
                     project_type="company",
-                    start_date=f"202{i}-06-01"
+                    start_date=f"202{i}-06-01",
                 )
                 assert project_response.status_code in [200, 201]
                 created_projects.append(project_response.json())
@@ -270,7 +265,7 @@ class TestDataIntegrity:
         company_response = companies_api.create(
             user_id=test_user["id"],
             name=f"Cascade Test Company {unique_id}",
-            position="Developer"
+            position="Developer",
         )
         assert company_response.status_code in [200, 201]
         company = company_response.json()
@@ -280,7 +275,7 @@ class TestDataIntegrity:
             user_id=test_user["id"],
             company_id=company["id"],
             name=f"Linked Project {unique_id}",
-            project_type="company"
+            project_type="company",
         )
         assert project_response.status_code in [200, 201]
         project = project_response.json()
@@ -307,13 +302,11 @@ class TestDataIntegrity:
 
         # Create two users
         user1 = users_api.create(
-            name=f"User 1 {unique_id}",
-            email=f"user1_{unique_id}@example.com"
+            name=f"User 1 {unique_id}", email=f"user1_{unique_id}@example.com"
         ).json()
 
         user2 = users_api.create(
-            name=f"User 2 {unique_id}",
-            email=f"user2_{unique_id}@example.com"
+            name=f"User 2 {unique_id}", email=f"user2_{unique_id}@example.com"
         ).json()
 
         try:
@@ -321,7 +314,7 @@ class TestDataIntegrity:
             company = companies_api.create(
                 user_id=user1["id"],
                 name=f"User1 Company {unique_id}",
-                position="Developer"
+                position="Developer",
             ).json()
 
             # List companies for user2 - should not see user1's company

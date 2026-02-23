@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional, List, Union
 
@@ -6,6 +6,7 @@ from typing import Optional, List, Union
 # ============================================================
 # Certification Schemas (자격증)
 # ============================================================
+
 
 class CertificationBase(BaseModel):
     name: str
@@ -50,6 +51,7 @@ class CertificationResponse(CertificationBase):
 # Award Schemas (수상이력)
 # ============================================================
 
+
 class AwardBase(BaseModel):
     name: str
     issuer: Optional[str] = None
@@ -88,6 +90,7 @@ class AwardResponse(AwardBase):
 # ============================================================
 # Education Schemas (교육이력)
 # ============================================================
+
 
 class EducationBase(BaseModel):
     school_name: str
@@ -147,6 +150,7 @@ class EducationResponse(EducationBase):
 # Publication Schemas (논문/저술)
 # ============================================================
 
+
 class PublicationBase(BaseModel):
     title: str
     authors: Optional[str] = None
@@ -193,6 +197,7 @@ class PublicationResponse(PublicationBase):
 # ============================================================
 # VolunteerActivity Schemas (봉사활동/대외활동)
 # ============================================================
+
 
 class VolunteerActivityBase(BaseModel):
     name: str
@@ -243,8 +248,10 @@ class VolunteerActivityResponse(VolunteerActivityBase):
 # Reorder Schema
 # ============================================================
 
+
 class ReorderRequest(BaseModel):
     """Request for reordering items"""
+
     item_ids: List[int]  # List of IDs in desired order
 
 
@@ -252,8 +259,10 @@ class ReorderRequest(BaseModel):
 # Summary Schemas (for template data)
 # ============================================================
 
+
 class CertificationSummary(BaseModel):
     """Certification summary for templates"""
+
     name: str
     issuer: Optional[str] = None
     issue_date: Optional[str] = None  # Formatted date string
@@ -265,6 +274,7 @@ class CertificationSummary(BaseModel):
 
 class AwardSummary(BaseModel):
     """Award summary for templates"""
+
     name: str
     issuer: Optional[str] = None
     award_date: Optional[str] = None
@@ -274,6 +284,7 @@ class AwardSummary(BaseModel):
 
 class EducationSummary(BaseModel):
     """Education summary for templates"""
+
     school_name: str
     major: Optional[str] = None
     degree: Optional[str] = None
@@ -284,6 +295,7 @@ class EducationSummary(BaseModel):
 
 class PublicationSummary(BaseModel):
     """Publication summary for templates"""
+
     title: str
     authors: Optional[str] = None
     publication_type: Optional[str] = None
@@ -296,6 +308,7 @@ class PublicationSummary(BaseModel):
 
 class VolunteerActivitySummary(BaseModel):
     """Volunteer activity summary for templates"""
+
     name: str
     organization: Optional[str] = None
     activity_type: Optional[str] = None

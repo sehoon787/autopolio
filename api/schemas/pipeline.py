@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 
 class PipelineStep(BaseModel):
     """Individual pipeline step status."""
+
     step_number: int
     step_name: str
     status: str  # pending, running, completed, failed, skipped
@@ -12,11 +13,14 @@ class PipelineStep(BaseModel):
     completed_at: Optional[datetime] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
-    skip_reason: Optional[str] = None  # Reason for skipping (e.g., 'all_projects_analyzed')
+    skip_reason: Optional[str] = (
+        None  # Reason for skipping (e.g., 'all_projects_analyzed')
+    )
 
 
 class PipelineRunRequest(BaseModel):
     """Request to run the document generation pipeline."""
+
     project_ids: List[int]  # Projects to include
     company_ids: Optional[List[int]] = None  # Companies to include
     template_id: int  # Template to use
@@ -33,7 +37,9 @@ class PipelineRunRequest(BaseModel):
     # LLM settings (for auto-analysis)
     llm_provider: Optional[str] = None  # Override user preference
     cli_mode: Optional[str] = None  # 'claude_code' or 'gemini_cli' for CLI execution
-    cli_model: Optional[str] = None  # Model name for CLI execution (e.g., 'claude-sonnet-4-20250514')
+    cli_model: Optional[str] = (
+        None  # Model name for CLI execution (e.g., 'claude-sonnet-4-20250514')
+    )
 
     # Internal (set by PipelineService, not from client)
     task_id: Optional[str] = None
@@ -41,6 +47,7 @@ class PipelineRunRequest(BaseModel):
 
 class PipelineStatusResponse(BaseModel):
     """Response for pipeline execution status."""
+
     task_id: str
     status: str
     progress: int
@@ -56,6 +63,7 @@ class PipelineStatusResponse(BaseModel):
 
 class PipelineResultResponse(BaseModel):
     """Final result of pipeline execution."""
+
     task_id: str
     status: str
     document_id: int

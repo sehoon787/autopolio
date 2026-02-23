@@ -1,6 +1,7 @@
 """
 LLM Generation Functions - Large generation methods extracted from LLMService.
 """
+
 from typing import Dict, List, Any, Optional
 import json
 
@@ -14,7 +15,7 @@ async def generate_key_tasks_llm(
     commit_summary: Optional[str] = None,
     language: str = "ko",
     user_context: Optional[str] = None,
-    code_context: Optional[str] = None
+    code_context: Optional[str] = None,
 ) -> tuple[List[str], int]:
     """
     Generate key tasks in numbered format (1), (2), (3)...
@@ -37,23 +38,23 @@ async def generate_key_tasks_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_key_tasks"]
 
-    technologies = project_data.get('technologies', [])
+    technologies = project_data.get("technologies", [])
 
     if language == "en":
-        tech_str = ', '.join(technologies) if technologies else 'Not specified'
+        tech_str = ", ".join(technologies) if technologies else "Not specified"
         prompt = f"""Based on the following project information, write the key tasks performed.
 
 Project Information:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
 - Tech Stack: {tech_str}
-- Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- Period: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 Code Analysis (if available):
-- Total Commits: {project_data.get('total_commits', 'N/A')}
-- Lines Added: {project_data.get('lines_added', 'N/A')}
-- Commit Summary: {commit_summary or 'N/A'}
+- Total Commits: {project_data.get("total_commits", "N/A")}
+- Lines Added: {project_data.get("lines_added", "N/A")}
+- Commit Summary: {commit_summary or "N/A"}
 
 {prompts["key_tasks_rules"]}
 
@@ -63,20 +64,20 @@ Response Format:
 Respond only with a JSON array. No other explanations.
 ["Task 1", "Task 2", "Task 3", ...]"""
     else:
-        tech_str = ', '.join(technologies) if technologies else '미지정'
+        tech_str = ", ".join(technologies) if technologies else "미지정"
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무를 작성해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
 - 기술 스택: {tech_str}
-- 기간: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- 기간: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 코드 분석 (있는 경우):
-- 총 커밋: {project_data.get('total_commits', 'N/A')}
-- 추가된 라인: {project_data.get('lines_added', 'N/A')}
-- 커밋 요약: {commit_summary or 'N/A'}
+- 총 커밋: {project_data.get("total_commits", "N/A")}
+- 추가된 라인: {project_data.get("lines_added", "N/A")}
+- 커밋 요약: {commit_summary or "N/A"}
 
 {prompts["key_tasks_rules"]}
 
@@ -111,10 +112,7 @@ Based on the code above, identify specific technical implementations and feature
 
     try:
         response, tokens = await provider.generate(
-            prompt,
-            system_prompt,
-            max_tokens=1500,
-            temperature=0.3
+            prompt, system_prompt, max_tokens=1500, temperature=0.3
         )
 
         # Parse JSON response
@@ -140,7 +138,7 @@ async def generate_implementation_details_llm(
     project_data: Dict[str, Any],
     commit_summary: Optional[str] = None,
     language: str = "ko",
-    user_context: Optional[str] = None
+    user_context: Optional[str] = None,
 ) -> tuple[List[Dict[str, Any]], int]:
     """
     Generate detailed implementation features grouped by category.
@@ -171,21 +169,21 @@ async def generate_implementation_details_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_implementation"]
 
-    technologies = project_data.get('technologies', [])
+    technologies = project_data.get("technologies", [])
 
     if language == "en":
-        tech_str = ', '.join(technologies) if technologies else 'Not specified'
+        tech_str = ", ".join(technologies) if technologies else "Not specified"
         prompt = f"""Based on the following project information, organize the main implementation features by category.
 
 Project Information:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
 - Tech Stack: {tech_str}
 
 Code Analysis:
-- Total Commits: {project_data.get('total_commits', 'N/A')}
-- Commit Summary: {commit_summary or 'N/A'}
+- Total Commits: {project_data.get("total_commits", "N/A")}
+- Commit Summary: {commit_summary or "N/A"}
 
 **Writing Rules:**
 1. Create 3-6 main feature categories
@@ -216,18 +214,18 @@ Code Analysis:
 Response Format:
 Respond only with a JSON array."""
     else:
-        tech_str = ', '.join(technologies) if technologies else '미지정'
+        tech_str = ", ".join(technologies) if technologies else "미지정"
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 카테고리별로 정리해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
 - 기술 스택: {tech_str}
 
 코드 분석:
-- 총 커밋: {project_data.get('total_commits', 'N/A')}
-- 커밋 요약: {commit_summary or 'N/A'}
+- 총 커밋: {project_data.get("total_commits", "N/A")}
+- 커밋 요약: {commit_summary or "N/A"}
 
 **작성 규칙:**
 1. 3~6개의 주요 기능 카테고리를 생성
@@ -264,10 +262,7 @@ Respond only with a JSON array."""
 
     try:
         response, tokens = await provider.generate(
-            prompt,
-            system_prompt,
-            max_tokens=2000,
-            temperature=0.3
+            prompt, system_prompt, max_tokens=2000, temperature=0.3
         )
 
         # Parse JSON response
@@ -284,10 +279,12 @@ Respond only with a JSON array."""
             validated = []
             for item in details:
                 if isinstance(item, dict) and "title" in item and "items" in item:
-                    validated.append({
-                        "title": str(item["title"]),
-                        "items": [str(i) for i in item.get("items", []) if i]
-                    })
+                    validated.append(
+                        {
+                            "title": str(item["title"]),
+                            "items": [str(i) for i in item.get("items", []) if i],
+                        }
+                    )
             return validated, tokens
         return [], tokens
 
@@ -300,7 +297,7 @@ async def generate_detailed_achievements_llm(
     project_data: Dict[str, Any],
     existing_achievements: Optional[List[Dict[str, Any]]] = None,
     language: str = "ko",
-    user_context: Optional[str] = None
+    user_context: Optional[str] = None,
 ) -> tuple[Dict[str, List[Dict[str, Any]]], int]:
     """
     Generate achievements grouped by category with before/after format.
@@ -332,10 +329,10 @@ async def generate_detailed_achievements_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_achievements"]
 
-    technologies = project_data.get('technologies', [])
+    technologies = project_data.get("technologies", [])
 
     if language == "en":
-        tech_str = ', '.join(technologies) if technologies else 'Not specified'
+        tech_str = ", ".join(technologies) if technologies else "Not specified"
         existing_str = ""
         if existing_achievements:
             existing_str = "\nPreviously detected achievements:\n" + "\n".join(
@@ -346,15 +343,15 @@ async def generate_detailed_achievements_llm(
         prompt = f"""Based on the following project information, organize the main achievements by category.
 
 Project Information:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
 - Tech Stack: {tech_str}
 
 Code Statistics:
-- Total Commits: {project_data.get('total_commits', 'N/A')}
-- Lines Added: {project_data.get('lines_added', 'N/A')}
-- Lines Deleted: {project_data.get('lines_deleted', 'N/A')}
+- Total Commits: {project_data.get("total_commits", "N/A")}
+- Lines Added: {project_data.get("lines_added", "N/A")}
+- Lines Deleted: {project_data.get("lines_deleted", "N/A")}
 {existing_str}
 
 **Achievement Categories:**
@@ -394,7 +391,7 @@ Code Statistics:
 Response Format:
 Respond only with a JSON object."""
     else:
-        tech_str = ', '.join(technologies) if technologies else '미지정'
+        tech_str = ", ".join(technologies) if technologies else "미지정"
         existing_str = ""
         if existing_achievements:
             existing_str = "\n기존에 감지된 성과:\n" + "\n".join(
@@ -405,15 +402,15 @@ Respond only with a JSON object."""
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 정리해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
 - 기술 스택: {tech_str}
 
 코드 통계:
-- 총 커밋: {project_data.get('total_commits', 'N/A')}
-- 추가된 라인: {project_data.get('lines_added', 'N/A')}
-- 삭제된 라인: {project_data.get('lines_deleted', 'N/A')}
+- 총 커밋: {project_data.get("total_commits", "N/A")}
+- 추가된 라인: {project_data.get("lines_added", "N/A")}
+- 삭제된 라인: {project_data.get("lines_deleted", "N/A")}
 {existing_str}
 
 **성과 카테고리:**
@@ -459,10 +456,7 @@ Respond only with a JSON object."""
 
     try:
         response, tokens = await provider.generate(
-            prompt,
-            system_prompt,
-            max_tokens=2500,
-            temperature=0.3
+            prompt, system_prompt, max_tokens=2500, temperature=0.3
         )
 
         # Parse JSON response
@@ -482,12 +476,14 @@ Respond only with a JSON object."""
                     validated_items = []
                     for item in items:
                         if isinstance(item, dict) and "title" in item:
-                            validated_items.append({
-                                "title": str(item.get("title", "")),
-                                "description": str(item.get("description", "")),
-                                "before": str(item.get("before", "")),
-                                "after": str(item.get("after", ""))
-                            })
+                            validated_items.append(
+                                {
+                                    "title": str(item.get("title", "")),
+                                    "description": str(item.get("description", "")),
+                                    "before": str(item.get("before", "")),
+                                    "after": str(item.get("after", "")),
+                                }
+                            )
                     if validated_items:
                         validated[category] = validated_items
             return validated, tokens

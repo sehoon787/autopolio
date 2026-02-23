@@ -3,7 +3,6 @@ from functools import lru_cache
 from pathlib import Path
 import yaml
 import os
-from typing import Optional
 
 
 def load_yaml_config(config_name: str) -> dict:
@@ -42,6 +41,7 @@ def _get_templates_dir() -> Path:
         return Path(os.environ["AUTOPOLIO_TEMPLATES_DIR"])
     return _get_data_dir() / "templates"
 
+
 def _get_runtime_profile() -> str:
     return os.environ.get("AUTOPOLIO_RUNTIME", "external")
 
@@ -50,7 +50,9 @@ def _get_runtime_ports() -> dict:
     runtime = load_yaml_config("runtime")
     ports = runtime.get("ports", {}) if isinstance(runtime, dict) else {}
     profile = _get_runtime_profile()
-    return ports.get(profile, ports.get("external", {})) if isinstance(ports, dict) else {}
+    return (
+        ports.get(profile, ports.get("external", {})) if isinstance(ports, dict) else {}
+    )
 
 
 def _get_external_ports() -> dict:
@@ -92,11 +94,13 @@ def _get_cors_origins() -> list[str]:
         frontend_port = profile_ports.get("frontend")
         if frontend_port:
             origins.append(f"http://localhost:{frontend_port}")
-    origins.extend([
-        "app://-",  # Electron app origin (electron-serve)
-        "app://.",  # Alternative Electron origin
-        "file://",  # File protocol
-    ])
+    origins.extend(
+        [
+            "app://-",  # Electron app origin (electron-serve)
+            "app://.",  # Alternative Electron origin
+            "file://",  # File protocol
+        ]
+    )
     return origins
 
 

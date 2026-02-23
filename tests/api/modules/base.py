@@ -25,10 +25,7 @@ class BaseAPIModule:
         self.client = client
 
     def _get(
-        self,
-        path: str,
-        params: Optional[dict] = None,
-        **kwargs: Any
+        self, path: str, params: Optional[dict] = None, **kwargs: Any
     ) -> httpx.Response:
         """
         Make a GET request.
@@ -49,7 +46,7 @@ class BaseAPIModule:
         json: Optional[dict] = None,
         data: Optional[dict] = None,
         files: Optional[dict] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Make a POST request.
@@ -67,10 +64,7 @@ class BaseAPIModule:
         return self.client.post(path, json=json, data=data, files=files, **kwargs)
 
     def _put(
-        self,
-        path: str,
-        json: Optional[dict] = None,
-        **kwargs: Any
+        self, path: str, json: Optional[dict] = None, **kwargs: Any
     ) -> httpx.Response:
         """
         Make a PUT request.
@@ -86,10 +80,7 @@ class BaseAPIModule:
         return self.client.put(path, json=json, **kwargs)
 
     def _patch(
-        self,
-        path: str,
-        json: Optional[dict] = None,
-        **kwargs: Any
+        self, path: str, json: Optional[dict] = None, **kwargs: Any
     ) -> httpx.Response:
         """
         Make a PATCH request.

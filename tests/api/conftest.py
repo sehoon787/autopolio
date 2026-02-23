@@ -40,6 +40,7 @@ if _tests_api_dir not in sys.path:
 # Try to import runtime config for port detection
 try:
     from tests.utils.runtime_config import get_api_base_url
+
     _configured_base = get_api_base_url()
 except Exception:
     _configured_base = "http://localhost:8085"
@@ -66,7 +67,9 @@ def _server_is_alive() -> bool:
 
 # Decide once at import time
 USE_LIVE_SERVER = _server_is_alive()
-logger.info("Test mode: %s", "LIVE SERVER" if USE_LIVE_SERVER else "TestClient (in-process)")
+logger.info(
+    "Test mode: %s", "LIVE SERVER" if USE_LIVE_SERVER else "TestClient (in-process)"
+)
 
 
 def _ensure_test_env():
@@ -104,6 +107,7 @@ def _ensure_test_env():
 # Fixtures
 # --------------------------------------------------------------------------- #
 
+
 @pytest.fixture(scope="session")
 def base_url() -> str:
     """Return the base URL for API requests."""
@@ -138,12 +142,14 @@ def _session_client():
 
         # 3. Clear get_settings cache so it reads fresh env vars
         from api.config import get_settings
+
         get_settings.cache_clear()
 
         # 4. Now import the app (triggers api.database module-level init)
         from api.main import app
 
         from starlette.testclient import TestClient
+
         with TestClient(app, base_url="http://testserver/api") as client:
             logger.info("TestClient session started (lifespan active)")
             yield client
@@ -172,10 +178,13 @@ def api_client(_session_client, base_url: str) -> Generator[httpx.Client, None, 
 def test_user(api_client) -> Generator[dict, None, None]:
     """Create a test user and clean up after test."""
     unique_id = uuid4().hex[:8]
-    response = api_client.post("/users", json={
-        "name": f"E2E Test User {unique_id}",
-        "email": f"test_{unique_id}@example.com"
-    })
+    response = api_client.post(
+        "/users",
+        json={
+            "name": f"E2E Test User {unique_id}",
+            "email": f"test_{unique_id}@example.com",
+        },
+    )
     response.raise_for_status()
     user = response.json()
 
@@ -198,8 +207,8 @@ def test_company(api_client, test_user: dict) -> Generator[dict, None, None]:
             "name": f"Test Company {unique_id}",
             "position": "Software Engineer",
             "department": "Engineering",
-            "start_date": "2024-01-01"
-        }
+            "start_date": "2024-01-01",
+        },
     )
     response.raise_for_status()
     company = response.json()
@@ -207,13 +216,17 @@ def test_company(api_client, test_user: dict) -> Generator[dict, None, None]:
     yield company
 
     try:
-        api_client.delete(f"/knowledge/companies/{company['id']}", params={"user_id": test_user["id"]})
+        api_client.delete(
+            f"/knowledge/companies/{company['id']}", params={"user_id": test_user["id"]}
+        )
     except httpx.HTTPError:
         pass
 
 
 @pytest.fixture
-def test_project(api_client, test_user: dict, test_company: dict) -> Generator[dict, None, None]:
+def test_project(
+    api_client, test_user: dict, test_company: dict
+) -> Generator[dict, None, None]:
     """Create a test project linked to test user and company."""
     unique_id = uuid4().hex[:8]
     response = api_client.post(
@@ -227,8 +240,8 @@ def test_project(api_client, test_user: dict, test_company: dict) -> Generator[d
             "team_size": 5,
             "project_type": "company",
             "start_date": "2024-01-01",
-            "end_date": "2024-12-31"
-        }
+            "end_date": "2024-12-31",
+        },
     )
     response.raise_for_status()
     project = response.json()
@@ -236,7 +249,9 @@ def test_project(api_client, test_user: dict, test_company: dict) -> Generator[d
     yield project
 
     try:
-        api_client.delete(f"/knowledge/projects/{project['id']}", params={"user_id": test_user["id"]})
+        api_client.delete(
+            f"/knowledge/projects/{project['id']}", params={"user_id": test_user["id"]}
+        )
     except httpx.HTTPError:
         pass
 
@@ -254,8 +269,8 @@ def test_personal_project(api_client, test_user: dict) -> Generator[dict, None, 
             "role": "Solo Developer",
             "team_size": 1,
             "project_type": "personal",
-            "start_date": "2024-01-01"
-        }
+            "start_date": "2024-01-01",
+        },
     )
     response.raise_for_status()
     project = response.json()
@@ -263,7 +278,9 @@ def test_personal_project(api_client, test_user: dict) -> Generator[dict, None, 
     yield project
 
     try:
-        api_client.delete(f"/knowledge/projects/{project['id']}", params={"user_id": test_user["id"]})
+        api_client.delete(
+            f"/knowledge/projects/{project['id']}", params={"user_id": test_user["id"]}
+        )
     except httpx.HTTPError:
         pass
 
@@ -279,8 +296,8 @@ def test_template(api_client, test_user: dict) -> Generator[dict, None, None]:
             "name": f"Test Template {unique_id}",
             "platform": "custom",
             "template_content": "# {{name}}\n\n{{description}}",
-            "is_default": False
-        }
+            "is_default": False,
+        },
     )
     response.raise_for_status()
     template = response.json()
@@ -288,7 +305,9 @@ def test_template(api_client, test_user: dict) -> Generator[dict, None, None]:
     yield template
 
     try:
-        api_client.delete(f"/templates/{template['id']}", params={"user_id": test_user["id"]})
+        api_client.delete(
+            f"/templates/{template['id']}", params={"user_id": test_user["id"]}
+        )
     except httpx.HTTPError:
         pass
 
@@ -297,7 +316,9 @@ def test_template(api_client, test_user: dict) -> Generator[dict, None, None]:
 def github_user(api_client) -> Optional[dict]:
     """Get an existing GitHub-connected user for integration tests."""
     try:
-        status_response = api_client.get("/github/status", params={"user_id": GITHUB_USER_ID})
+        status_response = api_client.get(
+            "/github/status", params={"user_id": GITHUB_USER_ID}
+        )
         if status_response.status_code != 200:
             return None
 
@@ -317,7 +338,9 @@ def github_user(api_client) -> Optional[dict]:
 
 
 @pytest.fixture
-def github_project(api_client, github_user: Optional[dict]) -> Generator[Optional[dict], None, None]:
+def github_project(
+    api_client, github_user: Optional[dict]
+) -> Generator[Optional[dict], None, None]:
     """Create a test project for GitHub analysis tests."""
     if github_user is None:
         yield None
@@ -333,8 +356,8 @@ def github_project(api_client, github_user: Optional[dict]) -> Generator[Optiona
             "role": "Developer",
             "team_size": 1,
             "project_type": "personal",
-            "start_date": "2024-01-01"
-        }
+            "start_date": "2024-01-01",
+        },
     )
 
     if response.status_code not in [200, 201]:
@@ -347,7 +370,7 @@ def github_project(api_client, github_user: Optional[dict]) -> Generator[Optiona
     try:
         api_client.delete(
             f"/knowledge/projects/{project['id']}",
-            params={"user_id": github_user["id"]}
+            params={"user_id": github_user["id"]},
         )
     except httpx.HTTPError:
         pass
@@ -355,8 +378,12 @@ def github_project(api_client, github_user: Optional[dict]) -> Generator[Optiona
 
 def pytest_configure(config):
     """Register custom markers."""
-    config.addinivalue_line("markers", "requires_github: mark test as requiring GitHub connection")
-    config.addinivalue_line("markers", "llm_required: mark test as requiring LLM service (API or CLI)")
+    config.addinivalue_line(
+        "markers", "requires_github: mark test as requiring GitHub connection"
+    )
+    config.addinivalue_line(
+        "markers", "llm_required: mark test as requiring LLM service (API or CLI)"
+    )
     config.addinivalue_line("markers", "slow: mark test as slow running")
 
 
@@ -364,7 +391,9 @@ def pytest_collection_modifyitems(config, items):
     """Skip tests marked with requires_github if no GitHub user is available."""
     if not USE_LIVE_SERVER:
         # In TestClient mode, always skip GitHub tests
-        skip_github = pytest.mark.skip(reason="GitHub connection not available (TestClient mode)")
+        skip_github = pytest.mark.skip(
+            reason="GitHub connection not available (TestClient mode)"
+        )
         for item in items:
             if "requires_github" in item.keywords:
                 item.add_marker(skip_github)

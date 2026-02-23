@@ -29,7 +29,7 @@ class ProfileService:
         result = await self.db.execute(
             select(OAuthIdentity)
             .where(OAuthIdentity.user_id == user_id)
-            .where(OAuthIdentity.is_primary == True)
+            .where(OAuthIdentity.is_primary.is_(True))
         )
         primary_identity = result.scalar_one_or_none()
 
@@ -44,9 +44,7 @@ class ProfileService:
             primary_identity = result.scalar_one_or_none()
 
         # Get user for fallback values
-        user_result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
+        user_result = await self.db.execute(select(User).where(User.id == user_id))
         user = user_result.scalar_one_or_none()
 
         if not user:
@@ -90,9 +88,7 @@ class ProfileService:
     async def get_profile(self, user_id: int) -> UserProfileResponse:
         """Get user profile with effective values calculated"""
         # Get user
-        result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -104,18 +100,18 @@ class ProfileService:
         # Calculate effective values
         # Rule: user value if not None and not "", otherwise OAuth default
         effective_name = self._get_effective_value(
-            user.display_name,
-            oauth_defaults.name or user.name
+            user.display_name, oauth_defaults.name or user.name
         )
         effective_email = self._get_effective_value(
-            user.profile_email,
-            oauth_defaults.email
+            user.profile_email, oauth_defaults.email
         )
         effective_avatar_url = oauth_defaults.avatar_url  # Avatar always from OAuth
 
         # Profile photo: use uploaded photo if available, otherwise OAuth avatar
-        profile_photo_url = getattr(user, 'profile_photo_url', None)
-        effective_photo_url = profile_photo_url if profile_photo_url else oauth_defaults.avatar_url
+        profile_photo_url = getattr(user, "profile_photo_url", None)
+        effective_photo_url = (
+            profile_photo_url if profile_photo_url else oauth_defaults.avatar_url
+        )
 
         return UserProfileResponse(
             # User values (can be None or "")
@@ -135,9 +131,7 @@ class ProfileService:
         )
 
     async def update_profile(
-        self,
-        user_id: int,
-        data: UserProfileUpdate
+        self, user_id: int, data: UserProfileUpdate
     ) -> UserProfileResponse:
         """Update user profile
 
@@ -147,9 +141,7 @@ class ProfileService:
         - Field has value: update to new value
         """
         # Get user
-        result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -168,9 +160,7 @@ class ProfileService:
         return await self.get_profile(user_id)
 
     def _get_effective_value(
-        self,
-        user_value: Optional[str],
-        oauth_value: Optional[str]
+        self, user_value: Optional[str], oauth_value: Optional[str]
     ) -> Optional[str]:
         """Get effective value: user value if set (not None), otherwise OAuth default
 

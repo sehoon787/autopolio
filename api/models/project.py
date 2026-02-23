@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Index, Integer, String, DateTime, Text, ForeignKey, Date, JSON
+from sqlalchemy import (
+    Column,
+    Index,
+    Integer,
+    String,
+    DateTime,
+    Text,
+    ForeignKey,
+    Date,
+    JSON,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
@@ -6,6 +16,7 @@ from api.database import Base
 
 class Technology(Base):
     """Master list of technologies."""
+
     __tablename__ = "technologies"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -21,11 +32,14 @@ class Technology(Base):
 
 class ProjectTechnology(Base):
     """Association table for project-technology many-to-many relationship."""
+
     __tablename__ = "project_technologies"
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
-    technology_id = Column(Integer, ForeignKey("technologies.id"), nullable=False, index=True)
+    technology_id = Column(
+        Integer, ForeignKey("technologies.id"), nullable=False, index=True
+    )
     is_primary = Column(Integer, default=0)  # Main tech vs supporting
 
     # Relationships
@@ -34,12 +48,13 @@ class ProjectTechnology(Base):
 
     # Composite index for efficient lookup
     __table_args__ = (
-        Index('ix_project_technologies_project_tech', 'project_id', 'technology_id'),
+        Index("ix_project_technologies_project_tech", "project_id", "technology_id"),
     )
 
 
 class Project(Base):
     """Project information based on PROJECTS.md structure."""
+
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -82,15 +97,24 @@ class Project(Base):
     # Relationships
     user = relationship("User", back_populates="projects")
     company = relationship("Company", back_populates="projects")
-    technologies = relationship("ProjectTechnology", back_populates="project", cascade="all, delete-orphan")
-    achievements = relationship("ProjectAchievement", back_populates="project", cascade="all, delete-orphan")
+    technologies = relationship(
+        "ProjectTechnology", back_populates="project", cascade="all, delete-orphan"
+    )
+    achievements = relationship(
+        "ProjectAchievement", back_populates="project", cascade="all, delete-orphan"
+    )
     repositories = relationship(
-        "ProjectRepository", back_populates="project",
+        "ProjectRepository",
+        back_populates="project",
         cascade="all, delete-orphan",
         order_by="ProjectRepository.display_order",
     )
-    repo_analyses = relationship("RepoAnalysis", back_populates="project", cascade="all, delete-orphan")
-    jobs = relationship("Job", back_populates="project", foreign_keys="Job.target_project_id")
+    repo_analyses = relationship(
+        "RepoAnalysis", back_populates="project", cascade="all, delete-orphan"
+    )
+    jobs = relationship(
+        "Job", back_populates="project", foreign_keys="Job.target_project_id"
+    )
 
     @property
     def repo_analysis(self):
@@ -98,7 +122,8 @@ class Project(Base):
         if not self.repo_analyses:
             return None
         primary = [
-            a for a in self.repo_analyses
+            a
+            for a in self.repo_analyses
             if a.project_repository and a.project_repository.is_primary
         ]
         return primary[0] if primary else self.repo_analyses[0]

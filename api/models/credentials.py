@@ -6,6 +6,7 @@ from api.database import Base
 
 class Certification(Base):
     """자격증 모델"""
+
     __tablename__ = "certifications"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -34,6 +35,7 @@ class Certification(Base):
 
 class Award(Base):
     """수상이력 모델"""
+
     __tablename__ = "awards"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -60,6 +62,7 @@ class Award(Base):
 
 class Education(Base):
     """교육이력 모델"""
+
     __tablename__ = "educations"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -70,14 +73,22 @@ class Education(Base):
     degree = Column(String(50))  # 학위 (학사/석사/박사/수료)
     start_date = Column(Date)  # 입학일
     end_date = Column(Date, nullable=True)  # 졸업일
-    is_current = Column(Integer, default=0)  # 재학중 (SQLite boolean) - deprecated, use graduation_status
-    graduation_status = Column(String(20), nullable=True)  # graduated/enrolled/completed/withdrawn
+    is_current = Column(
+        Integer, default=0
+    )  # 재학중 (SQLite boolean) - deprecated, use graduation_status
+    graduation_status = Column(
+        String(20), nullable=True
+    )  # graduated/enrolled/completed/withdrawn
     gpa = Column(String(20))  # 학점
     description = Column(Text)  # 활동/특이사항
 
     # University metadata (from Hipo database)
-    school_country = Column(String(100), nullable=True)  # Full country name (e.g., "South Korea")
-    school_country_code = Column(String(10), nullable=True)  # ISO alpha-2 code (e.g., "KR")
+    school_country = Column(
+        String(100), nullable=True
+    )  # Full country name (e.g., "South Korea")
+    school_country_code = Column(
+        String(10), nullable=True
+    )  # ISO alpha-2 code (e.g., "KR")
     school_state = Column(String(100), nullable=True)  # State/province
     school_domain = Column(String(200), nullable=True)  # Primary email domain
     school_web_page = Column(String(500), nullable=True)  # Primary website URL
@@ -97,6 +108,7 @@ class Education(Base):
 
 class Publication(Base):
     """논문/저술 모델"""
+
     __tablename__ = "publications"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -106,7 +118,9 @@ class Publication(Base):
     authors = Column(String(500))  # 저자 (공동저자 포함)
     publication_type = Column(String(50))  # 유형 (journal/conference/book/patent)
     publisher = Column(String(200))  # 출판사/학술지/학회
-    publication_date = Column(String(100))  # 발표일 (String for patent pipe-separated dates)
+    publication_date = Column(
+        String(100)
+    )  # 발표일 (String for patent pipe-separated dates)
     doi = Column(String(200))  # DOI
     url = Column(String(500))  # 논문 URL
     description = Column(Text)  # 요약
@@ -126,6 +140,7 @@ class Publication(Base):
 
 class VolunteerActivity(Base):
     """봉사활동/대외활동 모델"""
+
     __tablename__ = "volunteer_activities"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -4,6 +4,7 @@ GitHub API Client - Low-level GitHub API interactions.
 Extracted from github_service.py for better modularity.
 Contains base API request methods and authentication.
 """
+
 import asyncio
 import base64
 import logging
@@ -17,11 +18,6 @@ from .github_exceptions import (
     GitHubNotFoundError,
     GitHubTimeoutError,
     GitHubAuthError,
-)
-from .github_constants import (
-    MAX_CONCURRENT_FILE_CHECKS,
-    MAX_CONCURRENT_COMMIT_DETAILS,
-    parse_iso_datetime,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +33,7 @@ class GitHubApiClient:
         self.base_url = "https://api.github.com"
         self.headers = {
             "Authorization": f"Bearer {access_token}",
-            "Accept": "application/vnd.github.v3+json"
+            "Accept": "application/vnd.github.v3+json",
         }
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         # Cache for language info within session
@@ -65,10 +61,7 @@ class GitHubApiClient:
         try:
             client = await self._get_client()
             response = await client.request(
-                method,
-                f"{self.base_url}{endpoint}",
-                headers=self.headers,
-                **kwargs
+                method, f"{self.base_url}{endpoint}", headers=self.headers, **kwargs
             )
             response.raise_for_status()
             return response.json()
@@ -81,28 +74,23 @@ class GitHubApiClient:
                 if "rate limit" in e.response.text.lower():
                     raise GitHubRateLimitError() from e
                 raise GitHubServiceError(
-                    f"GitHub API 접근 거부: {e.response.text[:100]}",
-                    status_code=403
+                    f"GitHub API 접근 거부: {e.response.text[:100]}", status_code=403
                 ) from e
             elif e.response.status_code == 404:
                 raise GitHubNotFoundError() from e
             else:
                 raise GitHubServiceError(
                     f"GitHub API 오류 (HTTP {e.response.status_code})",
-                    status_code=e.response.status_code
+                    status_code=e.response.status_code,
                 ) from e
         except httpx.RequestError as e:
             raise GitHubServiceError(
-                f"GitHub API 연결 오류: {str(e)}",
-                status_code=502
+                f"GitHub API 연결 오류: {str(e)}", status_code=502
             ) from e
 
     def _parse_repo_url(self, git_url: str) -> tuple[str, str]:
         """Parse owner and repo name from git URL."""
-        patterns = [
-            r"github\.com[/:]([^/]+)/([^/\.]+)",
-            r"^([^/]+)/([^/]+)$"
-        ]
+        patterns = [r"github\.com[/:]([^/]+)/([^/\.]+)", r"^([^/]+)/([^/]+)$"]
         for pattern in patterns:
             match = re.search(pattern, git_url)
             if match:
@@ -148,16 +136,13 @@ class GitHubApiClient:
     # ==========================================================================
 
     async def get_user_repos(
-        self,
-        page: int = 1,
-        per_page: int = 100,
-        sort: str = "updated"
+        self, page: int = 1, per_page: int = 100, sort: str = "updated"
     ) -> List[Dict[str, Any]]:
         """Get user's repositories (single page)."""
         repos = await self._request(
             "GET",
             f"/user/repos?page={page}&per_page={per_page}&sort={sort}"
-            f"&affiliation=owner,collaborator,organization_member&visibility=all"
+            f"&affiliation=owner,collaborator,organization_member&visibility=all",
         )
         return self._format_repos(repos)
 
@@ -223,9 +208,7 @@ class GitHubApiClient:
         return repos
 
     async def get_all_user_repos(
-        self,
-        sort: str = "updated",
-        max_pages: int = 10
+        self, sort: str = "updated", max_pages: int = 10
     ) -> List[Dict[str, Any]]:
         """Get all user's repositories using parallel fetching.
 
@@ -237,6 +220,7 @@ class GitHubApiClient:
         5. /user/memberships/orgs → /orgs/{org}/repos (membership-based)
         """
         import time
+
         start = time.time()
         per_page = 100
 
@@ -247,7 +231,9 @@ class GitHubApiClient:
 
         # Fetch user info and org lists concurrently
         results = await asyncio.gather(
-            user_info_task, orgs_task, memberships_task,
+            user_info_task,
+            orgs_task,
+            memberships_task,
             return_exceptions=True,
         )
 
@@ -259,38 +245,67 @@ class GitHubApiClient:
         logger.info(f"[GitHub] User: {username}")
 
         # Extract org logins
-        org_logins = [o.get("login") for o in orgs if o.get("login")] if isinstance(orgs, list) else []
-        membership_logins = [
-            m.get("organization", {}).get("login")
-            for m in memberships
-            if isinstance(m, dict) and m.get("organization", {}).get("login")
-        ] if isinstance(memberships, list) else []
+        org_logins = (
+            [o.get("login") for o in orgs if o.get("login")]
+            if isinstance(orgs, list)
+            else []
+        )
+        membership_logins = (
+            [
+                m.get("organization", {}).get("login")
+                for m in memberships
+                if isinstance(m, dict) and m.get("organization", {}).get("login")
+            ]
+            if isinstance(memberships, list)
+            else []
+        )
         # Deduplicate org logins (step 5 may overlap with step 3)
         all_org_logins = list(dict.fromkeys(org_logins + membership_logins))
 
         # Steps 1-4 + org repos: run ALL in parallel
         step1 = self._fetch_paginated(
-            "/user/repos?page={page}&per_page={per_page}&sort=" + sort
+            "/user/repos?page={page}&per_page={per_page}&sort="
+            + sort
             + "&affiliation=owner,collaborator,organization_member&visibility=all",
-            per_page=per_page, max_pages=max_pages,
+            per_page=per_page,
+            max_pages=max_pages,
         )
+
         async def _empty() -> List[Dict[str, Any]]:
             return []
 
-        step2 = self._fetch_paginated(
-            f"/users/{username}/repos?page={{page}}&per_page={{per_page}}&sort={sort}&type=all",
-            per_page=per_page, max_pages=max_pages,
-        ) if username else _empty()
-        step3_5 = self._fetch_org_repos(
-            all_org_logins, sort=sort, per_page=per_page, max_pages=max_pages, type_param="all",
+        step2 = (
+            self._fetch_paginated(
+                f"/users/{username}/repos?page={{page}}&per_page={{per_page}}&sort={sort}&type=all",
+                per_page=per_page,
+                max_pages=max_pages,
+            )
+            if username
+            else _empty()
         )
-        step4 = self._fetch_paginated(
-            f"/search/repositories?q=user:{username}&per_page={{per_page}}&page={{page}}",
-            per_page=per_page, max_pages=4, extract_items=True,
-        ) if username else _empty()
+        step3_5 = self._fetch_org_repos(
+            all_org_logins,
+            sort=sort,
+            per_page=per_page,
+            max_pages=max_pages,
+            type_param="all",
+        )
+        step4 = (
+            self._fetch_paginated(
+                f"/search/repositories?q=user:{username}&per_page={{per_page}}&page={{page}}",
+                per_page=per_page,
+                max_pages=4,
+                extract_items=True,
+            )
+            if username
+            else _empty()
+        )
 
         step_results = await asyncio.gather(
-            step1, step2, step3_5, step4,
+            step1,
+            step2,
+            step3_5,
+            step4,
             return_exceptions=True,
         )
 
@@ -334,7 +349,9 @@ class GitHubApiClient:
                 "updated_at": r["updated_at"],
                 "pushed_at": r["pushed_at"],
                 "fork": r.get("fork", False),
-                "owner": r.get("owner", {}).get("login", "") if isinstance(r.get("owner"), dict) else ""
+                "owner": r.get("owner", {}).get("login", "")
+                if isinstance(r.get("owner"), dict)
+                else "",
             }
             for r in repos
         ]
@@ -348,7 +365,7 @@ class GitHubApiClient:
         git_url: str,
         author: Optional[str] = None,
         per_page: int = 100,
-        max_pages: int = 5
+        max_pages: int = 5,
     ) -> List[Dict[str, Any]]:
         """Get repository commits."""
         owner, repo = self._parse_repo_url(git_url)
@@ -370,10 +387,7 @@ class GitHubApiClient:
         return all_commits
 
     async def get_commit_details(
-        self,
-        git_url: str,
-        sha: str,
-        include_patch: bool = False
+        self, git_url: str, sha: str, include_patch: bool = False
     ) -> Dict[str, Any]:
         """Get detailed information for a specific commit."""
         owner, repo = self._parse_repo_url(git_url)
@@ -385,7 +399,7 @@ class GitHubApiClient:
                     "filename": f["filename"],
                     "additions": f.get("additions", 0),
                     "deletions": f.get("deletions", 0),
-                    "status": f.get("status", "modified")
+                    "status": f.get("status", "modified"),
                 }
                 if include_patch and "patch" in f:
                     patch = f["patch"]
@@ -403,16 +417,13 @@ class GitHubApiClient:
                 "additions": commit.get("stats", {}).get("additions", 0),
                 "deletions": commit.get("stats", {}).get("deletions", 0),
                 "files_changed": len(commit.get("files", [])),
-                "files": files_data
+                "files": files_data,
             }
         except httpx.HTTPStatusError:
             return {"sha": sha, "additions": 0, "deletions": 0, "files_changed": 0}
 
     async def _get_commit_details_safe(
-        self,
-        semaphore: asyncio.Semaphore,
-        git_url: str,
-        sha: str
+        self, semaphore: asyncio.Semaphore, git_url: str, sha: str
     ) -> Dict[str, Any]:
         """Get commit details with semaphore for rate limiting."""
         async with semaphore:
@@ -422,10 +433,7 @@ class GitHubApiClient:
                 return {"sha": sha, "additions": 0, "deletions": 0, "files": []}
 
     async def _get_commit_details_with_patch(
-        self,
-        semaphore: asyncio.Semaphore,
-        git_url: str,
-        sha: str
+        self, semaphore: asyncio.Semaphore, git_url: str, sha: str
     ) -> Dict[str, Any]:
         """Get commit details with patch, with semaphore for rate limiting."""
         async with semaphore:
@@ -467,8 +475,7 @@ class GitHubApiClient:
         owner, repo = self._parse_repo_url(git_url)
         try:
             contributors = await self._request(
-                "GET",
-                f"/repos/{owner}/{repo}/contributors?per_page=100"
+                "GET", f"/repos/{owner}/{repo}/contributors?per_page=100"
             )
             return [
                 {
@@ -492,7 +499,7 @@ class GitHubApiClient:
         git_url: str,
         path: str = "",
         ref: Optional[str] = None,
-        recursive: bool = False
+        recursive: bool = False,
     ) -> List[Dict[str, Any]]:
         """Get file tree for a repository or specific directory."""
         owner, repo = self._parse_repo_url(git_url)
@@ -504,8 +511,7 @@ class GitHubApiClient:
 
             try:
                 tree = await self._request(
-                    "GET",
-                    f"/repos/{owner}/{repo}/git/trees/{ref}?recursive=1"
+                    "GET", f"/repos/{owner}/{repo}/git/trees/{ref}?recursive=1"
                 )
 
                 items = []
@@ -515,13 +521,15 @@ class GitHubApiClient:
                     if path and item["path"] == path:
                         continue
 
-                    items.append({
-                        "type": "directory" if item["type"] == "tree" else "file",
-                        "name": item["path"].split("/")[-1],
-                        "path": item["path"],
-                        "size": item.get("size", 0),
-                        "sha": item.get("sha", ""),
-                    })
+                    items.append(
+                        {
+                            "type": "directory" if item["type"] == "tree" else "file",
+                            "name": item["path"].split("/")[-1],
+                            "path": item["path"],
+                            "size": item.get("size", 0),
+                            "sha": item.get("sha", ""),
+                        }
+                    )
 
                 return items
             except httpx.HTTPStatusError:
@@ -553,10 +561,7 @@ class GitHubApiClient:
             raise
 
     async def get_file_content(
-        self,
-        git_url: str,
-        file_path: str,
-        ref: Optional[str] = None
+        self, git_url: str, file_path: str, ref: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get content of a specific file."""
         owner, repo = self._parse_repo_url(git_url)

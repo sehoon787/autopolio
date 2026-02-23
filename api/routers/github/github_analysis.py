@@ -2,6 +2,7 @@
 
 Handles repository analysis, AI description generation, and LLM testing.
 """
+
 import asyncio
 import logging
 import time
@@ -27,7 +28,6 @@ from api.services.github.github_exceptions import (
 )
 from api.services.core import EncryptionService
 from api.services.analysis import (
-    AnalysisContext,
     AnalysisWorkflowError,
     phase1_validate_user,
     phase2_create_project_if_needed,
@@ -52,10 +52,16 @@ async def analyze_repository(
     request: RepoAnalysisRequest,
     user_id: int = Query(..., description="User ID"),
     provider: Optional[str] = Query(None, description="LLM provider to use"),
-    cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_mode: Optional[str] = Query(
+        None, description="CLI mode: 'claude_code' or 'gemini_cli'"
+    ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
-    language: Optional[str] = Query(None, description="Analysis output language: 'ko' or 'en'"),
-    project_repository_id: Optional[int] = Query(None, description="Specific ProjectRepository to analyze"),
+    language: Optional[str] = Query(
+        None, description="Analysis output language: 'ko' or 'en'"
+    ),
+    project_repository_id: Optional[int] = Query(
+        None, description="Specific ProjectRepository to analyze"
+    ),
 ):
     """Analyze a GitHub repository.
 
@@ -88,15 +94,24 @@ async def analyze_repository(
             effective_provider = provider or settings.llm_provider
             user_key = ctx.user_api_keys.get(effective_provider)
             if cli_mode:
-                logger.info("[Analyze] Using CLI mode: %s, model: %s", cli_mode, cli_model)
+                logger.info(
+                    "[Analyze] Using CLI mode: %s, model: %s", cli_mode, cli_model
+                )
                 ctx.llm_service = CLILLMService(cli_mode, model=cli_model)
                 ctx.used_provider = f"cli:{cli_mode}"
             elif provider:
-                logger.info("[Analyze] Using API mode: %s, has_user_key: %s", provider, bool(user_key))
+                logger.info(
+                    "[Analyze] Using API mode: %s, has_user_key: %s",
+                    provider,
+                    bool(user_key),
+                )
                 ctx.llm_service = LLMService(provider, api_key=user_key)
                 ctx.used_provider = ctx.llm_service.provider_name
             else:
-                logger.info("[Analyze] Using default LLM provider from settings, has_user_key: %s", bool(user_key))
+                logger.info(
+                    "[Analyze] Using default LLM provider from settings, has_user_key: %s",
+                    bool(user_key),
+                )
                 ctx.llm_service = LLMService(api_key=user_key)
                 ctx.used_provider = ctx.llm_service.provider_name
         except (ValueError, Exception) as e:
@@ -123,15 +138,23 @@ async def analyze_repository(
 
             # Get project data for LLM calls
             async with AsyncSessionLocal() as db:
-                proj_result = await db.execute(select(Project).where(Project.id == ctx.project_id))
+                proj_result = await db.execute(
+                    select(Project).where(Project.id == ctx.project_id)
+                )
                 project = proj_result.scalar_one_or_none()
                 project_name = project.name if project else ""
                 project_description = project.description if project else None
                 project_role = project.role if project else None
                 project_team_size = project.team_size if project else None
-                project_contribution_percent = project.contribution_percent if project else None
-                project_start_date = str(project.start_date) if project and project.start_date else None
-                project_end_date = str(project.end_date) if project and project.end_date else None
+                project_contribution_percent = (
+                    project.contribution_percent if project else None
+                )
+                project_start_date = (
+                    str(project.start_date) if project and project.start_date else None
+                )
+                project_end_date = (
+                    str(project.end_date) if project and project.end_date else None
+                )
 
             # 5.2 + 5.3: Generate key tasks AND detailed content in PARALLEL
             # These are independent — running concurrently saves ~15s on CLI mode
@@ -145,11 +168,15 @@ async def analyze_repository(
 
             _parallel_start = time.time()
             await asyncio.gather(
-                phase5_generate_key_tasks(ctx, project_name, project_description, project_role),
+                phase5_generate_key_tasks(
+                    ctx, project_name, project_description, project_role
+                ),
                 phase5_generate_detailed_content(ctx, project_data),
             )
             _parallel_elapsed = time.time() - _parallel_start
-            logger.info("[Analyze] Steps 5.2+5.3 parallel completed in %.1fs", _parallel_elapsed)
+            logger.info(
+                "[Analyze] Steps 5.2+5.3 parallel completed in %.1fs", _parallel_elapsed
+            )
 
             # 5.4: Generate AI summary (depends on key_tasks from 5.2)
             summary_project_data = {
@@ -158,11 +185,11 @@ async def analyze_repository(
                 "role": project_role,
                 "team_size": project_team_size,
                 "contribution_percent": project_contribution_percent,
-                "technologies": ctx.analysis_result.get('detected_technologies', []),
+                "technologies": ctx.analysis_result.get("detected_technologies", []),
                 "start_date": project_start_date,
                 "end_date": project_end_date,
-                "total_commits": ctx.analysis_result.get('total_commits', 0),
-                "commit_summary": ctx.analysis_result.get('commit_messages_summary'),
+                "total_commits": ctx.analysis_result.get("total_commits", 0),
+                "commit_summary": ctx.analysis_result.get("commit_messages_summary"),
             }
             await phase5_generate_ai_summary(ctx, summary_project_data)
 
@@ -210,7 +237,7 @@ async def analyze_repository(
                 provider=ctx.used_provider,
                 token_usage=ctx.total_tokens if ctx.total_tokens > 0 else None,
                 suggested_contribution_percent=repo_analysis.suggested_contribution_percent,
-                analysis_language=repo_analysis.analysis_language or "ko"
+                analysis_language=repo_analysis.analysis_language or "ko",
             )
 
     except AnalysisWorkflowError as e:
@@ -219,8 +246,10 @@ async def analyze_repository(
         raise HTTPException(status_code=504, detail=e.message)
     except GitHubRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
-    except GitHubNotFoundError as e:
-        raise HTTPException(status_code=404, detail=f"Repository not found: {request.git_url}")
+    except GitHubNotFoundError:
+        raise HTTPException(
+            status_code=404, detail=f"Repository not found: {request.git_url}"
+        )
     except GitHubAuthError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except GitHubServiceError as e:
@@ -292,7 +321,7 @@ async def get_repo_analyses(project_id: int, db: AsyncSession = Depends(get_db))
 async def generate_description(
     request: RepoAnalysisRequest,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Generate AI-powered description for a repository using README and detected technologies."""
     from api.services.llm import LLMService
@@ -321,12 +350,14 @@ async def generate_description(
                 async with httpx.AsyncClient() as client:
                     response = await client.get(
                         f"https://api.github.com/repos/{owner}/{repo}/contents/{readme_file}",
-                        headers=github_service.headers
+                        headers=github_service.headers,
                     )
                     if response.status_code == 200:
                         data = response.json()
                         if "content" in data:
-                            readme_content = base64.b64decode(data["content"]).decode("utf-8")
+                            readme_content = base64.b64decode(data["content"]).decode(
+                                "utf-8"
+                            )
                             break
             except Exception:
                 continue
@@ -339,13 +370,13 @@ async def generate_description(
 
         prompt = f"""다음 GitHub 레포지토리 정보를 바탕으로 포트폴리오용 설명을 작성해주세요.
 
-레포지토리 이름: {repo_info.get('name', repo)}
-GitHub 설명: {repo_info.get('description', '없음')}
-주요 언어: {repo_info.get('language', '없음')}
-감지된 기술: {', '.join(technologies[:15]) if technologies else '없음'}
+레포지토리 이름: {repo_info.get("name", repo)}
+GitHub 설명: {repo_info.get("description", "없음")}
+주요 언어: {repo_info.get("language", "없음")}
+감지된 기술: {", ".join(technologies[:15]) if technologies else "없음"}
 
 README 내용 (일부):
-{readme_content[:3000] if readme_content else '없음'}
+{readme_content[:3000] if readme_content else "없음"}
 
 다음 형식으로 응답해주세요:
 1. 간단 설명 (1-2문장, 50자 이내)
@@ -356,9 +387,7 @@ README 내용 (일부):
 상세 설명: [상세 설명 내용]"""
 
         response, tokens = await llm_service.provider.generate(
-            prompt,
-            max_tokens=500,
-            temperature=0.7
+            prompt, max_tokens=500, temperature=0.7
         )
 
         # Parse response
@@ -387,11 +416,13 @@ README 내용 (일부):
             "description": long_desc,
             "technologies": technologies[:20],
             "token_usage": tokens,
-            "provider": llm_service.provider_name
+            "provider": llm_service.provider_name,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to generate description: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to generate description: {str(e)}"
+        )
 
 
 @router.get("/test-llm")
@@ -404,52 +435,49 @@ async def test_llm():
         response, tokens = await llm_service.provider.generate(
             "Say 'Hello! LLM is working.' in one short sentence.",
             max_tokens=50,
-            temperature=0.1
+            temperature=0.1,
         )
         return {
             "provider": llm_service.provider_name,
             "status": "success",
             "response": response,
-            "token_usage": tokens
+            "token_usage": tokens,
         }
     except Exception as e:
-        return {
-            "provider": settings.llm_provider,
-            "status": "error",
-            "error": str(e)
-        }
+        return {"provider": settings.llm_provider, "status": "error", "error": str(e)}
 
 
 @router.get("/test-cli")
 async def test_cli(
-    cli_mode: str = Query("claude_code", description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_mode: str = Query(
+        "claude_code", description="CLI mode: 'claude_code' or 'gemini_cli'"
+    ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
 ):
     """Test CLI LLM provider connection."""
     from api.services.llm import CLILLMService
 
-    logger.info("[TestCLI] Starting test with cli_mode=%s, cli_model=%s", cli_mode, cli_model)
+    logger.info(
+        "[TestCLI] Starting test with cli_mode=%s, cli_model=%s", cli_mode, cli_model
+    )
     try:
         cli_service = CLILLMService(cli_mode, model=cli_model)
         logger.debug("[TestCLI] Created CLILLMService")
         response, tokens = await cli_service.provider.generate(
             "Say 'Hello! CLI is working.' in one short sentence.",
             max_tokens=50,
-            temperature=0.1
+            temperature=0.1,
         )
         logger.debug("[TestCLI] Got response, tokens=%d", tokens)
         return {
             "provider": cli_service.provider_name,
             "status": "success",
             "response": response,
-            "token_usage": tokens
+            "token_usage": tokens,
         }
     except Exception as e:
         import traceback
+
         logger.error("[TestCLI] Error: %s: %s", type(e).__name__, e)
         logger.debug("[TestCLI] Traceback: %s", traceback.format_exc())
-        return {
-            "provider": f"cli:{cli_mode}",
-            "status": "error",
-            "error": str(e)
-        }
+        return {"provider": f"cli:{cli_mode}", "status": "error", "error": str(e)}

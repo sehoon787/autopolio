@@ -5,11 +5,13 @@ from typing import Optional, List, Dict, Any
 
 class GitHubConnectRequest(BaseModel):
     """Request to initiate GitHub OAuth flow."""
+
     redirect_url: Optional[str] = None
 
 
 class GitHubCallbackResponse(BaseModel):
     """Response after GitHub OAuth callback."""
+
     success: bool
     user_id: int
     github_username: str
@@ -19,6 +21,7 @@ class GitHubCallbackResponse(BaseModel):
 
 class GitHubUserInfo(BaseModel):
     """GitHub user information."""
+
     login: str
     id: int
     avatar_url: Optional[str] = None
@@ -31,6 +34,7 @@ class GitHubUserInfo(BaseModel):
 
 class GitHubRepoInfo(BaseModel):
     """GitHub repository information."""
+
     id: int
     name: str
     full_name: str
@@ -49,13 +53,17 @@ class GitHubRepoInfo(BaseModel):
 
 class RepoAnalysisRequest(BaseModel):
     """Request to analyze a GitHub repository."""
+
     git_url: str
     project_id: Optional[int] = None  # Associate with existing project
-    summary_style: Optional[str] = None  # "professional", "casual", "technical" - uses user default if not specified
+    summary_style: Optional[str] = (
+        None  # "professional", "casual", "technical" - uses user default if not specified
+    )
 
 
 class RepoAnalysisResponse(BaseModel):
     """Response from repository analysis."""
+
     id: int
     project_id: int
     git_url: str
@@ -73,9 +81,15 @@ class RepoAnalysisResponse(BaseModel):
     key_tasks: Optional[List[str]] = None  # LLM-generated key tasks
     # LLM-generated detailed content (v1.2)
     implementation_details: Optional[List[Dict[str, Any]]] = None  # [{title, items}]
-    development_timeline: Optional[List[Dict[str, Any]]] = None  # [{period, title, activities}]
-    tech_stack_versions: Optional[Dict[str, List[str]]] = None  # {Frontend: [...], Backend: [...]}
-    detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None  # {category: [{title, description}]}
+    development_timeline: Optional[List[Dict[str, Any]]] = (
+        None  # [{period, title, activities}]
+    )
+    tech_stack_versions: Optional[Dict[str, List[str]]] = (
+        None  # {Frontend: [...], Backend: [...]}
+    )
+    detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = (
+        None  # {category: [{title, description}]}
+    )
     # AI-generated summary (v1.12)
     ai_summary: Optional[str] = None
     ai_key_features: Optional[List[str]] = None
@@ -98,6 +112,7 @@ class RepoAnalysisResponse(BaseModel):
 
 class GitHubRepoListResponse(BaseModel):
     """List of user's GitHub repositories."""
+
     repos: List[GitHubRepoInfo]
     total: int
     page: int = 1
@@ -107,12 +122,14 @@ class GitHubRepoListResponse(BaseModel):
 
 class ImportReposRequest(BaseModel):
     """Request to import multiple repos as projects."""
+
     repo_urls: List[str]
     auto_analyze: bool = False
 
 
 class ImportRepoResult(BaseModel):
     """Result of importing a single repo."""
+
     repo_url: str
     project_id: Optional[int] = None
     project_name: str
@@ -122,6 +139,7 @@ class ImportRepoResult(BaseModel):
 
 class ImportReposResponse(BaseModel):
     """Response from batch import."""
+
     imported: int
     failed: int
     results: List[ImportRepoResult]
@@ -129,6 +147,7 @@ class ImportReposResponse(BaseModel):
 
 class BatchAnalysisRequest(BaseModel):
     """Request to analyze multiple projects."""
+
     project_ids: List[int]
     # LLM settings (v1.8)
     llm_provider: Optional[str] = None  # 'openai', 'anthropic', 'gemini'
@@ -138,6 +157,7 @@ class BatchAnalysisRequest(BaseModel):
 
 class BatchAnalysisResult(BaseModel):
     """Result of analyzing a single project."""
+
     project_id: int
     project_name: str
     success: bool
@@ -148,6 +168,7 @@ class BatchAnalysisResult(BaseModel):
 
 class BatchAnalysisResponse(BaseModel):
     """Response from batch analysis."""
+
     task_id: Optional[str] = None
     total: int
     completed: int
@@ -157,26 +178,31 @@ class BatchAnalysisResponse(BaseModel):
 
 # ============ Inline Editing Schemas ============
 
+
 class AnalysisContentUpdate(BaseModel):
     """Request to update analysis content."""
+
     field: str  # 'key_tasks', 'implementation_details', or 'detailed_achievements'
     content: Any  # The updated content (type depends on field)
 
 
 class ImplementationDetailItem(BaseModel):
     """Single implementation detail item."""
+
     title: str
     items: List[str]
 
 
 class DetailedAchievementItem(BaseModel):
     """Single detailed achievement item."""
+
     title: str
     description: str
 
 
 class EditStatus(BaseModel):
     """Status of edited fields."""
+
     key_tasks_modified: bool = False
     implementation_details_modified: bool = False
     detailed_achievements_modified: bool = False
@@ -184,6 +210,7 @@ class EditStatus(BaseModel):
 
 class EffectiveAnalysisResponse(BaseModel):
     """Analysis response with user edits applied."""
+
     id: int
     project_id: int
     git_url: str
@@ -223,6 +250,7 @@ class EffectiveAnalysisResponse(BaseModel):
 
 class RepoAnalysisSummary(BaseModel):
     """Per-repo analysis summary for multi-repo projects."""
+
     repo_url: str
     label: Optional[str] = None
     is_primary: bool = False
@@ -250,6 +278,7 @@ class RepoAnalysisSummary(BaseModel):
 
 class MultiRepoAnalysisResponse(BaseModel):
     """All per-repo analyses for a multi-repo project."""
+
     project_id: int
     repo_count: int
     analyses: List[RepoAnalysisSummary]
@@ -260,8 +289,10 @@ class MultiRepoAnalysisResponse(BaseModel):
 
 # ============ Extended Analysis Schemas (v1.10) ============
 
+
 class DetailedCommit(BaseModel):
     """Detailed commit information with Conventional Commit parsing."""
+
     sha: str
     short_sha: Optional[str] = None  # Will be derived from sha if not provided
     message: str
@@ -269,7 +300,9 @@ class DetailedCommit(BaseModel):
     author: str
     author_email: Optional[str] = None
     date: datetime
-    commit_type: str = "other"  # feat, fix, refactor, docs, test, chore, perf, style, other
+    commit_type: str = (
+        "other"  # feat, fix, refactor, docs, test, chore, perf, style, other
+    )
     type_label: str = "Other"  # Human-readable label
     scope: Optional[str] = None
     description: Optional[str] = None  # Will be derived from message if not provided
@@ -282,13 +315,14 @@ class DetailedCommit(BaseModel):
     def model_post_init(self, __context) -> None:
         """Fill in derived fields after model initialization."""
         if self.short_sha is None and self.sha:
-            object.__setattr__(self, 'short_sha', self.sha[:7])
+            object.__setattr__(self, "short_sha", self.sha[:7])
         if self.description is None and self.message:
-            object.__setattr__(self, 'description', self.message.split('\n')[0][:100])
+            object.__setattr__(self, "description", self.message.split("\n")[0][:100])
 
 
 class ContributorSummary(BaseModel):
     """Summary info for a single contributor."""
+
     username: str
     avatar_url: Optional[str] = None
     contributions: int = 0
@@ -297,6 +331,7 @@ class ContributorSummary(BaseModel):
 
 class ContributorAnalysisResponse(BaseModel):
     """Full contributor analysis response."""
+
     username: str
     email: Optional[str] = None
     is_primary: bool = False
@@ -317,6 +352,7 @@ class ContributorAnalysisResponse(BaseModel):
 
 class FileCountByType(BaseModel):
     """File counts by type."""
+
     code: int = 0
     test: int = 0
     docs: int = 0
@@ -325,6 +361,7 @@ class FileCountByType(BaseModel):
 
 class CodeQualityMetrics(BaseModel):
     """Code quality metrics for a repository."""
+
     total_files: int = 0
     total_lines: int = 0  # Estimated
     avg_file_size: float = 0
@@ -339,12 +376,14 @@ class CodeQualityMetrics(BaseModel):
 
 class ContributorsListResponse(BaseModel):
     """List of all contributors in a repository."""
+
     contributors: List[ContributorSummary]
     total: int
 
 
 class ExtendedRepoAnalysisResponse(RepoAnalysisResponse):
     """Extended analysis response with contributor and quality metrics."""
+
     # Repository-level technologies (separate from user-detected)
     repo_technologies: List[str] = []
     # All contributors summary
@@ -359,8 +398,10 @@ class ExtendedRepoAnalysisResponse(RepoAnalysisResponse):
 
 # ============ Analysis Job Schemas (v1.12) ============
 
+
 class AnalysisJobStatus(BaseModel):
     """Status of an analysis job."""
+
     task_id: str
     project_id: int
     status: str  # pending, running, completed, failed, cancelled
@@ -382,12 +423,14 @@ class AnalysisJobStatus(BaseModel):
 
 class AnalysisJobListResponse(BaseModel):
     """List of active analysis jobs."""
+
     jobs: List[AnalysisJobStatus]
     total: int
 
 
 class StartAnalysisResponse(BaseModel):
     """Response when starting a background analysis."""
+
     task_id: str
     project_id: int
     message: str
@@ -395,6 +438,7 @@ class StartAnalysisResponse(BaseModel):
 
 class CancelAnalysisResponse(BaseModel):
     """Response when cancelling an analysis."""
+
     task_id: str
     project_id: int
     status: str

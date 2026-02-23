@@ -31,7 +31,7 @@ class CompaniesAPI(BaseAPIModule):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """
         Create a new company.
@@ -49,10 +49,7 @@ class CompaniesAPI(BaseAPIModule):
         Returns:
             Response with created company data
         """
-        data = {
-            "name": name,
-            **kwargs
-        }
+        data = {"name": name, **kwargs}
         if position:
             data["position"] = position
         if department:
@@ -64,7 +61,9 @@ class CompaniesAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post("/knowledge/companies", json=data, params={"user_id": user_id})
+        return self._post(
+            "/knowledge/companies", json=data, params={"user_id": user_id}
+        )
 
     def get(self, company_id: int, user_id: Optional[int] = None) -> httpx.Response:
         """
@@ -80,7 +79,9 @@ class CompaniesAPI(BaseAPIModule):
         params = {}
         if user_id:
             params["user_id"] = user_id
-        return self._get(f"/knowledge/companies/{company_id}", params=params if params else None)
+        return self._get(
+            f"/knowledge/companies/{company_id}", params=params if params else None
+        )
 
     def update(self, company_id: int, user_id: int, **kwargs) -> httpx.Response:
         """
@@ -94,7 +95,11 @@ class CompaniesAPI(BaseAPIModule):
         Returns:
             Response with updated company data
         """
-        return self._put(f"/knowledge/companies/{company_id}", json=kwargs, params={"user_id": user_id})
+        return self._put(
+            f"/knowledge/companies/{company_id}",
+            json=kwargs,
+            params={"user_id": user_id},
+        )
 
     def delete(self, company_id: int, user_id: Optional[int] = None) -> httpx.Response:
         """
@@ -110,9 +115,13 @@ class CompaniesAPI(BaseAPIModule):
         params = {}
         if user_id:
             params["user_id"] = user_id
-        return self._delete(f"/knowledge/companies/{company_id}", params=params if params else None)
+        return self._delete(
+            f"/knowledge/companies/{company_id}", params=params if params else None
+        )
 
-    def get_summary(self, company_id: int, user_id: Optional[int] = None) -> httpx.Response:
+    def get_summary(
+        self, company_id: int, user_id: Optional[int] = None
+    ) -> httpx.Response:
         """
         Get company summary with projects.
 
@@ -126,7 +135,10 @@ class CompaniesAPI(BaseAPIModule):
         params = {}
         if user_id:
             params["user_id"] = user_id
-        return self._get(f"/knowledge/companies/{company_id}/summary", params=params if params else None)
+        return self._get(
+            f"/knowledge/companies/{company_id}/summary",
+            params=params if params else None,
+        )
 
     def get_grouped_by_company(self, user_id: int) -> httpx.Response:
         """
@@ -138,9 +150,13 @@ class CompaniesAPI(BaseAPIModule):
         Returns:
             Response with grouped projects
         """
-        return self._get("/knowledge/companies/grouped-by-company", params={"user_id": user_id})
+        return self._get(
+            "/knowledge/companies/grouped-by-company", params={"user_id": user_id}
+        )
 
-    def upload_logo(self, company_id: int, logo_file: bytes, filename: str) -> httpx.Response:
+    def upload_logo(
+        self, company_id: int, logo_file: bytes, filename: str
+    ) -> httpx.Response:
         """
         Upload company logo.
 

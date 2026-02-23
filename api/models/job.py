@@ -7,20 +7,29 @@ import uuid
 
 class Job(Base):
     """Job/Task tracking for pipeline execution (aircok TaskService pattern)."""
+
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(String(36), unique=True, index=True, default=lambda: str(uuid.uuid4()))
+    task_id = Column(
+        String(36), unique=True, index=True, default=lambda: str(uuid.uuid4())
+    )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Target association (v1.12 - for background analysis)
-    target_project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    target_project_id = Column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
 
     # Job type
-    job_type = Column(String(50), nullable=False)  # github_analysis, pipeline, document_generation
+    job_type = Column(
+        String(50), nullable=False
+    )  # github_analysis, pipeline, document_generation
 
     # Status tracking
-    status = Column(String(20), default="pending")  # pending, running, completed, failed, cancelled
+    status = Column(
+        String(20), default="pending"
+    )  # pending, running, completed, failed, cancelled
     progress = Column(Integer, default=0)  # 0-100
 
     # Pipeline step tracking (for 6-step pipeline)
@@ -56,7 +65,9 @@ class Job(Base):
     # Relationships
     user = relationship("User", back_populates="jobs")
     documents = relationship("GeneratedDocument", back_populates="job")
-    project = relationship("Project", back_populates="jobs", foreign_keys=[target_project_id])
+    project = relationship(
+        "Project", back_populates="jobs", foreign_keys=[target_project_id]
+    )
 
     @property
     def is_running(self) -> bool:
@@ -88,6 +99,8 @@ class Job(Base):
             "target_project_id": self.target_project_id,
             "partial_results": self.partial_results,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

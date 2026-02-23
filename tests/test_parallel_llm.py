@@ -9,7 +9,7 @@ This test verifies that:
 Usage:
     python tests/test_parallel_llm.py [--cli-mode claude_code|gemini_cli] [--provider openai|anthropic|gemini]
 """
-import asyncio
+
 import json
 import time
 import sys
@@ -51,10 +51,12 @@ def api_post(endpoint: str, body: dict = None, params: dict = None) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def test_sync_analysis(cli_mode: str = None, cli_model: str = None, provider: str = None):
+def test_sync_analysis(
+    cli_mode: str = None, cli_model: str = None, provider: str = None
+):
     """Test synchronous analysis endpoint with timing."""
     print("=" * 70)
-    print(f"TEST: Synchronous Analysis (POST /api/github/analyze)")
+    print("TEST: Synchronous Analysis (POST /api/github/analyze)")
     print(f"  cli_mode={cli_mode}, cli_model={cli_model}, provider={provider}")
     print(f"  repo={TEST_REPO_URL}")
     print("=" * 70)
@@ -65,7 +67,7 @@ def test_sync_analysis(cli_mode: str = None, cli_model: str = None, provider: st
         import_result = api_post(
             "/api/github/import-repos",
             body={"repo_urls": [TEST_REPO_URL], "auto_fill": False},
-            params={"user_id": str(USER_ID)}
+            params={"user_id": str(USER_ID)},
         )
         imported = import_result.get("imported", 0)
         results = import_result.get("results", [])
@@ -79,9 +81,13 @@ def test_sync_analysis(cli_mode: str = None, cli_model: str = None, provider: st
         body = e.read().decode("utf-8")
         # If already imported, try to find the project
         if "already" in body.lower() or e.code == 409:
-            print(f"  Repo already imported, finding project...")
-            projects = api_get("/api/knowledge/projects", params={"user_id": str(USER_ID)})
-            proj_list = projects if isinstance(projects, list) else projects.get("data", [])
+            print("  Repo already imported, finding project...")
+            projects = api_get(
+                "/api/knowledge/projects", params={"user_id": str(USER_ID)}
+            )
+            proj_list = (
+                projects if isinstance(projects, list) else projects.get("data", [])
+            )
             project_id = None
             for p in proj_list:
                 if TEST_REPO_URL.rstrip(".git") in (p.get("git_url", "") or ""):
@@ -111,26 +117,28 @@ def test_sync_analysis(cli_mode: str = None, cli_model: str = None, provider: st
     try:
         result = api_post(
             "/api/github/analyze",
-            body={
-                "git_url": TEST_REPO_URL,
-                "project_id": project_id,
-                "language": "ko"
-            },
-            params=params
+            body={"git_url": TEST_REPO_URL, "project_id": project_id, "language": "ko"},
+            params=params,
         )
         elapsed = time.time() - start_time
         print(f"\n[3/3] Analysis completed in {elapsed:.1f}s")
         print(f"  total_commits: {result.get('total_commits')}")
         print(f"  technologies: {result.get('detected_technologies', [])[:5]}")
         print(f"  key_tasks: {len(result.get('key_tasks', []))} items")
-        print(f"  ai_summary: {'Yes' if result.get('ai_summary') else 'No'} ({len(result.get('ai_summary',''))} chars)")
-        print(f"  implementation_details: {len(result.get('implementation_details', []))} categories")
-        print(f"  detailed_achievements: {'Yes' if result.get('detailed_achievements') else 'No'}")
+        print(
+            f"  ai_summary: {'Yes' if result.get('ai_summary') else 'No'} ({len(result.get('ai_summary', ''))} chars)"
+        )
+        print(
+            f"  implementation_details: {len(result.get('implementation_details', []))} categories"
+        )
+        print(
+            f"  detailed_achievements: {'Yes' if result.get('detailed_achievements') else 'No'}"
+        )
 
         # Print key_tasks
         key_tasks = result.get("key_tasks", [])
         if key_tasks:
-            print(f"\n  Key Tasks:")
+            print("\n  Key Tasks:")
             for i, task in enumerate(key_tasks[:5], 1):
                 print(f"    {i}. {task[:80]}")
 
@@ -151,10 +159,12 @@ def test_sync_analysis(cli_mode: str = None, cli_model: str = None, provider: st
     return elapsed
 
 
-def test_background_analysis(cli_mode: str = None, cli_model: str = None, provider: str = None):
+def test_background_analysis(
+    cli_mode: str = None, cli_model: str = None, provider: str = None
+):
     """Test background analysis endpoint with timing."""
     print("\n" + "=" * 70)
-    print(f"TEST: Background Analysis (POST /api/github/analyze-background)")
+    print("TEST: Background Analysis (POST /api/github/analyze-background)")
     print(f"  cli_mode={cli_mode}, cli_model={cli_model}, provider={provider}")
     print("=" * 70)
 
@@ -184,12 +194,8 @@ def test_background_analysis(cli_mode: str = None, cli_model: str = None, provid
     try:
         result = api_post(
             "/api/github/analyze-background",
-            body={
-                "git_url": TEST_REPO_URL,
-                "project_id": project_id,
-                "language": "ko"
-            },
-            params=params
+            body={"git_url": TEST_REPO_URL, "project_id": project_id, "language": "ko"},
+            params=params,
         )
         task_id = result.get("task_id")
         print(f"  Task started: {task_id}")
@@ -199,7 +205,7 @@ def test_background_analysis(cli_mode: str = None, cli_model: str = None, provid
         return
 
     # Poll for completion
-    print(f"\n[2/2] Polling for completion...")
+    print("\n[2/2] Polling for completion...")
     poll_count = 0
     while True:
         time.sleep(3)
@@ -212,7 +218,9 @@ def test_background_analysis(cli_mode: str = None, cli_model: str = None, provid
             progress = status.get("progress", 0)
             current_step = status.get("current_step", "")
 
-            print(f"  [{elapsed:.0f}s] status={job_status}, progress={progress}%, step={current_step}")
+            print(
+                f"  [{elapsed:.0f}s] status={job_status}, progress={progress}%, step={current_step}"
+            )
 
             if job_status in ("completed", "failed", "cancelled"):
                 elapsed = time.time() - start_time
@@ -241,16 +249,23 @@ def test_background_analysis(cli_mode: str = None, cli_model: str = None, provid
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test CLI LLM parallelization")
-    parser.add_argument("--cli-mode", choices=["claude_code", "gemini_cli"], default=None,
-                        help="CLI mode (default: use API)")
-    parser.add_argument("--cli-model", default=None,
-                        help="CLI model name")
-    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini"], default=None,
-                        help="API provider (when not using CLI)")
-    parser.add_argument("--sync-only", action="store_true",
-                        help="Only run sync test")
-    parser.add_argument("--bg-only", action="store_true",
-                        help="Only run background test")
+    parser.add_argument(
+        "--cli-mode",
+        choices=["claude_code", "gemini_cli"],
+        default=None,
+        help="CLI mode (default: use API)",
+    )
+    parser.add_argument("--cli-model", default=None, help="CLI model name")
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "anthropic", "gemini"],
+        default=None,
+        help="API provider (when not using CLI)",
+    )
+    parser.add_argument("--sync-only", action="store_true", help="Only run sync test")
+    parser.add_argument(
+        "--bg-only", action="store_true", help="Only run background test"
+    )
     args = parser.parse_args()
 
     # Check backend health

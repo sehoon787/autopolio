@@ -2,6 +2,7 @@
 Task Service - Based on aircok_backoffice TaskService pattern.
 Handles job creation, status tracking, and progress updates.
 """
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
@@ -24,7 +25,7 @@ class TaskService:
         job_type: str,
         input_data: Optional[Dict[str, Any]] = None,
         total_steps: int = 6,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Job:
         """Create a new job."""
         job = Job(
@@ -37,7 +38,7 @@ class TaskService:
             total_steps=total_steps,
             input_data=input_data or {},
             step_results={},
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
         self.db.add(job)
         await self.db.flush()
@@ -46,9 +47,7 @@ class TaskService:
 
     async def get_job(self, task_id: str) -> Optional[Job]:
         """Get a job by task_id."""
-        result = await self.db.execute(
-            select(Job).where(Job.task_id == task_id)
-        )
+        result = await self.db.execute(select(Job).where(Job.task_id == task_id))
         return result.scalar_one_or_none()
 
     async def start_job(self, task_id: str) -> Optional[Job]:
@@ -68,7 +67,7 @@ class TaskService:
         current_step: int,
         step_name: str,
         progress: int,
-        step_result: Optional[Dict[str, Any]] = None
+        step_result: Optional[Dict[str, Any]] = None,
     ) -> Optional[Job]:
         """Update job progress."""
         job = await self.get_job(task_id)
@@ -83,7 +82,7 @@ class TaskService:
                 step_results[f"step_{current_step}"] = {
                     "name": step_name,
                     "result": step_result,
-                    "completed_at": datetime.utcnow().isoformat()
+                    "completed_at": datetime.utcnow().isoformat(),
                 }
                 job.step_results = step_results
                 flag_modified(job, "step_results")
@@ -93,10 +92,7 @@ class TaskService:
         return job
 
     async def start_step(
-        self,
-        task_id: str,
-        step_number: int,
-        step_name: str
+        self, task_id: str, step_number: int, step_name: str
     ) -> Optional[Job]:
         """Mark a step as started."""
         job = await self.get_job(task_id)
@@ -108,7 +104,7 @@ class TaskService:
             step_results[f"step_{step_number}"] = {
                 "name": step_name,
                 "started_at": datetime.utcnow().isoformat(),
-                "status": "running"
+                "status": "running",
             }
             job.step_results = step_results
             flag_modified(job, "step_results")
@@ -121,10 +117,7 @@ class TaskService:
         return job
 
     async def complete_step(
-        self,
-        task_id: str,
-        step_number: int,
-        result: Optional[Dict[str, Any]] = None
+        self, task_id: str, step_number: int, result: Optional[Dict[str, Any]] = None
     ) -> Optional[Job]:
         """Mark a step as completed."""
         job = await self.get_job(task_id)
@@ -143,7 +136,7 @@ class TaskService:
                 step_results[step_key] = {
                     "completed_at": datetime.utcnow().isoformat(),
                     "status": "completed",
-                    "result": result
+                    "result": result,
                 }
 
             job.step_results = step_results
@@ -160,7 +153,7 @@ class TaskService:
         step_number: int,
         step_name: str,
         reason: str = "already_completed",
-        result: Optional[Dict[str, Any]] = None
+        result: Optional[Dict[str, Any]] = None,
     ) -> Optional[Job]:
         """Mark a step as skipped.
 
@@ -180,7 +173,7 @@ class TaskService:
                 "name": step_name,
                 "status": "skipped",
                 "reason": reason,
-                "skipped_at": datetime.utcnow().isoformat()
+                "skipped_at": datetime.utcnow().isoformat(),
             }
             if result:
                 step_results[step_key]["result"] = result
@@ -195,9 +188,7 @@ class TaskService:
         return job
 
     async def complete_job(
-        self,
-        task_id: str,
-        output_data: Optional[Dict[str, Any]] = None
+        self, task_id: str, output_data: Optional[Dict[str, Any]] = None
     ) -> Optional[Job]:
         """Mark a job as completed."""
         job = await self.get_job(task_id)
@@ -215,7 +206,7 @@ class TaskService:
         self,
         task_id: str,
         error_message: str,
-        error_details: Optional[Dict[str, Any]] = None
+        error_details: Optional[Dict[str, Any]] = None,
     ) -> Optional[Job]:
         """Mark a job as failed."""
         job = await self.get_job(task_id)
@@ -231,10 +222,7 @@ class TaskService:
         return job
 
     async def update_job_status(
-        self,
-        task_id: str,
-        status: str,
-        error_message: Optional[str] = None
+        self, task_id: str, status: str, error_message: Optional[str] = None
     ) -> Optional[Job]:
         """Update job status."""
         job = await self.get_job(task_id)

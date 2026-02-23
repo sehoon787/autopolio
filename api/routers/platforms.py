@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import Optional
 import os
 
 from api.database import get_db
@@ -25,7 +25,6 @@ from api.schemas.platform import (
     ExportResponse,
     PreviewRequest,
     PreviewResponse,
-    PlatformInfo,
     PlatformListResponse,
 )
 from api.services.platform import PlatformTemplateService
@@ -36,10 +35,9 @@ router = APIRouter()
 
 # ==================== Platform Info ====================
 
+
 @router.get("/info", response_model=PlatformListResponse)
-async def get_supported_platforms(
-    db: AsyncSession = Depends(get_db)
-):
+async def get_supported_platforms(db: AsyncSession = Depends(get_db)):
     """Get list of supported platforms with their information."""
     service = PlatformTemplateService(db)
     platforms = service.get_supported_platforms()
@@ -47,9 +45,7 @@ async def get_supported_platforms(
 
 
 @router.get("/field-mappings")
-async def get_field_mappings(
-    db: AsyncSession = Depends(get_db)
-):
+async def get_field_mappings(db: AsyncSession = Depends(get_db)):
     """Get field mappings configuration for all platforms."""
     service = PlatformTemplateService(db)
     return service.get_field_mappings()
@@ -57,10 +53,9 @@ async def get_field_mappings(
 
 # ==================== System Template Initialization ====================
 
+
 @router.post("/init-system")
-async def init_system_templates(
-    db: AsyncSession = Depends(get_db)
-):
+async def init_system_templates(db: AsyncSession = Depends(get_db)):
     """No-op: System platform templates are now loaded from static files.
 
     This endpoint is kept for backward compatibility with frontend auto-init calls.
@@ -73,16 +68,15 @@ async def init_system_templates(
         "templates": [
             {"id": t.id, "name": t.name, "platform_key": t.platform_key}
             for t in system_templates
-        ]
+        ],
     }
 
 
 @router.post("/refresh-system")
-async def refresh_system_templates(
-    db: AsyncSession = Depends(get_db)
-):
+async def refresh_system_templates(db: AsyncSession = Depends(get_db)):
     """Refresh static platform templates by clearing the in-memory cache."""
     from api.services.platform.static_platform_templates import invalidate_cache
+
     invalidate_cache()
 
     service = PlatformTemplateService(db)
@@ -93,16 +87,16 @@ async def refresh_system_templates(
         "templates": [
             {"id": t.id, "name": t.name, "platform_key": t.platform_key}
             for t in system_templates
-        ]
+        ],
     }
 
 
 # ==================== Template CRUD ====================
 
+
 @router.get("", response_model=PlatformTemplateListResponse)
 async def get_platform_templates(
-    user_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
+    user_id: Optional[int] = None, db: AsyncSession = Depends(get_db)
 ):
     """Get all platform templates (system + user's custom templates)."""
     service = PlatformTemplateService(db)
@@ -126,10 +120,7 @@ async def get_platform_templates(
 
 
 @router.get("/{template_id}", response_model=PlatformTemplateResponse)
-async def get_platform_template(
-    template_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_platform_template(template_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific platform template by ID."""
     service = PlatformTemplateService(db)
     template = await service.get_by_id(template_id)
@@ -161,11 +152,13 @@ async def get_platform_template(
     )
 
 
-@router.post("", response_model=PlatformTemplateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=PlatformTemplateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_platform_template(
     data: PlatformTemplateCreate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a new custom platform template."""
     # Verify user exists
@@ -202,9 +195,7 @@ async def create_platform_template(
 
 @router.put("/{template_id}", response_model=PlatformTemplateResponse)
 async def update_platform_template(
-    template_id: int,
-    data: PlatformTemplateUpdate,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, data: PlatformTemplateUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update a platform template."""
     service = PlatformTemplateService(db)
@@ -245,8 +236,7 @@ async def update_platform_template(
 
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_platform_template(
-    template_id: int,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, db: AsyncSession = Depends(get_db)
 ):
     """Delete a platform template."""
     service = PlatformTemplateService(db)
@@ -254,17 +244,16 @@ async def delete_platform_template(
     if not await service.delete(template_id):
         raise HTTPException(
             status_code=404,
-            detail="Template not found or cannot be deleted (system template)"
+            detail="Template not found or cannot be deleted (system template)",
         )
 
 
 # ==================== Rendering & Preview ====================
 
+
 @router.post("/{template_id}/render", response_model=RenderResponse)
 async def render_template(
-    template_id: int,
-    data: RenderDataRequest,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, data: RenderDataRequest, db: AsyncSession = Depends(get_db)
 ):
     """
     Render a platform template with user-provided data.
@@ -277,17 +266,12 @@ async def render_template(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return RenderResponse(
-        html=html,
-        generated_date=datetime.now().strftime("%Y-%m-%d")
-    )
+    return RenderResponse(html=html, generated_date=datetime.now().strftime("%Y-%m-%d"))
 
 
 @router.post("/{template_id}/preview", response_model=PreviewResponse)
 async def preview_template(
-    template_id: int,
-    request: PreviewRequest = None,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, request: PreviewRequest = None, db: AsyncSession = Depends(get_db)
 ):
     """
     Preview a platform template with user data.
@@ -312,7 +296,7 @@ async def preview_template(
 async def render_from_database(
     template_id: int,
     user_id: int = Query(..., description="User ID to fetch data for"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Render a platform template with data from the database.
@@ -325,17 +309,14 @@ async def render_from_database(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return {
-        "html": html,
-        "generated_date": datetime.now().strftime("%Y-%m-%d")
-    }
+    return {"html": html, "generated_date": datetime.now().strftime("%Y-%m-%d")}
 
 
 @router.get("/{template_id}/render-markdown-from-db")
 async def render_markdown_from_database(
     template_id: int,
     user_id: int = Query(..., description="User ID to fetch data for"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Render a platform template as Markdown with data from the database.
@@ -348,16 +329,12 @@ async def render_markdown_from_database(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return {
-        "markdown": markdown,
-        "generated_date": datetime.now().strftime("%Y-%m-%d")
-    }
+    return {"markdown": markdown, "generated_date": datetime.now().strftime("%Y-%m-%d")}
 
 
 @router.get("/{template_id}/preview-markdown-sample")
 async def preview_markdown_with_sample_data(
-    template_id: int,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, db: AsyncSession = Depends(get_db)
 ):
     """
     Preview a platform template as Markdown with sample data.
@@ -370,19 +347,17 @@ async def preview_markdown_with_sample_data(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return {
-        "markdown": markdown,
-        "generated_date": datetime.now().strftime("%Y-%m-%d")
-    }
+    return {"markdown": markdown, "generated_date": datetime.now().strftime("%Y-%m-%d")}
 
 
 # ==================== Export from DB ====================
+
 
 @router.post("/{template_id}/export-from-db/html", response_model=ExportResponse)
 async def export_from_db_to_html(
     template_id: int,
     user_id: int = Query(..., description="User ID to fetch data for"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Export rendered template to HTML file using data from the database."""
     # Verify user exists
@@ -404,7 +379,7 @@ async def export_from_db_to_html(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="html",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
@@ -412,7 +387,7 @@ async def export_from_db_to_html(
 async def export_from_db_to_markdown(
     template_id: int,
     user_id: int = Query(..., description="User ID to fetch data for"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Export to Markdown file using data from the database."""
     # Verify user exists
@@ -423,7 +398,9 @@ async def export_from_db_to_markdown(
     service = PlatformTemplateService(db)
 
     try:
-        file_path, content = await service.export_from_db_to_markdown(template_id, user_id)
+        file_path, content = await service.export_from_db_to_markdown(
+            template_id, user_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -434,7 +411,7 @@ async def export_from_db_to_markdown(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="md",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
@@ -442,7 +419,7 @@ async def export_from_db_to_markdown(
 async def export_from_db_to_docx(
     template_id: int,
     user_id: int = Query(..., description="User ID to fetch data for"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Export to Word document using data from the database."""
     # Verify user exists
@@ -464,17 +441,16 @@ async def export_from_db_to_docx(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="docx",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
 # ==================== Export ====================
 
+
 @router.post("/{template_id}/export/html", response_model=ExportResponse)
 async def export_to_html(
-    template_id: int,
-    request: ExportRequest,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, request: ExportRequest, db: AsyncSession = Depends(get_db)
 ):
     """Export rendered template to HTML file."""
     service = PlatformTemplateService(db)
@@ -491,15 +467,13 @@ async def export_to_html(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="html",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
 @router.post("/{template_id}/export/md", response_model=ExportResponse)
 async def export_to_markdown(
-    template_id: int,
-    request: ExportRequest,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, request: ExportRequest, db: AsyncSession = Depends(get_db)
 ):
     """Export to Markdown file."""
     service = PlatformTemplateService(db)
@@ -516,15 +490,13 @@ async def export_to_markdown(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="md",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
 @router.post("/{template_id}/export/docx", response_model=ExportResponse)
 async def export_to_docx(
-    template_id: int,
-    request: ExportRequest,
-    db: AsyncSession = Depends(get_db)
+    template_id: int, request: ExportRequest, db: AsyncSession = Depends(get_db)
 ):
     """Export to Word document."""
     service = PlatformTemplateService(db)
@@ -541,17 +513,15 @@ async def export_to_docx(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
         format="docx",
-        size_bytes=file_size
+        size_bytes=file_size,
     )
 
 
 @router.get("/download/{filename}")
-async def download_file(
-    filename: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def download_file(filename: str, db: AsyncSession = Depends(get_db)):
     """Download an exported file."""
     from api.config import get_settings
+
     settings = get_settings()
 
     # Security: Sanitize filename to prevent path traversal attacks
@@ -583,8 +553,4 @@ async def download_file(
     }
     media_type = media_types.get(ext, "application/octet-stream")
 
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type=media_type
-    )
+    return FileResponse(path=file_path, filename=filename, media_type=media_type)

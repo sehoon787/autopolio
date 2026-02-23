@@ -7,7 +7,7 @@ from typing import Optional, List, Dict, Any
 def validate_percent_range(v: Optional[int]) -> Optional[int]:
     """Validate percentage is between 0 and 100."""
     if v is not None and (v < 0 or v > 100):
-        raise ValueError('Value must be between 0 and 100')
+        raise ValueError("Value must be between 0 and 100")
     return v
 
 
@@ -35,7 +35,7 @@ class AchievementBase(BaseModel):
     metric_value: Optional[str] = None
     description: Optional[str] = None
     before_value: Optional[str] = None  # Before state for comparison
-    after_value: Optional[str] = None   # After state for comparison
+    after_value: Optional[str] = None  # After state for comparison
     category: Optional[str] = None
     evidence: Optional[str] = None
     display_order: int = 0
@@ -84,21 +84,21 @@ class ProjectRepositoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def compute_is_analyzed(cls, data):
         """Compute is_analyzed from the presence of repo_analysis."""
-        if hasattr(data, 'repo_analysis'):
+        if hasattr(data, "repo_analysis"):
             if isinstance(data, dict):
-                data['is_analyzed'] = data.get('repo_analysis') is not None
+                data["is_analyzed"] = data.get("repo_analysis") is not None
             else:
                 data._computed_is_analyzed = data.repo_analysis is not None
         return data
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def apply_computed_fields(self):
-        if hasattr(self, '_computed_is_analyzed'):
-            object.__setattr__(self, 'is_analyzed', self._computed_is_analyzed)
+        if hasattr(self, "_computed_is_analyzed"):
+            object.__setattr__(self, "is_analyzed", self._computed_is_analyzed)
         return self
 
 
@@ -118,7 +118,9 @@ class ProjectBase(BaseModel):
     links: Optional[Dict[str, str]] = None
     images: Optional[List[str]] = None
 
-    _validate_contribution = field_validator('contribution_percent')(validate_percent_range)
+    _validate_contribution = field_validator("contribution_percent")(
+        validate_percent_range
+    )
 
 
 class ProjectCreate(ProjectBase):
@@ -145,7 +147,9 @@ class ProjectUpdate(BaseModel):
     technologies: Optional[List[str]] = None
     repositories: Optional[List[ProjectRepositoryCreate]] = None  # Multi-repo support
 
-    _validate_contribution = field_validator('contribution_percent')(validate_percent_range)
+    _validate_contribution = field_validator("contribution_percent")(
+        validate_percent_range
+    )
 
 
 class ProjectResponse(ProjectBase):
@@ -167,39 +171,43 @@ class ProjectResponse(ProjectBase):
     class Config:
         from_attributes = True
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def transform_technologies(cls, data):
         """Transform ProjectTechnology associations to Technology objects."""
-        if hasattr(data, 'technologies') and data.technologies:
+        if hasattr(data, "technologies") and data.technologies:
             # ORM object - extract Technology from ProjectTechnology
             tech_list = []
             for pt in data.technologies:
-                if hasattr(pt, 'technology') and pt.technology:
+                if hasattr(pt, "technology") and pt.technology:
                     tech_list.append(pt.technology)
             # Store transformed list in a temp attribute
             data._transformed_technologies = tech_list
-        elif isinstance(data, dict) and 'technologies' in data and data['technologies']:
+        elif isinstance(data, dict) and "technologies" in data and data["technologies"]:
             # Dict - transform if needed
             tech_list = []
-            for pt in data['technologies']:
-                if hasattr(pt, 'technology') and pt.technology:
+            for pt in data["technologies"]:
+                if hasattr(pt, "technology") and pt.technology:
                     tech_list.append(pt.technology)
-                elif isinstance(pt, dict) and 'technology' in pt:
-                    tech_list.append(pt['technology'])
+                elif isinstance(pt, dict) and "technology" in pt:
+                    tech_list.append(pt["technology"])
                 else:
                     tech_list.append(pt)
-            data['technologies'] = tech_list
+            data["technologies"] = tech_list
         return data
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def apply_transformed_technologies(self):
         """Apply transformed technologies after model creation."""
-        if hasattr(self, '_transformed_technologies'):
-            object.__setattr__(self, 'technologies', [
-                TechnologyResponse.model_validate(t, from_attributes=True)
-                for t in self._transformed_technologies
-            ])
+        if hasattr(self, "_transformed_technologies"):
+            object.__setattr__(
+                self,
+                "technologies",
+                [
+                    TechnologyResponse.model_validate(t, from_attributes=True)
+                    for t in self._transformed_technologies
+                ],
+            )
         return self
 
 

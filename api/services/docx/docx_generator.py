@@ -6,9 +6,9 @@ that match the exact format of the original Korean resume/career templates.
 
 Delegates table creation to docx_table_builder.py for better modularity.
 """
-from typing import Dict, List, Any, Optional
+
+from typing import Dict, List, Any
 from pathlib import Path
-from datetime import datetime
 import os
 
 from docx import Document
@@ -68,19 +68,19 @@ class DocxGenerator:
         run.font.size = Pt(font_size)
         run.font.bold = bold
         run.font.color.rgb = RGBColor(0, 0, 0)
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), self.font_body)
+        run._element.rPr.rFonts.set(qn("w:eastAsia"), self.font_body)
 
     def _set_paragraph_spacing(self, para, space_before: int = 0, space_after: int = 0):
         """Set paragraph spacing to match original template."""
         pPr = para._p.get_or_add_pPr()
 
-        spacing = OxmlElement('w:spacing')
-        spacing.set(qn('w:before'), str(int(space_before * 20)))
-        spacing.set(qn('w:after'), str(int(space_after * 20)))
-        spacing.set(qn('w:line'), '240')
-        spacing.set(qn('w:lineRule'), 'auto')
+        spacing = OxmlElement("w:spacing")
+        spacing.set(qn("w:before"), str(int(space_before * 20)))
+        spacing.set(qn("w:after"), str(int(space_after * 20)))
+        spacing.set(qn("w:line"), "240")
+        spacing.set(qn("w:lineRule"), "auto")
 
-        for old_spacing in pPr.findall(qn('w:spacing')):
+        for old_spacing in pPr.findall(qn("w:spacing")):
             pPr.remove(old_spacing)
         pPr.append(spacing)
 
@@ -91,7 +91,7 @@ class DocxGenerator:
         font_size: int,
         bold: bool = False,
         alignment=WD_ALIGN_PARAGRAPH.LEFT,
-        space_after: int = 0
+        space_after: int = 0,
     ):
         """Add a paragraph with specific styling."""
         para = doc.add_paragraph()
@@ -113,7 +113,9 @@ class DocxGenerator:
         """Set cell background color."""
         self._table_builder.set_cell_shading(cell, color)
 
-    def _merge_cells_vertically(self, table, col_idx: int, start_row: int, end_row: int):
+    def _merge_cells_vertically(
+        self, table, col_idx: int, start_row: int, end_row: int
+    ):
         """Merge cells vertically in a column."""
         self._table_builder.merge_cells_vertically(table, col_idx, start_row, end_row)
 
@@ -127,25 +129,26 @@ class DocxGenerator:
         section_title: str,
         rows: List[tuple],
         title_rows: int = None,
-        value_bold: bool = False
+        value_bold: bool = False,
     ):
         """Create a standard info table with section header in first column."""
-        return self._table_builder.create_info_table(doc, section_title, rows, title_rows, value_bold)
+        return self._table_builder.create_info_table(
+            doc, section_title, rows, title_rows, value_bold
+        )
 
     def _create_career_table_with_bold_company(
-        self,
-        doc: Document,
-        section_title: str,
-        rows: List[tuple]
+        self, doc: Document, section_title: str, rows: List[tuple]
     ):
         """Create career table with bold company name in first row's value."""
-        return self._table_builder.create_career_table_with_bold_company(doc, section_title, rows)
+        return self._table_builder.create_career_table_with_bold_company(
+            doc, section_title, rows
+        )
 
     def _create_project_table(
         self,
         doc: Document,
         projects: List[Dict[str, Any]],
-        section_title: str = "주요 프로젝트"
+        section_title: str = "주요 프로젝트",
     ):
         """Create project section table in 2-column format."""
         return self._table_builder.create_project_table(doc, projects, section_title)
@@ -154,7 +157,7 @@ class DocxGenerator:
         self,
         doc: Document,
         skills_data: Dict[str, str],
-        section_title: str = "기술스택"
+        section_title: str = "기술스택",
     ):
         """Create skills table matching original format."""
         return self._table_builder.create_skills_table(doc, skills_data, section_title)
@@ -167,7 +170,7 @@ class DocxGenerator:
         self,
         data: Dict[str, Any],
         output_path: Path,
-        include_personal_info: bool = True
+        include_personal_info: bool = True,
     ) -> int:
         """Generate 경력기술서 document.
 
@@ -183,18 +186,19 @@ class DocxGenerator:
         self._set_page_margins(doc)
 
         # Set default font
-        style = doc.styles['Normal']
+        style = doc.styles["Normal"]
         style.font.name = self.font_body
         style.font.size = Pt(self.size_table_content)
-        style._element.rPr.rFonts.set(qn('w:eastAsia'), self.font_body)
+        style._element.rPr.rFonts.set(qn("w:eastAsia"), self.font_body)
 
         # Title: 경력기술서
         self._add_paragraph_with_style(
-            doc, "경력기술서",
+            doc,
+            "경력기술서",
             self.size_document_title,
             bold=False,
             alignment=WD_ALIGN_PARAGRAPH.CENTER,
-            space_after=12
+            space_after=12,
         )
 
         # Name
@@ -202,21 +206,23 @@ class DocxGenerator:
         name_en = data.get("name_en", "")
         full_name = f"{name} {name_en}" if name_en else name
         self._add_paragraph_with_style(
-            doc, full_name,
+            doc,
+            full_name,
             self.size_name,
             bold=True,
             alignment=WD_ALIGN_PARAGRAPH.CENTER,
-            space_after=6
+            space_after=6,
         )
 
         # Summary
         summary = data.get("summary", "")
         if summary:
             self._add_paragraph_with_style(
-                doc, summary,
+                doc,
+                summary,
                 self.size_summary,
                 alignment=WD_ALIGN_PARAGRAPH.CENTER,
-                space_after=12
+                space_after=12,
             )
 
         doc.add_paragraph()
@@ -261,11 +267,7 @@ class DocxGenerator:
         doc.save(output_path)
         return os.path.getsize(output_path)
 
-    def generate_resume(
-        self,
-        data: Dict[str, Any],
-        output_path: Path
-    ) -> int:
+    def generate_resume(self, data: Dict[str, Any], output_path: Path) -> int:
         """Generate 이력서 document (includes salary info and self-introduction).
 
         Args:
@@ -279,10 +281,10 @@ class DocxGenerator:
         self._set_page_margins(doc)
 
         # Set default font
-        style = doc.styles['Normal']
+        style = doc.styles["Normal"]
         style.font.name = self.font_body
         style.font.size = Pt(self.size_table_content)
-        style._element.rPr.rFonts.set(qn('w:eastAsia'), self.font_body)
+        style._element.rPr.rFonts.set(qn("w:eastAsia"), self.font_body)
 
         # Title in header
         section = doc.sections[0]
@@ -297,21 +299,23 @@ class DocxGenerator:
         name_en = data.get("name_en", "")
         full_name = f"{name} {name_en}" if name_en else name
         self._add_paragraph_with_style(
-            doc, full_name,
+            doc,
+            full_name,
             self.size_name,
             bold=True,
             alignment=WD_ALIGN_PARAGRAPH.CENTER,
-            space_after=6
+            space_after=6,
         )
 
         # Summary
         summary = data.get("summary", "")
         if summary:
             self._add_paragraph_with_style(
-                doc, summary,
+                doc,
+                summary,
                 self.size_summary,
                 alignment=WD_ALIGN_PARAGRAPH.CENTER,
-                space_after=12
+                space_after=12,
             )
 
         # Salary Info
@@ -336,11 +340,12 @@ class DocxGenerator:
 
         # 경력기술서 Section Title
         self._add_paragraph_with_style(
-            doc, "경력기술서",
+            doc,
+            "경력기술서",
             self.size_subsection_title,
             bold=True,
             alignment=WD_ALIGN_PARAGRAPH.LEFT,
-            space_after=12
+            space_after=12,
         )
 
         # Projects Table
@@ -403,7 +408,10 @@ class DocxGenerator:
             career_rows = [
                 ("회사명", company.get("name", "")),
                 ("입사일/퇴사일", f"{company.get('start_date', '')} ~ {end_date}"),
-                ("소속부서/직급", f"{company.get('department', '')} / {company.get('position', '')}"),
+                (
+                    "소속부서/직급",
+                    f"{company.get('department', '')} / {company.get('position', '')}",
+                ),
                 ("직무", company.get("description", "")),
             ]
             self._create_career_table_with_bold_company(doc, "경력사항", career_rows)
@@ -483,11 +491,12 @@ class DocxGenerator:
     def _add_self_introduction_section(self, doc: Document, data: Dict[str, Any]):
         """Add self-introduction section (자기소개)."""
         self._add_paragraph_with_style(
-            doc, "자기소개",
+            doc,
+            "자기소개",
             self.size_subsection_title,
             bold=True,
             alignment=WD_ALIGN_PARAGRAPH.LEFT,
-            space_after=12
+            space_after=12,
         )
 
         intro_content = []

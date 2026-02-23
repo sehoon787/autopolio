@@ -2,6 +2,7 @@
 
 Handles effective analysis retrieval, per-repo breakdowns, content editing, and field reset.
 """
+
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +13,11 @@ from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.models.project_repository import ProjectRepository
 from api.schemas.github import (
-    AnalysisContentUpdate, EffectiveAnalysisResponse, EditStatus,
-    RepoAnalysisSummary, MultiRepoAnalysisResponse,
+    AnalysisContentUpdate,
+    EffectiveAnalysisResponse,
+    EditStatus,
+    RepoAnalysisSummary,
+    MultiRepoAnalysisResponse,
 )
 from sqlalchemy.orm import selectinload
 
@@ -23,7 +27,10 @@ router = APIRouter(tags=["github"])
 
 # ============ Inline Editing Endpoints ============
 
-@router.get("/analysis/{project_id}/effective", response_model=EffectiveAnalysisResponse)
+
+@router.get(
+    "/analysis/{project_id}/effective", response_model=EffectiveAnalysisResponse
+)
 async def get_effective_analysis(project_id: int, db: AsyncSession = Depends(get_db)):
     """Get repository analysis with user edits applied.
 
@@ -33,7 +40,8 @@ async def get_effective_analysis(project_id: int, db: AsyncSession = Depends(get
 
     # Get ALL analyses for the project
     result = await db.execute(
-        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
+        select(RepoAnalysis)
+        .where(RepoAnalysis.project_id == project_id)
         .options(selectinload(RepoAnalysis.project_repository))
     )
     analyses = list(result.scalars().all())
@@ -43,8 +51,12 @@ async def get_effective_analysis(project_id: int, db: AsyncSession = Depends(get
 
     # Find the primary analysis (for id, git_url, and edits)
     primary = next(
-        (a for a in analyses if a.project_repository and a.project_repository.is_primary),
-        analyses[0]
+        (
+            a
+            for a in analyses
+            if a.project_repository and a.project_repository.is_primary
+        ),
+        analyses[0],
     )
 
     # For multi-repo, aggregate data; for single repo, use directly
@@ -55,33 +67,50 @@ async def get_effective_analysis(project_id: int, db: AsyncSession = Depends(get
 
     # Get user edits from primary analysis
     edits_result = await db.execute(
-        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == primary.id)
+        select(RepoAnalysisEdits).where(
+            RepoAnalysisEdits.repo_analysis_id == primary.id
+        )
     )
     edits = edits_result.scalar_one_or_none()
 
     # Build edit status
     edit_status = EditStatus(
         key_tasks_modified=edits.key_tasks_modified if edits else False,
-        implementation_details_modified=edits.implementation_details_modified if edits else False,
-        detailed_achievements_modified=edits.detailed_achievements_modified if edits else False,
+        implementation_details_modified=edits.implementation_details_modified
+        if edits
+        else False,
+        detailed_achievements_modified=edits.detailed_achievements_modified
+        if edits
+        else False,
     )
 
     # Source fields from aggregated data or primary analysis
     src_key_tasks = agg["key_tasks"] if agg else primary.key_tasks
-    src_impl_details = agg["implementation_details"] if agg else primary.implementation_details
-    src_achievements = agg["detailed_achievements"] if agg else primary.detailed_achievements
+    src_impl_details = (
+        agg["implementation_details"] if agg else primary.implementation_details
+    )
+    src_achievements = (
+        agg["detailed_achievements"] if agg else primary.detailed_achievements
+    )
 
     # Apply edits to get effective content
     effective_key_tasks = (
-        edits.key_tasks if edits and edits.key_tasks_modified and edits.key_tasks is not None
+        edits.key_tasks
+        if edits and edits.key_tasks_modified and edits.key_tasks is not None
         else src_key_tasks
     )
     effective_implementation_details = (
-        edits.implementation_details if edits and edits.implementation_details_modified and edits.implementation_details is not None
+        edits.implementation_details
+        if edits
+        and edits.implementation_details_modified
+        and edits.implementation_details is not None
         else src_impl_details
     )
     effective_detailed_achievements = (
-        edits.detailed_achievements if edits and edits.detailed_achievements_modified and edits.detailed_achievements is not None
+        edits.detailed_achievements
+        if edits
+        and edits.detailed_achievements_modified
+        and edits.detailed_achievements is not None
         else src_achievements
     )
 
@@ -161,26 +190,28 @@ async def get_per_repo_analyses(project_id: int, db: AsyncSession = Depends(get_
     summaries = []
     for a in analyses:
         repo = a.project_repository
-        summaries.append(RepoAnalysisSummary(
-            repo_url=a.git_url,
-            label=repo.label if repo else None,
-            is_primary=repo.is_primary if repo else False,
-            total_commits=a.total_commits or 0,
-            user_commits=a.user_commits or 0,
-            lines_added=a.lines_added or 0,
-            lines_deleted=a.lines_deleted or 0,
-            files_changed=a.files_changed or 0,
-            detected_technologies=a.detected_technologies or [],
-            primary_language=a.primary_language,
-            key_tasks=a.key_tasks,
-            implementation_details=a.implementation_details,
-            detailed_achievements=a.detailed_achievements,
-            ai_summary=a.ai_summary,
-            ai_key_features=a.ai_key_features,
-            languages=a.languages,
-            commit_categories=a.commit_categories,
-            development_timeline=a.development_timeline,
-        ))
+        summaries.append(
+            RepoAnalysisSummary(
+                repo_url=a.git_url,
+                label=repo.label if repo else None,
+                is_primary=repo.is_primary if repo else False,
+                total_commits=a.total_commits or 0,
+                user_commits=a.user_commits or 0,
+                lines_added=a.lines_added or 0,
+                lines_deleted=a.lines_deleted or 0,
+                files_changed=a.files_changed or 0,
+                detected_technologies=a.detected_technologies or [],
+                primary_language=a.primary_language,
+                key_tasks=a.key_tasks,
+                implementation_details=a.implementation_details,
+                detailed_achievements=a.detailed_achievements,
+                ai_summary=a.ai_summary,
+                ai_key_features=a.ai_key_features,
+                languages=a.languages,
+                commit_categories=a.commit_categories,
+                development_timeline=a.development_timeline,
+            )
+        )
 
     return MultiRepoAnalysisResponse(
         project_id=project_id,
@@ -191,24 +222,28 @@ async def get_per_repo_analyses(project_id: int, db: AsyncSession = Depends(get_
 
 @router.patch("/analysis/{project_id}/content")
 async def update_analysis_content(
-    project_id: int,
-    update: AnalysisContentUpdate,
-    db: AsyncSession = Depends(get_db)
+    project_id: int, update: AnalysisContentUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update specific analysis content field."""
     # Validate field name
-    valid_fields = ['key_tasks', 'implementation_details', 'detailed_achievements']
+    valid_fields = ["key_tasks", "implementation_details", "detailed_achievements"]
     if update.field not in valid_fields:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}"
+            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}",
         )
 
     # Get analysis (prefer primary repo's analysis for multi-repo projects)
     result = await db.execute(
-        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
-        .outerjoin(ProjectRepository, RepoAnalysis.project_repository_id == ProjectRepository.id)
-        .order_by(ProjectRepository.is_primary.desc().nullslast(), RepoAnalysis.id.asc())
+        select(RepoAnalysis)
+        .where(RepoAnalysis.project_id == project_id)
+        .outerjoin(
+            ProjectRepository,
+            RepoAnalysis.project_repository_id == ProjectRepository.id,
+        )
+        .order_by(
+            ProjectRepository.is_primary.desc().nullslast(), RepoAnalysis.id.asc()
+        )
     )
     analysis = result.scalars().first()
 
@@ -217,7 +252,9 @@ async def update_analysis_content(
 
     # Get or create edits record
     edits_result = await db.execute(
-        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+        select(RepoAnalysisEdits).where(
+            RepoAnalysisEdits.repo_analysis_id == analysis.id
+        )
     )
     edits = edits_result.scalar_one_or_none()
 
@@ -226,13 +263,13 @@ async def update_analysis_content(
         db.add(edits)
 
     # Update the specific field
-    if update.field == 'key_tasks':
+    if update.field == "key_tasks":
         edits.key_tasks = update.content
         edits.key_tasks_modified = True
-    elif update.field == 'implementation_details':
+    elif update.field == "implementation_details":
         edits.implementation_details = update.content
         edits.implementation_details_modified = True
-    elif update.field == 'detailed_achievements':
+    elif update.field == "detailed_achievements":
         edits.detailed_achievements = update.content
         edits.detailed_achievements_modified = True
 
@@ -241,30 +278,34 @@ async def update_analysis_content(
     return {
         "success": True,
         "field": update.field,
-        "message": f"{update.field} content has been saved."
+        "message": f"{update.field} content has been saved.",
     }
 
 
 @router.post("/analysis/{project_id}/reset/{field}")
 async def reset_analysis_field(
-    project_id: int,
-    field: str,
-    db: AsyncSession = Depends(get_db)
+    project_id: int, field: str, db: AsyncSession = Depends(get_db)
 ):
     """Reset a specific field to original analysis content."""
     # Validate field name
-    valid_fields = ['key_tasks', 'implementation_details', 'detailed_achievements']
+    valid_fields = ["key_tasks", "implementation_details", "detailed_achievements"]
     if field not in valid_fields:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}"
+            detail=f"Invalid field. Must be one of: {', '.join(valid_fields)}",
         )
 
     # Get analysis (prefer primary repo's analysis for multi-repo projects)
     result = await db.execute(
-        select(RepoAnalysis).where(RepoAnalysis.project_id == project_id)
-        .outerjoin(ProjectRepository, RepoAnalysis.project_repository_id == ProjectRepository.id)
-        .order_by(ProjectRepository.is_primary.desc().nullslast(), RepoAnalysis.id.asc())
+        select(RepoAnalysis)
+        .where(RepoAnalysis.project_id == project_id)
+        .outerjoin(
+            ProjectRepository,
+            RepoAnalysis.project_repository_id == ProjectRepository.id,
+        )
+        .order_by(
+            ProjectRepository.is_primary.desc().nullslast(), RepoAnalysis.id.asc()
+        )
     )
     analysis = result.scalars().first()
 
@@ -273,25 +314,23 @@ async def reset_analysis_field(
 
     # Get edits record
     edits_result = await db.execute(
-        select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+        select(RepoAnalysisEdits).where(
+            RepoAnalysisEdits.repo_analysis_id == analysis.id
+        )
     )
     edits = edits_result.scalar_one_or_none()
 
     if not edits:
-        return {
-            "success": True,
-            "field": field,
-            "message": "No modifications exist."
-        }
+        return {"success": True, "field": field, "message": "No modifications exist."}
 
     # Reset the specific field
-    if field == 'key_tasks':
+    if field == "key_tasks":
         edits.key_tasks = None
         edits.key_tasks_modified = False
-    elif field == 'implementation_details':
+    elif field == "implementation_details":
         edits.implementation_details = None
         edits.implementation_details_modified = False
-    elif field == 'detailed_achievements':
+    elif field == "detailed_achievements":
         edits.detailed_achievements = None
         edits.detailed_achievements_modified = False
 
@@ -300,5 +339,5 @@ async def reset_analysis_field(
     return {
         "success": True,
         "field": field,
-        "message": f"{field} content has been reset to original."
+        "message": f"{field} content has been reset to original.",
     }

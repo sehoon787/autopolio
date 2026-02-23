@@ -6,11 +6,14 @@ from api.database import Base
 
 class RepoAnalysis(Base):
     """GitHub repository analysis results."""
+
     __tablename__ = "repo_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
-    project_repository_id = Column(Integer, ForeignKey("project_repositories.id"), nullable=True, index=True)
+    project_repository_id = Column(
+        Integer, ForeignKey("project_repositories.id"), nullable=True, index=True
+    )
 
     # Repository info
     git_url = Column(String(500), nullable=False)
@@ -41,21 +44,27 @@ class RepoAnalysis(Base):
 
     # Technology detection from files
     detected_technologies = Column(JSON)  # ["FastAPI", "React", "PostgreSQL", ...]
-    package_files = Column(JSON)  # Parsed content from package.json, requirements.txt, etc.
+    package_files = Column(
+        JSON
+    )  # Parsed content from package.json, requirements.txt, etc.
 
     # Commit analysis
     commit_messages_summary = Column(Text)  # LLM-generated summary of commit messages
     commit_categories = Column(JSON)  # {"feature": 40, "fix": 30, "refactor": 20, ...}
 
     # Key tasks extracted from analysis (LLM-generated)
-    key_tasks = Column(JSON)  # ["RESTful API 설계 및 개발", "인증/인가 시스템 구현", ...]
+    key_tasks = Column(
+        JSON
+    )  # ["RESTful API 설계 및 개발", "인증/인가 시스템 구현", ...]
 
     # Code patterns detected
     architecture_patterns = Column(JSON)  # ["MVC", "microservices", ...]
     code_quality_metrics = Column(JSON)  # {"avg_file_size": 150, "test_coverage": ...}
 
     # LLM-generated detailed content (v1.2)
-    implementation_details = Column(JSON, nullable=True)  # 주요 구현 기능 (구조화된 JSON)
+    implementation_details = Column(
+        JSON, nullable=True
+    )  # 주요 구현 기능 (구조화된 JSON)
     # [{"title": "기능 제목", "items": ["상세 설명 1", "상세 설명 2"]}]
 
     development_timeline = Column(JSON, nullable=True)  # 개발 타임라인
@@ -94,10 +103,14 @@ class RepoAnalysis(Base):
 
     # Relationships
     project = relationship("Project", back_populates="repo_analyses")
-    project_repository = relationship("ProjectRepository", back_populates="repo_analysis")
-    user_edits = relationship("RepoAnalysisEdits", back_populates="repo_analysis", uselist=False)
+    project_repository = relationship(
+        "ProjectRepository", back_populates="repo_analysis"
+    )
+    user_edits = relationship(
+        "RepoAnalysisEdits", back_populates="repo_analysis", uselist=False
+    )
     contributors = relationship(
         "ContributorAnalysis",
         back_populates="repo_analysis",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )

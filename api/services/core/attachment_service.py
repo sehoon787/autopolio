@@ -1,4 +1,5 @@
 """Attachment Service for managing credential file uploads."""
+
 import os
 import uuid
 import aiofiles
@@ -32,12 +33,12 @@ class AttachmentService:
     ) -> Tuple[str, str, int]:
         """
         Save an uploaded file and return (relative_path, original_name, file_size).
-        
+
         Args:
             file: The uploaded file
             credential_type: Type of credential (certifications, awards, etc.)
             user_id: The user's ID
-            
+
         Returns:
             Tuple of (relative_path, original_filename, file_size_bytes)
         """
@@ -50,11 +51,20 @@ class AttachmentService:
         ext = Path(original_name).suffix.lower()
 
         # Validate extension (allow common document/image types)
-        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png', '.gif', '.doc', '.docx', '.webp'}
+        allowed_extensions = {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".doc",
+            ".docx",
+            ".webp",
+        }
         if ext not in allowed_extensions:
             raise HTTPException(
-                status_code=400, 
-                detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+                status_code=400,
+                detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}",
             )
 
         # Generate unique filename
@@ -70,25 +80,25 @@ class AttachmentService:
         max_size = 10 * 1024 * 1024  # 10MB
         if file_size > max_size:
             raise HTTPException(
-                status_code=400, 
-                detail=f"File too large. Maximum size is {max_size // (1024*1024)}MB"
+                status_code=400,
+                detail=f"File too large. Maximum size is {max_size // (1024 * 1024)}MB",
             )
 
-        async with aiofiles.open(file_path, 'wb') as f:
+        async with aiofiles.open(file_path, "wb") as f:
             await f.write(content)
 
         # Return relative path from base_dir
         relative_path = str(file_path.relative_to(self.base_dir.parent))
-        
+
         return relative_path, original_name, file_size
 
     async def delete_attachment(self, relative_path: str) -> bool:
         """
         Delete an attachment file.
-        
+
         Args:
             relative_path: The relative path stored in the database
-            
+
         Returns:
             True if deleted, False if file didn't exist
         """
@@ -96,20 +106,20 @@ class AttachmentService:
             return False
 
         file_path = self.base_dir.parent / relative_path
-        
+
         if file_path.exists() and file_path.is_file():
             os.remove(file_path)
             return True
-        
+
         return False
 
     def get_full_path(self, relative_path: str) -> Path:
         """
         Get the full filesystem path for an attachment.
-        
+
         Args:
             relative_path: The relative path stored in the database
-            
+
         Returns:
             Full Path object
         """

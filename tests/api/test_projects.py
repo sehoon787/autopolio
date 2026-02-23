@@ -24,7 +24,7 @@ class TestProjectCRUD:
             team_size=5,
             project_type="company",
             start_date="2024-01-01",
-            end_date="2024-12-31"
+            end_date="2024-12-31",
         )
 
         assert response.status_code in [200, 201]
@@ -47,7 +47,7 @@ class TestProjectCRUD:
             name=f"Personal Project {unique_id}",
             description="A personal side project",
             project_type="personal",
-            start_date="2024-01-01"
+            start_date="2024-01-01",
         )
 
         assert response.status_code in [200, 201]
@@ -99,7 +99,7 @@ class TestProjectCRUD:
             test_project["id"],
             test_user["id"],
             name="Updated Project Name",
-            description="Updated description"
+            description="Updated description",
         )
 
         assert response.status_code == 200
@@ -114,7 +114,7 @@ class TestProjectCRUD:
         response = api.update(
             test_project["id"],
             test_user["id"],
-            technologies=["Python", "FastAPI", "React"]
+            technologies=["Python", "FastAPI", "React"],
         )
 
         assert response.status_code == 200
@@ -128,9 +128,7 @@ class TestProjectCRUD:
 
         # Create project first
         create_response = api.create(
-            user_id=test_user["id"],
-            name="To Delete Project",
-            project_type="personal"
+            user_id=test_user["id"], name="To Delete Project", project_type="personal"
         )
         project_id = create_response.json()["id"]
 
@@ -155,7 +153,7 @@ class TestProjectAchievements:
             user_id=test_project["user_id"],
             metric_name="Performance Improvement",
             metric_value="50%",
-            description="Improved API response time by 50%"
+            description="Improved API response time by 50%",
         )
 
         # Achievement endpoints may use different format (200/201) or not exist (404)
@@ -198,7 +196,7 @@ class TestProjectValidation:
         response = api._post(
             "/knowledge/projects",
             params={"user_id": test_user["id"]},
-            json={"project_type": "personal"}
+            json={"project_type": "personal"},
         )
 
         assert response.status_code in [400, 422]
@@ -208,9 +206,7 @@ class TestProjectValidation:
         api = ProjectsAPI(api_client)
 
         response = api.create(
-            user_id=99999,
-            name="Invalid User Project",
-            project_type="personal"
+            user_id=99999, name="Invalid User Project", project_type="personal"
         )
 
         assert response.status_code in [400, 404]
@@ -223,7 +219,7 @@ class TestProjectValidation:
             user_id=test_user["id"],
             company_id=99999,
             name="Invalid Company Project",
-            project_type="company"
+            project_type="company",
         )
 
         # API may allow creating project with invalid company or reject it
@@ -238,7 +234,7 @@ class TestProjectValidation:
             user_id=test_user["id"],
             name=f"Git Project {unique_id}",
             project_type="personal",
-            git_url="https://github.com/example/repo"
+            git_url="https://github.com/example/repo",
         )
 
         assert response.status_code in [200, 201]

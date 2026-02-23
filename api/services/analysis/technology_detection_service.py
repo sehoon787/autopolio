@@ -3,6 +3,7 @@ Technology Detection Service - Detect technologies from package/config files.
 
 Extracted from github_service.py for better modularity and reusability.
 """
+
 import json
 import logging
 from typing import Dict, List

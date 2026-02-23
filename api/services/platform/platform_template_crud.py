@@ -29,7 +29,9 @@ from .static_platform_templates import (
 class PlatformTemplateCRUD:
     """CRUD operations for platform templates"""
 
-    def __init__(self, db: AsyncSession, templates_dir: Path = None, config_dir: Path = None):
+    def __init__(
+        self, db: AsyncSession, templates_dir: Path = None, config_dir: Path = None
+    ):
         self.db = db
         # Dirs needed for static template loading
         self._templates_dir = templates_dir
@@ -40,6 +42,7 @@ class PlatformTemplateCRUD:
         if self._templates_dir and self._config_dir:
             return self._templates_dir, self._config_dir
         from api.config import get_settings
+
         settings = get_settings()
         return Path(settings.platform_templates_dir), Path(settings.config_dir)
 
@@ -52,10 +55,14 @@ class PlatformTemplateCRUD:
 
         # User templates from DB
         if user_id:
-            query = select(PlatformTemplate).where(
-                PlatformTemplate.user_id == user_id,
-                PlatformTemplate.is_system == 0,
-            ).order_by(PlatformTemplate.created_at)
+            query = (
+                select(PlatformTemplate)
+                .where(
+                    PlatformTemplate.user_id == user_id,
+                    PlatformTemplate.is_system == 0,
+                )
+                .order_by(PlatformTemplate.created_at)
+            )
             result = await self.db.execute(query)
             user_templates = list(result.scalars().all())
         else:
@@ -69,7 +76,9 @@ class PlatformTemplateCRUD:
 
         # Check static system templates first
         if is_static_platform_id(template_id):
-            return get_static_platform_template_by_id(template_id, templates_dir, config_dir)
+            return get_static_platform_template_by_id(
+                template_id, templates_dir, config_dir
+            )
 
         # Fall back to DB
         result = await self.db.execute(
@@ -77,12 +86,16 @@ class PlatformTemplateCRUD:
         )
         return result.scalar_one_or_none()
 
-    async def get_by_platform_key(self, platform_key: str) -> Optional[PlatformTemplate]:
+    async def get_by_platform_key(
+        self, platform_key: str
+    ) -> Optional[PlatformTemplate]:
         """Get a system platform template by platform key"""
         templates_dir, config_dir = self._get_dirs()
 
         # Check static first
-        static = get_static_platform_template_by_key(platform_key, templates_dir, config_dir)
+        static = get_static_platform_template_by_key(
+            platform_key, templates_dir, config_dir
+        )
         if static:
             return static
 
@@ -90,15 +103,13 @@ class PlatformTemplateCRUD:
         result = await self.db.execute(
             select(PlatformTemplate).where(
                 PlatformTemplate.platform_key == platform_key,
-                PlatformTemplate.is_system == 1
+                PlatformTemplate.is_system == 1,
             )
         )
         return result.scalar_one_or_none()
 
     async def create(
-        self,
-        data: PlatformTemplateCreate,
-        user_id: Optional[int] = None
+        self, data: PlatformTemplateCreate, user_id: Optional[int] = None
     ) -> PlatformTemplate:
         """Create a new platform template"""
         template = PlatformTemplate(
@@ -121,9 +132,7 @@ class PlatformTemplateCRUD:
         return template
 
     async def update(
-        self,
-        template_id: int,
-        data: PlatformTemplateUpdate
+        self, template_id: int, data: PlatformTemplateUpdate
     ) -> Optional[PlatformTemplate]:
         """Update a platform template (only user templates)"""
         if is_static_platform_id(template_id):

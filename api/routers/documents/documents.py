@@ -1,4 +1,5 @@
 """Document CRUD endpoints and sub-router aggregation."""
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,13 +41,14 @@ def _resolve_file_path(stored_path: str) -> str:
 
 # ==================== Document CRUD Endpoints ====================
 
+
 @router.get("", response_model=DocumentListResponse)
 async def get_documents(
     user_id: int = Query(..., description="User ID"),
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all generated documents for a user."""
     query = select(GeneratedDocument).where(GeneratedDocument.user_id == user_id)
@@ -54,7 +56,9 @@ async def get_documents(
     if status:
         query = query.where(GeneratedDocument.status == status)
 
-    query = query.order_by(GeneratedDocument.created_at.desc()).offset(skip).limit(limit)
+    query = (
+        query.order_by(GeneratedDocument.created_at.desc()).offset(skip).limit(limit)
+    )
 
     result = await db.execute(query)
     documents = result.scalars().all()
@@ -70,7 +74,7 @@ async def get_documents(
         "documents": documents,
         "total": total,
         "page": skip // limit + 1,
-        "page_size": limit
+        "page_size": limit,
     }
 
 
@@ -107,14 +111,14 @@ async def download_document(document_id: int, db: AsyncSession = Depends(get_db)
     media_types = {
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "pdf": "application/pdf",
-        "md": "text/markdown"
+        "md": "text/markdown",
     }
     media_type = media_types.get(document.file_format, "application/octet-stream")
 
     return FileResponse(
         path=resolved_path,
         media_type=media_type,
-        filename=f"{document.document_name}.{document.file_format}"
+        filename=f"{document.document_name}.{document.file_format}",
     )
 
 
@@ -142,7 +146,7 @@ async def preview_document(document_id: int, db: AsyncSession = Depends(get_db))
             "document_name": document.document_name,
             "format": document.file_format,
             "content": content,
-            "preview_available": True
+            "preview_available": True,
         }
     else:
         return {
@@ -151,7 +155,7 @@ async def preview_document(document_id: int, db: AsyncSession = Depends(get_db))
             "format": document.file_format,
             "content": None,
             "preview_available": False,
-            "message": f"Preview not available for {document.file_format} files. Use download instead."
+            "message": f"Preview not available for {document.file_format} files. Use download instead.",
         }
 
 
@@ -167,7 +171,9 @@ async def delete_document(document_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
 
     # Delete file if exists
-    resolved_path = _resolve_file_path(document.file_path) if document.file_path else None
+    resolved_path = (
+        _resolve_file_path(document.file_path) if document.file_path else None
+    )
     if resolved_path and os.path.exists(resolved_path):
         os.remove(resolved_path)
 
@@ -218,8 +224,9 @@ async def get_document_versions(document_id: int, db: AsyncSession = Depends(get
     # Find parent (older versions)
     if document.parent_document_id:
         parent_result = await db.execute(
-            select(GeneratedDocument)
-            .where(GeneratedDocument.id == document.parent_document_id)
+            select(GeneratedDocument).where(
+                GeneratedDocument.id == document.parent_document_id
+            )
         )
         parent = parent_result.scalar_one_or_none()
         if parent:
@@ -233,9 +240,9 @@ async def get_document_versions(document_id: int, db: AsyncSession = Depends(get
                 "version": v.version,
                 "document_name": v.document_name,
                 "created_at": v.created_at,
-                "status": v.status
+                "status": v.status,
             }
             for v in versions
         ],
-        "total_versions": len(versions)
+        "total_versions": len(versions),
     }

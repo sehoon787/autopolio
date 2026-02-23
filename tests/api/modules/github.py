@@ -32,17 +32,16 @@ class GitHubAPI(BaseAPIModule):
 
     def get_repo_info(self, user_id: int, git_url: str) -> httpx.Response:
         """Get basic information about a repository."""
-        return self._get("/github/repo-info", params={
-            "user_id": user_id,
-            "git_url": git_url
-        })
+        return self._get(
+            "/github/repo-info", params={"user_id": user_id, "git_url": git_url}
+        )
 
     def detect_technologies(self, user_id: int, git_url: str) -> httpx.Response:
         """Detect technologies used in a repository."""
-        return self._get("/github/detect-technologies", params={
-            "user_id": user_id,
-            "git_url": git_url
-        })
+        return self._get(
+            "/github/detect-technologies",
+            params={"user_id": user_id, "git_url": git_url},
+        )
 
     def analyze(
         self,
@@ -50,7 +49,7 @@ class GitHubAPI(BaseAPIModule):
         project_id: int,
         git_url: str,
         provider: Optional[str] = None,
-        cli_mode: Optional[str] = None
+        cli_mode: Optional[str] = None,
     ) -> httpx.Response:
         """
         Analyze a repository for a project.
@@ -68,27 +67,24 @@ class GitHubAPI(BaseAPIModule):
         if cli_mode:
             params["cli_mode"] = cli_mode
 
-        return self._post("/github/analyze", params=params, json={
-            "git_url": git_url,
-            "project_id": project_id
-        })
+        return self._post(
+            "/github/analyze",
+            params=params,
+            json={"git_url": git_url, "project_id": project_id},
+        )
 
     def get_analysis(self, analysis_id: int) -> httpx.Response:
         """Get analysis result by ID."""
         return self._get(f"/github/analysis/{analysis_id}")
 
     def generate_description(
-        self,
-        user_id: int,
-        project_id: int,
-        git_url: str
+        self, user_id: int, project_id: int, git_url: str
     ) -> httpx.Response:
         """Generate AI description for a project."""
-        return self._post("/github/generate-description", json={
-            "user_id": user_id,
-            "project_id": project_id,
-            "git_url": git_url
-        })
+        return self._post(
+            "/github/generate-description",
+            json={"user_id": user_id, "project_id": project_id, "git_url": git_url},
+        )
 
     # Extended analysis endpoints (v1.10)
 
@@ -97,9 +93,7 @@ class GitHubAPI(BaseAPIModule):
         return self._get(f"/github/contributors/{project_id}")
 
     def get_contributor_analysis(
-        self,
-        project_id: int,
-        username: Optional[str] = None
+        self, project_id: int, username: Optional[str] = None
     ) -> httpx.Response:
         """Get detailed contributor analysis."""
         params = {}
@@ -111,21 +105,16 @@ class GitHubAPI(BaseAPIModule):
         """Get code quality metrics for a project."""
         return self._get(f"/github/code-quality/{project_id}")
 
-    def get_detailed_commits(
-        self,
-        project_id: int,
-        limit: int = 50
-    ) -> httpx.Response:
+    def get_detailed_commits(self, project_id: int, limit: int = 50) -> httpx.Response:
         """Get detailed commit history with conventional commit parsing."""
-        return self._get(f"/github/detailed-commits/{project_id}", params={"limit": limit})
+        return self._get(
+            f"/github/detailed-commits/{project_id}", params={"limit": limit}
+        )
 
     # ============ Import and Token APIs ============
 
     def import_repos(
-        self,
-        user_id: int,
-        repo_urls: list[str],
-        auto_analyze: bool = False
+        self, user_id: int, repo_urls: list[str], auto_analyze: bool = False
     ) -> httpx.Response:
         """
         Import GitHub repositories as projects.
@@ -135,10 +124,11 @@ class GitHubAPI(BaseAPIModule):
             repo_urls: List of repository URLs to import
             auto_analyze: Whether to auto-analyze after import
         """
-        return self._post("/github/import-repos", params={"user_id": user_id}, json={
-            "repo_urls": repo_urls,
-            "auto_analyze": auto_analyze
-        })
+        return self._post(
+            "/github/import-repos",
+            params={"user_id": user_id},
+            json={"repo_urls": repo_urls, "auto_analyze": auto_analyze},
+        )
 
     def save_token(self, user_id: int, token: str) -> httpx.Response:
         """
@@ -148,10 +138,9 @@ class GitHubAPI(BaseAPIModule):
             user_id: User ID
             token: GitHub access token from gh CLI
         """
-        return self._post("/github/save-token", params={
-            "user_id": user_id,
-            "token": token
-        })
+        return self._post(
+            "/github/save-token", params={"user_id": user_id, "token": token}
+        )
 
     def start_background_analysis(
         self,
@@ -161,7 +150,7 @@ class GitHubAPI(BaseAPIModule):
         provider: Optional[str] = None,
         cli_mode: Optional[str] = None,
         cli_model: Optional[str] = None,
-        language: Optional[str] = None
+        language: Optional[str] = None,
     ) -> httpx.Response:
         """
         Start background analysis for a repository.
@@ -185,14 +174,17 @@ class GitHubAPI(BaseAPIModule):
         if language:
             params["language"] = language
 
-        return self._post("/github/analyze-background", params=params, json={
-            "git_url": git_url,
-            "project_id": project_id
-        })
+        return self._post(
+            "/github/analyze-background",
+            params=params,
+            json={"git_url": git_url, "project_id": project_id},
+        )
 
     def get_analysis_status(self, project_id: int, user_id: int) -> httpx.Response:
         """Get background analysis job status for a project."""
-        return self._get(f"/github/analysis-status/{project_id}", params={"user_id": user_id})
+        return self._get(
+            f"/github/analysis-status/{project_id}", params={"user_id": user_id}
+        )
 
     def get_active_analyses(self, user_id: int) -> httpx.Response:
         """Get all active analysis jobs for a user."""

@@ -3,7 +3,6 @@ System Template Initialization Service
 Provides system templates for document generation on first startup.
 """
 
-from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +16,15 @@ SYSTEM_TEMPLATES = [
         "description": "인적사항, 학력, 경력, 프로젝트를 포함한 상세 경력기술서",
         "platform": "career_description",
         "output_format": "docx",
-        "sections": ["personal_info", "education", "experience", "projects", "skills", "certifications", "awards"],
+        "sections": [
+            "personal_info",
+            "education",
+            "experience",
+            "projects",
+            "skills",
+            "certifications",
+            "awards",
+        ],
         "max_projects": 20,
         "template_content": """# 경력기술서
 
@@ -126,14 +133,24 @@ SYSTEM_TEMPLATES = [
 - **{{name}}** - {{issuer}} ({{award_date}})
 {{/awards}}
 {{/has_awards}}
-"""
+""",
     },
     {
         "name": "이력서",
         "description": "인적사항, 학력, 경력, 프로젝트, 자기소개를 포함한 종합 이력서",
         "platform": "resume",
         "output_format": "docx",
-        "sections": ["personal_info", "salary_info", "education", "experience", "projects", "skills", "certifications", "awards", "self_introduction"],
+        "sections": [
+            "personal_info",
+            "salary_info",
+            "education",
+            "experience",
+            "projects",
+            "skills",
+            "certifications",
+            "awards",
+            "self_introduction",
+        ],
         "max_projects": 20,
         "template_content": """# 이력서
 
@@ -262,14 +279,21 @@ SYSTEM_TEMPLATES = [
 
 ### 성격 및 가치관
 {{personality}}
-"""
+""",
     },
     {
         "name": "노션 포트폴리오",
         "description": "노션용 상세 포트폴리오 템플릿",
         "platform": "notion",
         "output_format": "md",
-        "sections": ["summary", "experience", "projects", "achievements", "skills", "links"],
+        "sections": [
+            "summary",
+            "experience",
+            "projects",
+            "achievements",
+            "skills",
+            "links",
+        ],
         "template_content": """# {{name}} 포트폴리오
 
 ## 소개
@@ -343,7 +367,7 @@ SYSTEM_TEMPLATES = [
 ## 연락처
 - Email: {{email}}
 - GitHub: [{{github_username}}](https://github.com/{{github_username}})
-"""
+""",
     },
 ]
 
@@ -369,11 +393,7 @@ async def init_system_templates(db: AsyncSession) -> int:
             continue
 
         # Create new template
-        template = Template(
-            user_id=None,
-            is_system=1,
-            **tmpl_data
-        )
+        template = Template(user_id=None, is_system=1, **tmpl_data)
         db.add(template)
         created_count += 1
 

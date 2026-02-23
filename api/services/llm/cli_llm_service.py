@@ -4,6 +4,7 @@ CLI LLM Service - Execute LLM prompts via CLI tools (Claude Code, Gemini CLI).
 Uses subprocess to run CLI commands and capture output.
 Parses JSON output for token tracking when --output-format json is used.
 """
+
 import asyncio
 import json
 import logging
@@ -33,7 +34,7 @@ class CLILLMProvider:
         prompt: str,
         system_prompt: str = None,
         max_tokens: int = 1000,
-        temperature: float = 0.7
+        temperature: float = 0.7,
     ) -> tuple[str, int]:
         """Generate text using CLI, matching LLMService.provider.generate() interface."""
         # CLI tools typically don't support separate system prompts,
@@ -71,10 +72,11 @@ class CLILLMService:
         cli_path = self._find_cli_path()
         if not cli_path:
             cli_name = "claude" if self.cli_type == "claude_code" else "gemini"
-            logger.error("[CLI] %s CLI not found! Searched: shutil.which, npm global paths", cli_name)
-            raise RuntimeError(
-                f"{cli_name} CLI not found. Please install it first."
+            logger.error(
+                "[CLI] %s CLI not found! Searched: shutil.which, npm global paths",
+                cli_name,
             )
+            raise RuntimeError(f"{cli_name} CLI not found. Please install it first.")
         logger.info("[CLI] Found CLI at: %s (type=%s)", cli_path, self.cli_type)
 
         args = self._build_args(cli_path)
@@ -87,7 +89,12 @@ class CLILLMService:
         prompt_bytes = prompt.encode("utf-8")
 
         logger.info("Executing CLI: %s", cli_path)
-        logger.debug("Use shell: %s, prompt length: %d chars, %d bytes", use_shell, len(prompt), len(prompt_bytes))
+        logger.debug(
+            "Use shell: %s, prompt length: %d chars, %d bytes",
+            use_shell,
+            len(prompt),
+            len(prompt_bytes),
+        )
         if self.model:
             logger.debug("Model: %s", self.model)
 
@@ -96,17 +103,27 @@ class CLILLMService:
             if use_shell:
                 # Windows .cmd files need shell=True or cmd.exe /c prefix
                 exec_args = ["cmd.exe", "/c"] + args
-                logger.debug("Command: cmd.exe /c %s -p - --output-format json%s", args[0], f" --model {self.model}" if self.model else "")
+                logger.debug(
+                    "Command: cmd.exe /c %s -p - --output-format json%s",
+                    args[0],
+                    f" --model {self.model}" if self.model else "",
+                )
             else:
                 exec_args = args
-                logger.debug("Command: %s...%s", ' '.join(args[:4]), f" --model {self.model}" if self.model else "")
+                logger.debug(
+                    "Command: %s...%s",
+                    " ".join(args[:4]),
+                    f" --model {self.model}" if self.model else "",
+                )
 
             logger.debug("Running with stdin pipe (timeout: %ds)", CLI_TIMEOUT_SECONDS)
 
             # Use Popen instead of subprocess.run to handle Windows process tree kill on timeout.
             # subprocess.run's timeout kills only the parent (cmd.exe) but orphans child node.exe,
             # causing communicate() to block forever on pipe drain.
-            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+            creation_flags = (
+                subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+            )
 
             # Clean env: remove CLAUDECODE to avoid "nested session" error when backend
             # itself runs inside a Claude Code session (e.g., local dev testing).
@@ -121,15 +138,24 @@ class CLILLMService:
                 env=clean_env,
             )
             try:
-                stdout, stderr = process.communicate(input=prompt_bytes, timeout=CLI_TIMEOUT_SECONDS)
-                return subprocess.CompletedProcess(exec_args, process.returncode, stdout, stderr)
+                stdout, stderr = process.communicate(
+                    input=prompt_bytes, timeout=CLI_TIMEOUT_SECONDS
+                )
+                return subprocess.CompletedProcess(
+                    exec_args, process.returncode, stdout, stderr
+                )
             except subprocess.TimeoutExpired:
-                logger.warning("[CLI] Timeout after %ds, killing process tree (pid=%d)", CLI_TIMEOUT_SECONDS, process.pid)
+                logger.warning(
+                    "[CLI] Timeout after %ds, killing process tree (pid=%d)",
+                    CLI_TIMEOUT_SECONDS,
+                    process.pid,
+                )
                 if sys.platform == "win32":
                     # Kill entire process tree (cmd.exe + node.exe + children)
                     subprocess.run(
                         ["taskkill", "/T", "/F", "/PID", str(process.pid)],
-                        capture_output=True, timeout=10,
+                        capture_output=True,
+                        timeout=10,
                     )
                 else:
                     process.kill()
@@ -149,23 +175,30 @@ class CLILLMService:
                 result = await loop.run_in_executor(executor, run_subprocess)
 
             output = result.stdout.decode("utf-8", errors="replace").strip()
-            stderr_text = result.stderr.decode("utf-8", errors="replace").strip() if result.stderr else ""
+            stderr_text = (
+                result.stderr.decode("utf-8", errors="replace").strip()
+                if result.stderr
+                else ""
+            )
 
             logger.debug("Return code: %d", result.returncode)
-            logger.debug("Output length: %d, stderr length: %d", len(output), len(stderr_text))
+            logger.debug(
+                "Output length: %d, stderr length: %d", len(output), len(stderr_text)
+            )
 
             # Filter out harmless CLI noise from stderr
             _STDERR_NOISE = (
-                "(node:",                       # Node.js process warnings
-                "DeprecationWarning",           # Node.js deprecation warnings
-                "Use `node --trace-deprecation", # Node.js trace hint
-                "Loaded cached credentials",    # Gemini CLI auth message
-                "ExperimentalWarning",          # Node.js experimental feature
-                "Hook registry initialized",    # Gemini CLI hook registry info
-                "hook entries",                 # Gemini CLI hook registry info
+                "(node:",  # Node.js process warnings
+                "DeprecationWarning",  # Node.js deprecation warnings
+                "Use `node --trace-deprecation",  # Node.js trace hint
+                "Loaded cached credentials",  # Gemini CLI auth message
+                "ExperimentalWarning",  # Node.js experimental feature
+                "Hook registry initialized",  # Gemini CLI hook registry info
+                "hook entries",  # Gemini CLI hook registry info
             )
             stderr_significant = "\n".join(
-                line for line in stderr_text.splitlines()
+                line
+                for line in stderr_text.splitlines()
                 if not any(noise in line for noise in _STDERR_NOISE)
             ).strip()
 
@@ -173,8 +206,11 @@ class CLILLMService:
                 raise RuntimeError(f"CLI error: {stderr_significant[:500]}")
 
             if not output and not stderr_significant:
-                logger.warning("[CLI] Empty stdout and no significant stderr (cli=%s, returncode=%d)",
-                               self.cli_type, result.returncode)
+                logger.warning(
+                    "[CLI] Empty stdout and no significant stderr (cli=%s, returncode=%d)",
+                    self.cli_type,
+                    result.returncode,
+                )
                 return "", 0
 
             if result.returncode != 0 and not output:
@@ -183,18 +219,29 @@ class CLILLMService:
                 )
 
             content, token_count = self._parse_json_output(output)
-            logger.info("[CLI] Parsed: content_len=%d, tokens=%d, cli=%s", len(content), token_count, self.cli_type)
+            logger.info(
+                "[CLI] Parsed: content_len=%d, tokens=%d, cli=%s",
+                len(content),
+                token_count,
+                self.cli_type,
+            )
             if not content:
-                logger.warning("[CLI] Empty content returned (cli=%s, output_preview=%.200s)", self.cli_type, output)
+                logger.warning(
+                    "[CLI] Empty content returned (cli=%s, output_preview=%.200s)",
+                    self.cli_type,
+                    output,
+                )
             elif content == output:
-                logger.warning("[CLI] Content is raw/unparsed — JSON wrapper not found (cli=%s, output_preview=%.200s)", self.cli_type, output[:200])
+                logger.warning(
+                    "[CLI] Content is raw/unparsed — JSON wrapper not found (cli=%s, output_preview=%.200s)",
+                    self.cli_type,
+                    output[:200],
+                )
             self.total_tokens_used += token_count
             return content, token_count
 
         except subprocess.TimeoutExpired:
-            raise RuntimeError(
-                f"CLI timed out after {CLI_TIMEOUT_SECONDS}s"
-            )
+            raise RuntimeError(f"CLI timed out after {CLI_TIMEOUT_SECONDS}s")
         except Exception as e:
             logger.error("Exception during execution: %s: %s", type(e).__name__, e)
             raise
@@ -259,7 +306,7 @@ class CLILLMService:
             # Fallback: check if shutil.which returns extensionless and try .cmd
             path = shutil.which(exe_name)
             if path:
-                cmd_version = Path(path).with_suffix('.cmd')
+                cmd_version = Path(path).with_suffix(".cmd")
                 if cmd_version.exists():
                     logger.debug("Found %s.cmd alongside: %s", exe_name, cmd_version)
                     return str(cmd_version)
@@ -298,7 +345,9 @@ class CLILLMService:
         try:
             data = json.loads(raw_output)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.warning("[CLI] JSON parse failed: %s (output length: %d)", e, len(raw_output))
+            logger.warning(
+                "[CLI] JSON parse failed: %s (output length: %d)", e, len(raw_output)
+            )
             logger.warning("[CLI] Raw output preview: %.300s", raw_output)
             return raw_output, 0
 
@@ -312,7 +361,11 @@ class CLILLMService:
 
         if self.cli_type == "claude_code" and "result" in data:
             # Claude format (include cache tokens for accurate billing)
-            content = data["result"] if isinstance(data["result"], str) else str(data["result"])
+            content = (
+                data["result"]
+                if isinstance(data["result"], str)
+                else str(data["result"])
+            )
             usage = data.get("usage", {})
             token_count = (
                 usage.get("input_tokens", 0)
@@ -321,24 +374,37 @@ class CLILLMService:
                 + usage.get("cache_read_input_tokens", 0)
             )
             if token_count == 0:
-                logger.warning("[CLI] Claude Code: 'usage' field present=%s, keys=%s",
-                               "usage" in data, list(usage.keys()) if usage else "empty")
+                logger.warning(
+                    "[CLI] Claude Code: 'usage' field present=%s, keys=%s",
+                    "usage" in data,
+                    list(usage.keys()) if usage else "empty",
+                )
         elif self.cli_type == "gemini_cli" and "response" in data:
             # Gemini format
-            content = data["response"] if isinstance(data["response"], str) else str(data["response"])
+            content = (
+                data["response"]
+                if isinstance(data["response"], str)
+                else str(data["response"])
+            )
             stats = data.get("stats", {})
             models = stats.get("models", {})
             for model_data in models.values():
                 tokens = model_data.get("tokens", {})
                 token_count += tokens.get("total", 0)
             if token_count == 0:
-                logger.warning("[CLI] Gemini CLI: 'stats' field present=%s, stats_keys=%s, models_keys=%s",
-                               "stats" in data, list(stats.keys()) if stats else "empty",
-                               list(models.keys()) if models else "empty")
+                logger.warning(
+                    "[CLI] Gemini CLI: 'stats' field present=%s, stats_keys=%s, models_keys=%s",
+                    "stats" in data,
+                    list(stats.keys()) if stats else "empty",
+                    list(models.keys()) if models else "empty",
+                )
         else:
             # Unknown format, return raw
-            logger.warning("[CLI] Unrecognized JSON format for %s. Top-level keys: %s",
-                           self.cli_type, list(data.keys()))
+            logger.warning(
+                "[CLI] Unrecognized JSON format for %s. Top-level keys: %s",
+                self.cli_type,
+                list(data.keys()),
+            )
             content = raw_output
 
         return content or raw_output, token_count
@@ -359,7 +425,7 @@ class CLILLMService:
         commit_summary = project_data.get("commit_summary", "")
 
         # Build commit categories description
-        commit_categories = project_data.get('commit_categories', {})
+        commit_categories = project_data.get("commit_categories", {})
         categories_desc = ""
         if commit_categories:
             cat_parts = []
@@ -372,14 +438,20 @@ class CLILLMService:
             categories_desc = ", ".join(cat_parts)
 
         # Build code stats description
-        lines_added = project_data.get('lines_added', 0)
-        lines_deleted = project_data.get('lines_deleted', 0)
-        files_changed = project_data.get('files_changed', 0)
-        code_stats = f"+{lines_added:,} / -{lines_deleted:,} lines, {files_changed} files" if lines_added else "N/A"
+        lines_added = project_data.get("lines_added", 0)
+        lines_deleted = project_data.get("lines_deleted", 0)
+        files_changed = project_data.get("files_changed", 0)
+        code_stats = (
+            f"+{lines_added:,} / -{lines_deleted:,} lines, {files_changed} files"
+            if lines_added
+            else "N/A"
+        )
 
         # Get key tasks if available
-        key_tasks = project_data.get('key_tasks', [])
-        key_tasks_desc = "\n".join(f"  • {task}" for task in key_tasks[:5]) if key_tasks else ""
+        key_tasks = project_data.get("key_tasks", [])
+        key_tasks_desc = (
+            "\n".join(f"  • {task}" for task in key_tasks[:5]) if key_tasks else ""
+        )
 
         if language == "en":
             style_hint = f" Style: {style}." if style else ""
@@ -446,20 +518,21 @@ class CLILLMService:
         commit_summary: Optional[str] = None,
         language: str = "ko",
         user_context: Optional[str] = None,
-        code_context: Optional[str] = None
+        code_context: Optional[str] = None,
     ) -> List[str]:
         """
         Generate key tasks using CLI, matching LLMService interface.
         Delegates to generate_key_tasks_llm via the provider wrapper.
         """
         from .llm_generation import generate_key_tasks_llm
+
         tasks, tokens = await generate_key_tasks_llm(
             self.provider,
             project_data,
             commit_summary,
             language,
             user_context,
-            code_context
+            code_context,
         )
         # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return tasks
@@ -469,19 +542,16 @@ class CLILLMService:
         project_data: dict,
         commit_summary: Optional[str] = None,
         language: str = "ko",
-        user_context: Optional[str] = None
+        user_context: Optional[str] = None,
     ) -> List[dict]:
         """
         Generate implementation details using CLI, matching LLMService interface.
         Delegates to generate_implementation_details_llm via the provider wrapper.
         """
         from .llm_generation import generate_implementation_details_llm
+
         details, tokens = await generate_implementation_details_llm(
-            self.provider,
-            project_data,
-            commit_summary,
-            language,
-            user_context
+            self.provider, project_data, commit_summary, language, user_context
         )
         # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return details
@@ -491,20 +561,16 @@ class CLILLMService:
         project_data: dict,
         existing_achievements: Optional[List[dict]] = None,
         language: str = "ko",
-        user_context: Optional[str] = None
+        user_context: Optional[str] = None,
     ) -> dict:
         """
         Generate detailed achievements using CLI, matching LLMService interface.
         Delegates to generate_detailed_achievements_llm via the provider wrapper.
         """
         from .llm_generation import generate_detailed_achievements_llm
+
         achievements, tokens = await generate_detailed_achievements_llm(
-            self.provider,
-            project_data,
-            existing_achievements,
-            language,
-            user_context
+            self.provider, project_data, existing_achievements, language, user_context
         )
         # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return achievements
-

@@ -7,7 +7,7 @@ No database required - templates are always available from static files.
 
 import yaml
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 from datetime import datetime
 from pathlib import Path
 

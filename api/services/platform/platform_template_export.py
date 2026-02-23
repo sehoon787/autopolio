@@ -5,7 +5,6 @@ Handles exporting templates to various formats (HTML, Markdown, DOCX).
 """
 
 from typing import Tuple
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,7 @@ class PlatformTemplateExport:
         crud: PlatformTemplateCRUD,
         rendering: PlatformTemplateRendering,
         exporter: TemplateExporter,
-        data_collector: UserDataCollector
+        data_collector: UserDataCollector,
     ):
         self.db = db
         self.crud = crud
@@ -34,9 +33,7 @@ class PlatformTemplateExport:
         self.data_collector = data_collector
 
     async def export_from_db_to_html(
-        self,
-        template_id: int,
-        user_id: int
+        self, template_id: int, user_id: int
     ) -> Tuple[str, str]:
         """
         Export to HTML file using data from the database
@@ -54,12 +51,12 @@ class PlatformTemplateExport:
             raise ValueError(f"Template {template_id} not found")
 
         data = await self.data_collector.collect(user_id)
-        return self.exporter.export_html(html_content, template.platform_key, data.get("name", "user"))
+        return self.exporter.export_html(
+            html_content, template.platform_key, data.get("name", "user")
+        )
 
     async def export_from_db_to_markdown(
-        self,
-        template_id: int,
-        user_id: int
+        self, template_id: int, user_id: int
     ) -> Tuple[str, str]:
         """
         Export to Markdown file using data from the database
@@ -76,13 +73,11 @@ class PlatformTemplateExport:
             raise ValueError(f"Template {template_id} not found")
 
         data = await self.data_collector.collect(user_id)
-        return self.exporter.export_markdown_from_dict(data, template.platform_key, template.name)
+        return self.exporter.export_markdown_from_dict(
+            data, template.platform_key, template.name
+        )
 
-    async def export_from_db_to_docx(
-        self,
-        template_id: int,
-        user_id: int
-    ) -> str:
+    async def export_from_db_to_docx(self, template_id: int, user_id: int) -> str:
         """
         Export to Word document using data from the database
 
@@ -101,9 +96,7 @@ class PlatformTemplateExport:
         return self.exporter.export_docx_from_dict(data, template.platform_key)
 
     async def export_to_html(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> Tuple[str, str]:
         """
         Export rendered template to HTML file
@@ -123,9 +116,7 @@ class PlatformTemplateExport:
         return self.exporter.export_html(html_content, template.platform_key, data.name)
 
     async def export_to_markdown(
-        self,
-        template_id: int,
-        data: RenderDataRequest
+        self, template_id: int, data: RenderDataRequest
     ) -> Tuple[str, str]:
         """
         Export to Markdown format
@@ -143,11 +134,7 @@ class PlatformTemplateExport:
 
         return self.exporter.export_markdown(data, template.platform_key, template.name)
 
-    async def export_to_docx(
-        self,
-        template_id: int,
-        data: RenderDataRequest
-    ) -> str:
+    async def export_to_docx(self, template_id: int, data: RenderDataRequest) -> str:
         """
         Export to Word document
 

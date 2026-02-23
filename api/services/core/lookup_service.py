@@ -47,7 +47,9 @@ class LookupService:
             return
 
         # Load from world_universities.json (Hipo format)
-        json_path = os.path.join(self.config_dir, "universities", "world_universities.json")
+        json_path = os.path.join(
+            self.config_dir, "universities", "world_universities.json"
+        )
         if os.path.exists(json_path):
             try:
                 with open(json_path, "r", encoding="utf-8") as f:
@@ -70,7 +72,7 @@ class LookupService:
         query: str,
         lang: str = "ko",
         category: Optional[str] = None,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[Dict[str, Any]]:
         """
         Search certifications by name or issuer
@@ -121,25 +123,24 @@ class LookupService:
                 else:
                     display_name = name_en or name
 
-                results.append({
-                    "id": cert.get("id", ""),
-                    "name": display_name,
-                    "name_original": name,
-                    "issuer": issuer,
-                    "category": cert.get("category", ""),
-                    "validity_years": cert.get("validity_years"),
-                    "score": score
-                })
+                results.append(
+                    {
+                        "id": cert.get("id", ""),
+                        "name": display_name,
+                        "name_original": name,
+                        "issuer": issuer,
+                        "category": cert.get("category", ""),
+                        "validity_years": cert.get("validity_years"),
+                        "score": score,
+                    }
+                )
 
         # Sort by score and limit
         results.sort(key=lambda x: (-x["score"], x["name"]))
         return results[:limit]
 
     def search_universities(
-        self,
-        query: str,
-        country: Optional[str] = None,
-        limit: int = 20
+        self, query: str, country: Optional[str] = None, limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
         Search universities by name
@@ -203,17 +204,19 @@ class LookupService:
                 domains = univ.get("domains", [])
                 web_pages = univ.get("web_pages", [])
 
-                results.append({
-                    "name": name,
-                    "country": country_name,
-                    "country_code": univ.get("alpha_two_code", ""),
-                    "state": state,
-                    "domain": domains[0] if domains else "",
-                    "domains": domains,
-                    "web_page": web_pages[0] if web_pages else "",
-                    "web_pages": web_pages,
-                    "score": score
-                })
+                results.append(
+                    {
+                        "name": name,
+                        "country": country_name,
+                        "country_code": univ.get("alpha_two_code", ""),
+                        "state": state,
+                        "domain": domains[0] if domains else "",
+                        "domains": domains,
+                        "web_page": web_pages[0] if web_pages else "",
+                        "web_pages": web_pages,
+                        "score": score,
+                    }
+                )
 
         # Sort by score and name, limit results
         results.sort(key=lambda x: (-x["score"], x["name"]))
@@ -242,7 +245,7 @@ class LookupService:
             "ai": "AI/ML",
             "language": "Language",
             "engineering": "Engineering",
-            "other": "Other"
+            "other": "Other",
         }
 
         return [

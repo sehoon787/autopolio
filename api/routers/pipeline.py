@@ -9,7 +9,11 @@ from typing import Optional
 from api.database import get_db
 from api.models.user import User
 from api.models.job import Job
-from api.schemas.pipeline import PipelineRunRequest, PipelineStatusResponse, PipelineResultResponse
+from api.schemas.pipeline import (
+    PipelineRunRequest,
+    PipelineStatusResponse,
+    PipelineResultResponse,
+)
 from api.schemas.job import JobResponse, JobListResponse
 from api.services.pipeline import PipelineService
 from api.services.core import TaskService
@@ -25,7 +29,7 @@ _background_tasks: set = set()
 async def run_pipeline(
     request: PipelineRunRequest,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Start the document generation pipeline.
@@ -51,7 +55,7 @@ async def run_pipeline(
         user_id=user_id,
         job_type="pipeline",
         input_data=request.model_dump(),
-        total_steps=7  # 7 steps
+        total_steps=7,  # 7 steps
     )
 
     # Commit immediately so the job is visible to status queries
@@ -63,7 +67,7 @@ async def run_pipeline(
     pipeline_service = PipelineService(db, user_id)
     task = asyncio.create_task(
         pipeline_service.run_pipeline(job.task_id, request),
-        name=f"pipeline-{job.task_id}"
+        name=f"pipeline-{job.task_id}",
     )
     # Store reference to prevent GC and auto-cleanup on completion
     _background_tasks.add(task)
@@ -73,10 +77,7 @@ async def run_pipeline(
 
 
 @router.get("/tasks/{task_id}", response_model=PipelineStatusResponse)
-async def get_pipeline_status(
-    task_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_pipeline_status(task_id: str, db: AsyncSession = Depends(get_db)):
     """Get the status of a pipeline execution."""
     result = await db.execute(select(Job).where(Job.task_id == task_id))
     job = result.scalar_one_or_none()
@@ -94,7 +95,7 @@ async def get_pipeline_status(
         "Achievement Detection",
         "LLM Summarization",
         "Template Mapping",
-        "Document Generation"
+        "Document Generation",
     ]
 
     for i, step_name in enumerate(step_names, 1):
@@ -113,16 +114,21 @@ async def get_pipeline_status(
         elif job.status == "failed" and i > job.current_step:
             step_status = "skipped"
 
-        steps.append({
-            "step_number": i,
-            "step_name": step_name,
-            "status": step_status,
-            "started_at": step_data.get("started_at"),
-            "completed_at": step_data.get("completed_at") or step_data.get("skipped_at"),
-            "result": step_data.get("result"),
-            "error": step_data.get("error"),
-            "skip_reason": step_data.get("reason") if step_status == "skipped" else None
-        })
+        steps.append(
+            {
+                "step_number": i,
+                "step_name": step_name,
+                "status": step_status,
+                "started_at": step_data.get("started_at"),
+                "completed_at": step_data.get("completed_at")
+                or step_data.get("skipped_at"),
+                "result": step_data.get("result"),
+                "error": step_data.get("error"),
+                "skip_reason": step_data.get("reason")
+                if step_status == "skipped"
+                else None,
+            }
+        )
 
     return {
         "task_id": job.task_id,
@@ -135,15 +141,12 @@ async def get_pipeline_status(
         "completed_at": job.completed_at,
         "estimated_completion": job.estimated_completion,
         "result": job.output_data,
-        "error": job.error_message
+        "error": job.error_message,
     }
 
 
 @router.get("/tasks/{task_id}/result", response_model=PipelineResultResponse)
-async def get_pipeline_result(
-    task_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_pipeline_result(task_id: str, db: AsyncSession = Depends(get_db)):
     """Get the final result of a completed pipeline."""
     result = await db.execute(select(Job).where(Job.task_id == task_id))
     job = result.scalar_one_or_none()
@@ -154,7 +157,7 @@ async def get_pipeline_result(
     if job.status != "completed":
         raise HTTPException(
             status_code=400,
-            detail=f"Pipeline not completed. Current status: {job.status}"
+            detail=f"Pipeline not completed. Current status: {job.status}",
         )
 
     output = job.output_data or {}
@@ -176,10 +179,7 @@ async def get_pipeline_result(
 
 
 @router.post("/tasks/{task_id}/cancel")
-async def cancel_pipeline(
-    task_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def cancel_pipeline(task_id: str, db: AsyncSession = Depends(get_db)):
     """Cancel a running pipeline."""
     result = await db.execute(select(Job).where(Job.task_id == task_id))
     job = result.scalar_one_or_none()
@@ -189,15 +189,12 @@ async def cancel_pipeline(
 
     if job.status not in ["pending", "running"]:
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot cancel task with status: {job.status}"
+            status_code=400, detail=f"Cannot cancel task with status: {job.status}"
         )
 
     task_service = TaskService(db)
     await task_service.update_job_status(
-        task_id,
-        status="cancelled",
-        error_message="Cancelled by user"
+        task_id, status="cancelled", error_message="Cancelled by user"
     )
 
     return {"message": "Pipeline cancelled", "task_id": task_id}
@@ -210,7 +207,7 @@ async def get_user_jobs(
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all jobs for a user."""
     query = select(Job).where(Job.user_id == user_id)
@@ -265,5 +262,5 @@ async def get_user_jobs(
         "jobs": jobs_list,
         "total": total,
         "page": skip // limit + 1,
-        "page_size": limit
+        "page_size": limit,
     }

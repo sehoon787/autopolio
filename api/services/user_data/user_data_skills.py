@@ -17,16 +17,41 @@ def categorize_skills(all_technologies: set) -> Dict[str, List[str]]:
     }
 
     language_keywords = [
-        "python", "javascript", "typescript", "java", "kotlin", "go",
-        "rust", "c++", "c#", "php", "ruby", "swift", "dart"
+        "python",
+        "javascript",
+        "typescript",
+        "java",
+        "kotlin",
+        "go",
+        "rust",
+        "c++",
+        "c#",
+        "php",
+        "ruby",
+        "swift",
+        "dart",
     ]
     framework_keywords = [
-        "react", "vue", "angular", "next", "express", "fastapi",
-        "django", "flask", "spring", "flutter"
+        "react",
+        "vue",
+        "angular",
+        "next",
+        "express",
+        "fastapi",
+        "django",
+        "flask",
+        "spring",
+        "flutter",
     ]
     db_keywords = [
-        "postgresql", "mysql", "mongodb", "redis", "sqlite",
-        "oracle", "mssql", "elasticsearch"
+        "postgresql",
+        "mysql",
+        "mongodb",
+        "redis",
+        "sqlite",
+        "oracle",
+        "mssql",
+        "elasticsearch",
     ]
 
     for tech in all_technologies:
@@ -44,7 +69,7 @@ def categorize_skills(all_technologies: set) -> Dict[str, List[str]]:
 
 
 def group_projects_by_company(
-    projects: List[Dict[str, Any]]
+    projects: List[Dict[str, Any]],
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Group projects by company name"""
     company_projects = {}
@@ -57,7 +82,7 @@ def group_projects_by_company(
 
 
 def categorize_skills_by_domain_detailed(
-    projects: List[Dict[str, Any]]
+    projects: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Categorize skills by domain with detailed format for HTML rendering
 
@@ -94,8 +119,11 @@ def categorize_skills_by_domain_detailed(
         if not key_tasks:
             key_tasks_str = proj.get("key_tasks", "")
             if key_tasks_str:
-                key_tasks = [t.strip().lstrip("•").strip()
-                            for t in key_tasks_str.split("\n") if t.strip()]
+                key_tasks = [
+                    t.strip().lstrip("•").strip()
+                    for t in key_tasks_str.split("\n")
+                    if t.strip()
+                ]
 
         # Find primary domain
         project_primary_domain = None
@@ -122,15 +150,22 @@ def categorize_skills_by_domain_detailed(
                 }
 
             domain_data[matched_domain]["_tech_set"].add(tech_name)
-            domain_tech_count[matched_domain] = domain_tech_count.get(matched_domain, 0) + 1
+            domain_tech_count[matched_domain] = (
+                domain_tech_count.get(matched_domain, 0) + 1
+            )
 
             # Check if it's a database tech
-            if any(kw in tech_lower for kw in DOMAIN_CATEGORIES.get("Database", {}).get("keywords", [])):
+            if any(
+                kw in tech_lower
+                for kw in DOMAIN_CATEGORIES.get("Database", {}).get("keywords", [])
+            ):
                 domain_data[matched_domain]["_db_set"].add(tech_name)
 
         # Find primary domain
         if domain_tech_count:
-            project_primary_domain = max(domain_tech_count.items(), key=lambda x: x[1])[0]
+            project_primary_domain = max(domain_tech_count.items(), key=lambda x: x[1])[
+                0
+            ]
 
         # Add key_tasks to implementations
         for task in key_tasks:
@@ -160,7 +195,17 @@ def categorize_skills_by_domain_detailed(
                 domain_data[project_primary_domain]["_impl_set"].add(task)
 
     # Sort by priority and convert to list format for Mustache
-    priority_order = ["Backend", "AI/ML", "Frontend", "Mobile/Cross-Platform", "데이터 분석", "Database", "DevOps/인프라", "IoT/임베디드", "기타"]
+    priority_order = [
+        "Backend",
+        "AI/ML",
+        "Frontend",
+        "Mobile/Cross-Platform",
+        "데이터 분석",
+        "Database",
+        "DevOps/인프라",
+        "IoT/임베디드",
+        "기타",
+    ]
 
     result = []
     domain_idx = 1
@@ -174,18 +219,20 @@ def categorize_skills_by_domain_detailed(
 
             # Only include domains that have content
             if techs or impls:
-                result.append({
-                    "domain_name": domain_name,
-                    "domain_index": domain_idx,
-                    "technologies": techs,
-                    "technologies_str": ", ".join(techs) if techs else "",
-                    "has_technologies": len(techs) > 0,
-                    "implementations": [{"text": impl} for impl in impls],
-                    "has_implementations": len(impls) > 0,
-                    "databases": dbs,
-                    "databases_str": ", ".join(dbs) if dbs else "",
-                    "has_databases": len(dbs) > 0,
-                })
+                result.append(
+                    {
+                        "domain_name": domain_name,
+                        "domain_index": domain_idx,
+                        "technologies": techs,
+                        "technologies_str": ", ".join(techs) if techs else "",
+                        "has_technologies": len(techs) > 0,
+                        "implementations": [{"text": impl} for impl in impls],
+                        "has_implementations": len(impls) > 0,
+                        "databases": dbs,
+                        "databases_str": ", ".join(dbs) if dbs else "",
+                        "has_databases": len(dbs) > 0,
+                    }
+                )
                 domain_idx += 1
 
     # Add any remaining domains not in priority order
@@ -197,18 +244,20 @@ def categorize_skills_by_domain_detailed(
             dbs = sorted(dd["_db_set"])
 
             if techs or impls:
-                result.append({
-                    "domain_name": domain_name,
-                    "domain_index": domain_idx,
-                    "technologies": techs,
-                    "technologies_str": ", ".join(techs) if techs else "",
-                    "has_technologies": len(techs) > 0,
-                    "implementations": [{"text": impl} for impl in impls],
-                    "has_implementations": len(impls) > 0,
-                    "databases": dbs,
-                    "databases_str": ", ".join(dbs) if dbs else "",
-                    "has_databases": len(dbs) > 0,
-                })
+                result.append(
+                    {
+                        "domain_name": domain_name,
+                        "domain_index": domain_idx,
+                        "technologies": techs,
+                        "technologies_str": ", ".join(techs) if techs else "",
+                        "has_technologies": len(techs) > 0,
+                        "implementations": [{"text": impl} for impl in impls],
+                        "has_implementations": len(impls) > 0,
+                        "databases": dbs,
+                        "databases_str": ", ".join(dbs) if dbs else "",
+                        "has_databases": len(dbs) > 0,
+                    }
+                )
                 domain_idx += 1
 
     return result
@@ -228,7 +277,6 @@ def project_matches_domain(project: Dict[str, Any], domain_name: str) -> bool:
     for domain_key, domain_info in DOMAIN_CATEGORIES.items():
         if domain_info.get("name_ko") == domain_name:
             return any(
-                any(kw in tech for kw in domain_info["keywords"])
-                for tech in techs
+                any(kw in tech for kw in domain_info["keywords"]) for tech in techs
             )
     return False

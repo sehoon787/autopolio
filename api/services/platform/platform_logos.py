@@ -8,18 +8,26 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
 # Get the logos file path
-_LOGOS_FILE = Path(__file__).parent.parent.parent / "data" / "platform_templates" / "logos" / "logos.json"
+_LOGOS_FILE = (
+    Path(__file__).parent.parent.parent
+    / "data"
+    / "platform_templates"
+    / "logos"
+    / "logos.json"
+)
 
 # Cache the logos with file mtime for auto-invalidation
 _LOGOS_CACHE: Optional[Tuple[float, Dict[str, Any]]] = None
+
 
 # Load logos from JSON file
 def _load_logos() -> Dict[str, Any]:
     """Load logos from the centralized JSON file"""
     if _LOGOS_FILE.exists():
-        with open(_LOGOS_FILE, 'r', encoding='utf-8') as f:
+        with open(_LOGOS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
+
 
 def get_logos() -> Dict[str, Any]:
     """Get all logos (cached with auto-invalidation on file change)"""
@@ -41,17 +49,20 @@ def get_logos() -> Dict[str, Any]:
     _LOGOS_CACHE = (current_mtime, data)
     return data
 
+
 def get_platform_logo(platform_key: str) -> str:
     """Get the base64 logo for a platform"""
     logos = get_logos()
     platform = logos.get(platform_key, {})
-    return platform.get('base64', '')
+    return platform.get("base64", "")
+
 
 def get_platform_color(platform_key: str) -> str:
     """Get the background color for a platform icon"""
     logos = get_logos()
     platform = logos.get(platform_key, {})
-    return platform.get('color', '#666666')
+    return platform.get("color", "#666666")
+
 
 def get_platform_logo_svg(platform_key: str, size: int = 32, padding: int = 8) -> str:
     """Generate an SVG with the platform logo embedded
@@ -65,7 +76,7 @@ def get_platform_logo_svg(platform_key: str, size: int = 32, padding: int = 8) -
     color = get_platform_color(platform_key)
 
     if not logo:
-        return ''
+        return ""
 
     # Calculate image dimensions based on padding
     img_size = 48 - (padding * 2)

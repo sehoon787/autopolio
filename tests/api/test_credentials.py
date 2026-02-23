@@ -3,7 +3,6 @@ Credentials API tests (certifications, education, awards, publications, voluntee
 Aligned with actual API schemas.
 """
 
-import pytest
 from uuid import uuid4
 from modules.credentials import CredentialsAPI
 
@@ -22,7 +21,7 @@ class TestCertificationsCRUD:
             issuer="Amazon Web Services",
             issue_date="2024-01-15",
             expiry_date="2027-01-15",
-            credential_id=f"AWS-{unique_id}"
+            credential_id=f"AWS-{unique_id}",
         )
 
         assert response.status_code in [200, 201]
@@ -39,9 +38,7 @@ class TestCertificationsCRUD:
 
         # Create certification first
         create_res = api.create_certification(
-            user_id=test_user["id"],
-            name=f"Test Cert {unique_id}",
-            issuer="Test Issuer"
+            user_id=test_user["id"], name=f"Test Cert {unique_id}", issuer="Test Issuer"
         )
         cert = create_res.json()
 
@@ -49,7 +46,11 @@ class TestCertificationsCRUD:
 
         assert response.status_code == 200
         data = response.json()
-        certs = data if isinstance(data, list) else data.get("certifications", data.get("items", []))
+        certs = (
+            data
+            if isinstance(data, list)
+            else data.get("certifications", data.get("items", []))
+        )
         assert isinstance(certs, list)
 
         # Cleanup
@@ -64,7 +65,7 @@ class TestCertificationsCRUD:
         create_res = api.create_certification(
             user_id=test_user["id"],
             name=f"Original Cert {unique_id}",
-            issuer="Original Issuer"
+            issuer="Original Issuer",
         )
         cert = create_res.json()
 
@@ -73,7 +74,7 @@ class TestCertificationsCRUD:
             cert["id"],
             test_user["id"],
             name=f"Updated Cert {unique_id}",
-            issuer="Updated Issuer"
+            issuer="Updated Issuer",
         )
 
         assert response.status_code == 200
@@ -89,9 +90,7 @@ class TestCertificationsCRUD:
 
         # Create first
         create_res = api.create_certification(
-            user_id=test_user["id"],
-            name="To Delete",
-            issuer="Test"
+            user_id=test_user["id"], name="To Delete", issuer="Test"
         )
         cert = create_res.json()
 
@@ -115,7 +114,7 @@ class TestEducationCRUD:
             major="Computer Science",
             start_date="2016-03-01",
             end_date="2020-02-28",
-            gpa="3.8"
+            gpa="3.8",
         )
 
         assert response.status_code in [200, 201]
@@ -134,7 +133,7 @@ class TestEducationCRUD:
         create_res = api.create_education(
             user_id=test_user["id"],
             school_name=f"Test School {unique_id}",
-            degree="Master"
+            degree="Master",
         )
         edu = create_res.json()
 
@@ -142,7 +141,11 @@ class TestEducationCRUD:
 
         assert response.status_code == 200
         data = response.json()
-        items = data if isinstance(data, list) else data.get("educations", data.get("items", []))
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("educations", data.get("items", []))
+        )
         assert isinstance(items, list)
 
         # Cleanup
@@ -154,18 +157,13 @@ class TestEducationCRUD:
 
         # Create first
         create_res = api.create_education(
-            user_id=test_user["id"],
-            school_name="Original School",
-            degree="Bachelor"
+            user_id=test_user["id"], school_name="Original School", degree="Bachelor"
         )
         edu = create_res.json()
 
         # Update
         response = api.update_education(
-            edu["id"],
-            test_user["id"],
-            school_name="Updated School",
-            degree="Master"
+            edu["id"], test_user["id"], school_name="Updated School", degree="Master"
         )
 
         assert response.status_code == 200
@@ -181,9 +179,7 @@ class TestEducationCRUD:
 
         # Create first
         create_res = api.create_education(
-            user_id=test_user["id"],
-            school_name="To Delete School",
-            degree="Bachelor"
+            user_id=test_user["id"], school_name="To Delete School", degree="Bachelor"
         )
         edu = create_res.json()
 
@@ -207,7 +203,7 @@ class TestTrainingsCRUD:
             major="Python Backend Development",
             start_date="2023-03-01",
             end_date="2023-06-30",
-            description="Backend development bootcamp"
+            description="Backend development bootcamp",
         )
 
         assert response.status_code in [200, 201]
@@ -228,7 +224,7 @@ class TestTrainingsCRUD:
             degree="course",
             major=f"Machine Learning {unique_id}",
             start_date="2023-07-01",
-            end_date="2023-09-30"
+            end_date="2023-09-30",
         )
 
         assert response.status_code in [200, 201]
@@ -249,7 +245,7 @@ class TestTrainingsCRUD:
             degree="certificate",
             major="Cloud Architecture",
             start_date="2024-01-15",
-            end_date="2024-01-19"
+            end_date="2024-01-19",
         )
 
         assert response.status_code in [200, 201]
@@ -270,7 +266,7 @@ class TestTrainingsCRUD:
             degree="workshop",
             major=f"Flutter Workshop {unique_id}",
             start_date="2024-03-20",
-            end_date="2024-03-22"
+            end_date="2024-03-22",
         )
 
         assert response.status_code in [200, 201]
@@ -286,25 +282,25 @@ class TestTrainingsCRUD:
 
         # Create bootcamp and course
         bootcamp = api.create_education(
-            user_id=test_user["id"],
-            school_name="Test Bootcamp",
-            degree="bootcamp"
+            user_id=test_user["id"], school_name="Test Bootcamp", degree="bootcamp"
         ).json()
 
         course = api.create_education(
-            user_id=test_user["id"],
-            school_name="Test Course",
-            degree="course"
+            user_id=test_user["id"], school_name="Test Course", degree="course"
         ).json()
 
         # List all education
         response = api.list_education(test_user["id"])
         assert response.status_code == 200
         data = response.json()
-        items = data if isinstance(data, list) else data.get("educations", data.get("items", []))
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("educations", data.get("items", []))
+        )
 
         # Filter trainings (bootcamp, course, certificate, workshop, other)
-        training_types = ['bootcamp', 'course', 'certificate', 'workshop', 'other']
+        training_types = ["bootcamp", "course", "certificate", "workshop", "other"]
         trainings = [e for e in items if e.get("degree") in training_types]
         assert len(trainings) >= 2
 
@@ -326,7 +322,7 @@ class TestAwardsCRUD:
             name=f"Best Developer Award {unique_id}",
             issuer="Tech Conference",
             award_date="2024-06-15",
-            description="Awarded for outstanding contributions"
+            description="Awarded for outstanding contributions",
         )
 
         assert response.status_code in [200, 201]
@@ -342,9 +338,7 @@ class TestAwardsCRUD:
 
         # Create first
         create_res = api.create_award(
-            user_id=test_user["id"],
-            name="Test Award",
-            issuer="Test Org"
+            user_id=test_user["id"], name="Test Award", issuer="Test Org"
         )
         award = create_res.json()
 
@@ -352,7 +346,11 @@ class TestAwardsCRUD:
 
         assert response.status_code == 200
         data = response.json()
-        items = data if isinstance(data, list) else data.get("awards", data.get("items", []))
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("awards", data.get("items", []))
+        )
         assert isinstance(items, list)
 
         # Cleanup
@@ -364,18 +362,13 @@ class TestAwardsCRUD:
 
         # Create first
         create_res = api.create_award(
-            user_id=test_user["id"],
-            name="Original Award",
-            issuer="Original Org"
+            user_id=test_user["id"], name="Original Award", issuer="Original Org"
         )
         award = create_res.json()
 
         # Update
         response = api.update_award(
-            award["id"],
-            test_user["id"],
-            name="Updated Award",
-            issuer="Updated Org"
+            award["id"], test_user["id"], name="Updated Award", issuer="Updated Org"
         )
 
         assert response.status_code == 200
@@ -391,9 +384,7 @@ class TestAwardsCRUD:
 
         # Create first
         create_res = api.create_award(
-            user_id=test_user["id"],
-            name="To Delete Award",
-            issuer="Test"
+            user_id=test_user["id"], name="To Delete Award", issuer="Test"
         )
         award = create_res.json()
 
@@ -416,7 +407,7 @@ class TestPublicationsCRUD:
             publication_type="journal",
             publisher="IEEE",
             publication_date="2024-03-01",
-            url="https://example.com/paper"
+            url="https://example.com/paper",
         )
 
         assert response.status_code in [200, 201]
@@ -435,7 +426,7 @@ class TestPublicationsCRUD:
             user_id=test_user["id"],
             title=f"Innovative System Patent {unique_id}",
             publication_type="patent",
-            publication_date="2024-01-01"
+            publication_date="2024-01-01",
         )
 
         assert response.status_code in [200, 201]
@@ -453,7 +444,7 @@ class TestPublicationsCRUD:
         create_res = api.create_publication(
             user_id=test_user["id"],
             title="Test Publication",
-            publication_type="journal"
+            publication_type="journal",
         )
         pub = create_res.json()
 
@@ -461,7 +452,11 @@ class TestPublicationsCRUD:
 
         assert response.status_code == 200
         data = response.json()
-        items = data if isinstance(data, list) else data.get("publications", data.get("items", []))
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("publications", data.get("items", []))
+        )
         assert isinstance(items, list)
 
         # Cleanup
@@ -473,9 +468,7 @@ class TestPublicationsCRUD:
 
         # Create first
         create_res = api.create_publication(
-            user_id=test_user["id"],
-            title="Original Paper",
-            publication_type="journal"
+            user_id=test_user["id"], title="Original Paper", publication_type="journal"
         )
         pub = create_res.json()
 
@@ -484,7 +477,7 @@ class TestPublicationsCRUD:
             pub["id"],
             test_user["id"],
             title="Updated Paper",
-            publisher="Updated Publisher"
+            publisher="Updated Publisher",
         )
 
         assert response.status_code == 200
@@ -500,9 +493,7 @@ class TestPublicationsCRUD:
 
         # Create first
         create_res = api.create_publication(
-            user_id=test_user["id"],
-            title="To Delete Paper",
-            publication_type="journal"
+            user_id=test_user["id"], title="To Delete Paper", publication_type="journal"
         )
         pub = create_res.json()
 
@@ -525,7 +516,7 @@ class TestVolunteerActivitiesCRUD:
             activity_type="volunteer",
             organization="Apache Foundation",
             start_date="2023-01-01",
-            description="Contributing to open source projects"
+            description="Contributing to open source projects",
         )
 
         assert response.status_code in [200, 201]
@@ -541,9 +532,7 @@ class TestVolunteerActivitiesCRUD:
 
         # Create first
         create_res = api.create_activity(
-            user_id=test_user["id"],
-            name="Test Activity",
-            activity_type="volunteer"
+            user_id=test_user["id"], name="Test Activity", activity_type="volunteer"
         )
         activity = create_res.json()
 
@@ -551,7 +540,11 @@ class TestVolunteerActivitiesCRUD:
 
         assert response.status_code == 200
         data = response.json()
-        items = data if isinstance(data, list) else data.get("volunteer_activities", data.get("items", []))
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("volunteer_activities", data.get("items", []))
+        )
         assert isinstance(items, list)
 
         # Cleanup
@@ -563,9 +556,7 @@ class TestVolunteerActivitiesCRUD:
 
         # Create first
         create_res = api.create_activity(
-            user_id=test_user["id"],
-            name="Original Activity",
-            activity_type="volunteer"
+            user_id=test_user["id"], name="Original Activity", activity_type="volunteer"
         )
         activity = create_res.json()
 
@@ -574,7 +565,7 @@ class TestVolunteerActivitiesCRUD:
             activity["id"],
             test_user["id"],
             name="Updated Activity",
-            description="Updated description"
+            description="Updated description",
         )
 
         assert response.status_code == 200
@@ -592,7 +583,7 @@ class TestVolunteerActivitiesCRUD:
         create_res = api.create_activity(
             user_id=test_user["id"],
             name="To Delete Activity",
-            activity_type="volunteer"
+            activity_type="volunteer",
         )
         activity = create_res.json()
 
@@ -609,9 +600,7 @@ class TestCredentialsValidation:
         api = CredentialsAPI(api_client)
 
         response = api.create_certification(
-            user_id=99999,
-            name="Invalid User Cert",
-            issuer="Test"
+            user_id=99999, name="Invalid User Cert", issuer="Test"
         )
 
         assert response.status_code in [400, 404, 422]
@@ -623,7 +612,7 @@ class TestCredentialsValidation:
         response = api._post(
             "/knowledge/credentials/educations",
             params={"user_id": test_user["id"]},
-            json={"degree": "Bachelor"}  # Missing school_name
+            json={"degree": "Bachelor"},  # Missing school_name
         )
 
         assert response.status_code in [400, 422]

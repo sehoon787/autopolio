@@ -11,6 +11,7 @@ from typing import Optional
 @dataclass
 class OAuthUserInfo:
     """User information returned from OAuth provider"""
+
     provider_user_id: str
     username: str
     email: Optional[str]
@@ -73,7 +74,9 @@ class OAuthProvider(ABC):
         """
         pass
 
-    async def refresh_access_token(self, refresh_token: str) -> tuple[str, Optional[str], Optional[datetime]]:
+    async def refresh_access_token(
+        self, refresh_token: str
+    ) -> tuple[str, Optional[str], Optional[datetime]]:
         """
         Refresh access token using refresh token (optional, not all providers support this)
 
@@ -87,7 +90,9 @@ class OAuthProvider(ABC):
             NotImplementedError: If provider doesn't support refresh
             ValueError: If refresh fails
         """
-        raise NotImplementedError(f"{self.provider_name} does not support token refresh")
+        raise NotImplementedError(
+            f"{self.provider_name} does not support token refresh"
+        )
 
     async def revoke_token(self, token: str) -> bool:
         """
@@ -102,4 +107,6 @@ class OAuthProvider(ABC):
         Raises:
             NotImplementedError: If provider doesn't support revocation
         """
-        raise NotImplementedError(f"{self.provider_name} does not support token revocation")
+        raise NotImplementedError(
+            f"{self.provider_name} does not support token revocation"
+        )

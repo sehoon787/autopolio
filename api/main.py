@@ -7,14 +7,26 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
+from api.config import get_settings
+from api.database import init_db, close_db, cleanup_stale_jobs
+from api.routers import (
+    users,
+    github,
+    templates,
+    pipeline,
+    documents,
+    llm,
+    platforms,
+    lookup,
+    oauth,
+)
+from api.routers.knowledge import companies, projects, achievements, credentials
+
 # Configure logging: enable INFO level for api.* loggers
 # uvicorn overrides root logger config, so configure api logger with its own handler
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s", force=True)
-
-from api.config import get_settings
-from api.database import init_db, close_db, cleanup_stale_jobs, AsyncSessionLocal
-from api.routers import users, github, templates, pipeline, documents, llm, platforms, lookup, oauth
-from api.routers.knowledge import companies, projects, achievements, credentials
+logging.basicConfig(
+    level=logging.INFO, format="%(levelname)s:     %(message)s", force=True
+)
 
 settings = get_settings()
 
@@ -70,10 +82,16 @@ if os.path.exists(settings.result_dir):
 # Include routers
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(github.router, prefix="/api/github", tags=["GitHub"])
-app.include_router(companies.router, prefix="/api/knowledge/companies", tags=["Companies"])
+app.include_router(
+    companies.router, prefix="/api/knowledge/companies", tags=["Companies"]
+)
 app.include_router(projects.router, prefix="/api/knowledge/projects", tags=["Projects"])
-app.include_router(achievements.router, prefix="/api/knowledge/achievements", tags=["Achievements"])
-app.include_router(credentials.router, prefix="/api/knowledge/credentials", tags=["Credentials"])
+app.include_router(
+    achievements.router, prefix="/api/knowledge/achievements", tags=["Achievements"]
+)
+app.include_router(
+    credentials.router, prefix="/api/knowledge/credentials", tags=["Credentials"]
+)
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
 app.include_router(pipeline.router, prefix="/api/pipeline", tags=["Pipeline"])
 app.include_router(documents.router, prefix="/api/documents", tags=["Documents"])
@@ -82,6 +100,7 @@ app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
 # Electron-only: register decrypted API keys endpoint
 if os.environ.get("AUTOPOLIO_RUNTIME") == "electron":
     from api.routers import llm_keys
+
     app.include_router(llm_keys.router, prefix="/api/llm", tags=["LLM"])
 
 app.include_router(platforms.router, prefix="/api/platforms", tags=["Platforms"])
@@ -92,17 +111,19 @@ app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Log validation errors for debugging."""
-    logging.error(f"Validation error for {request.method} {request.url.path}: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors()}
+    logging.error(
+        f"Validation error for {request.method} {request.url.path}: {exc.errors()}"
     )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch-all handler to ensure proper JSON response with CORS headers on 500 errors."""
-    logging.error(f"Unhandled exception for {request.method} {request.url.path}: {exc}", exc_info=True)
+    logging.error(
+        f"Unhandled exception for {request.method} {request.url.path}: {exc}",
+        exc_info=True,
+    )
     origin = request.headers.get("origin", "")
     headers = {}
     if origin:
@@ -123,7 +144,7 @@ async def root():
         "version": "1.0.0",
         "description": "Portfolio/Resume automation platform",
         "docs_url": "/docs",
-        "health": "ok"
+        "health": "ok",
     }
 
 
@@ -135,4 +156,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=settings.api_port, reload=settings.debug)

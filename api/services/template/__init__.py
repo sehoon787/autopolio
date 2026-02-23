@@ -10,13 +10,13 @@ from .static_doc_templates import (
 )
 
 __all__ = [
-    'TemplateExporter',
-    'init_system_templates',
-    'TemplateRenderer',
-    'get_system_templates',
-    'TemplateRenderingService',
-    'DEFAULT_SAMPLE_DATA',
-    'get_static_doc_templates',
-    'get_static_doc_template_by_id',
-    'is_static_doc_id',
+    "TemplateExporter",
+    "init_system_templates",
+    "TemplateRenderer",
+    "get_system_templates",
+    "TemplateRenderingService",
+    "DEFAULT_SAMPLE_DATA",
+    "get_static_doc_templates",
+    "get_static_doc_template_by_id",
+    "is_static_doc_id",
 ]

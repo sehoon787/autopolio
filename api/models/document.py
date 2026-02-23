@@ -6,6 +6,7 @@ from api.database import Base
 
 class GeneratedDocument(Base):
     """Generated resume/portfolio documents."""
+
     __tablename__ = "generated_documents"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -31,7 +32,9 @@ class GeneratedDocument(Base):
 
     # Version tracking
     version = Column(Integer, default=1)
-    parent_document_id = Column(Integer, ForeignKey("generated_documents.id"), nullable=True)
+    parent_document_id = Column(
+        Integer, ForeignKey("generated_documents.id"), nullable=True
+    )
 
     # Status
     status = Column(String(50), default="completed")  # completed, draft, archived

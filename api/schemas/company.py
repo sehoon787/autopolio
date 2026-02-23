@@ -47,6 +47,7 @@ class CompanyResponse(CompanyBase):
 
 class ProjectSummary(BaseModel):
     """Project summary for company grouping"""
+
     id: int
     name: str
     start_date: Optional[date] = None
@@ -63,6 +64,7 @@ class ProjectSummary(BaseModel):
 
 class CompanySummaryResponse(BaseModel):
     """Company summary with aggregated information"""
+
     company: CompanyResponse
     projects: list[ProjectSummary]
     project_count: int
@@ -73,6 +75,7 @@ class CompanySummaryResponse(BaseModel):
 
 class CompanyGroupedResponse(BaseModel):
     """Response for grouped-by-company endpoint"""
+
     companies: list[CompanySummaryResponse]
     total_companies: int
     total_projects: int

@@ -33,14 +33,10 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 @router.get("", response_model=List[UserResponse])
 async def get_users(
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
 ):
     """Get all users."""
-    result = await db.execute(
-        select(User).offset(skip).limit(limit)
-    )
+    result = await db.execute(select(User).offset(skip).limit(limit))
     users = result.scalars().all()
     return users
 
@@ -60,9 +56,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     """Create a new user."""
     # Check if user with same email or github username exists
     if user_data.email:
-        result = await db.execute(
-            select(User).where(User.email == user_data.email)
-        )
+        result = await db.execute(select(User).where(User.email == user_data.email))
         if result.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -71,7 +65,9 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
             select(User).where(User.github_username == user_data.github_username)
         )
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="GitHub username already registered")
+            raise HTTPException(
+                status_code=400, detail="GitHub username already registered"
+            )
 
     user = User(**user_data.model_dump())
     db.add(user)
@@ -82,9 +78,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: int,
-    user_data: UserUpdate,
-    db: AsyncSession = Depends(get_db)
+    user_id: int, user_data: UserUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update a user."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -168,9 +162,7 @@ async def get_user_profile(user_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.put("/{user_id}/profile", response_model=UserProfileResponse)
 async def update_user_profile(
-    user_id: int,
-    data: UserProfileUpdate,
-    db: AsyncSession = Depends(get_db)
+    user_id: int, data: UserProfileUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update user profile.
 
@@ -208,21 +200,26 @@ async def get_generation_options(user_id: int, db: AsyncSession = Depends(get_db
 
     return GenerationOptionsResponse(
         # AI Analysis settings
-        default_summary_style=getattr(user, 'default_summary_style', None) or "professional",
-        default_analysis_language=getattr(user, 'default_analysis_language', None) or "ko",
-        default_analysis_scope=getattr(user, 'default_analysis_scope', None) or "standard",
+        default_summary_style=getattr(user, "default_summary_style", None)
+        or "professional",
+        default_analysis_language=getattr(user, "default_analysis_language", None)
+        or "ko",
+        default_analysis_scope=getattr(user, "default_analysis_scope", None)
+        or "standard",
         # Document generation settings
-        default_output_format=getattr(user, 'default_output_format', None) or "docx",
-        default_include_achievements=str_to_bool(getattr(user, 'default_include_achievements', None), True),
-        default_include_tech_stack=str_to_bool(getattr(user, 'default_include_tech_stack', None), True),
+        default_output_format=getattr(user, "default_output_format", None) or "docx",
+        default_include_achievements=str_to_bool(
+            getattr(user, "default_include_achievements", None), True
+        ),
+        default_include_tech_stack=str_to_bool(
+            getattr(user, "default_include_tech_stack", None), True
+        ),
     )
 
 
 @router.put("/{user_id}/generation-options", response_model=GenerationOptionsResponse)
 async def update_generation_options(
-    user_id: int,
-    data: GenerationOptionsUpdate,
-    db: AsyncSession = Depends(get_db)
+    user_id: int, data: GenerationOptionsUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update user's default generation options.
 
@@ -245,9 +242,13 @@ async def update_generation_options(
     if data.default_output_format is not None:
         user.default_output_format = data.default_output_format
     if data.default_include_achievements is not None:
-        user.default_include_achievements = "true" if data.default_include_achievements else "false"
+        user.default_include_achievements = (
+            "true" if data.default_include_achievements else "false"
+        )
     if data.default_include_tech_stack is not None:
-        user.default_include_tech_stack = "true" if data.default_include_tech_stack else "false"
+        user.default_include_tech_stack = (
+            "true" if data.default_include_tech_stack else "false"
+        )
 
     await db.flush()
     await db.refresh(user)
@@ -260,21 +261,26 @@ async def update_generation_options(
 
     return GenerationOptionsResponse(
         # AI Analysis settings
-        default_summary_style=getattr(user, 'default_summary_style', None) or "professional",
-        default_analysis_language=getattr(user, 'default_analysis_language', None) or "ko",
-        default_analysis_scope=getattr(user, 'default_analysis_scope', None) or "standard",
+        default_summary_style=getattr(user, "default_summary_style", None)
+        or "professional",
+        default_analysis_language=getattr(user, "default_analysis_language", None)
+        or "ko",
+        default_analysis_scope=getattr(user, "default_analysis_scope", None)
+        or "standard",
         # Document generation settings
-        default_output_format=getattr(user, 'default_output_format', None) or "docx",
-        default_include_achievements=str_to_bool(getattr(user, 'default_include_achievements', None), True),
-        default_include_tech_stack=str_to_bool(getattr(user, 'default_include_tech_stack', None), True),
+        default_output_format=getattr(user, "default_output_format", None) or "docx",
+        default_include_achievements=str_to_bool(
+            getattr(user, "default_include_achievements", None), True
+        ),
+        default_include_tech_stack=str_to_bool(
+            getattr(user, "default_include_tech_stack", None), True
+        ),
     )
 
 
 @router.post("/{user_id}/photo")
 async def upload_profile_photo(
-    user_id: int,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
     """Upload a profile photo for the user.
 
@@ -282,8 +288,11 @@ async def upload_profile_photo(
     Max file size: 5MB
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.info(f"Photo upload request: user_id={user_id}, filename={file.filename}, content_type={file.content_type}")
+    logger.info(
+        f"Photo upload request: user_id={user_id}, filename={file.filename}, content_type={file.content_type}"
+    )
     # Check user exists
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -298,7 +307,7 @@ async def upload_profile_photo(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
     # Check file size (max 5MB)
@@ -318,7 +327,7 @@ async def upload_profile_photo(
             os.remove(old_path)
 
     # Save new photo
-    async with aiofiles.open(file_path, 'wb') as f:
+    async with aiofiles.open(file_path, "wb") as f:
         await f.write(contents)
 
     # Update user record
@@ -329,7 +338,7 @@ async def upload_profile_photo(
     return {
         "success": True,
         "photo_url": user.profile_photo_url,
-        "filename": unique_filename
+        "filename": unique_filename,
     }
 
 
@@ -351,7 +360,7 @@ async def get_profile_photo(user_id: int, filename: str):
         ".jpeg": "image/jpeg",
         ".png": "image/png",
         ".gif": "image/gif",
-        ".webp": "image/webp"
+        ".webp": "image/webp",
     }
     content_type = content_types.get(ext, "application/octet-stream")
 

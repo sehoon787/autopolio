@@ -1,15 +1,15 @@
 """
 LLM Configuration Router - Manage API keys and CLI status.
 """
+
 import asyncio
 import logging
 import sys
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List
 
-logger = logging.getLogger(__name__)
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
 
 from api.database import get_db
 from api.models.user import User
@@ -28,6 +28,8 @@ from api.schemas.llm import (
 from api.services.llm import get_cli_service
 from api.services.core import EncryptionService
 from api.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 encryption_service = EncryptionService()
@@ -48,7 +50,11 @@ LLM_PROVIDERS = [
         id="anthropic",
         name="Anthropic",
         description="Claude models for text generation",
-        models=["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
+        models=[
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-haiku-20240307",
+        ],
         default_model="claude-3-5-sonnet-20241022",
         docs_url="https://docs.anthropic.com",
         has_cli=True,  # Claude Code CLI exists
@@ -64,10 +70,11 @@ LLM_PROVIDERS = [
     ),
 ]
 
+
 @router.get("/config", response_model=LLMConfigResponse)
 async def get_llm_config(
     user_id: int = Query(None),  # Optional - can work without user
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get LLM configuration and CLI status. User ID is optional for viewing providers."""
     user = None
@@ -112,23 +119,27 @@ async def get_llm_config(
         # configured = either env or user configured
         configured = env_configured or user_configured
 
-        providers.append(LLMProvider(
-            id=provider_info.id,
-            name=provider_info.name,
-            description=provider_info.description,
-            configured=configured,
-            env_configured=env_configured,
-            user_configured=user_configured,
-            is_primary=is_primary,
-            models=provider_info.models,
-            default_model=provider_info.default_model,
-            selected_model=selected_model,
-        ))
+        providers.append(
+            LLMProvider(
+                id=provider_info.id,
+                name=provider_info.name,
+                description=provider_info.description,
+                configured=configured,
+                env_configured=env_configured,
+                user_configured=user_configured,
+                is_primary=is_primary,
+                models=provider_info.models,
+                default_model=provider_info.default_model,
+                selected_model=selected_model,
+            )
+        )
 
     return LLMConfigResponse(
         preferred_llm=user.preferred_llm if user else "openai",
         openai_configured=user.openai_api_key_encrypted is not None if user else False,
-        anthropic_configured=user.anthropic_api_key_encrypted is not None if user else False,
+        anthropic_configured=user.anthropic_api_key_encrypted is not None
+        if user
+        else False,
         gemini_configured=user.gemini_api_key_encrypted is not None if user else False,
         openai_model=user.openai_model if user else "gpt-4-turbo-preview",
         anthropic_model=user.anthropic_model if user else "claude-3-5-sonnet-20241022",
@@ -143,7 +154,7 @@ async def get_llm_config(
 async def update_llm_config(
     config: LLMConfigUpdate,
     user_id: int = Query(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Update LLM configuration (API keys and provider preference)."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -162,19 +173,25 @@ async def update_llm_config(
         if config.openai_api_key == "":
             user.openai_api_key_encrypted = None
         else:
-            user.openai_api_key_encrypted = encryption_service.encrypt(config.openai_api_key)
+            user.openai_api_key_encrypted = encryption_service.encrypt(
+                config.openai_api_key
+            )
 
     if config.anthropic_api_key is not None:
         if config.anthropic_api_key == "":
             user.anthropic_api_key_encrypted = None
         else:
-            user.anthropic_api_key_encrypted = encryption_service.encrypt(config.anthropic_api_key)
+            user.anthropic_api_key_encrypted = encryption_service.encrypt(
+                config.anthropic_api_key
+            )
 
     if config.gemini_api_key is not None:
         if config.gemini_api_key == "":
             user.gemini_api_key_encrypted = None
         else:
-            user.gemini_api_key_encrypted = encryption_service.encrypt(config.gemini_api_key)
+            user.gemini_api_key_encrypted = encryption_service.encrypt(
+                config.gemini_api_key
+            )
 
     # Update model preferences
     if config.openai_model is not None:
@@ -189,6 +206,7 @@ async def update_llm_config(
 
     # Return updated config
     return await get_llm_config(user_id=user_id, db=db)
+
 
 @router.post("/validate/{provider}", response_model=APIKeyValidationResponse)
 async def validate_api_key(
@@ -230,22 +248,25 @@ async def validate_api_key(
     try:
         if provider == "openai":
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(api_key=api_key)
             # Simple models list call to validate
             await client.models.list()
 
         elif provider == "anthropic":
             import anthropic
+
             client = anthropic.AsyncAnthropic(api_key=api_key)
             # Simple message to validate
             await client.messages.create(
                 model="claude-3-haiku-20240307",
                 max_tokens=10,
-                messages=[{"role": "user", "content": "Hi"}]
+                messages=[{"role": "user", "content": "Hi"}],
             )
 
         elif provider == "gemini":
             from google import genai
+
             client = genai.Client(api_key=api_key)
             # List models to validate the API key
             models = client.models.list()
@@ -295,6 +316,7 @@ async def refresh_cli_status():
     """Force refresh CLI detection (clears cache)."""
     # Clear the version cache
     from api.services.llm import CLIService
+
     CLIService._cached_latest_version = None
 
     cli_service = get_cli_service()
@@ -325,7 +347,7 @@ async def test_cli(cli_type: str):
         """Run CLI --version in a thread (Windows asyncio subprocess compatibility)."""
         cli_path_lower = cli_path.lower()
         use_shell = sys.platform == "win32" and (
-            cli_path_lower.endswith('.cmd') or cli_path_lower.endswith('.bat')
+            cli_path_lower.endswith(".cmd") or cli_path_lower.endswith(".bat")
         )
 
         if use_shell:
@@ -356,7 +378,9 @@ async def test_cli(cli_type: str):
             # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor(max_workers=1) as executor:
-                output, returncode = await loop.run_in_executor(executor, run_cli_version, cli_path)
+                output, returncode = await loop.run_in_executor(
+                    executor, run_cli_version, cli_path
+                )
 
             return CLITestResponse(
                 success=True,
@@ -379,7 +403,9 @@ async def test_cli(cli_type: str):
             # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor(max_workers=1) as executor:
-                output, returncode = await loop.run_in_executor(executor, run_cli_version, cli_path)
+                output, returncode = await loop.run_in_executor(
+                    executor, run_cli_version, cli_path
+                )
 
             return CLITestResponse(
                 success=True,
@@ -396,7 +422,6 @@ async def test_cli(cli_type: str):
             provider=mapped_provider,
         )
     except Exception as e:
-        import traceback
         logger.exception("CLI test failed for %s: %s", cli_type, e)
         return CLITestResponse(
             success=False,
@@ -411,8 +436,10 @@ async def test_provider(
     provider: str,
     request: LLMTestRequest = None,
     user_id: int = Query(None),
-    use_env: bool = Query(True, description="Whether to fall back to .env API keys (False for Electron)"),
-    db: AsyncSession = Depends(get_db)
+    use_env: bool = Query(
+        True, description="Whether to fall back to .env API keys (False for Electron)"
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     """Test an LLM provider by making a simple API call.
 
@@ -449,7 +476,9 @@ async def test_provider(
                 model = model or user.openai_model or default_models["openai"]
             elif provider == "anthropic":
                 if user.anthropic_api_key_encrypted:
-                    api_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
+                    api_key = encryption_service.decrypt(
+                        user.anthropic_api_key_encrypted
+                    )
                 model = model or user.anthropic_model or default_models["anthropic"]
             elif provider == "gemini":
                 if user.gemini_api_key_encrypted:
@@ -485,6 +514,7 @@ async def test_provider(
 
         if provider == "openai":
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(api_key=api_key)
             response = await client.chat.completions.create(
                 model=model,
@@ -504,17 +534,27 @@ async def test_provider(
 
         elif provider == "anthropic":
             import anthropic
+
             client = anthropic.AsyncAnthropic(api_key=api_key)
             response = await client.messages.create(
                 model=model,
                 max_tokens=50,
-                messages=[{"role": "user", "content": test_prompt}]
+                messages=[{"role": "user", "content": test_prompt}],
             )
-            tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+            tokens = (
+                (response.usage.input_tokens + response.usage.output_tokens)
+                if response.usage
+                else 0
+            )
             output = response.content[0].text
-            in_tokens = getattr(response.usage, 'input_tokens', 0)
-            out_tokens = getattr(response.usage, 'output_tokens', 0)
-            logger.info("Anthropic test success: tokens=%d (in=%d, out=%d)", tokens, in_tokens, out_tokens)
+            in_tokens = getattr(response.usage, "input_tokens", 0)
+            out_tokens = getattr(response.usage, "output_tokens", 0)
+            logger.info(
+                "Anthropic test success: tokens=%d (in=%d, out=%d)",
+                tokens,
+                in_tokens,
+                out_tokens,
+            )
             return LLMTestResponse(
                 success=True,
                 provider=provider,
@@ -525,6 +565,7 @@ async def test_provider(
 
         elif provider == "gemini":
             from google import genai
+
             client = genai.Client(api_key=api_key)
             response = await client.aio.models.generate_content(
                 model=model,
@@ -532,10 +573,9 @@ async def test_provider(
             )
             tokens = 0
             if response.usage_metadata:
-                tokens = (
-                    getattr(response.usage_metadata, 'prompt_token_count', 0) +
-                    getattr(response.usage_metadata, 'candidates_token_count', 0)
-                )
+                tokens = getattr(
+                    response.usage_metadata, "prompt_token_count", 0
+                ) + getattr(response.usage_metadata, "candidates_token_count", 0)
             output = response.text
             logger.info("Gemini test success: tokens=%d", tokens)
             return LLMTestResponse(

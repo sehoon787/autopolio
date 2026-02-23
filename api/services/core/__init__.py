@@ -12,14 +12,14 @@ from .attachment_service import AttachmentService, attachment_service
 # circular import issues.
 
 __all__ = [
-    'EncryptionService',
-    'TaskService',
-    'render_or_clean_mustache',
-    'DOMAIN_CATEGORIES',
-    'sort_domains_by_priority',
-    'ProfileService',
-    'LookupService',
-    'get_lookup_service',
-    'AttachmentService',
-    'attachment_service',
+    "EncryptionService",
+    "TaskService",
+    "render_or_clean_mustache",
+    "DOMAIN_CATEGORIES",
+    "sort_domains_by_priority",
+    "ProfileService",
+    "LookupService",
+    "get_lookup_service",
+    "AttachmentService",
+    "attachment_service",
 ]

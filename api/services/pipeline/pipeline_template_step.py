@@ -3,6 +3,7 @@ Pipeline Template Mapping Step - Step 6 of the document generation pipeline.
 
 This module contains the template mapping step extracted from pipeline_steps.py.
 """
+
 import logging
 from typing import Dict, Any, TYPE_CHECKING
 from datetime import datetime
@@ -10,17 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
-
 from api.models.user import User
 from api.models.project import Project, ProjectTechnology
 from api.models.company import Company
 from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.repo_analysis import RepoAnalysis
-from api.models.project_repository import ProjectRepository
 from api.schemas.pipeline import PipelineRunRequest
 from api.services.template.static_doc_templates import get_static_doc_template_by_id
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from api.services.core import TaskService
@@ -34,7 +34,7 @@ STEP_NAMES = [
     "Achievement Detection",
     "LLM Summarization",
     "Template Mapping",
-    "Document Generation"
+    "Document Generation",
 ]
 
 
@@ -45,7 +45,7 @@ async def step_template_mapping(
     request: PipelineRunRequest,
     user: User,
     summary_results: Dict[str, Any],
-    document_service: "DocumentService"
+    document_service: "DocumentService",
 ) -> Dict[str, Any]:
     """Step 6: Map data to template fields."""
     await task_service.start_step(request.task_id, 6, STEP_NAMES[5])
@@ -77,9 +77,13 @@ async def step_template_mapping(
         select(Project)
         .where(Project.id.in_(request.project_ids))
         .options(
-            selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+            selectinload(Project.technologies).selectinload(
+                ProjectTechnology.technology
+            ),
             selectinload(Project.achievements),
-            selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
+            selectinload(Project.repo_analyses).selectinload(
+                RepoAnalysis.project_repository
+            ),
             selectinload(Project.repositories),
         )
         .order_by(Project.start_date.desc())
@@ -89,6 +93,7 @@ async def step_template_mapping(
 
     # Get repo analyses for key_tasks and detailed_achievements
     from api.models.repo_analysis_edits import RepoAnalysisEdits
+
     project_key_tasks = {}
     project_achievements_data = {}
 
@@ -100,7 +105,9 @@ async def step_template_mapping(
         if analysis:
             # Check for user edits first
             edits_result = await db.execute(
-                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+                select(RepoAnalysisEdits).where(
+                    RepoAnalysisEdits.repo_analysis_id == analysis.id
+                )
             )
             edits = edits_result.scalar_one_or_none()
 
@@ -114,7 +121,11 @@ async def step_template_mapping(
 
             # Get detailed_achievements and convert to list formats
             effective_detailed_achievements = None
-            if edits and edits.detailed_achievements_modified and edits.detailed_achievements:
+            if (
+                edits
+                and edits.detailed_achievements_modified
+                and edits.detailed_achievements
+            ):
                 effective_detailed_achievements = edits.detailed_achievements
             elif analysis.detailed_achievements:
                 effective_detailed_achievements = analysis.detailed_achievements
@@ -122,7 +133,9 @@ async def step_template_mapping(
             # Convert dict format to list format for DocxGenerator
             summary_list = []
             detailed_list = []
-            if effective_detailed_achievements and isinstance(effective_detailed_achievements, dict):
+            if effective_detailed_achievements and isinstance(
+                effective_detailed_achievements, dict
+            ):
                 for category, items in effective_detailed_achievements.items():
                     if isinstance(items, list):
                         for item in items:
@@ -130,15 +143,19 @@ async def step_template_mapping(
                                 title = item.get("title", "")
                                 description = item.get("description", "")
                                 if title:
-                                    summary_list.append({
-                                        "category": category,
-                                        "title": title,
-                                    })
-                                    detailed_list.append({
-                                        "category": category,
-                                        "title": title,
-                                        "description": description,
-                                    })
+                                    summary_list.append(
+                                        {
+                                            "category": category,
+                                            "title": title,
+                                        }
+                                    )
+                                    detailed_list.append(
+                                        {
+                                            "category": category,
+                                            "title": title,
+                                            "description": description,
+                                        }
+                                    )
 
             project_achievements_data[p.id] = {
                 "summary_list": summary_list,
@@ -167,7 +184,7 @@ async def step_template_mapping(
                 "start_date": c.start_date,
                 "end_date": c.end_date,
                 "description": c.description,
-                "location": c.location
+                "location": c.location,
             }
             for c in companies
         ],
@@ -189,16 +206,26 @@ async def step_template_mapping(
                     {
                         "metric_name": a.metric_name,
                         "metric_value": a.metric_value,
-                        "description": a.description
+                        "description": a.description,
                     }
                     for a in p.achievements
-                ] if request.include_achievements else [],
-                "achievements_summary_list": project_achievements_data.get(p.id, {}).get("summary_list", []) if request.include_achievements else [],
-                "achievements_detailed_list": project_achievements_data.get(p.id, {}).get("detailed_list", []) if request.include_achievements else [],
-                "links": p.links or {}
+                ]
+                if request.include_achievements
+                else [],
+                "achievements_summary_list": project_achievements_data.get(
+                    p.id, {}
+                ).get("summary_list", [])
+                if request.include_achievements
+                else [],
+                "achievements_detailed_list": project_achievements_data.get(
+                    p.id, {}
+                ).get("detailed_list", [])
+                if request.include_achievements
+                else [],
+                "links": p.links or {},
             }
             for p in projects
-        ]
+        ],
     )
 
     results = {
@@ -207,7 +234,7 @@ async def step_template_mapping(
         "template_content": template.template_content,
         "template_platform": template.platform,
         "data": template_data,
-        "output_format": request.output_format
+        "output_format": request.output_format,
     }
 
     await task_service.complete_step(request.task_id, 6, {"mapped": True})
@@ -220,13 +247,15 @@ async def step_document_generation(
     task_service: "TaskService",
     request: PipelineRunRequest,
     mapping_results: Dict[str, Any],
-    document_service: "DocumentService"
+    document_service: "DocumentService",
 ) -> GeneratedDocument:
     """Step 7: Generate the final document."""
     await task_service.start_step(request.task_id, 7, STEP_NAMES[6])
 
     # Generate document name
-    document_name = request.document_name or f"Resume_{datetime.now().strftime('%Y%m%d')}"
+    document_name = (
+        request.document_name or f"Resume_{datetime.now().strftime('%Y%m%d')}"
+    )
 
     # Generate document
     file_path, file_size = await document_service.generate_document(
@@ -234,7 +263,7 @@ async def step_document_generation(
         data=mapping_results["data"],
         output_format=request.output_format,
         document_name=document_name,
-        template_platform=mapping_results.get("template_platform")
+        template_platform=mapping_results.get("template_platform"),
     )
 
     # Save document record
@@ -251,17 +280,16 @@ async def step_document_generation(
             "llm_provider": request.llm_provider,
             "include_achievements": request.include_achievements,
             "include_tech_stack": request.include_tech_stack,
-            "auto_analyze": request.auto_analyze
+            "auto_analyze": request.auto_analyze,
         },
-        status="completed"
+        status="completed",
     )
     db.add(document)
     await db.flush()
     await db.refresh(document)
 
-    await task_service.complete_step(request.task_id, 7, {
-        "document_id": document.id,
-        "file_path": file_path
-    })
+    await task_service.complete_step(
+        request.task_id, 7, {"document_id": document.id, "file_path": file_path}
+    )
 
     return document

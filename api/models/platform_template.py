@@ -6,10 +6,13 @@ from api.database import Base
 
 class PlatformTemplate(Base):
     """Platform-specific resume templates (Saramin, Remember, Jumpit, etc.)."""
+
     __tablename__ = "platform_templates"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # NULL for system templates
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )  # NULL for system templates
 
     # Platform info
     name = Column(String(200), nullable=False)

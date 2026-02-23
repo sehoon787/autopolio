@@ -12,6 +12,7 @@ Modules:
 - github_constants.py: Constants and utility functions
 - github_exceptions.py: Exception classes
 """
+
 import asyncio
 import logging
 from typing import Dict, List, Any, Optional, Tuple
@@ -24,14 +25,7 @@ from .github_exceptions import (
     GitHubTimeoutError,
     GitHubAuthError,
 )
-from .github_constants import (
-    MAX_CONCURRENT_FILE_CHECKS,
-    MAX_CONCURRENT_COMMIT_DETAILS,
-    MAX_CONCURRENT_LLM_CALLS,
-    MAX_DETAILED_COMMITS,
-    parse_iso_datetime,
-    call_llm_generate,
-)
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +39,15 @@ def _get_lazy_imports():
         extract_file_extensions,
         detect_technologies_from_files,
     )
-    return RepoAnalyzer, ContributionAnalyzer, parse_conventional_commit, detect_work_areas, extract_file_extensions, detect_technologies_from_files
+
+    return (
+        RepoAnalyzer,
+        ContributionAnalyzer,
+        parse_conventional_commit,
+        detect_work_areas,
+        extract_file_extensions,
+        detect_technologies_from_files,
+    )
 
 
 class GitHubService:
@@ -117,18 +119,13 @@ class GitHubService:
     # ==========================================================================
 
     async def get_user_repos(
-        self,
-        page: int = 1,
-        per_page: int = 100,
-        sort: str = "updated"
+        self, page: int = 1, per_page: int = 100, sort: str = "updated"
     ) -> List[Dict[str, Any]]:
         """Get user's repositories (single page)."""
         return await self._api.get_user_repos(page, per_page, sort)
 
     async def get_all_user_repos(
-        self,
-        sort: str = "updated",
-        max_pages: int = 10
+        self, sort: str = "updated", max_pages: int = 10
     ) -> List[Dict[str, Any]]:
         """Get all user's repositories (multiple pages)."""
         return await self._api.get_all_user_repos(sort, max_pages)
@@ -142,25 +139,19 @@ class GitHubService:
         git_url: str,
         author: Optional[str] = None,
         per_page: int = 100,
-        max_pages: int = 5
+        max_pages: int = 5,
     ) -> List[Dict[str, Any]]:
         """Get repository commits."""
         return await self._api.get_commits(git_url, author, per_page, max_pages)
 
     async def get_commit_details(
-        self,
-        git_url: str,
-        sha: str,
-        include_patch: bool = False
+        self, git_url: str, sha: str, include_patch: bool = False
     ) -> Dict[str, Any]:
         """Get detailed information for a specific commit."""
         return await self._api.get_commit_details(git_url, sha, include_patch)
 
     async def _get_commit_details_safe(
-        self,
-        semaphore: asyncio.Semaphore,
-        git_url: str,
-        sha: str
+        self, semaphore: asyncio.Semaphore, git_url: str, sha: str
     ) -> Dict[str, Any]:
         """Get commit details with semaphore for rate limiting."""
         return await self._api._get_commit_details_safe(semaphore, git_url, sha)
@@ -186,16 +177,13 @@ class GitHubService:
         git_url: str,
         path: str = "",
         ref: Optional[str] = None,
-        recursive: bool = False
+        recursive: bool = False,
     ) -> List[Dict[str, Any]]:
         """Get file tree for a repository or specific directory."""
         return await self._api.get_file_tree(git_url, path, ref, recursive)
 
     async def get_file_content(
-        self,
-        git_url: str,
-        file_path: str,
-        ref: Optional[str] = None
+        self, git_url: str, file_path: str, ref: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get content of a specific file."""
         return await self._api.get_file_content(git_url, file_path, ref)
@@ -205,9 +193,7 @@ class GitHubService:
     # ==========================================================================
 
     async def get_commit_stats(
-        self,
-        git_url: str,
-        author: Optional[str] = None
+        self, git_url: str, author: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get commit statistics for a repository."""
         return await self._repo_analyzer.get_commit_stats(git_url, author)
@@ -216,10 +202,12 @@ class GitHubService:
         self,
         git_url: str,
         username: Optional[str] = None,
-        max_commits_for_stats: int = 100
+        max_commits_for_stats: int = 100,
     ) -> Dict[str, Any]:
         """Get comprehensive repository statistics."""
-        return await self._repo_analyzer.get_repo_stats(git_url, username, max_commits_for_stats)
+        return await self._repo_analyzer.get_repo_stats(
+            git_url, username, max_commits_for_stats
+        )
 
     async def detect_technologies(self, git_url: str) -> List[str]:
         """Detect technologies used in the repository."""
@@ -233,15 +221,15 @@ class GitHubService:
         self,
         git_url: str,
         username: Optional[str] = None,
-        include_detailed_stats: bool = True
+        include_detailed_stats: bool = True,
     ) -> Dict[str, Any]:
         """Perform full repository analysis."""
-        return await self._repo_analyzer.analyze_repository(git_url, username, include_detailed_stats)
+        return await self._repo_analyzer.analyze_repository(
+            git_url, username, include_detailed_stats
+        )
 
     async def get_quick_repo_info(
-        self,
-        git_url: str,
-        username: Optional[str] = None
+        self, git_url: str, username: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get quick repository info for auto-fill."""
         return await self._repo_analyzer.get_quick_repo_info(git_url, username)
@@ -264,7 +252,7 @@ class GitHubService:
         total_commits: int,
         user_lines_added: int,
         total_lines_added: int,
-        work_areas: Optional[List[str]] = None
+        work_areas: Optional[List[str]] = None,
     ) -> int:
         """Calculate weighted contribution percentage."""
         return self._contribution_analyzer.calculate_contribution_percent(
@@ -272,10 +260,7 @@ class GitHubService:
         )
 
     async def analyze_contributor(
-        self,
-        git_url: str,
-        username: str,
-        commit_limit: int = 100
+        self, git_url: str, username: str, commit_limit: int = 100
     ) -> Dict[str, Any]:
         """Analyze a specific contributor's activity in a repository."""
         return await self._contribution_analyzer.analyze_contributor(
@@ -287,7 +272,7 @@ class GitHubService:
         git_url: str,
         username: str,
         max_commits: int = 30,
-        max_total_patch_size: int = 50000
+        max_total_patch_size: int = 50000,
     ) -> Dict[str, Any]:
         """Get user's significant code contributions with code diffs."""
         return await self._contribution_analyzer.get_user_code_contributions(
@@ -295,10 +280,7 @@ class GitHubService:
         )
 
     async def get_detailed_commits(
-        self,
-        git_url: str,
-        author: Optional[str] = None,
-        limit: int = 50
+        self, git_url: str, author: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get detailed commit information with Conventional Commit parsing."""
         return await self._contribution_analyzer.get_detailed_commits(
@@ -339,7 +321,7 @@ class GitHubService:
         analysis_data: Dict[str, Any],
         llm_service=None,
         language: str = "ko",
-        code_contributions: Optional[Dict[str, Any]] = None
+        code_contributions: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Dict[str, Any], int]:
         """Generate detailed content using LLM.
 
@@ -356,20 +338,20 @@ class GitHubService:
         Returns:
             Tuple of (result dict, total tokens used)
         """
-        from api.services.core.content_generator import generate_detailed_content as _generate_content
+        from api.services.core.content_generator import (
+            generate_detailed_content as _generate_content,
+        )
+
         return await _generate_content(
             project_data=project_data,
             analysis_data=analysis_data,
             llm_service=llm_service,
             language=language,
-            code_contributions=code_contributions
+            code_contributions=code_contributions,
         )
 
     async def _get_commit_details_with_patch(
-        self,
-        semaphore: asyncio.Semaphore,
-        git_url: str,
-        sha: str
+        self, semaphore: asyncio.Semaphore, git_url: str, sha: str
     ) -> Dict[str, Any]:
         """Get commit details with patch, with semaphore for rate limiting."""
         return await self._api._get_commit_details_with_patch(semaphore, git_url, sha)

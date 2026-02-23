@@ -5,11 +5,11 @@ Facade for export functionality. Delegates to specialized modules:
 - export_sections.py: Project section generation
 - export_docx_converter.py: Markdown to DOCX conversion
 """
+
 import re
 import os
 from typing import List, Dict, Any, Optional
-from datetime import date, datetime
-from pathlib import Path
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,12 +18,15 @@ from sqlalchemy.orm import selectinload
 from api.models.user import User
 from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
-from api.models.achievement import ProjectAchievement
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.services.report.report_base import ReportBaseService
 from api.services.report.report_strings import get_strings
-from api.services.docx.docx_styles import DocxStyler, DocxStyleConfig, DEFAULT_DOCX_STYLE
+from api.services.docx.docx_styles import (
+    DocxStyler,
+    DocxStyleConfig,
+    DEFAULT_DOCX_STYLE,
+)
 from .export_sections import ExportSectionGenerator, filter_achievements
 from .export_docx_converter import convert_markdown_to_docx
 from api.config import get_settings
@@ -34,7 +37,12 @@ settings = get_settings()
 class ExportService(ReportBaseService):
     """Service for exporting project reports to Markdown and Word formats."""
 
-    def __init__(self, db: AsyncSession, style_config: Optional[DocxStyleConfig] = None, language: str = "ko"):
+    def __init__(
+        self,
+        db: AsyncSession,
+        style_config: Optional[DocxStyleConfig] = None,
+        language: str = "ko",
+    ):
         super().__init__(db)
         self.result_dir = settings.result_dir
         self.language = language
@@ -45,7 +53,9 @@ class ExportService(ReportBaseService):
     # Report Header Generation
     # ==========================================================================
 
-    def _generate_report_header(self, projects_data: List[Dict], user: Any, report_title: str) -> List[str]:
+    def _generate_report_header(
+        self, projects_data: List[Dict], user: Any, report_title: str
+    ) -> List[str]:
         """Generate common report header."""
         s = get_strings(self.language)
         total_commits = sum(
@@ -78,7 +88,7 @@ class ExportService(ReportBaseService):
         if earliest:
             period = f"{earliest.strftime('%Y-%m-%d')} ~ "
             if latest:
-                period += latest.strftime('%Y-%m-%d')
+                period += latest.strftime("%Y-%m-%d")
             else:
                 period += s["date_ongoing"]
             lines.append(f"**{s['report_period']}**: {period}")
@@ -94,9 +104,7 @@ class ExportService(ReportBaseService):
     # ==========================================================================
 
     async def generate_summary_report(
-        self,
-        user_id: int,
-        include_code_stats: bool = False
+        self, user_id: int, include_code_stats: bool = False
     ) -> str:
         """Generate summary report (요약) - PROJECT_PERFORMANCE_SUMMARY.md style."""
         s = get_strings(self.language)
@@ -105,7 +113,9 @@ class ExportService(ReportBaseService):
         if not projects_data:
             return f"# {s['report_summary_title']}\n\n{s['report_summary_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, s["report_summary_title"])
+        lines = self._generate_report_header(
+            projects_data, user, s["report_summary_title"]
+        )
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -114,14 +124,16 @@ class ExportService(ReportBaseService):
         lines.append("")
 
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._section_gen.generate_project_section_summary(data, idx, include_code_stats))
+            lines.append(
+                self._section_gen.generate_project_section_summary(
+                    data, idx, include_code_stats
+                )
+            )
 
         return "\n".join(lines)
 
     async def generate_detailed_report(
-        self,
-        user_id: int,
-        include_code_stats: bool = False
+        self, user_id: int, include_code_stats: bool = False
     ) -> str:
         """Generate detailed report (상세) - DETAILED_COMPLETION_REPORT style."""
         s = get_strings(self.language)
@@ -130,7 +142,9 @@ class ExportService(ReportBaseService):
         if not projects_data:
             return f"# {s['report_detailed_title']}\n\n{s['report_detailed_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, s["report_detailed_title"])
+        lines = self._generate_report_header(
+            projects_data, user, s["report_detailed_title"]
+        )
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -139,14 +153,16 @@ class ExportService(ReportBaseService):
         lines.append("")
 
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._section_gen.generate_project_section_detailed(data, idx, include_code_stats))
+            lines.append(
+                self._section_gen.generate_project_section_detailed(
+                    data, idx, include_code_stats
+                )
+            )
 
         return "\n".join(lines)
 
     async def generate_final_report(
-        self,
-        user_id: int,
-        include_code_stats: bool = False
+        self, user_id: int, include_code_stats: bool = False
     ) -> str:
         """Generate final report (상세 요약) - FINAL_PROJECT_REPORT style."""
         s = get_strings(self.language)
@@ -155,7 +171,9 @@ class ExportService(ReportBaseService):
         if not projects_data:
             return f"# {s['report_final_title']}\n\n{s['report_final_empty']}"
 
-        lines = self._generate_report_header(projects_data, user, s["report_final_title"])
+        lines = self._generate_report_header(
+            projects_data, user, s["report_final_title"]
+        )
         lines.append(self._section_gen.generate_toc(projects_data))
         lines.append("---")
         lines.append("")
@@ -164,14 +182,16 @@ class ExportService(ReportBaseService):
         lines.append("")
 
         for idx, data in enumerate(projects_data, 1):
-            lines.append(self._section_gen.generate_project_section_final(data, idx, include_code_stats))
+            lines.append(
+                self._section_gen.generate_project_section_final(
+                    data, idx, include_code_stats
+                )
+            )
 
         return "\n".join(lines)
 
     async def generate_performance_summary_report(
-        self,
-        user_id: int,
-        include_code_stats: bool = False
+        self, user_id: int, include_code_stats: bool = False
     ) -> str:
         """Alias for generate_summary_report (backward compatibility)."""
         return await self.generate_summary_report(user_id, include_code_stats)
@@ -184,10 +204,10 @@ class ExportService(ReportBaseService):
         self,
         user_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> tuple[str, str]:
         """Export report to Markdown file."""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if report_type == "detailed":
             content = await self.generate_detailed_report(user_id, include_code_stats)
@@ -202,7 +222,7 @@ class ExportService(ReportBaseService):
         os.makedirs(self.result_dir, exist_ok=True)
         file_path = self.result_dir / filename
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         return str(file_path), content
@@ -215,10 +235,10 @@ class ExportService(ReportBaseService):
         self,
         user_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> str:
         """Export report to Word document with proper styling."""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if report_type == "detailed":
             content = await self.generate_detailed_report(user_id, include_code_stats)
@@ -245,7 +265,7 @@ class ExportService(ReportBaseService):
         self,
         user_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> Dict[str, Any]:
         """Get preview data for export."""
         projects_data, user = await self._get_analyzed_projects(user_id)
@@ -268,8 +288,10 @@ class ExportService(ReportBaseService):
         )
 
         has_achievements = any(
-            self._get_effective_detailed_achievements(data["analysis"], data.get("edits")) or
-            len(filter_achievements(data["project"].achievements)) > 0
+            self._get_effective_detailed_achievements(
+                data["analysis"], data.get("edits")
+            )
+            or len(filter_achievements(data["project"].achievements)) > 0
             for data in projects_data
         )
 
@@ -292,8 +314,10 @@ class ExportService(ReportBaseService):
             select(Project)
             .where(Project.id == project_id)
             .options(
-                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                selectinload(Project.achievements)
+                selectinload(Project.technologies).selectinload(
+                    ProjectTechnology.technology
+                ),
+                selectinload(Project.achievements),
             )
         )
         project = project_result.scalar_one_or_none()
@@ -308,7 +332,9 @@ class ExportService(ReportBaseService):
         edits = None
         if analysis:
             edits_result = await self.db.execute(
-                select(RepoAnalysisEdits).where(RepoAnalysisEdits.repo_analysis_id == analysis.id)
+                select(RepoAnalysisEdits).where(
+                    RepoAnalysisEdits.repo_analysis_id == analysis.id
+                )
             )
             edits = edits_result.scalar_one_or_none()
 
@@ -336,7 +362,7 @@ class ExportService(ReportBaseService):
         self,
         project_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> str:
         """Generate a report for a single project."""
         s = get_strings(self.language)
@@ -356,11 +382,17 @@ class ExportService(ReportBaseService):
         lines.extend(["", "---", ""])
 
         if report_type == "detailed":
-            section = self._section_gen.generate_project_section_detailed(data, 1, include_code_stats)
+            section = self._section_gen.generate_project_section_detailed(
+                data, 1, include_code_stats
+            )
         elif report_type == "final":
-            section = self._section_gen.generate_project_section_final(data, 1, include_code_stats)
+            section = self._section_gen.generate_project_section_final(
+                data, 1, include_code_stats
+            )
         else:
-            section = self._section_gen.generate_project_section_summary(data, 1, include_code_stats)
+            section = self._section_gen.generate_project_section_summary(
+                data, 1, include_code_stats
+            )
 
         lines.append(section.replace("## 1. ", "## "))
         return "\n".join(lines)
@@ -369,22 +401,24 @@ class ExportService(ReportBaseService):
         self,
         project_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> tuple[str, str]:
         """Export single project report to Markdown file."""
         data = await self._get_single_project(project_id)
         project = data["project"]
 
-        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
+        content = await self.generate_single_project_report(
+            project_id, report_type, include_code_stats
+        )
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        safe_name = re.sub(r'[^\w\s-]', '', project.name).strip().replace(' ', '_')[:30]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = re.sub(r"[^\w\s-]", "", project.name).strip().replace(" ", "_")[:30]
         filename = f"{safe_name}_{report_type}_{timestamp}.md"
 
         os.makedirs(self.result_dir, exist_ok=True)
         file_path = self.result_dir / filename
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         return str(file_path), content
@@ -393,16 +427,18 @@ class ExportService(ReportBaseService):
         self,
         project_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> str:
         """Export single project report to Word document with proper styling."""
         data = await self._get_single_project(project_id)
         project = data["project"]
 
-        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
+        content = await self.generate_single_project_report(
+            project_id, report_type, include_code_stats
+        )
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        safe_name = re.sub(r'[^\w\s-]', '', project.name).strip().replace(' ', '_')[:30]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = re.sub(r"[^\w\s-]", "", project.name).strip().replace(" ", "_")[:30]
         filename = f"{safe_name}_{report_type}_{timestamp}.docx"
 
         os.makedirs(self.result_dir, exist_ok=True)
@@ -416,7 +452,7 @@ class ExportService(ReportBaseService):
         self,
         project_id: int,
         report_type: str = "summary",
-        include_code_stats: bool = False
+        include_code_stats: bool = False,
     ) -> Dict[str, Any]:
         """Get preview data for single project export."""
         data = await self._get_single_project(project_id)
@@ -424,13 +460,15 @@ class ExportService(ReportBaseService):
         analysis = data["analysis"]
         edits = data.get("edits")
 
-        content = await self.generate_single_project_report(project_id, report_type, include_code_stats)
+        content = await self.generate_single_project_report(
+            project_id, report_type, include_code_stats
+        )
 
         total_commits = analysis.total_commits if analysis else 0
         has_key_tasks = bool(self._get_effective_key_tasks(analysis, edits))
         has_achievements = bool(
-            self._get_effective_detailed_achievements(analysis, edits) or
-            len(filter_achievements(project.achievements)) > 0
+            self._get_effective_detailed_achievements(analysis, edits)
+            or len(filter_achievements(project.achievements)) > 0
         )
 
         return {
@@ -456,28 +494,25 @@ class ExportService(ReportBaseService):
         return self._section_gen.generate_overview_table(projects_data, user)
 
     def _generate_project_section_summary(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate summary project section (backward compatibility)."""
-        return self._section_gen.generate_project_section_summary(data, idx, include_code_stats)
+        return self._section_gen.generate_project_section_summary(
+            data, idx, include_code_stats
+        )
 
     def _generate_project_section_detailed(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate detailed project section (backward compatibility)."""
-        return self._section_gen.generate_project_section_detailed(data, idx, include_code_stats)
+        return self._section_gen.generate_project_section_detailed(
+            data, idx, include_code_stats
+        )
 
     def _generate_project_section_final(
-        self,
-        data: Dict,
-        idx: int,
-        include_code_stats: bool = False
+        self, data: Dict, idx: int, include_code_stats: bool = False
     ) -> str:
         """Generate final project section (backward compatibility)."""
-        return self._section_gen.generate_project_section_final(data, idx, include_code_stats)
+        return self._section_gen.generate_project_section_final(
+            data, idx, include_code_stats
+        )

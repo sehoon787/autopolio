@@ -4,7 +4,17 @@ ContributorAnalysis model - Stores contributor-specific analysis data.
 Tracks individual contributor statistics, work patterns, and technology usage
 within a repository. Enables per-user analysis for portfolio generation.
 """
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, JSON, Index
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    JSON,
+    Index,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
@@ -12,11 +22,12 @@ from api.database import Base
 
 class ContributorAnalysis(Base):
     """Contributor-specific analysis results within a repository."""
+
     __tablename__ = "contributor_analyses"
 
     # Composite index for common query pattern (repo_analysis_id + username)
     __table_args__ = (
-        Index('ix_contributor_repo_username', 'repo_analysis_id', 'username'),
+        Index("ix_contributor_repo_username", "repo_analysis_id", "username"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -24,7 +35,7 @@ class ContributorAnalysis(Base):
         Integer,
         ForeignKey("repo_analyses.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # Contributor identification

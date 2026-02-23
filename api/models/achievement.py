@@ -6,6 +6,7 @@ from api.database import Base
 
 class ProjectAchievement(Base):
     """Project achievements based on PROJECT_PERFORMANCE_SUMMARY structure."""
+
     __tablename__ = "project_achievements"
 
     id = Column(Integer, primary_key=True, index=True)

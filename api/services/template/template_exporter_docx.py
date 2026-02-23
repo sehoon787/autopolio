@@ -6,7 +6,6 @@ All functions expect a DocxStyler instance for consistent styling.
 """
 
 import os
-from typing import Dict, Any, List
 from pathlib import Path
 
 from api.services.docx.docx_styles import DocxStyler
@@ -23,7 +22,7 @@ def create_docx_from_render_data(
     data,  # RenderDataRequest
     styler: DocxStyler,
     result_dir: Path,
-    filename: str
+    filename: str,
 ) -> str:
     """Export to Word document from RenderDataRequest with proper styling
 
@@ -142,11 +141,13 @@ def create_docx_from_render_data(
             if proj.technologies:
                 styler.add_paragraph(doc, f"기술: {', '.join(proj.technologies)}")
             # Use achievements_summary_list (from detailed_achievements) as default, fall back to achievements
-            achievements_list = get_achievements_list({
-                "achievements_summary_list": proj.achievements_summary_list,
-                "achievements_detailed_list": proj.achievements_detailed_list,
-                "achievements": proj.achievements,
-            })
+            achievements_list = get_achievements_list(
+                {
+                    "achievements_summary_list": proj.achievements_summary_list,
+                    "achievements_detailed_list": proj.achievements_detailed_list,
+                    "achievements": proj.achievements,
+                }
+            )
             if achievements_list:
                 for ach in achievements_list:
                     # Clean any Mustache syntax from achievements
@@ -179,17 +180,16 @@ def create_docx_from_render_data(
     if data.certifications:
         styler.add_heading1(doc, "자격증")
         for cert in data.certifications:
-            styler.add_bullet(doc, f"{cert.name} ({cert.issuer or ''}) - {cert.date or ''}")
+            styler.add_bullet(
+                doc, f"{cert.name} ({cert.issuer or ''}) - {cert.date or ''}"
+            )
 
     doc.save(file_path)
     return str(file_path)
 
 
 def create_unified_docx(
-    data: dict,
-    styler: DocxStyler,
-    result_dir: Path,
-    filename: str
+    data: dict, styler: DocxStyler, result_dir: Path, filename: str
 ) -> str:
     """Unified Word format for all platforms with proper styling
 
@@ -272,7 +272,9 @@ def create_unified_docx(
 
             domain_idx = 1
             for domain_name, domain_data in skills_by_domain.items():
-                if not domain_data.get("technologies") and not domain_data.get("implementations"):
+                if not domain_data.get("technologies") and not domain_data.get(
+                    "implementations"
+                ):
                     continue
 
                 styler.add_bold_text(doc, f"{domain_idx}. {domain_name}")
@@ -297,7 +299,11 @@ def create_unified_docx(
             styler.add_spacing(doc)
 
         # Side projects
-        side_projects = company_projects.get(None, []) + company_projects.get("", []) + company_projects.get("사이드 프로젝트", [])
+        side_projects = (
+            company_projects.get(None, [])
+            + company_projects.get("", [])
+            + company_projects.get("사이드 프로젝트", [])
+        )
         if side_projects:
             styler.add_heading2(doc, "사이드 프로젝트")
 
@@ -340,7 +346,9 @@ def _add_contact_info_docx(doc, data: dict, styler: DocxStyler) -> None:
     styler.add_spacing(doc)
 
 
-def _add_project_detail_unified_docx(doc, proj: dict, idx: int, styler: DocxStyler) -> None:
+def _add_project_detail_unified_docx(
+    doc, proj: dict, idx: int, styler: DocxStyler
+) -> None:
     """Add project in unified format to Word document using styler
 
     Note: Uses render_or_clean_mustache to handle any Mustache template
@@ -349,7 +357,7 @@ def _add_project_detail_unified_docx(doc, proj: dict, idx: int, styler: DocxStyl
     # Project header (소소제목)
     styler.add_section_title(doc, f"[프로젝트 {idx}]")
 
-    styler.add_key_value(doc, "프로젝트명", proj.get('name', ''))
+    styler.add_key_value(doc, "프로젝트명", proj.get("name", ""))
 
     company = proj.get("company_name") or proj.get("company")
     if company:

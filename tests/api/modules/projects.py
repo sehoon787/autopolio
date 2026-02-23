@@ -35,7 +35,7 @@ class ProjectsAPI(BaseAPIModule):
         end_date: Optional[str] = None,
         git_url: Optional[str] = None,
         technologies: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """
         Create a new project.
@@ -57,11 +57,7 @@ class ProjectsAPI(BaseAPIModule):
         Returns:
             Response with created project data
         """
-        data = {
-            "name": name,
-            "project_type": project_type,
-            **kwargs
-        }
+        data = {"name": name, "project_type": project_type, **kwargs}
         if description:
             data["description"] = description
         if role:
@@ -95,7 +91,9 @@ class ProjectsAPI(BaseAPIModule):
         params = {}
         if user_id:
             params["user_id"] = user_id
-        return self._get(f"/knowledge/projects/{project_id}", params=params if params else None)
+        return self._get(
+            f"/knowledge/projects/{project_id}", params=params if params else None
+        )
 
     def update(self, project_id: int, user_id: int, **kwargs) -> httpx.Response:
         """
@@ -109,7 +107,11 @@ class ProjectsAPI(BaseAPIModule):
         Returns:
             Response with updated project data
         """
-        return self._put(f"/knowledge/projects/{project_id}", json=kwargs, params={"user_id": user_id})
+        return self._put(
+            f"/knowledge/projects/{project_id}",
+            json=kwargs,
+            params={"user_id": user_id},
+        )
 
     def delete(self, project_id: int, user_id: int) -> httpx.Response:
         """
@@ -122,7 +124,9 @@ class ProjectsAPI(BaseAPIModule):
         Returns:
             Response confirming deletion
         """
-        return self._delete(f"/knowledge/projects/{project_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/projects/{project_id}", params={"user_id": user_id}
+        )
 
     def get_achievements(self, project_id: int) -> httpx.Response:
         """
@@ -142,7 +146,7 @@ class ProjectsAPI(BaseAPIModule):
         user_id: int,
         metric_name: str,
         metric_value: str,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> httpx.Response:
         """
         Add an achievement to a project.
@@ -167,7 +171,7 @@ class ProjectsAPI(BaseAPIModule):
         return self._post(
             "/knowledge/achievements",
             json=data,
-            params={"project_id": project_id, "user_id": user_id}
+            params={"project_id": project_id, "user_id": user_id},
         )
 
     def auto_detect_achievements(self, project_id: int) -> httpx.Response:
@@ -180,4 +184,6 @@ class ProjectsAPI(BaseAPIModule):
         Returns:
             Response with detected achievements
         """
-        return self._post("/knowledge/achievements/auto-detect", json={"project_id": project_id})
+        return self._post(
+            "/knowledge/achievements/auto-detect", json={"project_id": project_id}
+        )

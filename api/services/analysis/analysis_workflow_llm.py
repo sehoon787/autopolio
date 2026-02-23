@@ -3,6 +3,7 @@ Analysis Workflow LLM Phases - Phase 5 (LLM generation) and Phase 6 (tech versio
 
 Split from analysis_workflow.py for maintainability.
 """
+
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -11,13 +12,17 @@ from sqlalchemy import select
 
 from api.models.project import Project
 from api.models.repo_analysis import RepoAnalysis
-from api.services.core.key_tasks_generator import generate_key_tasks as _generate_key_tasks
+from api.services.core.key_tasks_generator import (
+    generate_key_tasks as _generate_key_tasks,
+)
 from .analysis_workflow import AnalysisContext, _get_github_service
 
 logger = logging.getLogger(__name__)
 
 
-async def phase5_collect_code_contributions(ctx: AnalysisContext) -> Optional[Dict[str, Any]]:
+async def phase5_collect_code_contributions(
+    ctx: AnalysisContext,
+) -> Optional[Dict[str, Any]]:
     """
     Phase 5.1: Collect user code contributions for LLM context.
 
@@ -32,11 +37,13 @@ async def phase5_collect_code_contributions(ctx: AnalysisContext) -> Optional[Di
             ctx.git_url,
             ctx.github_username,
             max_commits=30,
-            max_total_patch_size=50000  # ~50KB of code diffs
+            max_total_patch_size=50000,  # ~50KB of code diffs
         )
         ctx.user_code_contributions = contributions
-        logger.info("[Phase5.1] Collected %d commits with code diffs",
-                   len(contributions.get("contributions", [])))
+        logger.info(
+            "[Phase5.1] Collected %d commits with code diffs",
+            len(contributions.get("contributions", [])),
+        )
         return contributions
     except Exception as e:
         logger.warning("[Phase5.1] Failed to collect code contributions: %s", e)
@@ -47,7 +54,7 @@ async def phase5_generate_key_tasks(
     ctx: AnalysisContext,
     project_name: str,
     project_description: Optional[str],
-    project_role: Optional[str]
+    project_role: Optional[str],
 ) -> Optional[List[str]]:
     """
     Phase 5.2: Generate key tasks using LLM.
@@ -58,8 +65,11 @@ async def phase5_generate_key_tasks(
         return None
 
     try:
-        logger.info("[Phase5.2] Generating key tasks with %s, language=%s",
-                   type(ctx.llm_service).__name__, ctx.language)
+        logger.info(
+            "[Phase5.2] Generating key tasks with %s, language=%s",
+            type(ctx.llm_service).__name__,
+            ctx.language,
+        )
 
         # Create minimal objects for _generate_key_tasks
         class MinimalProject:
@@ -70,38 +80,53 @@ async def phase5_generate_key_tasks(
 
         class MinimalAnalysis:
             def __init__(self):
-                self.detected_technologies = ctx.analysis_result.get('detected_technologies', [])
-                self.commit_messages_summary = ctx.analysis_result.get('commit_messages_summary')
-                self.commit_categories = ctx.analysis_result.get('commit_categories')
-                self.total_commits = ctx.analysis_result.get('total_commits', 0)
-                self.lines_added = ctx.analysis_result.get('lines_added', 0)
+                self.detected_technologies = ctx.analysis_result.get(
+                    "detected_technologies", []
+                )
+                self.commit_messages_summary = ctx.analysis_result.get(
+                    "commit_messages_summary"
+                )
+                self.commit_categories = ctx.analysis_result.get("commit_categories")
+                self.total_commits = ctx.analysis_result.get("total_commits", 0)
+                self.lines_added = ctx.analysis_result.get("lines_added", 0)
 
         # Get user context from previous edits
         key_tasks_user_context = None
-        if ctx.existing_edits and ctx.existing_edits.key_tasks_modified and ctx.existing_edits.key_tasks:
+        if (
+            ctx.existing_edits
+            and ctx.existing_edits.key_tasks_modified
+            and ctx.existing_edits.key_tasks
+        ):
             import json
-            key_tasks_user_context = json.dumps(ctx.existing_edits.key_tasks, ensure_ascii=False)
+
+            key_tasks_user_context = json.dumps(
+                ctx.existing_edits.key_tasks, ensure_ascii=False
+            )
             logger.info("[Phase5.2] Using user's previous key_tasks edits as context")
 
         key_tasks, tokens = await _generate_key_tasks(
-            MinimalProject(), MinimalAnalysis(), ctx.llm_service,
+            MinimalProject(),
+            MinimalAnalysis(),
+            ctx.llm_service,
             language=ctx.language,
             user_context=key_tasks_user_context,
-            code_contributions=ctx.user_code_contributions
+            code_contributions=ctx.user_code_contributions,
         )
         ctx.key_tasks = key_tasks
         ctx.total_tokens += tokens
         return key_tasks
     except Exception as e:
         import traceback
-        logger.warning("[Phase5.2] Failed to generate key tasks: %s: %s", type(e).__name__, e)
+
+        logger.warning(
+            "[Phase5.2] Failed to generate key tasks: %s: %s", type(e).__name__, e
+        )
         logger.debug("[Phase5.2] Traceback: %s", traceback.format_exc())
         return None
 
 
 async def phase5_generate_detailed_content(
-    ctx: AnalysisContext,
-    project_data: Dict[str, Any]
+    ctx: AnalysisContext, project_data: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
     """
     Phase 5.3: Generate detailed content using LLM.
@@ -113,21 +138,28 @@ async def phase5_generate_detailed_content(
 
     try:
         analysis_data = {
-            "commit_messages_summary": ctx.analysis_result.get('commit_messages_summary'),
-            "detected_technologies": ctx.analysis_result.get('detected_technologies', []),
-            "commit_categories": ctx.analysis_result.get('commit_categories'),
-            "total_commits": ctx.analysis_result.get('total_commits', 0),
-            "lines_added": ctx.analysis_result.get('lines_added', 0),
-            "lines_deleted": ctx.analysis_result.get('lines_deleted', 0),
-            "files_changed": ctx.analysis_result.get('files_changed', 0),
+            "commit_messages_summary": ctx.analysis_result.get(
+                "commit_messages_summary"
+            ),
+            "detected_technologies": ctx.analysis_result.get(
+                "detected_technologies", []
+            ),
+            "commit_categories": ctx.analysis_result.get("commit_categories"),
+            "total_commits": ctx.analysis_result.get("total_commits", 0),
+            "lines_added": ctx.analysis_result.get("lines_added", 0),
+            "lines_deleted": ctx.analysis_result.get("lines_deleted", 0),
+            "files_changed": ctx.analysis_result.get("files_changed", 0),
         }
 
-        detailed_content, content_tokens = await ctx.github_service.generate_detailed_content(
+        (
+            detailed_content,
+            content_tokens,
+        ) = await ctx.github_service.generate_detailed_content(
             project_data=project_data,
             analysis_data=analysis_data,
             llm_service=ctx.llm_service,
             language=ctx.language,
-            code_contributions=ctx.user_code_contributions
+            code_contributions=ctx.user_code_contributions,
         )
         ctx.detailed_content = detailed_content
         ctx.total_tokens += content_tokens
@@ -138,8 +170,7 @@ async def phase5_generate_detailed_content(
 
 
 async def phase5_generate_ai_summary(
-    ctx: AnalysisContext,
-    project_data: Dict[str, Any]
+    ctx: AnalysisContext, project_data: Dict[str, Any]
 ) -> Tuple[Optional[str], Optional[List[str]]]:
     """
     Phase 5.4: Generate AI summary using LLM.
@@ -155,21 +186,23 @@ async def phase5_generate_ai_summary(
         # Add code contributions summary for better context
         if ctx.user_code_contributions:
             project_data["code_contributions_summary"] = {
-                "analyzed_commits": ctx.user_code_contributions.get("summary", {}).get("analyzed_commits", 0),
-                "lines_added": ctx.user_code_contributions.get("summary", {}).get("lines_added", 0),
+                "analyzed_commits": ctx.user_code_contributions.get("summary", {}).get(
+                    "analyzed_commits", 0
+                ),
+                "lines_added": ctx.user_code_contributions.get("summary", {}).get(
+                    "lines_added", 0
+                ),
                 "work_areas": ctx.user_code_contributions.get("work_areas", []),
             }
 
         summary_result = await ctx.llm_service.generate_project_summary(
-            project_data,
-            style=ctx.summary_style,
-            language=ctx.language
+            project_data, style=ctx.summary_style, language=ctx.language
         )
 
         if summary_result:
             ctx.ai_summary = summary_result.get("summary", "")
             ctx.ai_key_features = summary_result.get("key_features", [])
-            if hasattr(ctx.llm_service, 'total_tokens_used'):
+            if hasattr(ctx.llm_service, "total_tokens_used"):
                 ctx.total_tokens += ctx.llm_service.total_tokens_used
             logger.info("[Phase5.4] AI summary generated successfully")
             return ctx.ai_summary, ctx.ai_key_features
@@ -180,10 +213,7 @@ async def phase5_generate_ai_summary(
         return None, None
 
 
-async def phase5_save_llm_results(
-    db: AsyncSession,
-    ctx: AnalysisContext
-) -> None:
+async def phase5_save_llm_results(db: AsyncSession, ctx: AnalysisContext) -> None:
     """
     Phase 5.5: Save LLM-generated content to database.
     """
@@ -201,11 +231,17 @@ async def phase5_save_llm_results(
 
     if ctx.detailed_content:
         if ctx.detailed_content.get("implementation_details"):
-            repo_analysis.implementation_details = ctx.detailed_content["implementation_details"]
+            repo_analysis.implementation_details = ctx.detailed_content[
+                "implementation_details"
+            ]
         if ctx.detailed_content.get("development_timeline"):
-            repo_analysis.development_timeline = ctx.detailed_content["development_timeline"]
+            repo_analysis.development_timeline = ctx.detailed_content[
+                "development_timeline"
+            ]
         if ctx.detailed_content.get("detailed_achievements"):
-            repo_analysis.detailed_achievements = ctx.detailed_content["detailed_achievements"]
+            repo_analysis.detailed_achievements = ctx.detailed_content[
+                "detailed_achievements"
+            ]
 
     if ctx.ai_summary:
         repo_analysis.ai_summary = ctx.ai_summary
@@ -241,8 +277,7 @@ async def phase5_save_llm_results(
 
 
 async def phase6_extract_tech_versions(
-    db: AsyncSession,
-    ctx: AnalysisContext
+    db: AsyncSession, ctx: AnalysisContext
 ) -> Optional[Dict[str, List[str]]]:
     """
     Phase 6: Extract technology versions from repository.

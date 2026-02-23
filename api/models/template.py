@@ -6,16 +6,21 @@ from api.database import Base
 
 class Template(Base):
     """Resume/Portfolio templates for different platforms."""
+
     __tablename__ = "templates"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # NULL for system templates
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )  # NULL for system templates
 
     name = Column(String(200), nullable=False)
     description = Column(Text)
 
     # Platform info
-    platform = Column(String(50))  # saramin_1, saramin_2, saramin_3, wanted, remember, notion, custom
+    platform = Column(
+        String(50)
+    )  # saramin_1, saramin_2, saramin_3, wanted, remember, notion, custom
     is_system = Column(Integer, default=0)  # System-provided vs user-uploaded
 
     # Template type

@@ -13,7 +13,6 @@ from api.models.user import User
 from api.models.company import Company
 from api.models.project import Project, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
-from api.models.repo_analysis_edits import RepoAnalysisEdits
 
 from .user_data_credentials import collect_credentials
 from .user_data_skills import (
@@ -23,7 +22,6 @@ from .user_data_skills import (
     project_matches_domain,
 )
 from .user_data_projects import build_projects
-from api.services.core.domain_constants import DOMAIN_CATEGORIES
 
 
 class UserDataCollector:
@@ -39,27 +37,33 @@ class UserDataCollector:
             user_id: User ID to collect data for
         """
         # Get user
-        user_result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
+        user_result = await self.db.execute(select(User).where(User.id == user_id))
         user = user_result.scalar_one_or_none()
         if not user:
             raise ValueError(f"User {user_id} not found")
 
         # Get companies
         companies_result = await self.db.execute(
-            select(Company).where(Company.user_id == user_id)
+            select(Company)
+            .where(Company.user_id == user_id)
             .order_by(Company.start_date.desc())
         )
         companies = list(companies_result.scalars().all())
 
         # Get projects with technologies, repo_analysis (including user_edits), and achievements
         projects_result = await self.db.execute(
-            select(Project).where(Project.user_id == user_id)
+            select(Project)
+            .where(Project.user_id == user_id)
             .options(
-                selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
-                selectinload(Project.repo_analyses).selectinload(RepoAnalysis.user_edits),
-                selectinload(Project.repo_analyses).selectinload(RepoAnalysis.project_repository),
+                selectinload(Project.technologies).selectinload(
+                    ProjectTechnology.technology
+                ),
+                selectinload(Project.repo_analyses).selectinload(
+                    RepoAnalysis.user_edits
+                ),
+                selectinload(Project.repo_analyses).selectinload(
+                    RepoAnalysis.project_repository
+                ),
                 selectinload(Project.achievements),
                 selectinload(Project.repositories),
             )
@@ -99,14 +103,18 @@ class UserDataCollector:
         data["has_certifications"] = len(data["certifications"]) > 0
         data["has_awards"] = len(data["awards"]) > 0
         data["has_education"] = len(data["education"]) > 0
-        data["has_educations"] = len(data["educations"]) > 0  # Alias for template compatibility
+        data["has_educations"] = (
+            len(data["educations"]) > 0
+        )  # Alias for template compatibility
         data["has_publications"] = len(data["publications"]) > 0
         data["has_volunteer_activities"] = len(data["volunteer_activities"]) > 0
         data["has_activities"] = len(data["volunteer_activities"]) > 0
 
         # Extract highest education for dashboard display (saramin template)
         if data["educations"]:
-            highest_edu = data["educations"][0]  # First one is the most recent (sorted by start_date desc)
+            highest_edu = data["educations"][
+                0
+            ]  # First one is the most recent (sorted by start_date desc)
             data["school"] = highest_edu.get("school_name", "")
             data["degree"] = highest_edu.get("degree", "")
             data["highest_education"] = highest_edu.get("school_name", "")
@@ -158,7 +166,9 @@ class UserDataCollector:
             if (today.month, today.day) < (user.birthdate.month, user.birthdate.day):
                 age -= 1
             # Full birthdate formats
-            birthdate_formatted = user.birthdate.strftime("%Y년 %m월 %d일")  # 1990년 05월 15일
+            birthdate_formatted = user.birthdate.strftime(
+                "%Y년 %m월 %d일"
+            )  # 1990년 05월 15일
             birthdate_short = user.birthdate.strftime("%Y.%m.%d")  # 1990.05.15
 
         # Build description field for saramin template (e.g., "1990.05.15 (35세)")
@@ -177,20 +187,26 @@ class UserDataCollector:
             "birth_year": birth_year,
             "age": age,
             "description": description,  # For saramin template compatibility (1990.05.15 (35세))
-            "github_url": f"https://github.com/{user.github_username}" if user.github_username else None,
+            "github_url": f"https://github.com/{user.github_username}"
+            if user.github_username
+            else None,
             "photo_url": user.github_avatar_url,
             "profile_image": user.github_avatar_url,
             "generated_date": datetime.now().strftime("%Y-%m-%d"),
             "career_status": "경력" if companies else "신입",
             "current_company": current_company,
             "total_experience_years": round(total_years),
-            "total_experience": f"{round(total_years)}년" if total_years >= 1 else f"{int(total_years * 12)}개월",
+            "total_experience": f"{round(total_years)}년"
+            if total_years >= 1
+            else f"{int(total_years * 12)}개월",
             "is_working": current_company is not None,
             "highest_education": "",
             "education_status": "",
             "desired_salary": "회사내규에 따름",
             "current_salary": "",
-            "portfolio_url": f"https://github.com/{user.github_username}" if user.github_username else None,
+            "portfolio_url": f"https://github.com/{user.github_username}"
+            if user.github_username
+            else None,
         }
 
     def _get_effective_value(self, user_value: str, fallback_value: str) -> str:
@@ -200,8 +216,7 @@ class UserDataCollector:
         return fallback_value or ""
 
     def _build_capabilities(
-        self,
-        personal_projects: List[Dict[str, Any]]
+        self, personal_projects: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Build capabilities (역량) from personal projects (projects without company)
 
@@ -228,8 +243,11 @@ class UserDataCollector:
                 "databases_str": domain_item.get("databases_str", ""),
                 "has_databases": domain_item.get("has_databases", False),
                 # Include project names for reference
-                "projects": [p.get("name", "") for p in personal_projects
-                            if project_matches_domain(p, domain_item.get("domain_name", ""))],
+                "projects": [
+                    p.get("name", "")
+                    for p in personal_projects
+                    if project_matches_domain(p, domain_item.get("domain_name", ""))
+                ],
             }
             capabilities.append(cap)
 
@@ -238,7 +256,7 @@ class UserDataCollector:
     def _build_experiences(
         self,
         companies: List[Company],
-        company_projects: Optional[Dict[str, List[Dict[str, Any]]]] = None
+        company_projects: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     ) -> List[Dict[str, Any]]:
         """Build experiences from companies with domain-categorized skills"""
         experiences = []
@@ -273,8 +291,12 @@ class UserDataCollector:
                 "position": company.position or "",
                 "department": "",
                 "job_type": "",
-                "start_date": company.start_date.strftime("%Y.%m") if company.start_date else "",
-                "end_date": company.end_date.strftime("%Y.%m") if company.end_date else "",
+                "start_date": company.start_date.strftime("%Y.%m")
+                if company.start_date
+                else "",
+                "end_date": company.end_date.strftime("%Y.%m")
+                if company.end_date
+                else "",
                 "is_current": is_current,
                 "duration": duration,
                 "description": company.description or "",

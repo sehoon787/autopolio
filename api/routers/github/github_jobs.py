@@ -2,6 +2,7 @@
 
 Handles background analysis jobs, status tracking, and cancellation.
 """
+
 import logging
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,13 +15,18 @@ from api.models.user import User
 from api.models.project import Project
 from api.schemas.github import (
     RepoAnalysisRequest,
-    AnalysisJobStatus, AnalysisJobListResponse,
-    StartAnalysisResponse, CancelAnalysisResponse,
+    AnalysisJobStatus,
+    AnalysisJobListResponse,
+    StartAnalysisResponse,
+    CancelAnalysisResponse,
 )
 from api.services.github import GitHubService
 from api.services.core import EncryptionService
-from api.models.project_repository import ProjectRepository
-from api.services.analysis import AnalysisJobService, run_background_analysis, run_multi_repo_background_analysis
+from api.services.analysis import (
+    AnalysisJobService,
+    run_background_analysis,
+    run_multi_repo_background_analysis,
+)
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
@@ -43,9 +49,13 @@ def _extract_token_and_provider(job) -> tuple:
         llm_provider = options.get("provider") or options.get("cli_mode")
 
     if job.status == "completed":
-        logger.debug("[TokenExtract] task_id=%s, token_usage=%s, llm_provider=%s, output_data=%s",
-                     job.task_id, token_usage, llm_provider,
-                     {k: v for k, v in (job.output_data or {}).items() if k != "analysis_id"})
+        logger.debug(
+            "[TokenExtract] task_id=%s, token_usage=%s, llm_provider=%s, output_data=%s",
+            job.task_id,
+            token_usage,
+            llm_provider,
+            {k: v for k, v in (job.output_data or {}).items() if k != "analysis_id"},
+        )
 
     return token_usage, llm_provider
 
@@ -76,11 +86,17 @@ async def start_background_analysis(
     request: RepoAnalysisRequest,
     user_id: int = Query(..., description="User ID"),
     provider: Optional[str] = Query(None, description="LLM provider to use"),
-    cli_mode: Optional[str] = Query(None, description="CLI mode: 'claude_code' or 'gemini_cli'"),
+    cli_mode: Optional[str] = Query(
+        None, description="CLI mode: 'claude_code' or 'gemini_cli'"
+    ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
-    language: Optional[str] = Query(None, description="Analysis language: 'ko' or 'en'"),
-    project_repository_id: Optional[int] = Query(None, description="Specific ProjectRepository to analyze"),
-    db: AsyncSession = Depends(get_db)
+    language: Optional[str] = Query(
+        None, description="Analysis language: 'ko' or 'en'"
+    ),
+    project_repository_id: Optional[int] = Query(
+        None, description="Specific ProjectRepository to analyze"
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     """Start a background analysis job for a GitHub repository.
 
@@ -91,13 +107,18 @@ async def start_background_analysis(
     user = result.scalar_one_or_none()
 
     if not user or not user.github_token_encrypted:
-        raise HTTPException(status_code=400, detail="GitHub is not connected. Please connect GitHub first.")
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub is not connected. Please connect GitHub first.",
+        )
 
     try:
         token = encryption.decrypt(user.github_token_encrypted)
         github_username = user.github_username
     except Exception:
-        raise HTTPException(status_code=400, detail="GitHub token is corrupted. Please reconnect.")
+        raise HTTPException(
+            status_code=400, detail="GitHub token is corrupted. Please reconnect."
+        )
 
     # Get or create project
     project_id = request.project_id
@@ -116,7 +137,7 @@ async def start_background_analysis(
             description=repo_info.get("description"),
             git_url=request.git_url,
             project_type="personal",
-            status="pending"
+            status="pending",
         )
         db.add(project)
         await db.flush()
@@ -130,7 +151,7 @@ async def start_background_analysis(
         return StartAnalysisResponse(
             task_id=existing_job.task_id,
             project_id=project_id,
-            message="Analysis already in progress"
+            message="Analysis already in progress",
         )
 
     # Build options
@@ -167,11 +188,9 @@ async def start_background_analysis(
 
     # Create job with total_steps adjusted for multi-repo
     from api.services.analysis.analysis_job_runner import STEPS_PER_REPO
+
     job = await service.create_analysis_job(
-        user_id=user_id,
-        project_id=project_id,
-        git_url=request.git_url,
-        options=options
+        user_id=user_id, project_id=project_id, git_url=request.git_url, options=options
     )
     # Override total_steps for multi-repo
     if is_multi_repo:
@@ -189,17 +208,21 @@ async def start_background_analysis(
                 "label": r.label,
                 "is_primary": bool(r.is_primary),
             }
-            for r in sorted(repositories, key=lambda r: (not r.is_primary, r.display_order))
+            for r in sorted(
+                repositories, key=lambda r: (not r.is_primary, r.display_order)
+            )
         ]
-        asyncio.create_task(run_multi_repo_background_analysis(
-            task_id=job.task_id,
-            user_id=user_id,
-            project_id=project_id,
-            github_username=github_username,
-            github_token=token,
-            repositories=repo_list,
-            options=options,
-        ))
+        asyncio.create_task(
+            run_multi_repo_background_analysis(
+                task_id=job.task_id,
+                user_id=user_id,
+                project_id=project_id,
+                github_username=github_username,
+                github_token=token,
+                repositories=repo_list,
+                options=options,
+            )
+        )
         message = f"Multi-repo analysis started ({len(repositories)} repos)"
     else:
         # Single repo: use existing logic
@@ -210,16 +233,18 @@ async def start_background_analysis(
             effective_repo_id = repositories[0].id
             effective_git_url = repositories[0].git_url
 
-        asyncio.create_task(run_background_analysis(
-            task_id=job.task_id,
-            user_id=user_id,
-            project_id=project_id,
-            git_url=effective_git_url,
-            github_username=github_username,
-            github_token=token,
-            options=options,
-            project_repository_id=effective_repo_id,
-        ))
+        asyncio.create_task(
+            run_background_analysis(
+                task_id=job.task_id,
+                user_id=user_id,
+                project_id=project_id,
+                git_url=effective_git_url,
+                github_username=github_username,
+                github_token=token,
+                options=options,
+                project_repository_id=effective_repo_id,
+            )
+        )
         message = "Analysis started in background"
 
     return StartAnalysisResponse(
@@ -231,16 +256,14 @@ async def start_background_analysis(
 
 @router.get("/active-analyses", response_model=AnalysisJobListResponse)
 async def get_active_analyses(
-    user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    user_id: int = Query(..., description="User ID"), db: AsyncSession = Depends(get_db)
 ):
     """Get all active analysis jobs for a user."""
     service = AnalysisJobService(db)
     jobs = await service.get_active_jobs_for_user(user_id)
 
     return AnalysisJobListResponse(
-        jobs=[_build_job_status(job) for job in jobs],
-        total=len(jobs)
+        jobs=[_build_job_status(job) for job in jobs], total=len(jobs)
     )
 
 
@@ -248,7 +271,7 @@ async def get_active_analyses(
 async def get_analysis_status(
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get the status of an active analysis job for a project."""
     service = AnalysisJobService(db)
@@ -268,7 +291,7 @@ async def get_analysis_status(
 async def cancel_analysis(
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Cancel an in-progress analysis for a project.
 
@@ -278,7 +301,9 @@ async def cancel_analysis(
     job = await service.get_job_by_project(project_id)
 
     if not job:
-        raise HTTPException(status_code=404, detail="No active analysis found for this project")
+        raise HTTPException(
+            status_code=404, detail="No active analysis found for this project"
+        )
 
     # Verify user owns this job
     if job.user_id != user_id:
@@ -294,8 +319,9 @@ async def cancel_analysis(
         task_id=cancelled_job.task_id,
         project_id=project_id,
         status=cancelled_job.status,
-        message="Analysis cancelled" + (" with partial results saved" if partial_saved else ""),
-        partial_saved=partial_saved
+        message="Analysis cancelled"
+        + (" with partial results saved" if partial_saved else ""),
+        partial_saved=partial_saved,
     )
 
 
@@ -303,7 +329,7 @@ async def cancel_analysis(
 async def get_job_status(
     task_id: str,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get the status of a specific analysis job by task_id."""
     service = AnalysisJobService(db)

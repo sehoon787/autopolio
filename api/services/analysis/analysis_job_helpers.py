@@ -4,13 +4,14 @@ Analysis Job Helpers - Shared LLM helper functions for background analysis.
 Used by both single-repo (analysis_job_runner) and multi-repo (analysis_job_multi)
 background analysis flows.
 """
+
 import json
 import logging
 from typing import Dict, Any, List, Tuple
 
 from sqlalchemy import select
 
-from api.models.project import Project, Technology, ProjectTechnology
+from api.models.project import Project
 from api.models.repo_analysis import RepoAnalysis
 from api.models.achievement import ProjectAchievement
 from api.models.contributor_analysis import ContributorAnalysis
@@ -20,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _generate_key_tasks_bg(
-    project_id: int,
-    analysis_result: Dict[str, Any],
-    llm_service,
-    language: str = "ko"
+    project_id: int, analysis_result: Dict[str, Any], llm_service, language: str = "ko"
 ) -> Tuple[List[str], int]:
     """Generate key tasks using LLM for background analysis."""
     async with AsyncSessionLocal() as db:
@@ -51,12 +49,12 @@ async def _generate_key_tasks_bg(
             prompt = f"""Based on the following project information, extract 3-5 key tasks/responsibilities.
 
 Project: {project.name}
-Description: {project.description or 'N/A'}
-Role: {project.role or 'Developer'}
-Tech Stack: {', '.join(technologies[:10]) if technologies else 'N/A'}
-Commit Summary: {commit_context or 'N/A'}
+Description: {project.description or "N/A"}
+Role: {project.role or "Developer"}
+Tech Stack: {", ".join(technologies[:10]) if technologies else "N/A"}
+Commit Summary: {commit_context or "N/A"}
 Commit Messages:
-{commit_summary[:500] if commit_summary else 'N/A'}
+{commit_summary[:500] if commit_summary else "N/A"}
 
 Each task should be specific and suitable for a resume.
 Examples:
@@ -83,12 +81,12 @@ Respond ONLY with a JSON array:
             prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무 3-5개를 추출해주세요.
 
 프로젝트: {project.name}
-설명: {project.description or 'N/A'}
-역할: {project.role or '개발자'}
-기술 스택: {', '.join(technologies[:10]) if technologies else 'N/A'}
-커밋 현황: {commit_context or 'N/A'}
+설명: {project.description or "N/A"}
+역할: {project.role or "개발자"}
+기술 스택: {", ".join(technologies[:10]) if technologies else "N/A"}
+커밋 현황: {commit_context or "N/A"}
 커밋 메시지 요약:
-{commit_summary[:500] if commit_summary else 'N/A'}
+{commit_summary[:500] if commit_summary else "N/A"}
 
 각 업무는 구체적이고 이력서에 적합한 형태로 작성해주세요.
 예시:
@@ -102,21 +100,22 @@ JSON 배열 형식으로만 응답하세요:
         try:
             system_prompt = (
                 "You are an expert at extracting key tasks from development projects. Respond ONLY with a JSON array."
-                if language == "en" else
-                "당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요."
+                if language == "en"
+                else "당신은 개발 프로젝트의 주요 업무를 추출하는 전문가입니다. JSON 배열 형식으로만 응답하세요."
             )
 
             # Both LLMService and CLILLMService have .provider attribute
             # CLILLMProvider.generate() delegates to generate_with_cli() internally
             response, tokens = await llm_service.provider.generate(
-                prompt,
-                system_prompt=system_prompt,
-                max_tokens=500,
-                temperature=0.3
+                prompt, system_prompt=system_prompt, max_tokens=500, temperature=0.3
             )
 
-            logger.info("[_generate_key_tasks_bg] Response len=%d, tokens=%d, preview=%.100s",
-                        len(response) if response else 0, tokens, (response or "")[:100])
+            logger.info(
+                "[_generate_key_tasks_bg] Response len=%d, tokens=%d, preview=%.100s",
+                len(response) if response else 0,
+                tokens,
+                (response or "")[:100],
+            )
 
             json_str = response.strip()
             if "```json" in json_str:
@@ -127,15 +126,24 @@ JSON 배열 형식으로만 응답하세요:
             tasks = json.loads(json_str.strip())
 
             if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-                logger.info("[_generate_key_tasks_bg] Extracted %d tasks", len(tasks[:5]))
+                logger.info(
+                    "[_generate_key_tasks_bg] Extracted %d tasks", len(tasks[:5])
+                )
                 return tasks[:5], tokens
 
-            logger.warning("[_generate_key_tasks_bg] Unexpected format: %s", type(tasks).__name__)
+            logger.warning(
+                "[_generate_key_tasks_bg] Unexpected format: %s", type(tasks).__name__
+            )
             return [], tokens
 
         except json.JSONDecodeError as e:
-            logger.error("[_generate_key_tasks_bg] JSON parse failed: %s (response_preview=%.200s)",
-                         e, (response if 'response' in dir() else 'N/A')[:200] if response else 'empty')
+            logger.error(
+                "[_generate_key_tasks_bg] JSON parse failed: %s (response_preview=%.200s)",
+                e,
+                (response if "response" in dir() else "N/A")[:200]
+                if response
+                else "empty",
+            )
             return [], 0
         except Exception as e:
             logger.error("[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e)
@@ -184,17 +192,21 @@ async def _generate_combined_ai_summary(
         for analysis in analyses:
             label = "Repository"
             if analysis.project_repository:
-                label = analysis.project_repository.label or analysis.git_url.split("/")[-1].replace(".git", "")
+                label = analysis.project_repository.label or analysis.git_url.split(
+                    "/"
+                )[-1].replace(".git", "")
             elif analysis.git_url:
                 label = analysis.git_url.split("/")[-1].replace(".git", "")
 
-            repo_summaries.append({
-                "label": label,
-                "git_url": analysis.git_url or "",
-                "ai_summary": analysis.ai_summary or "",
-                "key_tasks": analysis.key_tasks or [],
-                "technologies": analysis.detected_technologies or [],
-            })
+            repo_summaries.append(
+                {
+                    "label": label,
+                    "git_url": analysis.git_url or "",
+                    "ai_summary": analysis.ai_summary or "",
+                    "key_tasks": analysis.key_tasks or [],
+                    "technologies": analysis.detected_technologies or [],
+                }
+            )
 
         project_data = {
             "name": project.name,
@@ -219,7 +231,9 @@ async def _generate_combined_ai_summary(
 
     if combined_summary:
         async with AsyncSessionLocal() as db:
-            proj_result = await db.execute(select(Project).where(Project.id == project_id))
+            proj_result = await db.execute(
+                select(Project).where(Project.id == project_id)
+            )
             project = proj_result.scalar_one_or_none()
             if project:
                 project.ai_summary = combined_summary
@@ -228,7 +242,8 @@ async def _generate_combined_ai_summary(
                 await db.commit()
                 logger.info(
                     "[MultiRepoAnalysis] Combined AI summary saved for project %d (%d tokens)",
-                    project_id, tokens,
+                    project_id,
+                    tokens,
                 )
 
     return tokens
@@ -312,16 +327,20 @@ async def save_repo_basic_results(
                     )
                 )
                 for achievement in achievements:
-                    db.add(ProjectAchievement(
-                        project_id=project_id,
-                        metric_name=achievement.get("metric_name", ""),
-                        metric_value=achievement.get("metric_value", ""),
-                        description=achievement.get("description"),
-                        category=achievement.get("category"),
-                        evidence=achievement.get("evidence"),
-                    ))
+                    db.add(
+                        ProjectAchievement(
+                            project_id=project_id,
+                            metric_name=achievement.get("metric_name", ""),
+                            metric_value=achievement.get("metric_value", ""),
+                            description=achievement.get("description"),
+                            category=achievement.get("category"),
+                            evidence=achievement.get("evidence"),
+                        )
+                    )
         except Exception as e:
-            logger.warning("[Analysis] Achievement detection failed for %s: %s", git_url, e)
+            logger.warning(
+                "[Analysis] Achievement detection failed for %s: %s", git_url, e
+            )
 
         await db.commit()
         return repo_analysis.id
@@ -350,11 +369,17 @@ async def save_llm_results(
         if key_tasks:
             repo_analysis.key_tasks = key_tasks
         if detailed_content.get("implementation_details"):
-            repo_analysis.implementation_details = detailed_content["implementation_details"]
+            repo_analysis.implementation_details = detailed_content[
+                "implementation_details"
+            ]
         if detailed_content.get("development_timeline"):
-            repo_analysis.development_timeline = detailed_content["development_timeline"]
+            repo_analysis.development_timeline = detailed_content[
+                "development_timeline"
+            ]
         if detailed_content.get("detailed_achievements"):
-            repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+            repo_analysis.detailed_achievements = detailed_content[
+                "detailed_achievements"
+            ]
         if ai_summary:
             repo_analysis.ai_summary = ai_summary
         if ai_key_features:
@@ -362,7 +387,9 @@ async def save_llm_results(
         await db.commit()
 
         if is_primary and (ai_summary or ai_key_features):
-            proj_result = await db.execute(select(Project).where(Project.id == project_id))
+            proj_result = await db.execute(
+                select(Project).where(Project.id == project_id)
+            )
             project = proj_result.scalar_one_or_none()
             if project:
                 if ai_summary:
@@ -381,7 +408,9 @@ async def save_contributor_analysis(
 ) -> None:
     """Run and save contributor analysis for the specified user."""
     contributor_data = await github_service.analyze_contributor(
-        git_url, github_username, commit_limit=100,
+        git_url,
+        github_username,
+        commit_limit=100,
     )
     async with AsyncSessionLocal() as db:
         existing_result = await db.execute(
@@ -406,10 +435,12 @@ async def save_contributor_analysis(
             for k, v in fields.items():
                 setattr(existing, k, v)
         else:
-            db.add(ContributorAnalysis(
-                repo_analysis_id=analysis_id,
-                username=github_username,
-                is_primary=True,
-                **fields,
-            ))
+            db.add(
+                ContributorAnalysis(
+                    repo_analysis_id=analysis_id,
+                    username=github_username,
+                    is_primary=True,
+                    **fields,
+                )
+            )
         await db.commit()

@@ -48,7 +48,9 @@ async def get_stored_keys(
         try:
             anthropic_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
         except Exception as e:
-            logger.warning("Failed to decrypt Anthropic key for user %d: %s", user_id, e)
+            logger.warning(
+                "Failed to decrypt Anthropic key for user %d: %s", user_id, e
+            )
 
     if user.gemini_api_key_encrypted:
         try:

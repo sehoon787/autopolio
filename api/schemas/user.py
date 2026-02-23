@@ -24,6 +24,7 @@ class UserUpdate(BaseModel):
 
 class GenerationOptionsUpdate(BaseModel):
     """Update generation options preferences"""
+
     # AI Analysis settings
     default_summary_style: Optional[str] = None  # professional, casual, technical
     default_analysis_language: Optional[str] = None  # ko, en
@@ -36,6 +37,7 @@ class GenerationOptionsUpdate(BaseModel):
 
 class GenerationOptionsResponse(BaseModel):
     """Generation options response"""
+
     # AI Analysis settings
     default_summary_style: str = "professional"
     default_analysis_language: str = "ko"
@@ -62,6 +64,7 @@ class UserResponse(UserBase):
 # Profile schemas for personal info management
 class OAuthDefaults(BaseModel):
     """Default values from primary OAuth provider"""
+
     name: Optional[str] = None
     email: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -73,6 +76,7 @@ class UserProfileUpdate(BaseModel):
     - "": intentionally empty (user cleared the field)
     - value: user-entered value
     """
+
     display_name: Optional[str] = None
     profile_email: Optional[str] = None
     phone: Optional[str] = None
@@ -83,6 +87,7 @@ class UserProfileUpdate(BaseModel):
 
 class UserProfileResponse(BaseModel):
     """Profile response with user values, OAuth defaults, and effective values"""
+
     # User-entered values (can be None or "")
     display_name: Optional[str] = None
     profile_email: Optional[str] = None

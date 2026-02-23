@@ -6,7 +6,10 @@ Provides utilities for extracting and formatting data for resume exports.
 
 from typing import Dict, Any, List
 
-from api.services.core.domain_constants import DOMAIN_CATEGORIES, sort_domains_by_priority
+from api.services.core.domain_constants import (
+    DOMAIN_CATEGORIES,
+    sort_domains_by_priority,
+)
 
 
 def get_key_tasks_list(proj: dict) -> List[str]:
@@ -22,8 +25,11 @@ def get_key_tasks_list(proj: dict) -> List[str]:
     if not key_tasks:
         key_tasks_str = proj.get("key_tasks", "")
         if key_tasks_str:
-            key_tasks = [t.strip().lstrip("").strip()
-                        for t in key_tasks_str.split("\n") if t.strip()]
+            key_tasks = [
+                t.strip().lstrip("").strip()
+                for t in key_tasks_str.split("\n")
+                if t.strip()
+            ]
     return key_tasks
 
 
@@ -103,12 +109,17 @@ def get_achievements_list(proj: dict, use_detailed: bool = False) -> List[str]:
     # Fallback: Use achievements string
     achievements = proj.get("achievements")
     if isinstance(achievements, str):
-        return [a.strip().lstrip("").lstrip("-").strip()
-                for a in achievements.split("\n") if a.strip()]
+        return [
+            a.strip().lstrip("").lstrip("-").strip()
+            for a in achievements.split("\n")
+            if a.strip()
+        ]
     return []
 
 
-def group_projects_by_company(projects: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def group_projects_by_company(
+    projects: List[Dict[str, Any]],
+) -> Dict[str, List[Dict[str, Any]]]:
     """Group projects by company name
 
     Args:
@@ -126,7 +137,9 @@ def group_projects_by_company(projects: List[Dict[str, Any]]) -> Dict[str, List[
     return company_projects
 
 
-def categorize_skills_by_domain_detailed(projects: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def categorize_skills_by_domain_detailed(
+    projects: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
     """Categorize skills by domain with detailed format (based on user's example)
 
     Returns dict with:
@@ -196,15 +209,22 @@ def categorize_skills_by_domain_detailed(projects: List[Dict[str, Any]]) -> Dict
                 }
 
             domain_data[matched_domain]["_tech_set"].add(tech_name)
-            domain_tech_count[matched_domain] = domain_tech_count.get(matched_domain, 0) + 1
+            domain_tech_count[matched_domain] = (
+                domain_tech_count.get(matched_domain, 0) + 1
+            )
 
             # Check if it's a database tech
-            if any(kw in tech_lower for kw in DOMAIN_CATEGORIES.get("Database", {}).get("keywords", [])):
+            if any(
+                kw in tech_lower
+                for kw in DOMAIN_CATEGORIES.get("Database", {}).get("keywords", [])
+            ):
                 domain_data[matched_domain]["_db_set"].add(tech_name)
 
         # Find primary domain
         if domain_tech_count:
-            project_primary_domain = max(domain_tech_count.items(), key=lambda x: x[1])[0]
+            project_primary_domain = max(domain_tech_count.items(), key=lambda x: x[1])[
+                0
+            ]
 
         # Process implementation_details from LLM analysis
         for detail in implementation_details:
@@ -269,7 +289,9 @@ def categorize_skills_by_domain_detailed(projects: List[Dict[str, Any]]) -> Dict
         if techs:
             domain_data[domain_name]["technologies"] = [", ".join(techs)]
 
-        domain_data[domain_name]["implementations"] = list(domain_data[domain_name]["_impl_set"])[:10]
+        domain_data[domain_name]["implementations"] = list(
+            domain_data[domain_name]["_impl_set"]
+        )[:10]
 
         dbs = sorted(domain_data[domain_name]["_db_set"])
         if dbs:

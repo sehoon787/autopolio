@@ -2,6 +2,7 @@
 LLM Service - Supports both OpenAI and Anthropic for text generation.
 Facade that delegates to providers and generation functions.
 """
+
 from typing import Dict, List, Any, Optional
 
 import json
@@ -35,7 +36,9 @@ __all__ = [
 class LLMService:
     """Service for LLM-based text generation."""
 
-    def __init__(self, provider: str = None, model: str | None = None, api_key: str | None = None):
+    def __init__(
+        self, provider: str = None, model: str | None = None, api_key: str | None = None
+    ):
         self.provider_name = provider or settings.llm_provider
         self.model_override = model
         self.api_key_override = api_key
@@ -48,26 +51,19 @@ class LLMService:
             key = self.api_key_override or settings.openai_api_key
             if not key:
                 raise ValueError("OpenAI API key not configured")
-            return OpenAIProvider(
-                key,
-                self.model_override or settings.openai_model
-            )
+            return OpenAIProvider(key, self.model_override or settings.openai_model)
         elif self.provider_name == "anthropic":
             key = self.api_key_override or settings.anthropic_api_key
             if not key:
                 raise ValueError("Anthropic API key not configured")
             return AnthropicProvider(
-                key,
-                self.model_override or settings.anthropic_model
+                key, self.model_override or settings.anthropic_model
             )
         elif self.provider_name == "gemini":
             key = self.api_key_override or settings.gemini_api_key
             if not key:
                 raise ValueError("Gemini API key not configured")
-            return GeminiProvider(
-                key,
-                self.model_override or settings.gemini_model
-            )
+            return GeminiProvider(key, self.model_override or settings.gemini_model)
         else:
             raise ValueError(f"Unknown LLM provider: {self.provider_name}")
 
@@ -75,7 +71,7 @@ class LLMService:
         self,
         project_data: Dict[str, Any],
         style: str = "professional",
-        language: str = "ko"
+        language: str = "ko",
     ) -> Dict[str, Any]:
         """Generate a summary for a project."""
         prompts = get_prompts(language)
@@ -87,11 +83,11 @@ class LLMService:
         }
 
         system_prompt = f"""{prompts["system_resume"]}
-{style_map.get(style, style_map['professional'])}
+{style_map.get(style, style_map["professional"])}
 {prompts["json_format"]}"""
 
         # Build commit categories description
-        commit_categories = project_data.get('commit_categories', {})
+        commit_categories = project_data.get("commit_categories", {})
         categories_desc = ""
         if commit_categories:
             cat_parts = []
@@ -108,36 +104,42 @@ class LLMService:
             categories_desc = ", ".join(cat_parts)
 
         # Build code stats description
-        lines_added = project_data.get('lines_added', 0)
-        lines_deleted = project_data.get('lines_deleted', 0)
-        files_changed = project_data.get('files_changed', 0)
-        code_stats_desc = f"+{lines_added:,} / -{lines_deleted:,} lines across {files_changed} files" if lines_added else ""
+        lines_added = project_data.get("lines_added", 0)
+        lines_deleted = project_data.get("lines_deleted", 0)
+        files_changed = project_data.get("files_changed", 0)
+        code_stats_desc = (
+            f"+{lines_added:,} / -{lines_deleted:,} lines across {files_changed} files"
+            if lines_added
+            else ""
+        )
 
         # Get key tasks if available
-        key_tasks = project_data.get('key_tasks', [])
-        key_tasks_desc = "\n".join(f"  - {task}" for task in key_tasks[:5]) if key_tasks else ""
+        key_tasks = project_data.get("key_tasks", [])
+        key_tasks_desc = (
+            "\n".join(f"  - {task}" for task in key_tasks[:5]) if key_tasks else ""
+        )
 
         if language == "en":
             prompt = f"""Based on the following project information, write a DETAILED summary suitable for a resume.
 
 Project Information:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
-- Team Size: {project_data.get('team_size', 'N/A')} members
-- Contribution: {project_data.get('contribution_percent', 'N/A')}%
-- Tech Stack: {', '.join(project_data.get('technologies', []))}
-- Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
+- Team Size: {project_data.get("team_size", "N/A")} members
+- Contribution: {project_data.get("contribution_percent", "N/A")}%
+- Tech Stack: {", ".join(project_data.get("technologies", []))}
+- Period: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 Code Contribution Analysis:
-- Total Commits: {project_data.get('total_commits', 'N/A')}
-- User Commits: {project_data.get('user_commits', 'N/A')}
-- Code Changes: {code_stats_desc or 'N/A'}
-- Commit Categories: {categories_desc or 'N/A'}
-- Commit Summary: {project_data.get('commit_summary', 'N/A')}
+- Total Commits: {project_data.get("total_commits", "N/A")}
+- User Commits: {project_data.get("user_commits", "N/A")}
+- Code Changes: {code_stats_desc or "N/A"}
+- Commit Categories: {categories_desc or "N/A"}
+- Commit Summary: {project_data.get("commit_summary", "N/A")}
 
 Key Tasks Performed:
-{key_tasks_desc or '(Not available)'}
+{key_tasks_desc or "(Not available)"}
 
 Instructions:
 1. Write a comprehensive summary (4-6 sentences) that highlights:
@@ -165,23 +167,23 @@ Respond in the following JSON format:
             prompt = f"""다음 프로젝트 정보를 바탕으로 이력서에 적합한 **상세한** 요약을 작성해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
-- 팀 규모: {project_data.get('team_size', 'N/A')}명
-- 기여도: {project_data.get('contribution_percent', 'N/A')}%
-- 기술 스택: {', '.join(project_data.get('technologies', []))}
-- 기간: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
+- 팀 규모: {project_data.get("team_size", "N/A")}명
+- 기여도: {project_data.get("contribution_percent", "N/A")}%
+- 기술 스택: {", ".join(project_data.get("technologies", []))}
+- 기간: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 코드 기여 분석:
-- 총 커밋: {project_data.get('total_commits', 'N/A')}
-- 내 커밋: {project_data.get('user_commits', 'N/A')}
-- 코드 변경량: {code_stats_desc or 'N/A'}
-- 커밋 유형: {categories_desc or 'N/A'}
-- 커밋 메시지 요약: {project_data.get('commit_summary', 'N/A')}
+- 총 커밋: {project_data.get("total_commits", "N/A")}
+- 내 커밋: {project_data.get("user_commits", "N/A")}
+- 코드 변경량: {code_stats_desc or "N/A"}
+- 커밋 유형: {categories_desc or "N/A"}
+- 커밋 메시지 요약: {project_data.get("commit_summary", "N/A")}
 
 주요 수행 업무:
-{key_tasks_desc or '(정보 없음)'}
+{key_tasks_desc or "(정보 없음)"}
 
 작성 지침:
 1. 포괄적인 요약(4-6문장)을 작성하세요:
@@ -254,7 +256,7 @@ Respond in the following JSON format:
             "technical": prompts["style_technical"],
         }
         system_prompt = f"""{prompts["system_resume"]}
-{style_map.get(style, style_map['professional'])}
+{style_map.get(style, style_map["professional"])}
 {prompts["json_format"]}"""
 
         # Build per-repo section
@@ -276,12 +278,12 @@ Respond in the following JSON format:
             prompt = f"""This project consists of MULTIPLE repositories. Based on the project info and each repository's analysis below, write a HOLISTIC project summary suitable for a resume.
 
 Project Information:
-- Name: {project_data.get('name', 'N/A')}
-- Description: {project_data.get('description', 'N/A')}
-- Role: {project_data.get('role', 'N/A')}
-- Team Size: {project_data.get('team_size', 'N/A')} members
-- Contribution: {project_data.get('contribution_percent', 'N/A')}%
-- Period: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- Name: {project_data.get("name", "N/A")}
+- Description: {project_data.get("description", "N/A")}
+- Role: {project_data.get("role", "N/A")}
+- Team Size: {project_data.get("team_size", "N/A")} members
+- Contribution: {project_data.get("contribution_percent", "N/A")}%
+- Period: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 Per-Repository Analysis:
 {repos_text}
@@ -313,12 +315,12 @@ Respond in JSON:
             prompt = f"""이 프로젝트는 여러 레포지토리로 구성되어 있습니다. 아래의 프로젝트 정보와 각 레포지토리 분석 결과를 바탕으로 이력서에 적합한 **통합적인** 프로젝트 요약을 작성해주세요.
 
 프로젝트 정보:
-- 이름: {project_data.get('name', 'N/A')}
-- 설명: {project_data.get('description', 'N/A')}
-- 역할: {project_data.get('role', 'N/A')}
-- 팀 규모: {project_data.get('team_size', 'N/A')}명
-- 기여도: {project_data.get('contribution_percent', 'N/A')}%
-- 기간: {project_data.get('start_date', 'N/A')} ~ {project_data.get('end_date', 'N/A')}
+- 이름: {project_data.get("name", "N/A")}
+- 설명: {project_data.get("description", "N/A")}
+- 역할: {project_data.get("role", "N/A")}
+- 팀 규모: {project_data.get("team_size", "N/A")}명
+- 기여도: {project_data.get("contribution_percent", "N/A")}%
+- 기간: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 레포지토리별 분석 결과:
 {repos_text}
@@ -369,22 +371,20 @@ Respond in JSON:
             }
 
     async def generate_commit_summary(
-        self,
-        commit_messages: List[str],
-        language: str = "ko"
+        self, commit_messages: List[str], language: str = "ko"
     ) -> str:
         """Generate a summary of commit messages."""
-        prompts = get_prompts(language)
-
         if not commit_messages:
             return "No commit history." if language == "en" else "커밋 내역이 없습니다."
 
         if language == "en":
-            system_prompt = "You are an expert in analyzing development project commit history."
+            system_prompt = (
+                "You are an expert in analyzing development project commit history."
+            )
             prompt = f"""Analyze the following commit messages and summarize the main tasks performed in the project in 2-3 sentences.
 
 Commit messages:
-{chr(10).join(f'- {msg}' for msg in commit_messages[:30])}
+{chr(10).join(f"- {msg}" for msg in commit_messages[:30])}
 
 Summary:"""
         else:
@@ -392,19 +392,18 @@ Summary:"""
             prompt = f"""다음 커밋 메시지들을 분석하고 프로젝트에서 수행한 주요 작업을 2-3문장으로 요약해주세요.
 
 커밋 메시지:
-{chr(10).join(f'- {msg}' for msg in commit_messages[:30])}
+{chr(10).join(f"- {msg}" for msg in commit_messages[:30])}
 
 요약:"""
 
-        content, tokens = await self.provider.generate(prompt, system_prompt, max_tokens=500)
+        content, tokens = await self.provider.generate(
+            prompt, system_prompt, max_tokens=500
+        )
         self.total_tokens_used += tokens
         return content or ""
 
     async def generate_achievement_description(
-        self,
-        metric_name: str,
-        metric_value: str,
-        context: str = ""
+        self, metric_name: str, metric_value: str, context: str = ""
     ) -> str:
         """Generate a description for an achievement."""
         prompt = f"""다음 성과를 이력서에 적합한 형태로 1-2문장으로 설명해주세요.
@@ -420,15 +419,13 @@ Summary:"""
         return content or ""
 
     async def generate_skills_summary(
-        self,
-        technologies: List[str],
-        project_count: int
+        self, technologies: List[str], project_count: int
     ) -> str:
         """Generate a skills summary."""
         prompt = f"""다음 기술 스택을 바탕으로 간단한 기술 요약을 작성해주세요.
 
 사용한 기술:
-{', '.join(technologies)}
+{", ".join(technologies)}
 
 총 프로젝트 수: {project_count}
 
@@ -439,17 +436,14 @@ Summary:"""
         return content or ""
 
     async def optimize_for_template(
-        self,
-        content: str,
-        max_length: int,
-        platform: str
+        self, content: str, max_length: int, platform: str
     ) -> str:
         """Optimize content for a specific template/platform."""
         platform_guidelines = {
             "saramin": "사람인 플랫폼에 적합하게 간결하고 전문적으로",
             "wanted": "원티드 플랫폼에 적합하게 성과 중심으로",
             "remember": "리멤버 플랫폼에 적합하게 핵심만 간단히",
-            "notion": "노션 포트폴리오에 적합하게 상세하고 시각적으로"
+            "notion": "노션 포트폴리오에 적합하게 상세하고 시각적으로",
         }
 
         guideline = platform_guidelines.get(platform, "간결하고 전문적으로")
@@ -462,7 +456,9 @@ Summary:"""
 
 수정된 내용:"""
 
-        result, tokens = await self.provider.generate(prompt, max_tokens=max_length // 2)
+        result, tokens = await self.provider.generate(
+            prompt, max_tokens=max_length // 2
+        )
         self.total_tokens_used += tokens
         return result or ""
 
@@ -472,7 +468,7 @@ Summary:"""
         commit_summary: Optional[str] = None,
         language: str = "ko",
         user_context: Optional[str] = None,
-        code_context: Optional[str] = None
+        code_context: Optional[str] = None,
     ) -> List[str]:
         """
         Generate key tasks in numbered format (1), (2), (3)...
@@ -484,7 +480,7 @@ Summary:"""
             commit_summary,
             language,
             user_context,
-            code_context
+            code_context,
         )
         self.total_tokens_used += tokens
         return tasks
@@ -494,18 +490,14 @@ Summary:"""
         project_data: Dict[str, Any],
         commit_summary: Optional[str] = None,
         language: str = "ko",
-        user_context: Optional[str] = None
+        user_context: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Generate detailed implementation features grouped by category.
         Delegates to llm_generation module.
         """
         details, tokens = await generate_implementation_details_llm(
-            self.provider,
-            project_data,
-            commit_summary,
-            language,
-            user_context
+            self.provider, project_data, commit_summary, language, user_context
         )
         self.total_tokens_used += tokens
         return details
@@ -515,18 +507,14 @@ Summary:"""
         project_data: Dict[str, Any],
         existing_achievements: Optional[List[Dict[str, Any]]] = None,
         language: str = "ko",
-        user_context: Optional[str] = None
+        user_context: Optional[str] = None,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Generate achievements grouped by category with before/after format.
         Delegates to llm_generation module.
         """
         achievements, tokens = await generate_detailed_achievements_llm(
-            self.provider,
-            project_data,
-            existing_achievements,
-            language,
-            user_context
+            self.provider, project_data, existing_achievements, language, user_context
         )
         self.total_tokens_used += tokens
         return achievements

@@ -8,17 +8,20 @@ from pydantic import BaseModel
 from api.database import get_db
 from api.models.achievement import ProjectAchievement
 from api.models.project import Project, ProjectTechnology
-from api.models.repo_analysis import RepoAnalysis
 from api.models.user import User
-from api.schemas.project import AchievementCreate, AchievementUpdate, AchievementResponse
+from api.schemas.project import (
+    AchievementCreate,
+    AchievementUpdate,
+    AchievementResponse,
+)
 from api.services.achievement import AchievementService
-from api.services.core import EncryptionService
 
 router = APIRouter()
 
 
 class AutoDetectResponse(BaseModel):
     """Response for auto-detect achievements endpoint."""
+
     project_id: int
     detected_achievements: List[dict]
     saved_achievements: List[AchievementResponse]
@@ -35,7 +38,7 @@ async def get_achievements(
     project_id: int = Query(..., description="Project ID"),
     user_id: int = Query(..., description="User ID"),
     category: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all achievements for a project (excludes code contribution achievements)."""
     # Verify project belongs to user
@@ -57,7 +60,8 @@ async def get_achievements(
 
     # Filter out code contribution achievements (lines added/deleted is not a real achievement)
     filtered = [
-        a for a in achievements
+        a
+        for a in achievements
         if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
     ]
     return filtered
@@ -67,16 +71,13 @@ async def get_achievements(
 async def get_achievement(
     achievement_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get a specific achievement by ID."""
     result = await db.execute(
         select(ProjectAchievement)
         .join(Project)
-        .where(
-            ProjectAchievement.id == achievement_id,
-            Project.user_id == user_id
-        )
+        .where(ProjectAchievement.id == achievement_id, Project.user_id == user_id)
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -84,12 +85,14 @@ async def get_achievement(
     return achievement
 
 
-@router.post("", response_model=AchievementResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=AchievementResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_achievement(
     achievement_data: AchievementCreate,
     project_id: int = Query(..., description="Project ID"),
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a new achievement for a project."""
     # Verify project exists and belongs to user
@@ -100,8 +103,7 @@ async def create_achievement(
         raise HTTPException(status_code=404, detail="Project not found")
 
     achievement = ProjectAchievement(
-        project_id=project_id,
-        **achievement_data.model_dump()
+        project_id=project_id, **achievement_data.model_dump()
     )
     db.add(achievement)
     await db.flush()
@@ -114,16 +116,13 @@ async def update_achievement(
     achievement_id: int,
     achievement_data: AchievementUpdate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Update an achievement."""
     result = await db.execute(
         select(ProjectAchievement)
         .join(Project)
-        .where(
-            ProjectAchievement.id == achievement_id,
-            Project.user_id == user_id
-        )
+        .where(ProjectAchievement.id == achievement_id, Project.user_id == user_id)
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -142,16 +141,13 @@ async def update_achievement(
 async def delete_achievement(
     achievement_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete an achievement."""
     result = await db.execute(
         select(ProjectAchievement)
         .join(Project)
-        .where(
-            ProjectAchievement.id == achievement_id,
-            Project.user_id == user_id
-        )
+        .where(ProjectAchievement.id == achievement_id, Project.user_id == user_id)
     )
     achievement = result.scalar_one_or_none()
     if not achievement:
@@ -160,12 +156,16 @@ async def delete_achievement(
     await db.delete(achievement)
 
 
-@router.post("/bulk", response_model=List[AchievementResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/bulk",
+    response_model=List[AchievementResponse],
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_achievements_bulk(
     achievements_data: List[AchievementCreate],
     project_id: int = Query(..., description="Project ID"),
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Create multiple achievements for a project at once."""
     # Verify project exists and belongs to user
@@ -180,7 +180,7 @@ async def create_achievements_bulk(
         achievement = ProjectAchievement(
             project_id=project_id,
             display_order=data.display_order or i,
-            **data.model_dump(exclude={"display_order"})
+            **data.model_dump(exclude={"display_order"}),
         )
         db.add(achievement)
         achievements.append(achievement)
@@ -196,9 +196,13 @@ async def create_achievements_bulk(
 async def auto_detect_achievements(
     project_id: int = Query(..., description="Project ID"),
     user_id: int = Query(..., description="User ID"),
-    use_llm: bool = Query(True, description="Use LLM to generate additional achievements"),
-    save_to_db: bool = Query(True, description="Save detected achievements to database"),
-    db: AsyncSession = Depends(get_db)
+    use_llm: bool = Query(
+        True, description="Use LLM to generate additional achievements"
+    ),
+    save_to_db: bool = Query(
+        True, description="Save detected achievements to database"
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Automatically detect achievements from project data.
@@ -214,9 +218,11 @@ async def auto_detect_achievements(
         select(Project)
         .where(Project.id == project_id, Project.user_id == user_id)
         .options(
-            selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+            selectinload(Project.technologies).selectinload(
+                ProjectTechnology.technology
+            ),
             selectinload(Project.repo_analyses),
-            selectinload(Project.achievements)
+            selectinload(Project.achievements),
         )
     )
     project = result.scalar_one_or_none()
@@ -240,21 +246,23 @@ async def auto_detect_achievements(
         "lines_deleted": 0,
         "files_changed": 0,
         "commit_categories": {},
-        "commit_summary": None
+        "commit_summary": None,
     }
 
     # Add repo analysis data if available
     commit_messages = []
     if project.repo_analysis:
         repo_analysis = project.repo_analysis
-        project_data.update({
-            "total_commits": repo_analysis.total_commits or 0,
-            "lines_added": repo_analysis.lines_added or 0,
-            "lines_deleted": repo_analysis.lines_deleted or 0,
-            "files_changed": repo_analysis.files_changed or 0,
-            "commit_categories": repo_analysis.commit_categories or {},
-            "commit_summary": repo_analysis.commit_messages_summary
-        })
+        project_data.update(
+            {
+                "total_commits": repo_analysis.total_commits or 0,
+                "lines_added": repo_analysis.lines_added or 0,
+                "lines_deleted": repo_analysis.lines_deleted or 0,
+                "files_changed": repo_analysis.files_changed or 0,
+                "commit_categories": repo_analysis.commit_categories or {},
+                "commit_summary": repo_analysis.commit_messages_summary,
+            }
+        )
         # Parse commit messages from summary
         if repo_analysis.commit_messages_summary:
             commit_messages = repo_analysis.commit_messages_summary.split("\n")
@@ -269,13 +277,14 @@ async def auto_detect_achievements(
     detected_achievements, stats = await achievement_service.detect_all(
         project_data=project_data,
         commit_messages=commit_messages,
-        use_llm=use_llm and llm_provider is not None
+        use_llm=use_llm and llm_provider is not None,
     )
 
     # Filter out achievements that already exist
     existing_keys = {(a.metric_name, a.metric_value) for a in project.achievements}
     new_achievements = [
-        a for a in detected_achievements
+        a
+        for a in detected_achievements
         if (a["metric_name"], a["metric_value"]) not in existing_keys
     ]
 
@@ -290,7 +299,7 @@ async def auto_detect_achievements(
                 description=a.get("description"),
                 category=a.get("category"),
                 evidence=a.get("evidence"),
-                display_order=len(project.achievements) + i
+                display_order=len(project.achievements) + i,
             )
             db.add(achievement)
             saved_achievements.append(achievement)
@@ -304,8 +313,8 @@ async def auto_detect_achievements(
         detected_achievements=new_achievements,
         saved_achievements=saved_achievements,
         stats=stats,
-        message=f"{len(new_achievements)}개의 새로운 성과가 감지되었습니다." +
-                (f" {len(saved_achievements)}개가 저장되었습니다." if save_to_db else "")
+        message=f"{len(new_achievements)}개의 새로운 성과가 감지되었습니다."
+        + (f" {len(saved_achievements)}개가 저장되었습니다." if save_to_db else ""),
     )
 
 
@@ -314,7 +323,7 @@ async def auto_detect_all_projects(
     user_id: int = Query(..., description="User ID"),
     use_llm: bool = Query(False, description="Use LLM (can be slow)"),
     save_to_db: bool = Query(True, description="Save detected achievements"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Auto-detect achievements for all projects of a user.
@@ -325,9 +334,11 @@ async def auto_detect_all_projects(
         select(Project)
         .where(Project.user_id == user_id)
         .options(
-            selectinload(Project.technologies).selectinload(ProjectTechnology.technology),
+            selectinload(Project.technologies).selectinload(
+                ProjectTechnology.technology
+            ),
             selectinload(Project.repo_analyses),
-            selectinload(Project.achievements)
+            selectinload(Project.achievements),
         )
     )
     projects = result.scalars().all()
@@ -358,20 +369,22 @@ async def auto_detect_all_projects(
             "lines_deleted": 0,
             "files_changed": 0,
             "commit_categories": {},
-            "commit_summary": None
+            "commit_summary": None,
         }
 
         commit_messages = []
         if project.repo_analysis:
             repo_analysis = project.repo_analysis
-            project_data.update({
-                "total_commits": repo_analysis.total_commits or 0,
-                "lines_added": repo_analysis.lines_added or 0,
-                "lines_deleted": repo_analysis.lines_deleted or 0,
-                "files_changed": repo_analysis.files_changed or 0,
-                "commit_categories": repo_analysis.commit_categories or {},
-                "commit_summary": repo_analysis.commit_messages_summary
-            })
+            project_data.update(
+                {
+                    "total_commits": repo_analysis.total_commits or 0,
+                    "lines_added": repo_analysis.lines_added or 0,
+                    "lines_deleted": repo_analysis.lines_deleted or 0,
+                    "files_changed": repo_analysis.files_changed or 0,
+                    "commit_categories": repo_analysis.commit_categories or {},
+                    "commit_summary": repo_analysis.commit_messages_summary,
+                }
+            )
             if repo_analysis.commit_messages_summary:
                 commit_messages = repo_analysis.commit_messages_summary.split("\n")
 
@@ -380,13 +393,14 @@ async def auto_detect_all_projects(
         detected_achievements, stats = await achievement_service.detect_all(
             project_data=project_data,
             commit_messages=commit_messages,
-            use_llm=use_llm and llm_provider is not None
+            use_llm=use_llm and llm_provider is not None,
         )
 
         # Filter existing
         existing_keys = {(a.metric_name, a.metric_value) for a in project.achievements}
         new_achievements = [
-            a for a in detected_achievements
+            a
+            for a in detected_achievements
             if (a["metric_name"], a["metric_value"]) not in existing_keys
         ]
 
@@ -400,7 +414,7 @@ async def auto_detect_all_projects(
                     description=a.get("description"),
                     category=a.get("category"),
                     evidence=a.get("evidence"),
-                    display_order=len(project.achievements) + i
+                    display_order=len(project.achievements) + i,
                 )
                 db.add(achievement)
                 saved_count += 1
@@ -408,12 +422,14 @@ async def auto_detect_all_projects(
         total_detected += len(new_achievements)
         total_saved += saved_count
 
-        results.append({
-            "project_id": project.id,
-            "project_name": project.name,
-            "detected": len(new_achievements),
-            "saved": saved_count
-        })
+        results.append(
+            {
+                "project_id": project.id,
+                "project_name": project.name,
+                "detected": len(new_achievements),
+                "saved": saved_count,
+            }
+        )
 
     if save_to_db:
         await db.flush()
@@ -423,5 +439,5 @@ async def auto_detect_all_projects(
         "projects_processed": len(projects),
         "total_detected": total_detected,
         "total_saved": total_saved,
-        "results": results
+        "results": results,
     }

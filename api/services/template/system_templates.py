@@ -4,6 +4,7 @@ System Templates - Default template definitions for the application.
 This module imports template content from the templates subpackage
 and assembles the system template definitions.
 """
+
 from typing import List, Dict, Any
 
 from .templates import (
@@ -17,6 +18,7 @@ from .templates import (
 # ============================================================================
 # System Template Definitions
 # ============================================================================
+
 
 def get_system_templates() -> List[Dict[str, Any]]:
     """Return list of system template definitions.

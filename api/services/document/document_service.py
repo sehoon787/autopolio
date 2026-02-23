@@ -4,6 +4,7 @@ Document Service - Handles document generation (DOCX, PDF, Markdown).
 This is the main facade that orchestrates document generation using
 helper modules for format-specific generation and template rendering.
 """
+
 from typing import Dict, List, Any, Tuple
 from pathlib import Path
 import os
@@ -57,7 +58,7 @@ class DocumentService:
         field_mappings = {}
 
         # Pattern for placeholders like {{field_name}} or {field_name}
-        placeholder_pattern = r'\{\{?\s*([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\}?\}'
+        placeholder_pattern = r"\{\{?\s*([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\}?\}"
 
         for para in doc.paragraphs:
             text = para.text
@@ -79,7 +80,7 @@ class DocumentService:
         content_parts = []
         field_mappings = {}
 
-        placeholder_pattern = r'\{\{?\s*([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\}?\}'
+        placeholder_pattern = r"\{\{?\s*([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\}?\}"
 
         for page in reader.pages:
             text = page.extract_text()
@@ -98,7 +99,7 @@ class DocumentService:
         data: Dict[str, Any],
         output_format: str,
         document_name: str,
-        template_platform: str = None
+        template_platform: str = None,
     ) -> Tuple[str, int]:
         """Generate a document from template and data.
 
@@ -111,7 +112,7 @@ class DocumentService:
         """
         # Generate unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = re.sub(r'[^\w\-_]', '_', document_name)
+        safe_name = re.sub(r"[^\w\-_]", "_", document_name)
         filename = f"{safe_name}_{timestamp}.{output_format}"
         file_path = self.result_dir / filename
 
@@ -121,9 +122,10 @@ class DocumentService:
         if output_format == "docx" and template_platform in (
             "career_description",
             "career_description_no_personal",
-            "resume"
+            "resume",
         ):
             from api.services.docx.docx_generator import DocxGenerator
+
             generator = DocxGenerator()
 
             if template_platform == "career_description":
@@ -161,7 +163,7 @@ class DocumentService:
         """Render template with data (simple mustache-like syntax)."""
         return render_template(template, data)
 
-    def _flatten_dict(self, d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
+    def _flatten_dict(self, d: Dict, parent_key: str = "", sep: str = ".") -> Dict:
         """Flatten nested dictionary."""
         return flatten_dict(d, parent_key, sep)
 
@@ -169,7 +171,9 @@ class DocumentService:
         """Render section loops in template."""
         return render_sections(template, data)
 
-    def _parse_markdown_table(self, lines: List[str], start_idx: int) -> Tuple[List[List[str]], int]:
+    def _parse_markdown_table(
+        self, lines: List[str], start_idx: int
+    ) -> Tuple[List[List[str]], int]:
         """Parse markdown table starting at given index."""
         return parse_markdown_table(lines, start_idx)
 
@@ -177,7 +181,7 @@ class DocumentService:
         self,
         user_data: Dict[str, Any],
         companies: List[Dict[str, Any]],
-        projects: List[Dict[str, Any]]
+        projects: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Prepare data structure for template rendering."""
         # Extract categorized skills from all projects
@@ -189,32 +193,31 @@ class DocumentService:
             "email": user_data.get("email", ""),
             "github_username": user_data.get("github_username", ""),
             "summary": user_data.get("summary", ""),
-
             # Personal information (from user profile)
             "birthdate": user_data.get("birthdate", ""),
             "address": user_data.get("address", ""),
             "phone": user_data.get("phone", ""),
             "military_status": user_data.get("military_status", ""),
             "military_type": user_data.get("military_type", ""),
-
             # Education
             "university": user_data.get("university", ""),
             "major": user_data.get("major", ""),
             "graduation_date": user_data.get("graduation_date", ""),
             "gpa": user_data.get("gpa", ""),
-
             # Categorized skills
             "programming_languages": skill_categories.get("programming_languages", ""),
             "frameworks": skill_categories.get("frameworks", ""),
             "databases": skill_categories.get("databases", ""),
             "tools": skill_categories.get("tools", ""),
             "cloud": skill_categories.get("cloud", ""),
-            "devops": skill_categories.get("cloud", ""),  # Alias for templates using devops
-            "tooling": skill_categories.get("tools", ""),  # Alias for templates using tooling
-
+            "devops": skill_categories.get(
+                "cloud", ""
+            ),  # Alias for templates using devops
+            "tooling": skill_categories.get(
+                "tools", ""
+            ),  # Alias for templates using tooling
             # Legacy skills (all combined)
             "skills": extract_all_skills(projects),
-
             # Salary and job change info (from user profile)
             "current_salary": user_data.get("current_salary", ""),
             "desired_salary": user_data.get("desired_salary", ""),
@@ -223,7 +226,6 @@ class DocumentService:
             "motivation": user_data.get("motivation", ""),
             "competencies": user_data.get("competencies", ""),
             "personality": user_data.get("personality", ""),
-
             # Companies/Career
             "companies": [
                 {
@@ -231,18 +233,18 @@ class DocumentService:
                     "position": c.get("position", ""),
                     "department": c.get("department", ""),
                     "start_date": str(c.get("start_date", "")),
-                    "end_date": str(c.get("end_date", "")) if c.get("end_date") else "현재",
+                    "end_date": str(c.get("end_date", ""))
+                    if c.get("end_date")
+                    else "현재",
                     "description": c.get("description", ""),
-                    "location": c.get("location", "")
+                    "location": c.get("location", ""),
                 }
                 for c in companies
             ],
-
             # Build company lookup for project enrichment
             **build_project_company_data(projects, companies),
-
             # Total career experience
-            "total_experience": calculate_total_experience(companies)
+            "total_experience": calculate_total_experience(companies),
         }
 
     def _categorize_skills(self, projects: List[Dict[str, Any]]) -> Dict[str, str]:
@@ -250,9 +252,7 @@ class DocumentService:
         return categorize_skills(projects)
 
     def _build_project_company_data(
-        self,
-        projects: List[Dict[str, Any]],
-        companies: List[Dict[str, Any]]
+        self, projects: List[Dict[str, Any]], companies: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Build project data enriched with company info."""
         return build_project_company_data(projects, companies)

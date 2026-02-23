@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional, Dict, Any
 from datetime import date
@@ -11,8 +11,13 @@ from api.models.project_repository import ProjectRepository
 from api.models.achievement import ProjectAchievement
 from api.models.user import User
 from api.schemas.project import (
-    ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse,
-    TechnologyCreate, TechnologyResponse, ProjectRepositoryCreate,
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+    ProjectListResponse,
+    TechnologyCreate,
+    TechnologyResponse,
+    ProjectRepositoryCreate,
 )
 
 router = APIRouter()
@@ -29,10 +34,13 @@ PROJECT_LOAD_OPTIONS = [
 ]
 
 
-def filter_achievements(achievements: List[ProjectAchievement]) -> List[ProjectAchievement]:
+def filter_achievements(
+    achievements: List[ProjectAchievement],
+) -> List[ProjectAchievement]:
     """Filter out code contribution achievements (lines added/deleted is not a real achievement)."""
     return [
-        a for a in achievements
+        a
+        for a in achievements
         if not any(kw in (a.metric_name or "") for kw in CODE_CONTRIBUTION_KEYWORDS)
     ]
 
@@ -43,7 +51,7 @@ def _build_project_response(project: Project) -> Dict[str, Any]:
     last_analyzed_at = None
     latest_analysis = None  # track the most recent analysis for language/ai_tools
     # Try per-repo analyses first (multi-repo projects with project_repository_id set)
-    for repo in (project.repositories or []):
+    for repo in project.repositories or []:
         ra = repo.repo_analysis
         if ra and ra.analyzed_at:
             if last_analyzed_at is None or ra.analyzed_at > last_analyzed_at:
@@ -51,18 +59,22 @@ def _build_project_response(project: Project) -> Dict[str, Any]:
                 latest_analysis = ra
     # Fallback: check project-level repo_analyses (for older data without project_repository_id)
     if last_analyzed_at is None:
-        for ra in (project.repo_analyses or []):
+        for ra in project.repo_analyses or []:
             if ra.analyzed_at:
                 if last_analyzed_at is None or ra.analyzed_at > last_analyzed_at:
                     last_analyzed_at = ra.analyzed_at
                     latest_analysis = ra
 
     # Derive analysis_language from latest analysis
-    analysis_language = latest_analysis.analysis_language if latest_analysis and hasattr(latest_analysis, 'analysis_language') else None
+    analysis_language = (
+        latest_analysis.analysis_language
+        if latest_analysis and hasattr(latest_analysis, "analysis_language")
+        else None
+    )
 
     # Aggregate ai_tools_detected across all repo analyses
     all_ai_tools: Dict[str, Dict[str, Any]] = {}
-    for ra in (project.repo_analyses or []):
+    for ra in project.repo_analyses or []:
         if ra.ai_tools_detected:
             for tool_info in ra.ai_tools_detected:
                 tool_name = tool_info.get("tool", "")
@@ -98,7 +110,11 @@ def _build_project_response(project: Project) -> Dict[str, Any]:
         "created_at": project.created_at,
         "updated_at": project.updated_at,
         "technologies": [
-            {"id": pt.technology.id, "name": pt.technology.name, "category": pt.technology.category}
+            {
+                "id": pt.technology.id,
+                "name": pt.technology.name,
+                "category": pt.technology.category,
+            }
             for pt in project.technologies
         ],
         "achievements": filter_achievements(project.achievements),
@@ -117,14 +133,10 @@ def _build_project_response(project: Project) -> Dict[str, Any]:
 
 
 async def get_or_create_technology(
-    db: AsyncSession,
-    tech_name: str,
-    category: Optional[str] = None
+    db: AsyncSession, tech_name: str, category: Optional[str] = None
 ) -> Technology:
     """Get existing technology or create new one."""
-    result = await db.execute(
-        select(Technology).where(Technology.name == tech_name)
-    )
+    result = await db.execute(select(Technology).where(Technology.name == tech_name))
     tech = result.scalar_one_or_none()
     if not tech:
         tech = Technology(name=tech_name, category=category)
@@ -161,12 +173,17 @@ async def _sync_repositories(
                 git_url=repo_data.git_url,
                 label=repo_data.label,
                 display_order=i,
-                is_primary=1 if repo_data.is_primary or (i == 0 and not has_primary) else 0,
+                is_primary=1
+                if repo_data.is_primary or (i == 0 and not has_primary)
+                else 0,
             )
             db.add(repo)
 
         # Update project.git_url to the primary repo's URL
-        primary = next((r for r in repositories if r.is_primary), repositories[0] if repositories else None)
+        primary = next(
+            (r for r in repositories if r.is_primary),
+            repositories[0] if repositories else None,
+        )
         if primary:
             project.git_url = primary.git_url
 
@@ -193,18 +210,35 @@ async def _sync_repositories(
 async def get_projects(
     user_id: int = Query(..., description="User ID"),
     company_id: Optional[int] = Query(None, description="Filter by company ID"),
-    project_type: Optional[str] = Query(None, description="Filter by project type (company, personal, open-source)"),
+    project_type: Optional[str] = Query(
+        None, description="Filter by project type (company, personal, open-source)"
+    ),
     is_analyzed: Optional[bool] = Query(None, description="Filter by analyzed status"),
-    status: Optional[str] = Query(None, description="Filter by status (pending, analyzing, review, completed)"),
-    start_date_from: Optional[date] = Query(None, description="Filter projects starting from this date"),
-    start_date_to: Optional[date] = Query(None, description="Filter projects starting until this date"),
-    technologies: Optional[str] = Query(None, description="Filter by technologies (comma separated, e.g., 'React,TypeScript')"),
+    status: Optional[str] = Query(
+        None, description="Filter by status (pending, analyzing, review, completed)"
+    ),
+    start_date_from: Optional[date] = Query(
+        None, description="Filter projects starting from this date"
+    ),
+    start_date_to: Optional[date] = Query(
+        None, description="Filter projects starting until this date"
+    ),
+    technologies: Optional[str] = Query(
+        None,
+        description="Filter by technologies (comma separated, e.g., 'React,TypeScript')",
+    ),
     search: Optional[str] = Query(None, description="Search by project name"),
-    sort_by: str = Query("is_analyzed,created_at", description="Comma-separated sort fields (e.g., 'is_analyzed,created_at')"),
-    sort_order: str = Query("asc,desc", description="Comma-separated sort orders matching sort_by fields (asc/desc)"),
+    sort_by: str = Query(
+        "is_analyzed,created_at",
+        description="Comma-separated sort fields (e.g., 'is_analyzed,created_at')",
+    ),
+    sort_order: str = Query(
+        "asc,desc",
+        description="Comma-separated sort orders matching sort_by fields (asc/desc)",
+    ),
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all projects for a user with optional filters."""
     query = select(Project).where(Project.user_id == user_id)
@@ -265,7 +299,9 @@ async def get_projects(
     if project_type:
         count_query = count_query.where(Project.project_type == project_type)
     if is_analyzed is not None:
-        count_query = count_query.where(Project.is_analyzed == (1 if is_analyzed else 0))
+        count_query = count_query.where(
+            Project.is_analyzed == (1 if is_analyzed else 0)
+        )
     if status:
         count_query = count_query.where(Project.status == status)
     if start_date_from:
@@ -292,7 +328,7 @@ async def get_projects(
         "projects": [_build_project_response(p) for p in projects],
         "total": total,
         "page": skip // limit + 1,
-        "page_size": limit
+        "page_size": limit,
     }
 
 
@@ -300,7 +336,7 @@ async def get_projects(
 async def get_project(
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get a specific project by ID."""
     result = await db.execute(
@@ -319,7 +355,7 @@ async def get_project(
 async def create_project(
     project_data: ProjectCreate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a new project."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -337,10 +373,7 @@ async def create_project(
     # Add technologies
     for tech_name in technologies:
         tech = await get_or_create_technology(db, tech_name)
-        project_tech = ProjectTechnology(
-            project_id=project.id,
-            technology_id=tech.id
-        )
+        project_tech = ProjectTechnology(project_id=project.id, technology_id=tech.id)
         db.add(project_tech)
 
     # Add repositories
@@ -350,9 +383,7 @@ async def create_project(
 
     # Reload with relationships
     result = await db.execute(
-        select(Project)
-        .where(Project.id == project.id)
-        .options(*PROJECT_LOAD_OPTIONS)
+        select(Project).where(Project.id == project.id).options(*PROJECT_LOAD_OPTIONS)
     )
     project = result.scalar_one()
 
@@ -366,7 +397,7 @@ async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Update a project."""
     result = await db.execute(
@@ -378,7 +409,9 @@ async def update_project(
 
     technologies = project_data.technologies
     repositories = project_data.repositories
-    update_data = project_data.model_dump(exclude_unset=True, exclude={"technologies", "repositories"})
+    update_data = project_data.model_dump(
+        exclude_unset=True, exclude={"technologies", "repositories"}
+    )
 
     for field, value in update_data.items():
         setattr(project, field, value)
@@ -394,8 +427,7 @@ async def update_project(
         for tech_name in technologies:
             tech = await get_or_create_technology(db, tech_name)
             project_tech = ProjectTechnology(
-                project_id=project.id,
-                technology_id=tech.id
+                project_id=project.id, technology_id=tech.id
             )
             db.add(project_tech)
 
@@ -409,9 +441,7 @@ async def update_project(
 
     # Reload with relationships
     result = await db.execute(
-        select(Project)
-        .where(Project.id == project.id)
-        .options(*PROJECT_LOAD_OPTIONS)
+        select(Project).where(Project.id == project.id).options(*PROJECT_LOAD_OPTIONS)
     )
     project = result.scalar_one()
 
@@ -422,7 +452,7 @@ async def update_project(
 async def delete_project(
     project_id: int,
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete a project."""
     result = await db.execute(
@@ -440,22 +470,21 @@ async def delete_project(
 async def delete_projects_batch(
     project_ids: List[int] = Query(..., description="List of project IDs to delete"),
     user_id: int = Query(..., description="User ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete multiple projects at once."""
     if not project_ids:
         raise HTTPException(status_code=400, detail="No project IDs provided")
 
     result = await db.execute(
-        select(Project).where(
-            Project.id.in_(project_ids),
-            Project.user_id == user_id
-        )
+        select(Project).where(Project.id.in_(project_ids), Project.user_id == user_id)
     )
     projects = result.scalars().all()
 
     if not projects:
-        raise HTTPException(status_code=404, detail="No projects found with the provided IDs")
+        raise HTTPException(
+            status_code=404, detail="No projects found with the provided IDs"
+        )
 
     deleted_ids = []
     for project in projects:
@@ -467,15 +496,14 @@ async def delete_projects_batch(
     return {
         "deleted_count": len(deleted_ids),
         "deleted_ids": deleted_ids,
-        "not_found_ids": list(set(project_ids) - set(deleted_ids))
+        "not_found_ids": list(set(project_ids) - set(deleted_ids)),
     }
 
 
 # Technology endpoints
 @router.get("/technologies/list", response_model=List[TechnologyResponse])
 async def get_all_technologies(
-    category: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    category: Optional[str] = None, db: AsyncSession = Depends(get_db)
 ):
     """Get all available technologies."""
     query = select(Technology)
@@ -487,10 +515,13 @@ async def get_all_technologies(
     return result.scalars().all()
 
 
-@router.post("/technologies", response_model=TechnologyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/technologies",
+    response_model=TechnologyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_technology(
-    tech_data: TechnologyCreate,
-    db: AsyncSession = Depends(get_db)
+    tech_data: TechnologyCreate, db: AsyncSession = Depends(get_db)
 ):
     """Create a new technology."""
     result = await db.execute(

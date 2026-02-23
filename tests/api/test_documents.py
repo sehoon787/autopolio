@@ -4,7 +4,6 @@ Documents API tests.
 
 import pytest
 from modules.documents import DocumentsAPI
-from modules.templates import TemplatesAPI
 
 
 class TestDocumentList:
@@ -40,8 +39,7 @@ class TestReportGeneration:
         api = DocumentsAPI(api_client)
 
         response = api.generate_projects_report(
-            user_id=test_user["id"],
-            format="markdown"
+            user_id=test_user["id"], format="markdown"
         )
 
         assert response.status_code == 200
@@ -53,19 +51,19 @@ class TestReportGeneration:
         api = DocumentsAPI(api_client)
 
         response = api.generate_performance_report(
-            user_id=test_user["id"],
-            format="markdown"
+            user_id=test_user["id"], format="markdown"
         )
 
         assert response.status_code == 200
 
-    def test_generate_company_report(self, api_client, test_user, test_company, test_project):
+    def test_generate_company_report(
+        self, api_client, test_user, test_company, test_project
+    ):
         """Test generating company-integrated report."""
         api = DocumentsAPI(api_client)
 
         response = api.generate_company_report(
-            user_id=test_user["id"],
-            format="markdown"
+            user_id=test_user["id"], format="markdown"
         )
 
         assert response.status_code == 200
@@ -78,10 +76,7 @@ class TestExport:
         """Test export preview."""
         api = DocumentsAPI(api_client)
 
-        response = api.export_preview(
-            user_id=test_user["id"],
-            report_type="summary"
-        )
+        response = api.export_preview(user_id=test_user["id"], report_type="summary")
 
         assert response.status_code == 200
 
@@ -89,10 +84,7 @@ class TestExport:
         """Test exporting to Markdown."""
         api = DocumentsAPI(api_client)
 
-        response = api.export_markdown(
-            user_id=test_user["id"],
-            report_type="summary"
-        )
+        response = api.export_markdown(user_id=test_user["id"], report_type="summary")
 
         assert response.status_code == 200
         data = response.json()
@@ -102,10 +94,7 @@ class TestExport:
         """Test exporting to Word document."""
         api = DocumentsAPI(api_client)
 
-        response = api.export_docx(
-            user_id=test_user["id"],
-            report_type="summary"
-        )
+        response = api.export_docx(user_id=test_user["id"], report_type="summary")
 
         assert response.status_code == 200
 
@@ -113,10 +102,7 @@ class TestExport:
         """Test exporting with detailed report type."""
         api = DocumentsAPI(api_client)
 
-        response = api.export_markdown(
-            user_id=test_user["id"],
-            report_type="detailed"
-        )
+        response = api.export_markdown(user_id=test_user["id"], report_type="detailed")
 
         assert response.status_code == 200
 
@@ -133,7 +119,7 @@ class TestPipeline:
             user_id=test_user["id"],
             template_id=test_template["id"],
             project_ids=[test_project["id"]],
-            output_format="markdown"
+            output_format="markdown",
         )
 
         # May return task ID for async operation
@@ -143,7 +129,9 @@ class TestPipeline:
             assert "task_id" in data or "document" in data
 
     @pytest.mark.slow
-    def test_get_pipeline_status(self, api_client, test_user, test_project, test_template):
+    def test_get_pipeline_status(
+        self, api_client, test_user, test_project, test_template
+    ):
         """Test getting pipeline task status."""
         api = DocumentsAPI(api_client)
 
@@ -152,7 +140,7 @@ class TestPipeline:
             user_id=test_user["id"],
             template_id=test_template["id"],
             project_ids=[test_project["id"]],
-            output_format="markdown"
+            output_format="markdown",
         )
 
         if start_response.status_code in [200, 202]:
@@ -182,8 +170,7 @@ class TestDocumentDownload:
 
         # Export first
         export_response = api.export_markdown(
-            user_id=test_user["id"],
-            report_type="summary"
+            user_id=test_user["id"], report_type="summary"
         )
 
         if export_response.status_code == 200:

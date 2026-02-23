@@ -4,6 +4,7 @@ Analysis Job Runner - Single-repo background analysis execution.
 Multi-repo analysis is in analysis_job_multi.py.
 Shared LLM helpers are in analysis_job_helpers.py.
 """
+
 import asyncio
 import logging
 import time
@@ -27,6 +28,7 @@ STEPS_PER_REPO = 6  # Steps 1-6 for each repository
 
 class AnalysisCancelledException(Exception):
     """Raised when analysis is cancelled by user."""
+
     pass
 
 
@@ -50,7 +52,11 @@ async def run_background_analysis(
     from api.services.achievement import AchievementService
     from .analysis_job_crud import AnalysisJobService
 
-    logger.info("[BackgroundAnalysis] Starting for task_id=%s, project_id=%d", task_id, project_id)
+    logger.info(
+        "[BackgroundAnalysis] Starting for task_id=%s, project_id=%d",
+        task_id,
+        project_id,
+    )
 
     async with AsyncSessionLocal() as db:
         service = AnalysisJobService(db)
@@ -70,7 +76,9 @@ async def run_background_analysis(
     options = options or {}
     total_tokens = 0
     language = options.get("language", "ko")  # Default to Korean
-    summary_style = options.get("summary_style", "professional")  # Default to professional
+    summary_style = options.get(
+        "summary_style", "professional"
+    )  # Default to professional
 
     logger.info("[BackgroundAnalysis] language=%s, options=%s", language, options)
 
@@ -88,7 +96,12 @@ async def run_background_analysis(
             llm_service = LLMService(provider, api_key=api_key)
         else:
             llm_service = LLMService(api_key=api_key)
-        logger.info("[BackgroundAnalysis] LLM: cli_mode=%s, provider=%s, has_api_key=%s", cli_mode, provider, bool(api_key))
+        logger.info(
+            "[BackgroundAnalysis] LLM: cli_mode=%s, provider=%s, has_api_key=%s",
+            cli_mode,
+            provider,
+            bool(api_key),
+        )
     except Exception as e:
         logger.warning("[BackgroundAnalysis] LLM service not available: %s", e)
 
@@ -104,7 +117,9 @@ async def run_background_analysis(
         await service.update_step_progress(task_id, 1, "running")
         logger.info("[BackgroundAnalysis] Step 1: Repository info")
 
-        analysis_result = await github_service.analyze_repository(git_url, github_username)
+        analysis_result = await github_service.analyze_repository(
+            git_url, github_username
+        )
 
         step1_result = {
             "total_commits": analysis_result.get("total_commits", 0),
@@ -160,7 +175,9 @@ async def run_background_analysis(
         # Save basic results to DB
         async with AsyncSessionLocal() as db:
             # Get project
-            proj_result = await db.execute(select(Project).where(Project.id == project_id))
+            proj_result = await db.execute(
+                select(Project).where(Project.id == project_id)
+            )
             project = proj_result.scalar_one_or_none()
 
             if not project:
@@ -191,7 +208,7 @@ async def run_background_analysis(
                     project_id=project_id,
                     project_repository_id=project_repository_id,
                     git_url=git_url,
-                    **analysis_result
+                    **analysis_result,
                 )
                 db.add(repo_analysis)
 
@@ -221,7 +238,9 @@ async def run_background_analysis(
                     project_tech = ProjectTechnology(
                         project_id=project_id,
                         technology_id=tech.id,
-                        is_primary=1 if tech_name == analysis_result.get("primary_language") else 0
+                        is_primary=1
+                        if tech_name == analysis_result.get("primary_language")
+                        else 0,
                     )
                     db.add(project_tech)
 
@@ -246,7 +265,7 @@ async def run_background_analysis(
                     project_data=project_data,
                     commit_messages=commit_messages,
                     use_llm=False,
-                    language=language
+                    language=language,
                 )
 
                 if achievements:
@@ -257,17 +276,23 @@ async def run_background_analysis(
                         )
                     )
                     for achievement in achievements:
-                        db.add(ProjectAchievement(
-                            project_id=project_id,
-                            metric_name=achievement.get("metric_name", ""),
-                            metric_value=achievement.get("metric_value", ""),
-                            description=achievement.get("description"),
-                            category=achievement.get("category"),
-                            evidence=achievement.get("evidence"),
-                        ))
-                    logger.info("[BackgroundAnalysis] Saved %d achievements", len(achievements))
+                        db.add(
+                            ProjectAchievement(
+                                project_id=project_id,
+                                metric_name=achievement.get("metric_name", ""),
+                                metric_value=achievement.get("metric_value", ""),
+                                description=achievement.get("description"),
+                                category=achievement.get("category"),
+                                evidence=achievement.get("evidence"),
+                            )
+                        )
+                    logger.info(
+                        "[BackgroundAnalysis] Saved %d achievements", len(achievements)
+                    )
             except Exception as e:
-                logger.warning("[BackgroundAnalysis] Failed to auto-detect achievements: %s", e)
+                logger.warning(
+                    "[BackgroundAnalysis] Failed to auto-detect achievements: %s", e
+                )
 
             await db.commit()
             analysis_id = repo_analysis.id
@@ -282,27 +307,40 @@ async def run_background_analysis(
         detailed_content = {}
         if llm_service:
             from api.services.llm.cli_llm_service import CLILLMService
+
             is_cli_mode = isinstance(llm_service, CLILLMService)
 
             await service.update_step_progress(task_id, 5, "running")
-            logger.info("[BackgroundAnalysis] Steps 5+6: LLM (cli=%s, language=%s)", is_cli_mode, language)
+            logger.info(
+                "[BackgroundAnalysis] Steps 5+6: LLM (cli=%s, language=%s)",
+                is_cli_mode,
+                language,
+            )
 
             # Prepare project_data for Step 6 before launching tasks
             async with AsyncSessionLocal() as db:
-                proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                proj_result = await db.execute(
+                    select(Project).where(Project.id == project_id)
+                )
                 project = proj_result.scalar_one_or_none()
 
                 project_data = {
                     "name": project.name,
                     "description": project.description,
                     "role": project.role,
-                    "start_date": str(project.start_date) if project.start_date else None,
+                    "start_date": str(project.start_date)
+                    if project.start_date
+                    else None,
                     "end_date": str(project.end_date) if project.end_date else None,
                 }
 
             analysis_data_for_step6 = {
-                "commit_messages_summary": analysis_result.get("commit_messages_summary"),
-                "detected_technologies": analysis_result.get("detected_technologies", []),
+                "commit_messages_summary": analysis_result.get(
+                    "commit_messages_summary"
+                ),
+                "detected_technologies": analysis_result.get(
+                    "detected_technologies", []
+                ),
                 "commit_categories": analysis_result.get("commit_categories", {}),
                 "total_commits": analysis_result.get("total_commits", 0),
                 "lines_added": analysis_result.get("lines_added", 0),
@@ -314,7 +352,9 @@ async def run_background_analysis(
 
             if is_cli_mode:
                 # CLI mode: run sequentially to avoid concurrent process conflicts
-                logger.info("[BackgroundAnalysis] CLI mode — running Steps 5 then 6 sequentially")
+                logger.info(
+                    "[BackgroundAnalysis] CLI mode — running Steps 5 then 6 sequentially"
+                )
 
                 # Step 5: Key tasks
                 try:
@@ -322,29 +362,48 @@ async def run_background_analysis(
                         project_id, analysis_result, llm_service, language
                     )
                     total_tokens += tokens
-                    logger.info("[BackgroundAnalysis] Step 5 done: %d key tasks, %d tokens", len(key_tasks), tokens)
+                    logger.info(
+                        "[BackgroundAnalysis] Step 5 done: %d key tasks, %d tokens",
+                        len(key_tasks),
+                        tokens,
+                    )
                 except Exception as e:
-                    logger.error("[BackgroundAnalysis] Step 5 (key_tasks) failed: %s: %s", type(e).__name__, e)
+                    logger.error(
+                        "[BackgroundAnalysis] Step 5 (key_tasks) failed: %s: %s",
+                        type(e).__name__,
+                        e,
+                    )
 
-                await service.update_step_progress(task_id, 5, "completed", {"tasks": key_tasks})
+                await service.update_step_progress(
+                    task_id, 5, "completed", {"tasks": key_tasks}
+                )
                 await service.update_step_progress(task_id, 6, "running")
 
                 # Step 6: Detailed content (internally also sequential for CLI)
                 try:
-                    detailed_content, content_tokens = await github_service.generate_detailed_content(
+                    (
+                        detailed_content,
+                        content_tokens,
+                    ) = await github_service.generate_detailed_content(
                         project_data=project_data,
                         analysis_data=analysis_data_for_step6,
                         llm_service=llm_service,
-                        language=language
+                        language=language,
                     )
                     total_tokens += content_tokens
-                    logger.info("[BackgroundAnalysis] Step 6 done: impl=%d, timeline=%d, achievements=%d, tokens=%d",
-                                len(detailed_content.get("implementation_details", [])),
-                                len(detailed_content.get("development_timeline", [])),
-                                len(detailed_content.get("detailed_achievements", {})),
-                                content_tokens)
+                    logger.info(
+                        "[BackgroundAnalysis] Step 6 done: impl=%d, timeline=%d, achievements=%d, tokens=%d",
+                        len(detailed_content.get("implementation_details", [])),
+                        len(detailed_content.get("development_timeline", [])),
+                        len(detailed_content.get("detailed_achievements", {})),
+                        content_tokens,
+                    )
                 except Exception as e:
-                    logger.error("[BackgroundAnalysis] Step 6 (detailed_content) failed: %s: %s", type(e).__name__, e)
+                    logger.error(
+                        "[BackgroundAnalysis] Step 6 (detailed_content) failed: %s: %s",
+                        type(e).__name__,
+                        e,
+                    )
             else:
                 # API mode: run in parallel for speed
                 await service.update_step_progress(task_id, 6, "running")
@@ -356,7 +415,7 @@ async def run_background_analysis(
                     project_data=project_data,
                     analysis_data=analysis_data_for_step6,
                     llm_service=llm_service,
-                    language=language
+                    language=language,
                 )
 
                 results = await asyncio.gather(
@@ -365,23 +424,39 @@ async def run_background_analysis(
 
                 # Process Step 5 result
                 if isinstance(results[0], Exception):
-                    logger.warning("[BackgroundAnalysis] Failed to generate key tasks: %s", results[0])
+                    logger.warning(
+                        "[BackgroundAnalysis] Failed to generate key tasks: %s",
+                        results[0],
+                    )
                 else:
                     key_tasks, tokens = results[0]
                     total_tokens += tokens
-                    logger.info("[BackgroundAnalysis] Generated %d key tasks, tokens=%d", len(key_tasks), tokens)
+                    logger.info(
+                        "[BackgroundAnalysis] Generated %d key tasks, tokens=%d",
+                        len(key_tasks),
+                        tokens,
+                    )
 
                 # Process Step 6 result
                 if isinstance(results[1], Exception):
-                    logger.warning("[BackgroundAnalysis] Failed to generate detailed content: %s", results[1])
+                    logger.warning(
+                        "[BackgroundAnalysis] Failed to generate detailed content: %s",
+                        results[1],
+                    )
                 else:
                     detailed_content, content_tokens = results[1]
                     total_tokens += content_tokens
 
             _steps_elapsed = time.time() - _steps_start
-            logger.info("[BackgroundAnalysis] Steps 5+6 completed in %.1fs (cli=%s)", _steps_elapsed, is_cli_mode)
+            logger.info(
+                "[BackgroundAnalysis] Steps 5+6 completed in %.1fs (cli=%s)",
+                _steps_elapsed,
+                is_cli_mode,
+            )
         else:
-            logger.warning("[BackgroundAnalysis] Skipping Steps 5+6: llm_service is None")
+            logger.warning(
+                "[BackgroundAnalysis] Skipping Steps 5+6: llm_service is None"
+            )
 
         step5_result = {"tasks": key_tasks}
         await service.update_step_progress(task_id, 5, "completed", step5_result)
@@ -398,9 +473,13 @@ async def run_background_analysis(
         ai_key_features = None
         if llm_service:
             try:
-                logger.info("[BackgroundAnalysis] Generating AI summary (language=%s)", language)
+                logger.info(
+                    "[BackgroundAnalysis] Generating AI summary (language=%s)", language
+                )
                 async with AsyncSessionLocal() as db:
-                    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                    proj_result = await db.execute(
+                        select(Project).where(Project.id == project_id)
+                    )
                     project = proj_result.scalar_one_or_none()
 
                     if project:
@@ -410,17 +489,23 @@ async def run_background_analysis(
                             "role": project.role,
                             "team_size": project.team_size,
                             "contribution_percent": project.contribution_percent,
-                            "technologies": analysis_result.get("detected_technologies", []),
-                            "start_date": str(project.start_date) if project.start_date else None,
-                            "end_date": str(project.end_date) if project.end_date else None,
+                            "technologies": analysis_result.get(
+                                "detected_technologies", []
+                            ),
+                            "start_date": str(project.start_date)
+                            if project.start_date
+                            else None,
+                            "end_date": str(project.end_date)
+                            if project.end_date
+                            else None,
                             "total_commits": analysis_result.get("total_commits", 0),
-                            "commit_summary": analysis_result.get("commit_messages_summary", ""),
+                            "commit_summary": analysis_result.get(
+                                "commit_messages_summary", ""
+                            ),
                         }
 
                         summary_result = await llm_service.generate_project_summary(
-                            summary_project_data,
-                            style=summary_style,
-                            language=language
+                            summary_project_data, style=summary_style, language=language
                         )
                         if summary_result:
                             ai_summary = summary_result.get("summary", "")
@@ -428,9 +513,13 @@ async def run_background_analysis(
                             # Add only the per-call token usage from summary (not cumulative total_tokens_used)
                             total_tokens += summary_result.get("token_usage", 0)
             except Exception as e:
-                logger.warning("[BackgroundAnalysis] Failed to generate AI summary: %s", e)
+                logger.warning(
+                    "[BackgroundAnalysis] Failed to generate AI summary: %s", e
+                )
         else:
-            logger.warning("[BackgroundAnalysis] Skipping AI summary: llm_service is None")
+            logger.warning(
+                "[BackgroundAnalysis] Skipping AI summary: llm_service is None"
+            )
 
         # Save LLM results and language to DB (ALWAYS save language, even if LLM failed)
         async with AsyncSessionLocal() as db:
@@ -446,11 +535,17 @@ async def run_background_analysis(
                     if key_tasks:
                         repo_analysis.key_tasks = key_tasks
                     if detailed_content.get("implementation_details"):
-                        repo_analysis.implementation_details = detailed_content["implementation_details"]
+                        repo_analysis.implementation_details = detailed_content[
+                            "implementation_details"
+                        ]
                     if detailed_content.get("development_timeline"):
-                        repo_analysis.development_timeline = detailed_content["development_timeline"]
+                        repo_analysis.development_timeline = detailed_content[
+                            "development_timeline"
+                        ]
                     if detailed_content.get("detailed_achievements"):
-                        repo_analysis.detailed_achievements = detailed_content["detailed_achievements"]
+                        repo_analysis.detailed_achievements = detailed_content[
+                            "detailed_achievements"
+                        ]
                     if ai_summary:
                         repo_analysis.ai_summary = ai_summary
                     if ai_key_features:
@@ -459,7 +554,9 @@ async def run_background_analysis(
 
                 # Copy ai_summary to Project for report_service compatibility
                 if ai_summary or ai_key_features:
-                    proj_result = await db.execute(select(Project).where(Project.id == project_id))
+                    proj_result = await db.execute(
+                        select(Project).where(Project.id == project_id)
+                    )
                     project = proj_result.scalar_one_or_none()
                     if project:
                         if ai_summary:
@@ -484,7 +581,9 @@ async def run_background_analysis(
                         repo_analysis.tech_stack_versions = tech_versions
                         await db.commit()
         except Exception as e:
-            logger.warning("[BackgroundAnalysis] Failed to extract tech versions: %s", e)
+            logger.warning(
+                "[BackgroundAnalysis] Failed to extract tech versions: %s", e
+            )
 
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
@@ -492,11 +591,12 @@ async def run_background_analysis(
         # Create ContributorAnalysis for the current user
         if github_username:
             try:
-                logger.info("[BackgroundAnalysis] Creating ContributorAnalysis for user: %s", github_username)
-                contributor_data = await github_service.analyze_contributor(
-                    git_url,
+                logger.info(
+                    "[BackgroundAnalysis] Creating ContributorAnalysis for user: %s",
                     github_username,
-                    commit_limit=100
+                )
+                contributor_data = await github_service.analyze_contributor(
+                    git_url, github_username, commit_limit=100
                 )
 
                 async with AsyncSessionLocal() as db:
@@ -504,7 +604,7 @@ async def run_background_analysis(
                     existing_result = await db.execute(
                         select(ContributorAnalysis).where(
                             ContributorAnalysis.repo_analysis_id == analysis_id,
-                            ContributorAnalysis.username == github_username
+                            ContributorAnalysis.username == github_username,
                         )
                     )
                     existing = existing_result.scalar_one_or_none()
@@ -513,15 +613,29 @@ async def run_background_analysis(
                         # Update existing record
                         existing.email = contributor_data.get("email")
                         existing.is_primary = True
-                        existing.total_commits = contributor_data.get("total_commits", 0)
-                        existing.first_commit_date = contributor_data.get("first_commit_date")
-                        existing.last_commit_date = contributor_data.get("last_commit_date")
+                        existing.total_commits = contributor_data.get(
+                            "total_commits", 0
+                        )
+                        existing.first_commit_date = contributor_data.get(
+                            "first_commit_date"
+                        )
+                        existing.last_commit_date = contributor_data.get(
+                            "last_commit_date"
+                        )
                         existing.lines_added = contributor_data.get("lines_added", 0)
-                        existing.lines_deleted = contributor_data.get("lines_deleted", 0)
-                        existing.file_extensions = contributor_data.get("file_extensions", {})
+                        existing.lines_deleted = contributor_data.get(
+                            "lines_deleted", 0
+                        )
+                        existing.file_extensions = contributor_data.get(
+                            "file_extensions", {}
+                        )
                         existing.work_areas = contributor_data.get("work_areas", [])
-                        existing.detected_technologies = contributor_data.get("detected_technologies", [])
-                        existing.detailed_commits = contributor_data.get("detailed_commits", [])
+                        existing.detected_technologies = contributor_data.get(
+                            "detected_technologies", []
+                        )
+                        existing.detailed_commits = contributor_data.get(
+                            "detailed_commits", []
+                        )
                         existing.commit_types = contributor_data.get("commit_types", {})
                     else:
                         # Create new record
@@ -537,22 +651,38 @@ async def run_background_analysis(
                             lines_deleted=contributor_data.get("lines_deleted", 0),
                             file_extensions=contributor_data.get("file_extensions", {}),
                             work_areas=contributor_data.get("work_areas", []),
-                            detected_technologies=contributor_data.get("detected_technologies", []),
-                            detailed_commits=contributor_data.get("detailed_commits", []),
+                            detected_technologies=contributor_data.get(
+                                "detected_technologies", []
+                            ),
+                            detailed_commits=contributor_data.get(
+                                "detailed_commits", []
+                            ),
                             commit_types=contributor_data.get("commit_types", {}),
                         )
                         db.add(new_contributor)
                     await db.commit()
-                    logger.info("[BackgroundAnalysis] Saved ContributorAnalysis for %s", github_username)
+                    logger.info(
+                        "[BackgroundAnalysis] Saved ContributorAnalysis for %s",
+                        github_username,
+                    )
             except Exception as e:
-                logger.warning("[BackgroundAnalysis] Failed to create ContributorAnalysis: %s", e)
+                logger.warning(
+                    "[BackgroundAnalysis] Failed to create ContributorAnalysis: %s", e
+                )
 
         # Complete the job
-        logger.info("[BackgroundAnalysis] Completing: task_id=%s, total_tokens=%d", task_id, total_tokens)
-        await service.complete_job(task_id, {
-            "analysis_id": analysis_id,
-            "total_tokens": total_tokens,
-        })
+        logger.info(
+            "[BackgroundAnalysis] Completing: task_id=%s, total_tokens=%d",
+            task_id,
+            total_tokens,
+        )
+        await service.complete_job(
+            task_id,
+            {
+                "analysis_id": analysis_id,
+                "total_tokens": total_tokens,
+            },
+        )
 
         logger.info("[BackgroundAnalysis] Completed for task_id=%s", task_id)
 

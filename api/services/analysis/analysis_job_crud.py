@@ -1,6 +1,7 @@
 """
 Analysis Job CRUD Service - Job management and partial result saving.
 """
+
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class AnalysisCancelledException(Exception):
     """Raised when analysis is cancelled by user."""
+
     pass
 
 
@@ -54,7 +56,7 @@ class AnalysisJobService:
         user_id: int,
         project_id: int,
         git_url: str,
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
     ) -> Job:
         """Create a new analysis job."""
         job = Job(
@@ -80,18 +82,18 @@ class AnalysisJobService:
 
     async def get_job(self, task_id: str) -> Optional[Job]:
         """Get a job by task_id."""
-        result = await self.db.execute(
-            select(Job).where(Job.task_id == task_id)
-        )
+        result = await self.db.execute(select(Job).where(Job.task_id == task_id))
         return result.scalar_one_or_none()
 
     async def get_job_by_project(self, project_id: int) -> Optional[Job]:
         """Get active job for a project."""
         result = await self.db.execute(
-            select(Job).where(
+            select(Job)
+            .where(
                 Job.target_project_id == project_id,
-                Job.status.in_(["pending", "running"])
-            ).order_by(Job.created_at.desc())
+                Job.status.in_(["pending", "running"]),
+            )
+            .order_by(Job.created_at.desc())
         )
         return result.scalar_one_or_none()
 
@@ -107,7 +109,8 @@ class AnalysisJobService:
         recent_cutoff = datetime.utcnow() - timedelta(minutes=10)
 
         result = await self.db.execute(
-            select(Job).where(
+            select(Job)
+            .where(
                 Job.user_id == user_id,
                 Job.job_type == "github_analysis",
                 or_(
@@ -116,10 +119,11 @@ class AnalysisJobService:
                     # Recently completed/failed jobs (for token tracking)
                     and_(
                         Job.status.in_(["completed", "failed"]),
-                        Job.completed_at >= recent_cutoff
-                    )
-                )
-            ).order_by(Job.created_at.desc())
+                        Job.completed_at >= recent_cutoff,
+                    ),
+                ),
+            )
+            .order_by(Job.created_at.desc())
         )
         return list(result.scalars().all())
 
@@ -169,14 +173,14 @@ class AnalysisJobService:
                                Used by multi-repo analysis to prefix with repo label.
         """
         async with AsyncSessionLocal() as db:
-            job_result = await db.execute(
-                select(Job).where(Job.task_id == task_id)
-            )
+            job_result = await db.execute(select(Job).where(Job.task_id == task_id))
             job = job_result.scalar_one_or_none()
             if not job:
                 return
 
-            step_name = step_name_override or self.STEP_NAMES.get(step_number, f"step_{step_number}")
+            step_name = step_name_override or self.STEP_NAMES.get(
+                step_number, f"step_{step_number}"
+            )
             job.current_step = step_number
             job.step_name = step_name
 
@@ -197,7 +201,9 @@ class AnalysisJobService:
                 "timestamp": datetime.utcnow().isoformat(),
             }
             if result:
-                step_results[f"step_{step_number}"]["result_summary"] = str(result)[:500]
+                step_results[f"step_{step_number}"]["result_summary"] = str(result)[
+                    :500
+                ]
             job.step_results = step_results
             flag_modified(job, "step_results")
 
@@ -211,9 +217,7 @@ class AnalysisJobService:
             await db.commit()
 
     async def complete_job(
-        self,
-        task_id: str,
-        output_data: Optional[Dict[str, Any]] = None
+        self, task_id: str, output_data: Optional[Dict[str, Any]] = None
     ) -> None:
         """Mark job as completed.
 
@@ -221,9 +225,7 @@ class AnalysisJobService:
         post-processing, this will NOT overwrite the cancelled status.
         """
         async with AsyncSessionLocal() as db:
-            job_result = await db.execute(
-                select(Job).where(Job.task_id == task_id)
-            )
+            job_result = await db.execute(select(Job).where(Job.task_id == task_id))
             job = job_result.scalar_one_or_none()
             if not job:
                 return
@@ -238,23 +240,23 @@ class AnalysisJobService:
             if output_data:
                 job.output_data = output_data
 
-            logger.info("[CompleteJob] task_id=%s, total_tokens=%s, output_data_keys=%s",
-                        task_id,
-                        output_data.get("total_tokens") if output_data else None,
-                        list(output_data.keys()) if output_data else None)
+            logger.info(
+                "[CompleteJob] task_id=%s, total_tokens=%s, output_data_keys=%s",
+                task_id,
+                output_data.get("total_tokens") if output_data else None,
+                list(output_data.keys()) if output_data else None,
+            )
             await db.commit()
 
     async def fail_job(
         self,
         task_id: str,
         error_message: str,
-        error_details: Optional[Dict[str, Any]] = None
+        error_details: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Mark job as failed."""
         async with AsyncSessionLocal() as db:
-            job_result = await db.execute(
-                select(Job).where(Job.task_id == task_id)
-            )
+            job_result = await db.execute(select(Job).where(Job.task_id == task_id))
             job = job_result.scalar_one_or_none()
             if not job:
                 return
@@ -278,9 +280,7 @@ class AnalysisJobService:
             await db.commit()
 
     async def _save_partial_to_project_in_session(
-        self,
-        db: AsyncSession,
-        job: Job
+        self, db: AsyncSession, job: Job
     ) -> None:
         """Save partial results to project within existing session."""
         if not job.partial_results or not job.target_project_id:

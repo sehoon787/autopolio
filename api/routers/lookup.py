@@ -2,7 +2,7 @@
 Lookup Router - API endpoints for autocomplete functionality
 """
 
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Query
 
 from api.services.core import get_lookup_service
@@ -15,7 +15,7 @@ async def search_certifications(
     q: str = Query(..., min_length=1, description="Search query"),
     lang: str = Query("ko", description="Language (ko/en)"),
     category: Optional[str] = Query(None, description="Category filter"),
-    limit: int = Query(20, ge=1, le=50, description="Maximum results")
+    limit: int = Query(20, ge=1, le=50, description="Maximum results"),
 ):
     """
     Search certifications for autocomplete
@@ -25,10 +25,7 @@ async def search_certifications(
     """
     service = get_lookup_service()
     results = service.search_certifications(
-        query=q,
-        lang=lang,
-        category=category,
-        limit=limit
+        query=q, lang=lang, category=category, limit=limit
     )
     return {"results": results, "total": len(results)}
 
@@ -44,8 +41,10 @@ async def get_certification_categories():
 @router.get("/universities")
 async def search_universities(
     q: str = Query(..., min_length=1, description="Search query"),
-    country: Optional[str] = Query(None, description="Country code filter (KR, US, etc.)"),
-    limit: int = Query(20, ge=1, le=50, description="Maximum results")
+    country: Optional[str] = Query(
+        None, description="Country code filter (KR, US, etc.)"
+    ),
+    limit: int = Query(20, ge=1, le=50, description="Maximum results"),
 ):
     """
     Search universities for autocomplete
@@ -54,11 +53,7 @@ async def search_universities(
     Supports both Korean and English queries.
     """
     service = get_lookup_service()
-    results = service.search_universities(
-        query=q,
-        country=country,
-        limit=limit
-    )
+    results = service.search_universities(query=q, country=country, limit=limit)
     return {"results": results, "total": len(results)}
 
 
@@ -73,7 +68,7 @@ async def get_university_countries():
 @router.get("/majors")
 async def search_majors(
     q: str = Query(..., min_length=1, description="Search query"),
-    limit: int = Query(20, ge=1, le=50, description="Maximum results")
+    limit: int = Query(20, ge=1, le=50, description="Maximum results"),
 ):
     """
     Search common majors for autocomplete
@@ -85,7 +80,10 @@ async def search_majors(
         {"name": "컴퓨터공학", "name_en": "Computer Science"},
         {"name": "컴퓨터과학", "name_en": "Computer Science"},
         {"name": "소프트웨어공학", "name_en": "Software Engineering"},
-        {"name": "정보통신공학", "name_en": "Information and Communications Engineering"},
+        {
+            "name": "정보통신공학",
+            "name_en": "Information and Communications Engineering",
+        },
         {"name": "전자공학", "name_en": "Electrical Engineering"},
         {"name": "전기공학", "name_en": "Electrical Engineering"},
         {"name": "전자전기공학", "name_en": "Electrical and Electronic Engineering"},

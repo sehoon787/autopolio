@@ -2,7 +2,6 @@
 Platform template API tests.
 """
 
-import pytest
 from modules.platforms import PlatformsAPI, _get_template_list
 
 
@@ -60,10 +59,7 @@ class TestPlatformPreview:
 
         templates = _get_template_list(api)
         if len(templates) > 0:
-            response = api.preview(
-                platform_id=templates[0]["id"],
-                use_sample=True
-            )
+            response = api.preview(platform_id=templates[0]["id"], use_sample=True)
             assert response.status_code == 200
             data = response.json()
             assert "html" in data
@@ -80,13 +76,15 @@ class TestPlatformPreview:
                 render_data={
                     "name": "Test User",
                     "email": "test@example.com",
-                    "projects": [{
-                        "name": "Test Project",
-                        "description": "A test project",
-                        "role": "Developer",
-                        "technologies": ["Python"]
-                    }]
-                }
+                    "projects": [
+                        {
+                            "name": "Test Project",
+                            "description": "A test project",
+                            "role": "Developer",
+                            "technologies": ["Python"],
+                        }
+                    ],
+                },
             )
             assert response.status_code == 200
 
@@ -111,10 +109,10 @@ class TestPlatformRender:
                             "name": "Test Project",
                             "description": "A test project",
                             "role": "Developer",
-                            "technologies": ["Python", "React"]
+                            "technologies": ["Python", "React"],
                         }
-                    ]
-                }
+                    ],
+                },
             )
             assert response.status_code == 200
 
@@ -125,8 +123,7 @@ class TestPlatformRender:
         templates = _get_template_list(api)
         if len(templates) > 0:
             response = api.render_from_db(
-                platform_id=templates[0]["id"],
-                user_id=test_user["id"]
+                platform_id=templates[0]["id"], user_id=test_user["id"]
             )
             assert response.status_code == 200
 
@@ -141,8 +138,7 @@ class TestPlatformExport:
         templates = _get_template_list(api)
         if len(templates) > 0:
             response = api.export_from_db_html(
-                platform_id=templates[0]["id"],
-                user_id=test_user["id"]
+                platform_id=templates[0]["id"], user_id=test_user["id"]
             )
             assert response.status_code == 200
             data = response.json()
@@ -156,8 +152,7 @@ class TestPlatformExport:
         templates = _get_template_list(api)
         if len(templates) > 0:
             response = api.export_from_db_markdown(
-                platform_id=templates[0]["id"],
-                user_id=test_user["id"]
+                platform_id=templates[0]["id"], user_id=test_user["id"]
             )
             assert response.status_code == 200
 
@@ -168,8 +163,7 @@ class TestPlatformExport:
         templates = _get_template_list(api)
         if len(templates) > 0:
             response = api.export_from_db_docx(
-                platform_id=templates[0]["id"],
-                user_id=test_user["id"]
+                platform_id=templates[0]["id"], user_id=test_user["id"]
             )
             assert response.status_code == 200
             data = response.json()
@@ -181,9 +175,7 @@ class TestPlatformExport:
 
         templates = _get_template_list(api)
         if len(templates) > 0:
-            response = api.export_html(
-                platform_id=templates[0]["id"]
-            )
+            response = api.export_html(platform_id=templates[0]["id"])
             assert response.status_code == 200
 
     def test_export_markdown_with_sample_data(self, api_client):
@@ -192,9 +184,7 @@ class TestPlatformExport:
 
         templates = _get_template_list(api)
         if len(templates) > 0:
-            response = api.export_markdown(
-                platform_id=templates[0]["id"]
-            )
+            response = api.export_markdown(platform_id=templates[0]["id"])
             assert response.status_code == 200
 
     def test_export_docx_with_sample_data(self, api_client):
@@ -203,7 +193,5 @@ class TestPlatformExport:
 
         templates = _get_template_list(api)
         if len(templates) > 0:
-            response = api.export_docx(
-                platform_id=templates[0]["id"]
-            )
+            response = api.export_docx(platform_id=templates[0]["id"])
             assert response.status_code == 200

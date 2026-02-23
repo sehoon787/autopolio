@@ -17,7 +17,9 @@ class CredentialsAPI(BaseAPIModule):
 
     def list_certifications(self, user_id: int) -> httpx.Response:
         """List all certifications for a user."""
-        return self._get("/knowledge/credentials/certifications", params={"user_id": user_id})
+        return self._get(
+            "/knowledge/credentials/certifications", params={"user_id": user_id}
+        )
 
     def create_certification(
         self,
@@ -29,7 +31,7 @@ class CredentialsAPI(BaseAPIModule):
         credential_id: Optional[str] = None,
         credential_url: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """Create a new certification."""
         data = {"name": name, **kwargs}
@@ -46,21 +48,36 @@ class CredentialsAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post("/knowledge/credentials/certifications", params={"user_id": user_id}, json=data)
+        return self._post(
+            "/knowledge/credentials/certifications",
+            params={"user_id": user_id},
+            json=data,
+        )
 
-    def update_certification(self, cert_id: int, user_id: int, **kwargs) -> httpx.Response:
+    def update_certification(
+        self, cert_id: int, user_id: int, **kwargs
+    ) -> httpx.Response:
         """Update a certification."""
-        return self._put(f"/knowledge/credentials/certifications/{cert_id}", params={"user_id": user_id}, json=kwargs)
+        return self._put(
+            f"/knowledge/credentials/certifications/{cert_id}",
+            params={"user_id": user_id},
+            json=kwargs,
+        )
 
     def delete_certification(self, cert_id: int, user_id: int) -> httpx.Response:
         """Delete a certification."""
-        return self._delete(f"/knowledge/credentials/certifications/{cert_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/credentials/certifications/{cert_id}",
+            params={"user_id": user_id},
+        )
 
     # ==================== Education ====================
 
     def list_education(self, user_id: int) -> httpx.Response:
         """List all education records for a user."""
-        return self._get("/knowledge/credentials/educations", params={"user_id": user_id})
+        return self._get(
+            "/knowledge/credentials/educations", params={"user_id": user_id}
+        )
 
     def create_education(
         self,
@@ -73,7 +90,7 @@ class CredentialsAPI(BaseAPIModule):
         gpa: Optional[str] = None,
         graduation_status: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """Create a new education record."""
         data = {"school_name": school_name, **kwargs}
@@ -92,15 +109,23 @@ class CredentialsAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post("/knowledge/credentials/educations", params={"user_id": user_id}, json=data)
+        return self._post(
+            "/knowledge/credentials/educations", params={"user_id": user_id}, json=data
+        )
 
     def update_education(self, edu_id: int, user_id: int, **kwargs) -> httpx.Response:
         """Update an education record."""
-        return self._put(f"/knowledge/credentials/educations/{edu_id}", params={"user_id": user_id}, json=kwargs)
+        return self._put(
+            f"/knowledge/credentials/educations/{edu_id}",
+            params={"user_id": user_id},
+            json=kwargs,
+        )
 
     def delete_education(self, edu_id: int, user_id: int) -> httpx.Response:
         """Delete an education record."""
-        return self._delete(f"/knowledge/credentials/educations/{edu_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/credentials/educations/{edu_id}", params={"user_id": user_id}
+        )
 
     # ==================== Awards ====================
 
@@ -116,7 +141,7 @@ class CredentialsAPI(BaseAPIModule):
         award_date: Optional[str] = None,
         description: Optional[str] = None,
         award_url: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """Create a new award record."""
         data = {"name": name, **kwargs}
@@ -129,21 +154,31 @@ class CredentialsAPI(BaseAPIModule):
         if award_url:
             data["award_url"] = award_url
 
-        return self._post("/knowledge/credentials/awards", params={"user_id": user_id}, json=data)
+        return self._post(
+            "/knowledge/credentials/awards", params={"user_id": user_id}, json=data
+        )
 
     def update_award(self, award_id: int, user_id: int, **kwargs) -> httpx.Response:
         """Update an award record."""
-        return self._put(f"/knowledge/credentials/awards/{award_id}", params={"user_id": user_id}, json=kwargs)
+        return self._put(
+            f"/knowledge/credentials/awards/{award_id}",
+            params={"user_id": user_id},
+            json=kwargs,
+        )
 
     def delete_award(self, award_id: int, user_id: int) -> httpx.Response:
         """Delete an award record."""
-        return self._delete(f"/knowledge/credentials/awards/{award_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/credentials/awards/{award_id}", params={"user_id": user_id}
+        )
 
     # ==================== Publications/Patents ====================
 
     def list_publications(self, user_id: int) -> httpx.Response:
         """List all publications/patents for a user."""
-        return self._get("/knowledge/credentials/publications", params={"user_id": user_id})
+        return self._get(
+            "/knowledge/credentials/publications", params={"user_id": user_id}
+        )
 
     def create_publication(
         self,
@@ -156,7 +191,7 @@ class CredentialsAPI(BaseAPIModule):
         doi: Optional[str] = None,
         url: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """Create a new publication/patent record."""
         data = {"title": title, **kwargs}
@@ -175,21 +210,33 @@ class CredentialsAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post("/knowledge/credentials/publications", params={"user_id": user_id}, json=data)
+        return self._post(
+            "/knowledge/credentials/publications",
+            params={"user_id": user_id},
+            json=data,
+        )
 
     def update_publication(self, pub_id: int, user_id: int, **kwargs) -> httpx.Response:
         """Update a publication record."""
-        return self._put(f"/knowledge/credentials/publications/{pub_id}", params={"user_id": user_id}, json=kwargs)
+        return self._put(
+            f"/knowledge/credentials/publications/{pub_id}",
+            params={"user_id": user_id},
+            json=kwargs,
+        )
 
     def delete_publication(self, pub_id: int, user_id: int) -> httpx.Response:
         """Delete a publication record."""
-        return self._delete(f"/knowledge/credentials/publications/{pub_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/credentials/publications/{pub_id}", params={"user_id": user_id}
+        )
 
     # ==================== Volunteer Activities ====================
 
     def list_activities(self, user_id: int) -> httpx.Response:
         """List all volunteer activities for a user."""
-        return self._get("/knowledge/credentials/volunteer_activities", params={"user_id": user_id})
+        return self._get(
+            "/knowledge/credentials/volunteer_activities", params={"user_id": user_id}
+        )
 
     def create_activity(
         self,
@@ -202,7 +249,7 @@ class CredentialsAPI(BaseAPIModule):
         role: Optional[str] = None,
         hours: Optional[int] = None,
         description: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> httpx.Response:
         """Create a new volunteer activity record."""
         data = {"name": name, **kwargs}
@@ -221,12 +268,25 @@ class CredentialsAPI(BaseAPIModule):
         if description:
             data["description"] = description
 
-        return self._post("/knowledge/credentials/volunteer_activities", params={"user_id": user_id}, json=data)
+        return self._post(
+            "/knowledge/credentials/volunteer_activities",
+            params={"user_id": user_id},
+            json=data,
+        )
 
-    def update_activity(self, activity_id: int, user_id: int, **kwargs) -> httpx.Response:
+    def update_activity(
+        self, activity_id: int, user_id: int, **kwargs
+    ) -> httpx.Response:
         """Update a volunteer activity record."""
-        return self._put(f"/knowledge/credentials/volunteer_activities/{activity_id}", params={"user_id": user_id}, json=kwargs)
+        return self._put(
+            f"/knowledge/credentials/volunteer_activities/{activity_id}",
+            params={"user_id": user_id},
+            json=kwargs,
+        )
 
     def delete_activity(self, activity_id: int, user_id: int) -> httpx.Response:
         """Delete a volunteer activity record."""
-        return self._delete(f"/knowledge/credentials/volunteer_activities/{activity_id}", params={"user_id": user_id})
+        return self._delete(
+            f"/knowledge/credentials/volunteer_activities/{activity_id}",
+            params={"user_id": user_id},
+        )

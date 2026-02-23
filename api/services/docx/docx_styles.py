@@ -19,6 +19,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 @dataclass
 class FontStyle:
     """Individual font style configuration"""
+
     size: int = 11  # in points
     bold: bool = False
     italic: bool = False
@@ -53,60 +54,76 @@ class DocxStyleConfig:
     font_name: str = "Malgun Gothic"
 
     # Title style (대제목) - e.g., document title, report name
-    title: FontStyle = field(default_factory=lambda: FontStyle(
-        size=24,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    title: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=24,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Heading1 style (중제목) - e.g., "경력", "프로젝트", "기술스택"
-    heading1: FontStyle = field(default_factory=lambda: FontStyle(
-        size=18,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    heading1: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=18,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Heading2 style (소제목) - e.g., company name, project name
-    heading2: FontStyle = field(default_factory=lambda: FontStyle(
-        size=14,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    heading2: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=14,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Heading3 style (소소제목) - e.g., sub-sections within projects
-    heading3: FontStyle = field(default_factory=lambda: FontStyle(
-        size=12,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    heading3: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=12,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Normal text style (본문)
-    normal: FontStyle = field(default_factory=lambda: FontStyle(
-        size=11,
-        bold=False,
-        color=(0, 0, 0)  # Black
-    ))
+    normal: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=11,
+            bold=False,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Bullet list item style (목록)
-    bullet: FontStyle = field(default_factory=lambda: FontStyle(
-        size=11,
-        bold=False,
-        color=(0, 0, 0)  # Black
-    ))
+    bullet: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=11,
+            bold=False,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Bold text style (강조)
-    bold_text: FontStyle = field(default_factory=lambda: FontStyle(
-        size=11,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    bold_text: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=11,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
     # Subtitle style (부제목) - e.g., position, role
-    subtitle: FontStyle = field(default_factory=lambda: FontStyle(
-        size=14,
-        bold=True,
-        color=(0, 0, 0)  # Black
-    ))
+    subtitle: FontStyle = field(
+        default_factory=lambda: FontStyle(
+            size=14,
+            bold=True,
+            color=(0, 0, 0),  # Black
+        )
+    )
 
 
 # Default configuration instance
@@ -175,7 +192,7 @@ class DocxStyler:
             doc: python-docx Document object
         """
         # Set Normal style as base
-        style = doc.styles['Normal']
+        style = doc.styles["Normal"]
         font = style.font
         font.name = self.config.font_name
         font.size = self.config.normal.pt_size
@@ -187,9 +204,9 @@ class DocxStyler:
     def _configure_heading_styles(self, doc) -> None:
         """Configure heading styles to remove default colors"""
         heading_configs = [
-            ('Heading 1', self.config.heading1),
-            ('Heading 2', self.config.heading2),
-            ('Heading 3', self.config.heading3),
+            ("Heading 1", self.config.heading1),
+            ("Heading 2", self.config.heading2),
+            ("Heading 3", self.config.heading3),
         ]
 
         for style_name, font_config in heading_configs:
@@ -335,7 +352,7 @@ class DocxStyler:
         Returns:
             Paragraph object
         """
-        para = doc.add_paragraph(text, style='List Bullet')
+        para = doc.add_paragraph(text, style="List Bullet")
 
         # Apply styling to runs
         for run in para.runs:
@@ -358,7 +375,7 @@ class DocxStyler:
             Paragraph object
         """
         if as_bullet:
-            para = doc.add_paragraph(style='List Bullet')
+            para = doc.add_paragraph(style="List Bullet")
         else:
             para = doc.add_paragraph()
 

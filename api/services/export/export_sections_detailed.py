@@ -5,16 +5,14 @@ Extracted from export_sections.py for file size management.
 Contains standalone functions for generating detailed and final project sections.
 These functions take the ExportSectionGenerator instance as the first argument.
 """
+
 from typing import List, Dict
 
 from .export_sections import filter_achievements
 
 
 def generate_project_section_detailed(
-    gen,
-    data: Dict,
-    idx: int,
-    include_code_stats: bool = False
+    gen, data: Dict, idx: int, include_code_stats: bool = False
 ) -> str:
     """Generate a detailed project section (상세 형식) - DETAILED_COMPLETION_REPORT style.
 
@@ -40,14 +38,22 @@ def generate_project_section_detailed(
     # Project Overview
     lines.append(f"### {s['section_project_overview']}")
     if project.git_url:
-        repo_name = project.git_url.split("/")[-1].replace(".git", "") if project.git_url else project.name
+        repo_name = (
+            project.git_url.split("/")[-1].replace(".git", "")
+            if project.git_url
+            else project.name
+        )
         lines.append(f"- **{s['label_repository']}**: {repo_name}")
         lines.append(f"- **{s['label_github']}**: {project.git_url}")
     if include_code_stats and analysis:
         lines.append(f"- **{s['label_commits']}**: {analysis.total_commits or 0}")
-    lines.append(f"- **{s['period']}**: {gen._format_date_range(project.start_date, project.end_date)}")
+    lines.append(
+        f"- **{s['period']}**: {gen._format_date_range(project.start_date, project.end_date)}"
+    )
     if include_code_stats and analysis:
-        lines.append(f"- **{s['label_code_change']}**: {s['label_lines_added'].format(count=f'{analysis.lines_added or 0:,}')}, {s['label_lines_deleted'].format(count=f'{analysis.lines_deleted or 0:,}')}")
+        lines.append(
+            f"- **{s['label_code_change']}**: {s['label_lines_added'].format(count=f'{analysis.lines_added or 0:,}')}, {s['label_lines_deleted'].format(count=f'{analysis.lines_deleted or 0:,}')}"
+        )
     if project.description:
         lines.append(f"- **{s['label_project_nature']}**: {project.description[:100]}")
     lines.append("")
@@ -81,7 +87,9 @@ def generate_project_section_detailed(
             lines.append("")
             gen._append_per_repo_implementation(lines, all_analyses)
     else:
-        implementation_details = gen._base._get_effective_implementation_details(analysis, edits)
+        implementation_details = gen._base._get_effective_implementation_details(
+            analysis, edits
+        )
         if implementation_details:
             lines.append(f"### {s['section_implementation']}")
             lines.append("")
@@ -138,7 +146,9 @@ def generate_project_section_detailed(
             lines.append("")
             gen._append_per_repo_achievements(lines, all_analyses, project)
     else:
-        detailed_achievements = gen._base._get_effective_detailed_achievements(analysis, edits)
+        detailed_achievements = gen._base._get_effective_detailed_achievements(
+            analysis, edits
+        )
         achievements = filter_achievements(project.achievements)
 
         if detailed_achievements or achievements:
@@ -146,7 +156,9 @@ def generate_project_section_detailed(
             lines.append("")
 
             if detailed_achievements and isinstance(detailed_achievements, dict):
-                append_detailed_achievements_with_before_after(gen, lines, detailed_achievements)
+                append_detailed_achievements_with_before_after(
+                    gen, lines, detailed_achievements
+                )
             elif achievements:
                 gen._append_achievements_by_category(lines, achievements)
 
@@ -155,10 +167,7 @@ def generate_project_section_detailed(
 
 
 def generate_project_section_final(
-    gen,
-    data: Dict,
-    idx: int,
-    include_code_stats: bool = False
+    gen, data: Dict, idx: int, include_code_stats: bool = False
 ) -> str:
     """Generate a final project section (상세 요약 형식) - FINAL_PROJECT_REPORT style.
 
@@ -185,16 +194,22 @@ def generate_project_section_final(
     lines.append(f"### {s['section_project_overview']}")
     if project.git_url:
         lines.append(f"- **{s['label_github']}**: {project.git_url}")
-    lines.append(f"- **{s['period']}**: {gen._format_date_range(project.start_date, project.end_date)}")
+    lines.append(
+        f"- **{s['period']}**: {gen._format_date_range(project.start_date, project.end_date)}"
+    )
     if include_code_stats and analysis:
-        lines.append(f"- **{s['label_commits']}**: {analysis.total_commits or 0} | **{s['label_code_change']}**: +{analysis.lines_added or 0:,} / -{analysis.lines_deleted or 0:,}")
+        lines.append(
+            f"- **{s['label_commits']}**: {analysis.total_commits or 0} | **{s['label_code_change']}**: +{analysis.lines_added or 0:,} / -{analysis.lines_deleted or 0:,}"
+        )
     if project.description:
         lines.append(f"- **{s['label_intro']}**: {project.description[:150]}")
     lines.append("")
 
     # Technology Stack (compact)
     if project.technologies:
-        tech_names = [pt.technology.name for pt in project.technologies if pt.technology][:10]
+        tech_names = [
+            pt.technology.name for pt in project.technologies if pt.technology
+        ][:10]
         if tech_names:
             lines.append(f"**{s['section_tech_stack']}**: {', '.join(tech_names)}")
             lines.append("")
@@ -209,7 +224,9 @@ def generate_project_section_final(
             lines.append(f"### {s['section_implementation']}")
             gen._append_per_repo_implementation(lines, all_analyses, limit=3)
     else:
-        implementation_details = gen._base._get_effective_implementation_details(analysis, edits)
+        implementation_details = gen._base._get_effective_implementation_details(
+            analysis, edits
+        )
         if implementation_details:
             lines.append(f"### {s['section_implementation']}")
             if isinstance(implementation_details, list) and implementation_details:
@@ -258,9 +275,13 @@ def generate_project_section_final(
         ) or bool(filter_achievements(project.achievements))
         if has_any_achievements:
             lines.append(f"### {s['section_performance']}")
-            gen._append_per_repo_achievements(lines, all_analyses, project, compact=True)
+            gen._append_per_repo_achievements(
+                lines, all_analyses, project, compact=True
+            )
     else:
-        detailed_achievements = gen._base._get_effective_detailed_achievements(analysis, edits)
+        detailed_achievements = gen._base._get_effective_detailed_achievements(
+            analysis, edits
+        )
         achievements = filter_achievements(project.achievements)
 
         if detailed_achievements or achievements:
@@ -273,7 +294,11 @@ def generate_project_section_final(
                             if isinstance(item, dict):
                                 title = item.get("title", "")
                                 description = item.get("description", "")
-                                lines.append(f"- {title}: {description}" if description else f"- {title}")
+                                lines.append(
+                                    f"- {title}: {description}"
+                                    if description
+                                    else f"- {title}"
+                                )
                             else:
                                 lines.append(f"- {item}")
                     lines.append("")
@@ -290,9 +315,7 @@ def generate_project_section_final(
 
 
 def append_detailed_achievements_with_before_after(
-    gen,
-    lines: List[str],
-    detailed_achievements: Dict
+    gen, lines: List[str], detailed_achievements: Dict
 ) -> None:
     """Append detailed achievements with before/after format.
 
@@ -316,7 +339,9 @@ def append_detailed_achievements_with_before_after(
                     if description:
                         lines.append(f"  - {description}")
                     if before and after:
-                        lines.append(f"  - {s['label_before']}: {before} → {s['label_after']}: {after}")
+                        lines.append(
+                            f"  - {s['label_before']}: {before} → {s['label_after']}: {after}"
+                        )
                 else:
                     lines.append(f"- {item}")
         lines.append("")

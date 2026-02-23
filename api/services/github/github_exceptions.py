@@ -36,9 +36,7 @@ class GitHubNotFoundError(GitHubServiceError):
 class GitHubTimeoutError(GitHubServiceError):
     """Raised when GitHub API request times out."""
 
-    def __init__(
-        self, message: str = "GitHub API 응답 시간 초과. 다시 시도해주세요."
-    ):
+    def __init__(self, message: str = "GitHub API 응답 시간 초과. 다시 시도해주세요."):
         super().__init__(message, status_code=504)
 
 

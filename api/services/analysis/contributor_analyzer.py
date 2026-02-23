@@ -41,8 +41,8 @@ def parse_conventional_commit(message: str) -> Dict[str, Any]:
     """
     # Conventional commit pattern: type(scope)!?: description
     # The ! indicates breaking change
-    pattern = r'^(\w+)(?:\(([^)]+)\))?(!)?:\s*(.+)$'
-    match = re.match(pattern, message.split('\n')[0].strip())
+    pattern = r"^(\w+)(?:\(([^)]+)\))?(!)?:\s*(.+)$"
+    match = re.match(pattern, message.split("\n")[0].strip())
 
     if match:
         commit_type = match.group(1).lower()
@@ -96,7 +96,7 @@ def parse_conventional_commit(message: str) -> Dict[str, Any]:
         "type": inferred_type,
         "type_label": COMMIT_TYPES.get(inferred_type, "Other"),
         "scope": None,
-        "description": message.split('\n')[0].strip(),
+        "description": message.split("\n")[0].strip(),
         "is_breaking": False,
     }
 
@@ -125,7 +125,9 @@ def detect_work_areas(file_paths: List[str]) -> List[str]:
                         break
                 elif pattern.endswith("/"):
                     # Directory pattern
-                    if pattern[:-1] in path_lower or path_lower.startswith(pattern[:-1]):
+                    if pattern[:-1] in path_lower or path_lower.startswith(
+                        pattern[:-1]
+                    ):
                         detected_areas.add(area)
                         break
                 else:
@@ -150,10 +152,10 @@ def extract_file_extensions(file_paths: List[str]) -> Dict[str, int]:
 
     for path in file_paths:
         # Extract extension
-        if '.' in path.split('/')[-1]:
-            ext = '.' + path.split('.')[-1].lower()
+        if "." in path.split("/")[-1]:
+            ext = "." + path.split(".")[-1].lower()
             # Filter out non-code extensions
-            if ext not in ['.lock', '.sum', '.map', '.svg', '.png', '.jpg', '.gif']:
+            if ext not in [".lock", ".sum", ".map", ".svg", ".png", ".jpg", ".gif"]:
                 extensions[ext] += 1
 
     return dict(extensions.most_common(20))
@@ -174,8 +176,8 @@ def detect_technologies_from_files(file_paths: List[str]) -> List[str]:
         path_lower = path.lower()
 
         # Check extensions (using constants from github_constants.py)
-        if '.' in path.split('/')[-1]:
-            ext = '.' + path.split('.')[-1].lower()
+        if "." in path.split("/")[-1]:
+            ext = "." + path.split(".")[-1].lower()
             if ext in EXT_TECH_MAP:
                 technologies.add(EXT_TECH_MAP[ext])
 
