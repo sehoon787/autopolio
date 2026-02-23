@@ -78,6 +78,12 @@ app.include_router(templates.router, prefix="/api/templates", tags=["Templates"]
 app.include_router(pipeline.router, prefix="/api/pipeline", tags=["Pipeline"])
 app.include_router(documents.router, prefix="/api/documents", tags=["Documents"])
 app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
+
+# Electron-only: register decrypted API keys endpoint
+if os.environ.get("AUTOPOLIO_RUNTIME") == "electron":
+    from api.routers import llm_keys
+    app.include_router(llm_keys.router, prefix="/api/llm", tags=["LLM"])
+
 app.include_router(platforms.router, prefix="/api/platforms", tags=["Platforms"])
 app.include_router(lookup.router, prefix="/api", tags=["Lookup"])
 app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])

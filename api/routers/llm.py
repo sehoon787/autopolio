@@ -24,7 +24,6 @@ from api.schemas.llm import (
     CLITestResponse,
     LLMTestRequest,
     LLMTestResponse,
-    StoredAPIKeysResponse,
 )
 from api.services.llm import get_cli_service
 from api.services.core import EncryptionService
@@ -190,47 +189,6 @@ async def update_llm_config(
 
     # Return updated config
     return await get_llm_config(user_id=user_id, db=db)
-
-@router.get("/keys", response_model=StoredAPIKeysResponse)
-async def get_stored_keys(
-    user_id: int = Query(...),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get stored (decrypted) API keys for a user. Only for Electron/desktop apps."""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Decrypt stored keys
-    openai_key = None
-    anthropic_key = None
-    gemini_key = None
-
-    if user.openai_api_key_encrypted:
-        try:
-            openai_key = encryption_service.decrypt(user.openai_api_key_encrypted)
-        except Exception:
-            pass
-
-    if user.anthropic_api_key_encrypted:
-        try:
-            anthropic_key = encryption_service.decrypt(user.anthropic_api_key_encrypted)
-        except Exception:
-            pass
-
-    if user.gemini_api_key_encrypted:
-        try:
-            gemini_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
-        except Exception:
-            pass
-
-    return StoredAPIKeysResponse(
-        openai_api_key=openai_key,
-        anthropic_api_key=anthropic_key,
-        gemini_api_key=gemini_key,
-    )
-
 
 @router.post("/validate/{provider}", response_model=APIKeyValidationResponse)
 async def validate_api_key(
