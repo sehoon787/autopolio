@@ -19,6 +19,7 @@ on:
       - 'pyproject.toml'
       - 'frontend/package.json'
       - 'frontend/tsconfig*.json'
+  workflow_dispatch:
 
 concurrency:
   group: lint-${{ github.ref }}

@@ -7,6 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: '0 6 * * 1' # Weekly on Monday at 6:00 UTC
+  workflow_dispatch:
 
 concurrency:
   group: security-${{ github.ref }}
@@ -14,8 +15,11 @@ concurrency:
 
 jobs:
   codeql:
-    name: CodeQL Analysis
+    name: CodeQL Analysis (${{ matrix.language }})
     runs-on: ubuntu-latest
+    # CodeQL requires "Code scanning" enabled in repo Settings > Code security.
+    # Mark as non-blocking so Bandit results are still reported on failure.
+    continue-on-error: true
     permissions:
       actions: read
       contents: read
@@ -96,9 +100,18 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.codeql.result }}" != "success" ]] || \
-             [[ "${{ needs.bandit.result }}" != "success" ]]; then
-            echo "One or more security jobs failed"
+          echo "CodeQL: ${{ needs.codeql.result }}"
+          echo "Bandit: ${{ needs.bandit.result }}"
+
+          # Bandit must pass (required)
+          if [[ "${{ needs.bandit.result }}" != "success" ]]; then
+            echo "Bandit security scan failed"
             exit 1
           fi
-          echo "All security scans passed"
+
+          # CodeQL is optional (requires repo-level Code scanning enabled)
+          if [[ "${{ needs.codeql.result }}" != "success" ]]; then
+            echo "::warning::CodeQL did not succeed (result: ${{ needs.codeql.result }}). Enable Code scanning in repo Settings > Code security."
+          fi
+
+          echo "Security scans completed"
