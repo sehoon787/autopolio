@@ -22,6 +22,15 @@ export interface CLICacheState {
 
 let cachedCLIStatus: CLICacheState = { claude: null, gemini: null }
 
+// Promise that resolves when prefetch completes (or times out).
+// IPC handlers await this before falling back to slow detection.
+let _prefetchResolve: (() => void) | null
+const _prefetchReady = new Promise<void>(resolve => { _prefetchResolve = resolve })
+const _prefetchWithTimeout = Promise.race([
+  _prefetchReady,
+  new Promise<void>(resolve => setTimeout(resolve, 15000)),  // 15s safety timeout
+])
+
 /**
  * Get the current cached CLI status (used by main.ts for prefetch).
  */
@@ -31,9 +40,14 @@ export function getCachedCLIStatus(): CLICacheState {
 
 /**
  * Update the cached CLI status (used by main.ts after prefetch).
+ * Also signals that prefetch is complete so IPC handlers can use cached data.
  */
 export function setCachedCLIStatus(status: CLICacheState): void {
   cachedCLIStatus = status
+  if (_prefetchResolve) {
+    _prefetchResolve()
+    _prefetchResolve = null
+  }
 }
 
 // ============================================================================
@@ -47,6 +61,8 @@ export function registerCLIDetectionIPC(): void {
   ipcMain.handle('get-claude-cli-status', async () => {
     console.log('[IPC] get-claude-cli-status called')
     try {
+      // Wait for prefetch to finish (or timeout) before checking cache
+      await _prefetchWithTimeout
       if (cachedCLIStatus.claude) {
         console.log('[IPC] get-claude-cli-status returning cached result')
         return cachedCLIStatus.claude
@@ -160,6 +176,8 @@ export function registerCLIDetectionIPC(): void {
   ipcMain.handle('get-gemini-cli-status', async () => {
     console.log('[IPC] get-gemini-cli-status called')
     try {
+      // Wait for prefetch to finish (or timeout) before checking cache
+      await _prefetchWithTimeout
       if (cachedCLIStatus.gemini) {
         console.log('[IPC] get-gemini-cli-status returning cached result')
         return cachedCLIStatus.gemini

@@ -8,6 +8,14 @@ import fs from 'fs';
 import os from 'os';
 import { getCLIToolManager } from '../services/cli-tool-manager.js';
 let cachedCLIStatus = { claude: null, gemini: null };
+// Promise that resolves when prefetch completes (or times out).
+// IPC handlers await this before falling back to slow detection.
+let _prefetchResolve;
+const _prefetchReady = new Promise(resolve => { _prefetchResolve = resolve; });
+const _prefetchWithTimeout = Promise.race([
+    _prefetchReady,
+    new Promise(resolve => setTimeout(resolve, 15000)), // 15s safety timeout
+]);
 /**
  * Get the current cached CLI status (used by main.ts for prefetch).
  */
@@ -16,9 +24,14 @@ export function getCachedCLIStatus() {
 }
 /**
  * Update the cached CLI status (used by main.ts after prefetch).
+ * Also signals that prefetch is complete so IPC handlers can use cached data.
  */
 export function setCachedCLIStatus(status) {
     cachedCLIStatus = status;
+    if (_prefetchResolve) {
+        _prefetchResolve();
+        _prefetchResolve = null;
+    }
 }
 // ============================================================================
 // Registration
@@ -30,6 +43,8 @@ export function registerCLIDetectionIPC() {
     ipcMain.handle('get-claude-cli-status', async () => {
         console.log('[IPC] get-claude-cli-status called');
         try {
+            // Wait for prefetch to finish (or timeout) before checking cache
+            await _prefetchWithTimeout;
             if (cachedCLIStatus.claude) {
                 console.log('[IPC] get-claude-cli-status returning cached result');
                 return cachedCLIStatus.claude;
@@ -142,6 +157,8 @@ export function registerCLIDetectionIPC() {
     ipcMain.handle('get-gemini-cli-status', async () => {
         console.log('[IPC] get-gemini-cli-status called');
         try {
+            // Wait for prefetch to finish (or timeout) before checking cache
+            await _prefetchWithTimeout;
             if (cachedCLIStatus.gemini) {
                 console.log('[IPC] get-gemini-cli-status returning cached result');
                 return cachedCLIStatus.gemini;
