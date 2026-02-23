@@ -82,7 +82,7 @@ test.describe('Companies CRUD', () => {
     await page.goto('/knowledge/companies')
 
     // Wait for list to load
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find and click edit on the company
     const companyRow = page.locator(`text=${company.name}`).first()
@@ -116,7 +116,7 @@ test.describe('Companies CRUD', () => {
     })
 
     await page.goto('/knowledge/companies')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find the company
     const companyRow = page.locator(`text=${company.name}`).first()

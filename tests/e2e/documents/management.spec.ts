@@ -42,7 +42,7 @@ test.describe('Document List', () => {
 
   test('should show empty state when no documents', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Either show documents or empty state
     const documentList = page.locator('[data-testid="document-list"]')
@@ -53,7 +53,7 @@ test.describe('Document List', () => {
 
   test('should show document cards if documents exist', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const documentCards = page.locator('[data-testid="document-card"]')
 
@@ -66,7 +66,7 @@ test.describe('Document List', () => {
 test.describe('Document Actions', () => {
   test('should have download button for documents', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const downloadBtn = page.locator(
       '[data-testid="download-button"], button:has-text("다운로드"), button:has-text("Download")'
@@ -80,7 +80,7 @@ test.describe('Document Actions', () => {
 
   test('should have delete button for documents', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const deleteBtn = page.locator(
       '[data-testid="delete-button"], button:has-text("삭제"), button:has-text("Delete")'
@@ -93,7 +93,7 @@ test.describe('Document Actions', () => {
 
   test('should download document on click', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const downloadBtn = page.locator(
       '[data-testid="download-button"], button:has-text("다운로드")'
@@ -114,7 +114,7 @@ test.describe('Document Actions', () => {
 
   test('should confirm before deleting document', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const deleteBtn = page.locator('[data-testid="delete-button"]').first()
 
@@ -140,7 +140,7 @@ test.describe('Document Actions', () => {
 test.describe('Document Preview', () => {
   test('should navigate to document detail/preview', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const documentCard = page.locator('[data-testid="document-card"]').first()
 
@@ -148,20 +148,20 @@ test.describe('Document Preview', () => {
       await documentCard.click()
 
       // Should navigate to detail page or open preview
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 
   test('should show document content in preview', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click on first document
     const documentCard = page.locator('[data-testid="document-card"]').first()
 
     if (await documentCard.isVisible()) {
       await documentCard.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Look for preview content
       const previewContent = page.locator(
@@ -176,7 +176,7 @@ test.describe('Document Preview', () => {
 test.describe('Document Filtering', () => {
   test('should filter documents by format', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for filter controls
     const filterSelect = page.locator('select[name="format"]')
@@ -184,16 +184,16 @@ test.describe('Document Filtering', () => {
 
     if (await filterSelect.isVisible()) {
       await filterSelect.selectOption('markdown')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     } else if (await filterTabs.isVisible()) {
       await page.click('text=Markdown, text=MD')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 
   test('should search documents by name', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const searchInput = page.locator(
       'input[type="search"], input[name="search"], input[placeholder*="검색"]'
@@ -201,7 +201,7 @@ test.describe('Document Filtering', () => {
 
     if (await searchInput.isVisible()) {
       await searchInput.fill('test')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 })
@@ -209,30 +209,30 @@ test.describe('Document Filtering', () => {
 test.describe('Document Sorting', () => {
   test('should sort documents by date', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const sortSelect = page.locator('select[name="sort"]')
     const sortBtn = page.locator('button:has-text("정렬"), button:has-text("Sort")')
 
     if (await sortSelect.isVisible()) {
       await sortSelect.selectOption('date')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     } else if (await sortBtn.isVisible()) {
       await sortBtn.click()
       await page.click('text=날짜, text=Date')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 
   test('should sort documents by name', async ({ page }) => {
     await page.goto('/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const sortSelect = page.locator('select[name="sort"]')
 
     if (await sortSelect.isVisible()) {
       await sortSelect.selectOption('name')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 })

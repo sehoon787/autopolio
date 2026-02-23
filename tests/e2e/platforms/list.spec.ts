@@ -27,7 +27,7 @@ test.describe('Platform Template List', () => {
 
   test('should show available platform templates', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show at least one platform card
     const platformCards = page.locator(
@@ -40,7 +40,7 @@ test.describe('Platform Template List', () => {
 
   test('should show saramin template', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     await expect(
       page.locator('text=사람인, text=Saramin').first()
@@ -49,7 +49,7 @@ test.describe('Platform Template List', () => {
 
   test('should show remember template', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     await expect(
       page.locator('text=리멤버, text=Remember').first()
@@ -58,7 +58,7 @@ test.describe('Platform Template List', () => {
 
   test('should show jumpit template', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     await expect(
       page.locator('text=점핏, text=Jumpit').first()
@@ -67,7 +67,7 @@ test.describe('Platform Template List', () => {
 
   test('should have preview buttons for each template', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const previewBtns = page.locator(
       'button:has-text("미리보기"), button:has-text("Preview")'
@@ -79,7 +79,7 @@ test.describe('Platform Template List', () => {
 
   test('should have export buttons for each template', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const exportBtns = page.locator(
       'button:has-text("내보내기"), button:has-text("Export")'
@@ -102,7 +102,7 @@ test.describe('Platform Template Details', () => {
 
   test('should navigate to template detail on click', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click on first platform card
     const card = page.locator(
@@ -119,7 +119,7 @@ test.describe('Platform Template Details', () => {
 
   test('should show template description', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for descriptions
     const descriptions = page.locator(

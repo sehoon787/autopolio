@@ -48,7 +48,7 @@ test.describe('Document Generation Page', () => {
 
   test('should show project selection', async ({ page }) => {
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show project selection UI
     const projectSelect = page.locator(
@@ -60,7 +60,7 @@ test.describe('Document Generation Page', () => {
 
   test('should show template selection', async ({ page }) => {
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show template selection
     const templateSelect = page.locator(
@@ -72,7 +72,7 @@ test.describe('Document Generation Page', () => {
 
   test('should show format selection', async ({ page }) => {
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show format options
     const formatBtns = page.locator(
@@ -111,7 +111,7 @@ test.describe('Document Generation Process', () => {
 
   test('should select project and start generation', async ({ page }) => {
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Select project
     const projectCheckbox = page.locator(
@@ -137,14 +137,14 @@ test.describe('Document Generation Process', () => {
       await generateBtn.click()
 
       // Should show progress or navigate to pipeline page
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 
   test.skip('should show generation progress', async ({ page }) => {
     // This test may take time - skip in regular runs
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Start generation process
     // ... (would need to set up and click through)
@@ -168,12 +168,12 @@ test.describe('Pipeline Status', () => {
       'text=파이프라인, text=Pipeline, text=진행, text=Progress'
     ).first()
 
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
   })
 
   test('should show step-by-step progress', async ({ page }) => {
     await page.goto('/generate/pipeline')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for step indicators
     const steps = page.locator(
@@ -212,7 +212,7 @@ test.describe('Export Dialog', () => {
 
   test('should open export dialog from projects page', async ({ page }) => {
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find export button
     const exportBtn = page.locator(
@@ -230,7 +230,7 @@ test.describe('Export Dialog', () => {
 
   test('should show export type options in dialog', async ({ page }) => {
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const exportBtn = page.locator('button:has-text("내보내기")').first()
 

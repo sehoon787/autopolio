@@ -11,8 +11,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry on CI only — 1 retry to save time */
+  retries: process.env.CI ? 1 : 0,
   /* Opt out of parallel tests on CI */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use */
@@ -31,8 +31,14 @@ export default defineConfig({
     /* Screenshot on failure */
     screenshot: 'only-on-failure',
 
-    /* Video on failure */
-    video: 'on-first-retry',
+    /* Video — disabled on CI to save resources */
+    video: process.env.CI ? 'off' : 'on-first-retry',
+
+    /* Action timeout — prevent individual clicks/fills from hanging */
+    actionTimeout: 10000,
+
+    /* Navigation timeout */
+    navigationTimeout: 15000,
   },
 
   /* Configure projects for major browsers */
@@ -41,27 +47,17 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // Uncomment for cross-browser testing
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
   ],
+
+  /* Skip Electron-specific tests in CI (no Electron runtime available) */
+  testIgnore: process.env.CI ? ['**/electron/**'] : [],
 
   /* Folder for test artifacts such as screenshots, videos, traces, etc. */
   outputDir: 'test-results/',
 
   /* Timeout settings */
-  timeout: 60000, // 60 seconds per test
+  timeout: 30000, // 30 seconds per test
   expect: {
-    timeout: 10000, // 10 seconds for assertions
+    timeout: 5000, // 5 seconds for assertions
   },
-
-  /* Global setup/teardown */
-  // globalSetup: require.resolve('./fixtures/global-setup'),
-  // globalTeardown: require.resolve('./fixtures/global-teardown'),
 })

@@ -139,7 +139,7 @@ test.describe('Electron GitHub Workflow', () => {
 
     // Alternative: test via the backend API or page navigation
     await page.goto(`${FRONTEND_URL}/setup/github`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show either "Connected" or "Connect" button
     const ghSection = page.locator('text=GitHub').first()
@@ -444,22 +444,22 @@ test.describe('Electron GitHub Workflow', () => {
   test('should navigate between main pages', async () => {
     // Dashboard
     await page.goto(`${FRONTEND_URL}/dashboard`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // GitHub repos
     await page.goto(`${FRONTEND_URL}/github/repos`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // Projects
     await page.goto(`${FRONTEND_URL}/knowledge/projects`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await expect(page.locator('body')).not.toBeEmpty()
 
     // Settings
     await page.goto(`${FRONTEND_URL}/settings`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await expect(page.locator('body')).not.toBeEmpty()
   })
 })

@@ -125,7 +125,7 @@ test.describe('Projects CRUD', () => {
     testContext.project = project
 
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find and edit the project
     const projectRow = page.locator(`text=${project.name}`).first()
@@ -159,7 +159,7 @@ test.describe('Projects CRUD', () => {
     })
 
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find the project
     const projectRow = page.locator(`text=${project.name}`).first()
@@ -215,7 +215,7 @@ test.describe('Projects with Technologies', () => {
     })
 
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find project
     const projectRow = page.locator(`text=${project.name}`).first()
@@ -263,7 +263,7 @@ test.describe('Projects Filtering', () => {
 
   test('should filter projects by type', async ({ page }) => {
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for filter controls
     const filterSelect = page.locator('select[name="filter"], select[name="type"]')
@@ -271,14 +271,14 @@ test.describe('Projects Filtering', () => {
 
     if (await filterSelect.isVisible()) {
       await filterSelect.selectOption('personal')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Should show personal projects only
       await expect(page.locator('text=Personal Project').first()).toBeVisible()
     } else if (await filterTabs.isVisible()) {
       // Click on personal tab
       await page.click('text=Personal, text=개인')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 })

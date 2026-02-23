@@ -83,7 +83,7 @@ test.describe('Certifications CRUD', () => {
     const cert = await createTestCertification(request, testContext.user!.id)
 
     await page.goto('/knowledge/credentials')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find and edit
     const editBtn = page.locator('[data-testid="edit-button"]').first()
@@ -109,7 +109,7 @@ test.describe('Certifications CRUD', () => {
     })
 
     await page.goto('/knowledge/credentials')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find delete button
     const deleteBtn = page.locator(
@@ -191,7 +191,7 @@ test.describe('Education CRUD', () => {
     })
 
     await page.goto('/knowledge/credentials')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Navigate to education tab
     const eduTab = page.locator(
@@ -287,7 +287,7 @@ test.describe('Credentials Tab Navigation', () => {
 
   test('should switch between credential tabs', async ({ page }) => {
     await page.goto('/knowledge/credentials')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Check for tab navigation
     const tabs = page.locator('[role="tablist"] button, [data-testid="credential-tabs"] button')
@@ -296,7 +296,7 @@ test.describe('Credentials Tab Navigation', () => {
       // Click through each tab
       for (let i = 0; i < (await tabs.count()); i++) {
         await tabs.nth(i).click()
-        await page.waitForLoadState('networkidle')
+        await page.waitForLoadState('domcontentloaded')
       }
     }
   })

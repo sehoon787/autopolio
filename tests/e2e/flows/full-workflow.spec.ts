@@ -77,7 +77,7 @@ test.describe('Complete Portfolio Workflow', () => {
 
     // Step 3: Go to project detail and add achievement
     await page.click(`text=${projectName}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const addAchievementBtn = page.locator(
       '[data-testid="add-achievement"], button:has-text("성과 추가")'
@@ -92,12 +92,12 @@ test.describe('Complete Portfolio Workflow', () => {
 
     // Step 4: Preview platform template
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const previewBtn = page.locator('button:has-text("미리보기"), button:has-text("Preview")').first()
     if (await previewBtn.isVisible()) {
       await previewBtn.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Should show preview
       await expect(page.locator('iframe').first()).toBeVisible({ timeout: 10000 })
@@ -107,14 +107,14 @@ test.describe('Complete Portfolio Workflow', () => {
     const realDataToggle = page.locator('[data-testid="real-data-toggle"]').first()
     if (await realDataToggle.isVisible()) {
       await realDataToggle.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
 
     // Step 6: Export document
     const exportBtn = page.locator('button:has-text("내보내기"), button:has-text("Export")').first()
     if (await exportBtn.isVisible()) {
       await exportBtn.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Click Markdown export
       const mdBtn = page.locator('button:has-text("Markdown")').first()
@@ -173,7 +173,7 @@ test.describe('GitHub Analysis Workflow', () => {
 
     // Navigate to project detail
     await page.click(`text=${projectName}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for analyze button
     const analyzeBtn = page.locator(
@@ -215,7 +215,7 @@ test.describe('Template Customization Workflow', () => {
   test('should clone and customize template', async ({ page }) => {
     // Go to templates
     await page.goto('/templates')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Clone first template
     const cloneBtn = page.locator(
@@ -232,14 +232,14 @@ test.describe('Template Customization Workflow', () => {
         await page.click('button:has-text("복제"), button:has-text("확인")')
       }
 
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
 
     // Edit the cloned template
     const editBtn = page.locator('[data-testid="edit-template"]').first()
     if (await editBtn.isVisible()) {
       await editBtn.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Modify content
       const editor = page.locator('textarea').first()
@@ -285,7 +285,7 @@ test.describe('Multi-Project Document Generation', () => {
 
   test('should generate document with multiple projects', async ({ page }) => {
     await page.goto('/generate')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Select multiple projects
     const checkboxes = page.locator('[data-testid="project-checkbox"], input[type="checkbox"]')
@@ -305,7 +305,7 @@ test.describe('Multi-Project Document Generation', () => {
     const generateBtn = page.locator('button:has-text("생성"), button:has-text("Generate")').first()
     if (await generateBtn.isVisible()) {
       await generateBtn.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 })
@@ -344,7 +344,7 @@ test.describe('Cross-Feature Navigation', () => {
   test('should maintain navigation state', async ({ page }) => {
     // Navigate through sidebar
     await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const navItems = [
       { selector: 'a[href*="companies"]', url: /companies/ },

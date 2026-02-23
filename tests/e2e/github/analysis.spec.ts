@@ -40,7 +40,7 @@ test.describe('Project Analysis', () => {
 
   test('should show analyze button for project with git URL', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for analyze button
     const analyzeBtn = page.locator(
@@ -52,7 +52,7 @@ test.describe('Project Analysis', () => {
 
   test('should start analysis on button click', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const analyzeBtn = page.locator(
       '[data-testid="analyze-button"], button:has-text("분석"), button:has-text("Analyze")'
@@ -111,7 +111,7 @@ test.describe('Batch Analysis', () => {
 
   test('should allow selecting multiple projects for batch analysis', async ({ page }) => {
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for batch selection mode or checkboxes
     const batchBtn = page.locator(
@@ -153,7 +153,7 @@ test.describe('Analysis Results Display', () => {
 
   test('should display commit statistics if analyzed', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for commit stats section
     const statsSection = page.locator(
@@ -168,7 +168,7 @@ test.describe('Analysis Results Display', () => {
 
   test('should allow editing analysis description', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for edit analysis button
     const editBtn = page.locator(
@@ -213,7 +213,7 @@ test.describe('Contributor Analysis', () => {
 
   test('should show contributor section if available', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for contributors section
     const contributorSection = page.locator(

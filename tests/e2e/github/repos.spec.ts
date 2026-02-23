@@ -43,7 +43,7 @@ test.describe('GitHub Repository List', () => {
 
   test('should show connect button when not connected', async ({ page }) => {
     await page.goto('/setup/github')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for connect button or connection status
     const connectBtn = page.locator(
@@ -61,7 +61,7 @@ test.describe('GitHub Repository List', () => {
   test('should show repository list when connected', async ({ page }) => {
     // Note: This test assumes GitHub is connected
     await page.goto('/github/repos')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // May show repos or "not connected" message
     const repoList = page.locator('[data-testid="repo-list"], [data-testid="repository-list"]')
@@ -74,7 +74,7 @@ test.describe('GitHub Repository List', () => {
 test.describe('GitHub Repository Selection', () => {
   test('should allow selecting repositories to import', async ({ page }) => {
     await page.goto('/github/repos')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for repo checkboxes or selection UI
     const checkbox = page.locator(
@@ -96,13 +96,13 @@ test.describe('GitHub Repository Selection', () => {
 
   test('should show technology detection after selecting repo', async ({ page }) => {
     await page.goto('/github/repos')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const checkbox = page.locator('[data-testid="repo-checkbox"]').first()
 
     if (await checkbox.isVisible()) {
       await checkbox.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Technology badges may appear
       const techBadges = page.locator(
@@ -118,7 +118,7 @@ test.describe('GitHub Repository Selection', () => {
 test.describe('GitHub Connection Flow', () => {
   test('should initiate OAuth flow on connect click', async ({ page }) => {
     await page.goto('/setup/github')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const connectBtn = page.locator(
       'button:has-text("연결"), button:has-text("Connect GitHub")'
@@ -141,7 +141,7 @@ test.describe('GitHub Connection Flow', () => {
 
   test('should show disconnect option when connected', async ({ page }) => {
     await page.goto('/setup/github')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // If connected, should show disconnect button
     const disconnectBtn = page.locator(

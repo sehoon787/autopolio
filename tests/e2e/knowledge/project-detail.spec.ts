@@ -59,7 +59,7 @@ test.describe('Project Detail Page', () => {
 
   test('should display project metadata', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Check role is displayed
     await expect(
@@ -74,7 +74,7 @@ test.describe('Project Detail Page', () => {
 
   test('should display technologies', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Check technologies are displayed
     await expect(page.locator('text=Python').first()).toBeVisible({ timeout: 10000 })
@@ -83,7 +83,7 @@ test.describe('Project Detail Page', () => {
 
   test('should allow editing project from detail page', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click edit button
     const editBtn = page.locator(
@@ -128,7 +128,7 @@ test.describe('Project Achievements', () => {
 
   test('should add an achievement to project', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for achievements section
     const achievementSection = page.locator(
@@ -184,7 +184,7 @@ test.describe('Project Achievements', () => {
     )
 
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Verify achievement is displayed
     await expect(
@@ -221,7 +221,7 @@ test.describe('Project Analysis Results', () => {
 
   test('should show analysis section for project with git URL', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for analysis section or analyze button
     const analysisSection = page.locator(
@@ -238,7 +238,7 @@ test.describe('Project Analysis Results', () => {
 
   test('should allow editing analysis results', async ({ page }) => {
     await page.goto(`/knowledge/projects/${testContext.project!.id}`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for edit analysis button
     const editAnalysisBtn = page.locator(

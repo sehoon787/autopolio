@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Portfolio/Resume automation platform with GitHub analysis and LLM-powered summaries",
-    version="1.0.0",
+    version="1.19.0",
     lifespan=lifespan,
 )
 
@@ -141,7 +141,7 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": settings.app_name,
-        "version": "1.0.0",
+        "version": "1.19.0",
         "description": "Portfolio/Resume automation platform",
         "docs_url": "/docs",
         "health": "ok",

@@ -44,7 +44,7 @@ test.describe('Template List', () => {
 
   test('should show system templates', async ({ page }) => {
     await page.goto('/templates')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should show template cards
     const templateCards = page.locator(
@@ -56,7 +56,7 @@ test.describe('Template List', () => {
 
   test('should have create new template button', async ({ page }) => {
     await page.goto('/templates')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const createBtn = page.locator(
       'button:has-text("새로 만들기"), button:has-text("Create"), button:has-text("추가")'
@@ -90,7 +90,7 @@ test.describe('Template Creation', () => {
 
   test('should navigate to create template page', async ({ page }) => {
     await page.goto('/templates')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const createBtn = page.locator(
       'button:has-text("새로 만들기"), button:has-text("Create")'
@@ -108,7 +108,7 @@ test.describe('Template Creation', () => {
 
   test('should create a custom template', async ({ page }) => {
     await page.goto('/templates/new')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Fill form
     const templateName = `E2E Template ${Date.now()}`
@@ -160,7 +160,7 @@ test.describe('Template Cloning', () => {
 
   test('should clone a template', async ({ page }) => {
     await page.goto('/templates')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find clone button
     const cloneBtn = page.locator(
@@ -232,7 +232,7 @@ test.describe('Template Editing', () => {
     }
 
     await page.goto(`/templates/${testContext.template.id}/edit`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for preview panel
     const previewPanel = page.locator(
@@ -249,7 +249,7 @@ test.describe('Template Editing', () => {
     }
 
     await page.goto(`/templates/${testContext.template.id}/edit`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Modify content
     const editor = page.locator(
@@ -264,7 +264,7 @@ test.describe('Template Editing', () => {
     await page.click('button:has-text("저장"), button:has-text("Save")')
 
     // Should show success or stay on page without error
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
   })
 })
 
@@ -298,7 +298,7 @@ test.describe('Template Field Insertion', () => {
     }
 
     await page.goto(`/templates/${testContext.template.id}/edit`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for field list or field panel
     const fieldPanel = page.locator(
@@ -317,7 +317,7 @@ test.describe('Template Field Insertion', () => {
     }
 
     await page.goto(`/templates/${testContext.template.id}/edit`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Find a field button
     const fieldBtn = page.locator(

@@ -1,6 +1,6 @@
 [project]
 name = "autopolio"
-version = "1.0.0"
+version = "1.19.0"
 description = "Portfolio/Resume automation platform with GitHub analysis and LLM-powered summaries"
 readme = "README.md"
 requires-python = ">=3.11"

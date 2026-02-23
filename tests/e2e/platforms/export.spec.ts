@@ -50,7 +50,7 @@ test.describe('Platform Export Page', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should have HTML, Markdown, Word options
     const htmlBtn = page.locator('button:has-text("HTML")')
@@ -84,7 +84,7 @@ test.describe('HTML Export', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const htmlBtn = page.locator('button:has-text("HTML")').first()
 
@@ -109,7 +109,7 @@ test.describe('HTML Export', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const htmlBtn = page.locator('button:has-text("HTML")').first()
 
@@ -151,7 +151,7 @@ test.describe('Markdown Export', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const mdBtn = page.locator('button:has-text("Markdown"), button:has-text("MD")').first()
 
@@ -192,7 +192,7 @@ test.describe('Word Export', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const wordBtn = page.locator('button:has-text("Word"), button:has-text("DOCX")').first()
 
@@ -250,7 +250,7 @@ test.describe('Export with Real User Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/export`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Toggle to use real data
     const realDataToggle = page.locator(
@@ -289,7 +289,7 @@ test.describe('Export Navigation', () => {
 
   test('should navigate to export from list', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const exportBtn = page.locator(
       'button:has-text("내보내기"), button:has-text("Export")'
@@ -305,7 +305,7 @@ test.describe('Export Navigation', () => {
 
   test('should navigate to export from preview', async ({ page }) => {
     await page.goto('/platforms/1/preview')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const exportBtn = page.locator(
       'button:has-text("내보내기"), button:has-text("Export"), a[href*="export"]'

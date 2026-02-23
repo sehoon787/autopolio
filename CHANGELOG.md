@@ -67,6 +67,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17] - 2026-02-13
+
+### Added
+- **Multi-Repository Support**
+  - `ProjectRepository` model (`api/models/project_repository.py`) for 1:N project-to-repo mapping
+  - `Project.repo_analyses` relationship (1:N, replaces old 1:1 `repo_analysis`)
+  - `Project.repo_analysis` backward-compatible property (returns primary/first analysis)
+  - `RepoAnalysis.project_repository_id` FK linking analysis to specific repository
+  - Migration script: `python -m api.migrations.add_multi_repo`
+  - Frontend `ProjectFormFields` supports multi-repo via `onAddRepository` callbacks
+  - `user_data_collector.py` updated with `selectinload(Project.repositories)`
+
+---
+
 ## [1.16] - 2026-02-08
 
 ### Changed

@@ -51,7 +51,7 @@ test.describe('Platform Preview with Sample Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should have iframe for preview
     const iframe = page.locator('iframe')
@@ -65,7 +65,7 @@ test.describe('Platform Preview with Sample Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for sample data indicator
     const sampleIndicator = page.locator(
@@ -85,7 +85,7 @@ test.describe('Platform Preview with Sample Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for fullscreen button
     const fullscreenBtn = page.locator(
@@ -105,7 +105,7 @@ test.describe('Platform Preview with Sample Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for print button
     const printBtn = page.locator(
@@ -156,7 +156,7 @@ test.describe('Platform Preview with Real Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for toggle to switch to real data
     const realDataToggle = page.locator(
@@ -165,7 +165,7 @@ test.describe('Platform Preview with Real Data', () => {
 
     if (await realDataToggle.isVisible()) {
       await realDataToggle.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Should show real data indicator
       const realIndicator = page.locator(
@@ -184,13 +184,13 @@ test.describe('Platform Preview with Real Data', () => {
     }
 
     await page.goto(`/platforms/${platformId}/preview`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Toggle to real data
     const toggle = page.locator('[data-testid="real-data-toggle"]').first()
     if (await toggle.isVisible()) {
       await toggle.click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // Check if project name appears in preview
       const iframe = page.frameLocator('iframe')
@@ -214,7 +214,7 @@ test.describe('Platform Preview Navigation', () => {
 
   test('should navigate to preview from list', async ({ page }) => {
     await page.goto('/platforms')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click preview button
     const previewBtn = page.locator(
@@ -231,7 +231,7 @@ test.describe('Platform Preview Navigation', () => {
 
   test('should navigate back to list from preview', async ({ page }) => {
     await page.goto('/platforms/1/preview')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click back button
     const backBtn = page.locator(

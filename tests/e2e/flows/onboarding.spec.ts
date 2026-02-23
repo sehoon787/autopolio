@@ -23,7 +23,7 @@ test.describe('Onboarding Flow', () => {
 
   test('should show GitHub connection step', async ({ page }) => {
     await page.goto('/setup')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Should have GitHub connection option
     const githubStep = page.locator(
@@ -35,7 +35,7 @@ test.describe('Onboarding Flow', () => {
 
   test('should allow skipping GitHub connection', async ({ page }) => {
     await page.goto('/setup/github')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for skip button
     const skipBtn = page.locator(
@@ -46,13 +46,13 @@ test.describe('Onboarding Flow', () => {
       await skipBtn.click()
 
       // Should proceed to next step
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
     }
   })
 
   test('should navigate through setup steps', async ({ page }) => {
     await page.goto('/setup')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for step navigation
     const steps = page.locator('[data-testid="setup-step"], .step, [role="tab"]')
@@ -61,7 +61,7 @@ test.describe('Onboarding Flow', () => {
       // Click through steps
       for (let i = 0; i < Math.min(3, await steps.count()); i++) {
         await steps.nth(i).click()
-        await page.waitForLoadState('networkidle')
+        await page.waitForLoadState('domcontentloaded')
       }
     }
   })
@@ -91,7 +91,7 @@ test.describe('First Company Creation', () => {
 
   test('should prompt to create first company', async ({ page }) => {
     await page.goto('/knowledge/companies')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // May show empty state with prompt or create button
     const createPrompt = page.locator(
@@ -150,7 +150,7 @@ test.describe('First Project Creation', () => {
 
   test('should prompt to create first project', async ({ page }) => {
     await page.goto('/knowledge/projects')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const createPrompt = page.locator(
       'text=프로젝트 추가, text=Add Project, button:has-text("추가"), [data-testid="empty-state"]'
@@ -219,7 +219,7 @@ test.describe('Dashboard After Onboarding', () => {
 
   test('should show quick action cards', async ({ page }) => {
     await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Look for action cards or quick links
     const actionCards = page.locator(
@@ -233,7 +233,7 @@ test.describe('Dashboard After Onboarding', () => {
 
   test('should navigate to main sections from dashboard', async ({ page }) => {
     await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click on companies link
     const companiesLink = page.locator(

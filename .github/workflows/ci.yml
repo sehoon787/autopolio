@@ -83,7 +83,7 @@ jobs:
   test-e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -116,26 +116,32 @@ jobs:
       - name: Wait for API to be ready
         run: |
           echo "Waiting for API..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:8085/ > /dev/null 2>&1; then
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8085/health > /dev/null 2>&1; then
               echo "API is ready!"
-              break
+              exit 0
             fi
-            echo "Attempt $i/60..."
+            echo "Attempt $i/30..."
             sleep 2
           done
+          echo "ERROR: API did not start within 60 seconds"
+          docker compose logs api --tail=50
+          exit 1
 
       - name: Wait for Frontend to be ready
         run: |
           echo "Waiting for Frontend..."
-          for i in $(seq 1 60); do
+          for i in $(seq 1 30); do
             if curl -sf http://localhost:3035/ > /dev/null 2>&1; then
               echo "Frontend is ready!"
-              break
+              exit 0
             fi
-            echo "Attempt $i/60..."
+            echo "Attempt $i/30..."
             sleep 2
           done
+          echo "ERROR: Frontend did not start within 60 seconds"
+          docker compose logs frontend --tail=50
+          exit 1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
