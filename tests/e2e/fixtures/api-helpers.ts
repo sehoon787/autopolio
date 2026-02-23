@@ -223,15 +223,19 @@ export async function createTestEducation(
   overrides: Partial<typeof TEST_EDUCATION> = {}
 ): Promise<{ id: number }> {
   const timestamp = Date.now()
+  // Merge overrides, converting gpa to string (API schema expects string)
+  const merged = { ...overrides }
+  const gpaValue = merged.gpa != null ? String(merged.gpa) : undefined
   // user_id is a query parameter, not body data
   const response = await request.post(`${API_BASE}/knowledge/credentials/educations?user_id=${userId}`, {
     data: {
       school_name: `${TEST_EDUCATION.school} ${timestamp}`,
       degree: TEST_EDUCATION.degree,
-      field_of_study: TEST_EDUCATION.field_of_study,
+      major: TEST_EDUCATION.field_of_study,
       start_date: TEST_EDUCATION.start_date,
       end_date: TEST_EDUCATION.end_date,
-      ...overrides,
+      ...merged,
+      ...(gpaValue !== undefined ? { gpa: gpaValue } : {}),
     },
   })
 

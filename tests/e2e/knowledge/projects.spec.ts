@@ -155,8 +155,8 @@ test.describe('Projects CRUD', () => {
     await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
 
     // Click delete (Trash2) icon button on the project card (filter by icon to target individual card)
-    const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
-    await projectCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
+    const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-trash2') }).first()
+    await projectCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
     // AlertDialog should appear with "Delete Project" title
     const alertDialog = page.getByRole('alertdialog')

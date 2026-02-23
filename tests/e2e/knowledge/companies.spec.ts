@@ -154,9 +154,11 @@ test.describe('Companies CRUD', () => {
     // Company delete uses browser confirm() dialog
     page.on('dialog', (dialog) => dialog.accept())
 
-    // Find the individual company card (filter by having trash icon to avoid matching parent container)
-    const companyCard = page.locator('[class*="bg-card"]').filter({ hasText: company.name }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
-    await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
+    // Find the company card and its delete button
+    // Use a robust locator: find text, navigate to card ancestor, then find trash button
+    const companyCard = page.locator('[class*="bg-card"]').filter({ hasText: company.name }).filter({ has: page.locator('svg.lucide-trash2') }).first()
+    await expect(companyCard).toBeVisible({ timeout: 10000 })
+    await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
     // Verify deleted - company should no longer be visible
     await expect(page.getByText(company.name)).not.toBeVisible({ timeout: 5000 })

@@ -115,7 +115,8 @@ test.describe('Credentials Page', () => {
     await page.waitForTimeout(300)
 
     // Should show Education/Training/Publications sub-tabs
-    await expect(page.getByRole('tab', { name: /^Education/ })).toBeVisible()
+    // Use exact match for "Education" to avoid matching "Education & Publications" parent tab
+    await expect(page.getByRole('tab', { name: 'Education', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: /Training/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /Publications/ })).toBeVisible()
   })
@@ -240,14 +241,14 @@ test.describe('Certifications CRUD', () => {
     await page.waitForTimeout(500)
 
     // Wait for certification to appear (filter by icon to target individual card, not parent container)
-    const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'Delete Me Cert' }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
+    const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'Delete Me Cert' }).filter({ has: page.locator('svg.lucide-trash2') }).first()
     await expect(certCard).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler - delete uses browser confirm()
     page.on('dialog', (dialog) => dialog.accept())
 
     // Click delete (Trash2) button on the card
-    await certCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
+    await certCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
     // Verify deleted
     await expect(page.getByText(cert.name || 'Delete Me Cert')).not.toBeVisible({ timeout: 5000 })
@@ -321,15 +322,16 @@ test.describe('Education CRUD', () => {
     await statusSelect.click()
     await page.getByRole('option', { name: 'Graduated' }).click()
 
-    // Fill school name (with bachelor's degree, it shows UniversityAutocomplete or plain input)
-    // Use the school_name input directly
-    const schoolNameInput = dialog.locator('#school_name')
+    // Fill school name (with bachelor's degree, UniversityAutocomplete renders without id)
+    // Use placeholder text to find the input ("Search for a school" in English)
+    const schoolNameInput = dialog.getByPlaceholder(/school/i).first()
     await schoolNameInput.fill('Test University')
     // Wait for autocomplete to settle, then click GPA field to dismiss any dropdown
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(500)
 
     // Fill GPA (clicking this also dismisses any autocomplete dropdown)
     await dialog.locator('#gpa').click()
+    await page.waitForTimeout(200)
     await dialog.locator('#gpa').fill('3.8')
 
     // Fill dates
@@ -436,14 +438,14 @@ test.describe('Awards CRUD', () => {
     await page.waitForTimeout(300)
 
     // Wait for an award card to exist (filter by icon to target individual card)
-    const awardCard = page.locator('[class*="bg-card"]').filter({ hasText: /E2E Award/ }).filter({ has: page.locator('svg.lucide-trash-2') }).first()
+    const awardCard = page.locator('[class*="bg-card"]').filter({ hasText: /E2E Award/ }).filter({ has: page.locator('svg.lucide-trash2') }).first()
 
     if (await awardCard.isVisible().catch(() => false)) {
       // Set up dialog handler - delete uses browser confirm()
       page.on('dialog', (dialog) => dialog.accept())
 
       // Click delete (Trash2) button
-      await awardCard.locator('button').filter({ has: page.locator('svg.lucide-trash-2') }).click()
+      await awardCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
       // Wait for deletion
       await page.waitForTimeout(500)
