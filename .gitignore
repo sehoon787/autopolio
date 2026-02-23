@@ -71,7 +71,9 @@ nul
 test_*.png
 
 # Development scripts (logo extraction, template creation)
-scripts/
+/scripts/
+# Keep frontend build scripts
+!frontend/scripts/
 /package.json
 /package-lock.json
 
@@ -81,6 +83,7 @@ scripts/
 # Electron build artifacts
 frontend/release/
 frontend/python-runtime/
+frontend/_electron_api/
 extracted_asar/
 
 # Electron compiled JS (source is .ts)

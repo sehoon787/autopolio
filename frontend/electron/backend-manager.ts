@@ -323,6 +323,7 @@ export function startPythonBackend(): Promise<void> {
     let additionalEnv: Record<string, string> = {
       AUTOPOLIO_DATA_DIR: userDataDbDir,
       DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataDbDir, 'autopolio.db')}`,
+      AUTOPOLIO_RUNTIME: 'electron',
     }
     if (app.isPackaged) {
       additionalEnv = {

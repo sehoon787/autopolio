@@ -156,9 +156,10 @@ export class PythonEnvManager extends EventEmitter {
     ]
     
     for (const p of possiblePaths) {
-      // Check if main.py exists
+      // Check if main.py or main.pyc exists (packaged builds have .pyc only)
       const mainPyPath = path.join(p, 'main.py')
-      if (fs.existsSync(mainPyPath)) {
+      const mainPycPath = path.join(p, 'main.pyc')
+      if (fs.existsSync(mainPyPath) || fs.existsSync(mainPycPath)) {
         return p
       }
     }

@@ -276,6 +276,7 @@ export function startPythonBackend() {
         let additionalEnv = {
             AUTOPOLIO_DATA_DIR: userDataDbDir,
             DATABASE_URL: `sqlite+aiosqlite:///${path.join(userDataDbDir, 'autopolio.db')}`,
+            AUTOPOLIO_RUNTIME: 'electron',
         };
         if (app.isPackaged) {
             additionalEnv = {
