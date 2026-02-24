@@ -120,6 +120,9 @@ frontend/electron/services/*.js
 backend.spec
 backend_entry.py
 
+# Local test scripts with hardcoded paths/secrets
+start-test.bat
+
 # Ad-hoc test scripts (not in tests/ structure)
 /test_electron_github_flow.py
 

@@ -57,19 +57,24 @@ cp .env.example .env
 # .env 파일을 열어 API 키 설정
 ```
 
-### 2. 백엔드 실행 (uv 사용)
+### 2. 한번에 실행 (개발 스크립트)
 
 ```bash
-# 의존성 설치 및 가상환경 생성
-uv sync
+# Windows — 백엔드 + 프론트엔드 동시 실행
+start-dev.bat
 
-# 서버 실행
-uv run uvicorn api.main:app --reload --port 8085
+# Linux/Mac
+./start-dev.sh
 ```
 
-### 3. 프론트엔드 실행
+### 3. 개별 실행
 
 ```bash
+# 백엔드 (uv 사용)
+uv sync
+uv run uvicorn api.main:app --reload --port 8085
+
+# 프론트엔드
 cd frontend
 npm install
 npm run dev
@@ -101,6 +106,22 @@ npm run electron:dev
 npm run electron:build:win   # Windows
 npm run electron:build:mac   # macOS
 npm run electron:build:linux # Linux
+```
+
+## 테스트
+
+```bash
+# 전체 테스트 (Docker → pytest → Playwright)
+tests/scripts/run-all.bat       # Windows
+tests/scripts/run-all.sh        # Linux/Mac
+
+# API 테스트만
+tests/scripts/run-api-tests.bat # Windows
+tests/scripts/run-api-tests.sh  # Linux/Mac
+
+# E2E 테스트만
+tests/scripts/run-e2e-tests.bat # Windows
+tests/scripts/run-e2e-tests.sh  # Linux/Mac
 ```
 
 ## 환경 변수
