@@ -185,4 +185,6 @@ Autopolio/
 
 ## 라이센스
 
-MIT License
+Copyright (c) 2026 Sehoon Kim. All Rights Reserved.
+
+이 소프트웨어는 독점 소프트웨어입니다. 소유자의 사전 서면 동의 없이 복제, 수정, 배포, 상업적 사용이 금지됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
