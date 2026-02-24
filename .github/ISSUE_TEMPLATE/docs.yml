@@ -1,0 +1,41 @@
+name: Documentation Improvement
+description: Suggest improvements to documentation
+labels: [documentation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation!
+
+  - type: input
+    id: page
+    attributes:
+      label: Which page or section?
+      description: URL or file path of the documentation to improve
+      placeholder: e.g., README.md, CLAUDE.md, API docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current documentation
+      description: What does the current documentation say (or fail to say)?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed change
+      description: What should the documentation say instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other context or screenshots
+    validations:
+      required: false

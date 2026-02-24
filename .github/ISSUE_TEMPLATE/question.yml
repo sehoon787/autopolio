@@ -1,0 +1,40 @@
+name: Question
+description: Ask a question about Autopolio
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? Feel free to ask here, or use [Discussions](https://github.com/sehoon787/Autopolio/discussions) for open-ended conversations.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area does your question relate to?
+      options:
+        - Backend (API)
+        - Frontend (React)
+        - Electron (Desktop)
+        - GitHub Integration
+        - Templates & Documents
+        - CI/CD & Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any relevant screenshots, logs, or configuration
+    validations:
+      required: false

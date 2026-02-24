@@ -1,0 +1,39 @@
+name: Setup Python Backend
+description: Set up Python 3.11 with uv and install backend dependencies
+
+inputs:
+  python-version:
+    description: Python version to install
+    required: false
+    default: '3.11'
+  install-deps:
+    description: Whether to install dependencies via uv sync
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Cache uv dependencies
+      if: inputs.install-deps == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-py${{ inputs.python-version }}-
+
+    - name: Install dependencies
+      if: inputs.install-deps == 'true'
+      shell: bash
+      run: uv sync --frozen

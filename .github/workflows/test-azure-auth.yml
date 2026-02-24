@@ -1,0 +1,55 @@
+name: Test Azure Auth
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-oidc:
+    name: Test Azure OIDC Authentication
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Azure secrets
+        id: check
+        run: |
+          if [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && \
+             [ -n "${{ secrets.AZURE_TENANT_ID }}" ] && \
+             [ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ]; then
+            echo "has-creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-creds=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Azure credentials not configured. Set AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID in repository secrets."
+          fi
+
+      - name: Azure Login (OIDC)
+        if: steps.check.outputs.has-creds == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure connection
+        if: steps.check.outputs.has-creds == 'true'
+        run: |
+          echo "Azure login successful!"
+          az account show --output table
+          echo ""
+          echo "Trusted Signing account check:"
+          az config set extension.use_dynamic_install=yes_without_prompt 2>/dev/null || true
+          az trustedsigning show \
+            --account-name "${{ secrets.AZURE_SIGNING_ACCOUNT }}" \
+            --resource-group "autopolio-signing" \
+            --output table 2>/dev/null || echo "::warning::Trusted Signing account not found or not configured."
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.has-creds }}" = "true" ]; then
+            echo "Azure OIDC authentication test PASSED."
+          else
+            echo "Azure OIDC authentication test SKIPPED (no credentials)."
+          fi

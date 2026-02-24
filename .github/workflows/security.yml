@@ -53,10 +53,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Setup Python backend
+        uses: ./.github/actions/setup-python-backend
         with:
-          python-version: '3.11'
+          install-deps: 'false'
 
       - name: Install Bandit
         run: pip install bandit[toml]

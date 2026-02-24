@@ -92,11 +92,11 @@ test_*.png
 test-*.png
 
 # Development scripts (logo extraction, template creation)
-/scripts/
+/scripts/*
+!/scripts/bump-version.cjs
+!/scripts/ai-pr-reviewer.md
 # Keep frontend build scripts
 !frontend/scripts/
-/package.json
-/package-lock.json
 
 # Debug/development PowerShell scripts
 *.ps1

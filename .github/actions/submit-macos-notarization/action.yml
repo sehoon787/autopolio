@@ -1,0 +1,66 @@
+name: Submit macOS Notarization
+description: Submit a macOS app to Apple notary service and wait for result
+
+inputs:
+  artifact-path:
+    description: Path to the .dmg or .app to notarize
+    required: true
+  apple-id:
+    description: Apple ID email
+    required: true
+  apple-password:
+    description: App-specific password
+    required: true
+  apple-team-id:
+    description: Apple Developer Team ID
+    required: true
+
+outputs:
+  submission-id:
+    description: Notarization submission ID
+    value: ${{ steps.submit.outputs.submission-id }}
+  status:
+    description: Notarization result status
+    value: ${{ steps.submit.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Submit for notarization
+      id: submit
+      shell: bash
+      env:
+        NOTARIZE_ARTIFACT: ${{ inputs.artifact-path }}
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_PASSWORD: ${{ inputs.apple-password }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+      run: |
+        echo "Submitting $NOTARIZE_ARTIFACT for notarization..."
+        OUTPUT=$(xcrun notarytool submit "$NOTARIZE_ARTIFACT" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_PASSWORD" \
+          --team-id "$APPLE_TEAM_ID" \
+          --wait \
+          --timeout 600 2>&1) || true
+
+        echo "$OUTPUT"
+
+        SUBMISSION_ID=$(echo "$OUTPUT" | grep -oP 'id:\s*\K[a-f0-9-]+' | head -1)
+        STATUS=$(echo "$OUTPUT" | grep -oP 'status:\s*\K\w+' | tail -1)
+
+        echo "submission-id=$SUBMISSION_ID" >> "$GITHUB_OUTPUT"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+        if [ "$STATUS" != "Accepted" ]; then
+          echo "::error::Notarization failed with status: $STATUS"
+          if [ -n "$SUBMISSION_ID" ]; then
+            echo "Fetching notarization log..."
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+          fi
+          exit 1
+        fi
+
+        echo "Notarization accepted!"

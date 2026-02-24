@@ -1,0 +1,68 @@
+version: 2
+
+updates:
+  # Python (pip) - root
+  # Note: project uses uv/pyproject.toml. Dependabot pip ecosystem reads
+  # pyproject.toml [project.dependencies] but does not update uv.lock.
+  # Manually run `uv lock` after merging dependabot PRs.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - python
+
+  # npm - frontend
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - frontend
+
+  # npm - e2e tests
+  - package-ecosystem: npm
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - tests
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - '*'
+    labels:
+      - dependencies
+      - ci

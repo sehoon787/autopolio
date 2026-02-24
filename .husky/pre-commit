@@ -1,0 +1,55 @@
+#!/usr/bin/env sh
+
+# --- Version sync check ---
+py_version=$(sed -n 's/^version = "\([^"]*\)".*/\1/p' pyproject.toml 2>/dev/null || echo "")
+api_version=$(sed -n 's/^__version__ = "\([^"]*\)".*/\1/p' api/__init__.py 2>/dev/null || echo "")
+fe_version=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "")
+
+if [ -n "$py_version" ] && [ -n "$api_version" ] && [ -n "$fe_version" ]; then
+  if [ "$py_version" != "$api_version" ] || [ "$py_version" != "$fe_version" ]; then
+    echo ""
+    echo "ERROR: Version mismatch detected!"
+    echo "  pyproject.toml:          $py_version"
+    echo "  api/__init__.py:         $api_version"
+    echo "  frontend/package.json:   $fe_version"
+    echo ""
+    echo "Run: node scripts/bump-version.cjs <patch|minor|major>"
+    echo ""
+    exit 1
+  fi
+fi
+
+# --- Python lint (ruff, if available) ---
+if command -v ruff >/dev/null 2>&1; then
+  staged_py=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+  if [ -n "$staged_py" ]; then
+    echo "Running ruff on staged Python files..."
+    echo "$staged_py" | xargs ruff check --quiet || {
+      echo ""
+      echo "Ruff check failed. Fix issues before committing."
+      exit 1
+    }
+  fi
+fi
+
+# --- TypeScript check (tsc, if available) ---
+if [ -f "frontend/node_modules/.bin/tsc" ]; then
+  staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep '^frontend/' || true)
+  if [ -n "$staged_ts" ]; then
+    echo "Running TypeScript type check..."
+    (cd frontend && npx tsc --noEmit --pretty 2>&1 | head -20) || {
+      echo ""
+      echo "TypeScript errors found. Fix before committing."
+      exit 1
+    }
+  fi
+fi
+
+# --- npm audit (warning only) ---
+if [ -f "frontend/package-lock.json" ]; then
+  staged_pkg=$(git diff --cached --name-only | grep -E '^frontend/package(-lock)?\.json$' || true)
+  if [ -n "$staged_pkg" ]; then
+    echo "Running npm audit (advisory only)..."
+    (cd frontend && npm audit --omit=dev 2>/dev/null | tail -5) || true
+  fi
+fi
