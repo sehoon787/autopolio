@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20] - 2026-02-24
+
+### Added
+- **AI Code Review 워크플로우** (`ai-review.yml`)
+  - PR 오픈/업데이트 시 Gemini 2.0 Flash API로 자동 코드 리뷰
+  - 리뷰 항목: 버그/로직 오류, 보안 취약점, 성능 이슈, 코드 품질
+  - lock 파일, node_modules, dist, .min.js 등 비리뷰 파일 자동 제외
+  - diff 200KB 제한 (초과 시 truncate)
+  - PR 댓글로 리뷰 결과 게시 (마커 기반 기존 댓글 업데이트, 중복 방지)
+  - `GEMINI_API_KEY` 미설정 시 graceful skip (기존 virustotal.yml 패턴)
+  - PR 번호 기반 concurrency — 같은 PR의 이전 리뷰 자동 취소
+
+---
+
 ## [1.19] - 2026-02-23
 
 ### Added

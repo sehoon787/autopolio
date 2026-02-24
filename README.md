@@ -1,4 +1,4 @@
-# Autopolio v1.19
+# Autopolio v1.20
 
 GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플랫폼
 
@@ -14,21 +14,21 @@ GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플
 - **국제화(i18n)**: 한국어/영어 전체 UI 지원
 - **플랫폼 이력서 템플릿**: 사람인, 리멤버, 점핏 HTML 렌더링 및 내보내기
 - **Multi-Repo 지원**: 프로젝트당 여러 Git 레포지토리 연결
-- **CI/CD**: GitHub Actions 기반 테스트, 린트, 보안 스캔, 릴리즈 자동화
+- **CI/CD**: GitHub Actions 기반 테스트, 린트, 보안 스캔, AI 코드 리뷰, 릴리즈 자동화
 
 ## 기술 스택
 
 | 레이어 | 기술 |
 |--------|------|
 | Backend | FastAPI, SQLAlchemy, SQLite |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/ui |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Shadcn/ui |
 | Desktop | Electron, electron-builder, electron-serve |
 | State | Zustand, TanStack Query |
 | i18n | react-i18next, i18next |
 | LLM | OpenAI GPT-4 / Anthropic Claude / Google Gemini |
 | Document | python-docx, reportlab, chevron (Mustache) |
 | Package Manager | uv (Python), npm (Frontend) |
-| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, CodeQL, Bandit) |
+| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, CodeQL, Bandit, Gemini AI Review) |
 | Testing | pytest, Playwright |
 
 ## 7단계 파이프라인
