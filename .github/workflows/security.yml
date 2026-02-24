@@ -3,8 +3,26 @@ name: Security Scan
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+      - '.github/WORKFLOWS.md'
+      - 'LICENSE'
+      - 'CHANGELOG.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+      - '.github/WORKFLOWS.md'
+      - 'LICENSE'
+      - 'CHANGELOG.md'
   schedule:
     - cron: '0 6 * * 1' # Weekly on Monday at 6:00 UTC
   workflow_dispatch:
