@@ -12,7 +12,7 @@ RUN npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (Vite picks up VITE_* env vars)
 RUN npm run build
 
 # Production stage

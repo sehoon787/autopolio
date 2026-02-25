@@ -112,6 +112,11 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/autopolio.db"
+    enable_migrations: bool = False  # Use Alembic migrations (ENABLE_MIGRATIONS env var)
+
+    @property
+    def is_sqlite(self) -> bool:
+        return "sqlite" in self.database_url
 
     # GitHub OAuth
     github_client_id: str = ""

@@ -388,3 +388,5 @@ async def save_github_token(
             raise HTTPException(
                 status_code=500, detail=f"Database error: [{error_type}] {error_msg}"
             )
+
+

@@ -20,7 +20,7 @@ const apiClient = axios.create({
 })
 
 // Dynamic base URL interceptor for Electron/Web dual mode
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use(async (config) => {
   const { backendUrl, isElectronApp } = useAppStore.getState()
 
   // Set base URL based on environment
@@ -34,7 +34,6 @@ apiClient.interceptors.request.use((config) => {
   const userId = localStorage.getItem('user_id')
   const parsedUserId = userId ? parseInt(userId, 10) : NaN
 
-  // Only add user_id if it's a valid positive integer
   if (!isNaN(parsedUserId) && parsedUserId > 0) {
     if (config.params) {
       config.params.user_id = parsedUserId

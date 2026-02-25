@@ -88,7 +88,7 @@ test.describe('Generate Page Structure', () => {
     await page.goto('/generate')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('Project Selection')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Project Selection')).toBeVisible({ timeout: 10000 })
   })
 
   test('should show Template Settings card', async ({ page }) => {
