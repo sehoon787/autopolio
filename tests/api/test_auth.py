@@ -1,7 +1,5 @@
 """Tests for authentication middleware (dual-mode: desktop user_id vs web JWT)."""
 
-import pytest
-
 
 class TestDesktopAuth:
     """Desktop mode: user_id query parameter authentication."""

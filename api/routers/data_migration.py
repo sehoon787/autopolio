@@ -7,7 +7,7 @@ Import: Deserialize JSON into current user's account (ID remapping).
 import logging
 from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
