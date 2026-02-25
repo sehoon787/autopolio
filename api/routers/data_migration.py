@@ -7,7 +7,7 @@ Import: Deserialize JSON into current user's account (ID remapping).
 import logging
 from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -110,13 +110,19 @@ async def export_user_data(
     companies_result = await db.execute(
         select(Company).where(Company.user_id == current_user_id)
     )
-    companies = [_model_to_dict(c, {"user_id"}) for c in companies_result.scalars().all()]
+    companies = [
+        _model_to_dict(c, {"user_id"}) for c in companies_result.scalars().all()
+    ]
 
     # Projects with technologies
     projects_result = await db.execute(
         select(Project)
         .where(Project.user_id == current_user_id)
-        .options(selectinload(Project.technologies).selectinload(ProjectTechnology.technology))
+        .options(
+            selectinload(Project.technologies).selectinload(
+                ProjectTechnology.technology
+            )
+        )
     )
     projects_data = []
     tech_set = set()
@@ -127,7 +133,11 @@ async def export_user_data(
         for pt in p.technologies:
             if pt.technology:
                 pdict["_technology_names"].append(
-                    {"name": pt.technology.name, "category": pt.technology.category, "is_primary": pt.is_primary}
+                    {
+                        "name": pt.technology.name,
+                        "category": pt.technology.category,
+                        "is_primary": pt.is_primary,
+                    }
                 )
                 tech_set.add((pt.technology.name, pt.technology.category))
         projects_data.append(pdict)
@@ -149,7 +159,9 @@ async def export_user_data(
     certs_result = await db.execute(
         select(Certification).where(Certification.user_id == current_user_id)
     )
-    certifications = [_model_to_dict(c, {"user_id"}) for c in certs_result.scalars().all()]
+    certifications = [
+        _model_to_dict(c, {"user_id"}) for c in certs_result.scalars().all()
+    ]
 
     awards_result = await db.execute(
         select(Award).where(Award.user_id == current_user_id)
@@ -169,7 +181,9 @@ async def export_user_data(
     vol_result = await db.execute(
         select(VolunteerActivity).where(VolunteerActivity.user_id == current_user_id)
     )
-    volunteer_activities = [_model_to_dict(v, {"user_id"}) for v in vol_result.scalars().all()]
+    volunteer_activities = [
+        _model_to_dict(v, {"user_id"}) for v in vol_result.scalars().all()
+    ]
 
     return DataExportResponse(
         exported_at=datetime.utcnow().isoformat(),

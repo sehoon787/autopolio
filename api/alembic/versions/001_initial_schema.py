@@ -5,6 +5,7 @@ Revises:
 Create Date: 2026-02-25
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -34,7 +35,9 @@ def upgrade() -> None:
         sa.Column("profile_photo_url", sa.String(500)),
         sa.Column("preferred_llm", sa.String(50), server_default="openai"),
         sa.Column("preferred_language", sa.String(10), server_default="ko"),
-        sa.Column("default_summary_style", sa.String(50), server_default="professional"),
+        sa.Column(
+            "default_summary_style", sa.String(50), server_default="professional"
+        ),
         sa.Column("default_output_format", sa.String(10), server_default="docx"),
         sa.Column("default_include_achievements", sa.String(5), server_default="true"),
         sa.Column("default_include_tech_stack", sa.String(5), server_default="true"),
@@ -55,7 +58,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_users_id", "users", ["id"])
     op.create_index("ix_users_email", "users", ["email"], unique=True)
-    op.create_index("ix_users_github_username", "users", ["github_username"], unique=True)
+    op.create_index(
+        "ix_users_github_username", "users", ["github_username"], unique=True
+    )
 
     # --- oauth_identities ---
     op.create_table(
@@ -384,9 +389,7 @@ def upgrade() -> None:
     op.create_table(
         "templates",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column(
-            "user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True
-        ),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("description", sa.Text()),
         sa.Column("platform", sa.String(50)),
@@ -408,9 +411,7 @@ def upgrade() -> None:
     op.create_table(
         "platform_templates",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column(
-            "user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True
-        ),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("platform_key", sa.String(50), nullable=False),
         sa.Column("description", sa.Text()),
@@ -488,9 +489,7 @@ def upgrade() -> None:
             sa.ForeignKey("templates.id"),
             nullable=True,
         ),
-        sa.Column(
-            "job_id", sa.Integer(), sa.ForeignKey("jobs.id"), nullable=True
-        ),
+        sa.Column("job_id", sa.Integer(), sa.ForeignKey("jobs.id"), nullable=True),
         sa.Column("document_name", sa.String(300), nullable=False),
         sa.Column("description", sa.Text()),
         sa.Column("file_path", sa.String(500), nullable=False),

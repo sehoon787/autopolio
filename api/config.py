@@ -112,7 +112,9 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/autopolio.db"
-    enable_migrations: bool = False  # Use Alembic migrations (ENABLE_MIGRATIONS env var)
+    enable_migrations: bool = (
+        False  # Use Alembic migrations (ENABLE_MIGRATIONS env var)
+    )
 
     @property
     def is_sqlite(self) -> bool:
