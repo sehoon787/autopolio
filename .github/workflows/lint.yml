@@ -2,7 +2,6 @@ name: Lint & Type Check
 
 on:
   push:
-    branches: [main]
     paths:
       - 'api/**'
       - 'frontend/src/**'
@@ -12,7 +11,6 @@ on:
       - 'frontend/tsconfig*.json'
       - '.github/workflows/lint.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'api/**'
       - 'frontend/src/**'
