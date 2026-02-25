@@ -142,14 +142,22 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-      - name: Build Electron (macOS)
+      - name: Build Electron (macOS) - unsigned
+        if: steps.apple-check.outputs.has-creds != 'true'
         working-directory: frontend
         run: npm run electron:build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          CSC_KEY_PASSWORD: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.apple-check.outputs.has-creds == 'true' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Build Electron (macOS) - signed
+        if: steps.apple-check.outputs.has-creds == 'true'
+        working-directory: frontend
+        run: npm run electron:build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       # --- Apple notarization (conditional) ---
@@ -224,8 +232,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.label.outputs.tag }}" \
-            --title "Autopolio ${{ steps.label.outputs.tag }} (${{ steps.label.outputs.label }})" \
-            --prerelease \
-            --generate-notes \
-            release-assets/*
+          TAG="${{ steps.label.outputs.tag }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists, uploading assets..."
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" \
+              --title "Autopolio $TAG (${{ steps.label.outputs.label }})" \
+              --prerelease \
+              --generate-notes \
+              release-assets/*
+          fi

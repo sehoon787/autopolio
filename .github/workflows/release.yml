@@ -148,14 +148,22 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-      - name: Build Electron (macOS)
+      - name: Build Electron (macOS) - unsigned
+        if: steps.apple-check.outputs.has-creds != 'true'
         working-directory: frontend
         run: npm run electron:build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          CSC_KEY_PASSWORD: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.apple-check.outputs.has-creds == 'true' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Build Electron (macOS) - signed
+        if: steps.apple-check.outputs.has-creds == 'true'
+        working-directory: frontend
+        run: npm run electron:build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Verify build artifacts
@@ -234,7 +242,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_NAME="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG_NAME" \
-            --title "Autopolio $TAG_NAME" \
-            --generate-notes \
-            release-assets/*
+          # Create release or upload assets to existing one
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, uploading assets..."
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+          else
+            gh release create "$TAG_NAME" \
+              --title "Autopolio $TAG_NAME" \
+              --generate-notes \
+              release-assets/*
+          fi
