@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "@types/node": "^20.10.0",
+    "@types/node": "^25.3.0",
     "js-yaml": "^4.1.0",
     "@types/js-yaml": "^4.0.9"
   }
