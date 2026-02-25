@@ -1,7 +1,26 @@
-# TODO: GitHub Secrets Setup Guide
+# TODO: CI/CD Setup & Pending Items
 
-This document describes how to set up the optional secrets used by CI/CD workflows.
-All secrets listed here are **optional** — workflows skip signing/notarization steps when they're missing.
+## Pending Verification (Actions 분 수 복구 후)
+
+- [ ] Security 워크플로우 검증 — CodeQL 제거 후 Bandit 단독 실행 확인
+- [ ] Gemini Code Assist App 검증 — PR에서 `gemini-code-assist[bot]` 인라인 리뷰 확인
+- [ ] macOS 빌드 테스트 — Mac 환경에서 `npm run package:mac` 로컬 빌드 확인
+
+## Completed
+
+- [x] GitHub Actions 워크플로우 전체 설정 및 테스트 (CI, Lint, Security, Release, Beta, PR Labeler 등)
+- [x] Branch Ruleset 설정 (required checks: CI Complete, Lint Complete, Security Complete)
+- [x] CodeQL 제거 (private repo, GHAS 미지원)
+- [x] ai-review.yml → Gemini Code Assist App 전환
+- [x] `GEMINI_API_KEY` GitHub 시크릿 삭제
+- [x] Dependabot PR 7개 머지
+- [x] v1.20.0 태그 및 릴리즈 생성 (Windows exe)
+- [x] 불필요한 브랜치 정리 완료
+
+## Code Signing (Optional — 비용 발생)
+
+코드 서명 없이도 배포 가능 (사용자가 경고 1회 우회 필요).
+비용을 들이지 않을 경우 아래 섹션은 건너뛰어도 됩니다.
 
 ---
 
@@ -106,10 +125,19 @@ Push a tag like `v1.20.0` and check the release workflow logs for notarization s
 
 ---
 
-## Already Configured Secrets
+## Current Secrets Status
 
-| Secret | Status |
-|--------|--------|
-| `GITHUB_TOKEN` | Built-in (automatic) |
-| `ENCRYPTION_KEY` | Optional (auto-generated if missing) |
-| `VIRUSTOTAL_API_KEY` | Optional (for binary scanning) |
+| Secret | Status | 용도 |
+|--------|--------|------|
+| `GITHUB_TOKEN` | **자동** | 빌트인 |
+| `ENCRYPTION_KEY` | **설정됨** | CI 테스트용 Fernet 키 |
+| `VIRUSTOTAL_API_KEY` | 미설정 | 바이너리 악성코드 스캔 (선택) |
+| `APPLE_*` (5개) | 미설정 | macOS 코드 서명/공증 (선택, $99/년) |
+| `AZURE_*` (6개) | 미설정 | Windows 코드 서명 (선택, $9.99/월) |
+
+## GitHub Apps
+
+| App | Status | 용도 |
+|-----|--------|------|
+| Gemini Code Assist | **설치됨** | AI 코드 리뷰 |
+| Dependabot | **활성화** | 의존성 자동 업데이트 |
