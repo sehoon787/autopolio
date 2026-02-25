@@ -349,6 +349,7 @@ Notes:
 
             # Handle both LLMService and CLILLMService
             from api.services.llm.cli_llm_service import CLILLMService as _CLILLMService
+
             if isinstance(llm_service, _CLILLMService):
                 # CLI-based LLM service (Claude Code CLI, Gemini CLI)
                 full_prompt = f"{system_prompt}\n\n{prompt}"
