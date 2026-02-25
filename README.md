@@ -28,7 +28,7 @@ GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플
 | LLM | OpenAI GPT-4 / Anthropic Claude / Google Gemini |
 | Document | python-docx, reportlab, chevron (Mustache) |
 | Package Manager | uv (Python), npm (Frontend) |
-| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, CodeQL, Bandit, Gemini AI Review) |
+| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, Bandit, Gemini AI Review) |
 | Testing | pytest, Playwright |
 
 ## 7단계 파이프라인

@@ -31,38 +31,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  codeql:
-    name: CodeQL Analysis (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    # CodeQL requires "Code scanning" enabled in repo Settings > Code security.
-    # Mark as non-blocking so Bandit results are still reported on failure.
-    continue-on-error: true
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [javascript-typescript, python]
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: '/language:${{ matrix.language }}'
-
   bandit:
     name: Python Security (Bandit)
     runs-on: ubuntu-latest
@@ -112,23 +80,16 @@ jobs:
   security-complete:
     name: Security Complete
     runs-on: ubuntu-latest
-    needs: [codeql, bandit]
+    needs: [bandit]
     if: always()
     steps:
       - name: Check results
         run: |
-          echo "CodeQL: ${{ needs.codeql.result }}"
           echo "Bandit: ${{ needs.bandit.result }}"
 
-          # Bandit must pass (required)
           if [[ "${{ needs.bandit.result }}" != "success" ]]; then
             echo "Bandit security scan failed"
             exit 1
-          fi
-
-          # CodeQL is optional (requires repo-level Code scanning enabled)
-          if [[ "${{ needs.codeql.result }}" != "success" ]]; then
-            echo "::warning::CodeQL did not succeed (result: ${{ needs.codeql.result }}). Enable Code scanning in repo Settings > Code security."
           fi
 
           echo "Security scans completed"
