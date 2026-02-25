@@ -235,7 +235,11 @@ def parse_iso_datetime(date_str: Optional[str]) -> Optional[datetime]:
         # Handle 'Z' suffix by replacing with '+00:00'
         if date_str.endswith("Z"):
             date_str = date_str[:-1] + "+00:00"
-        return datetime.fromisoformat(date_str)
+        dt = datetime.fromisoformat(date_str)
+        # Strip timezone info for TIMESTAMP WITHOUT TIME ZONE columns (PostgreSQL)
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        return dt
     except (ValueError, TypeError):
         return None
 
