@@ -23,9 +23,7 @@ class TestDataMigration:
 
     def test_export_empty_user(self, api_client, test_user):
         """Export for a new user returns empty collections."""
-        response = api_client.get(
-            "/data/export", params={"user_id": test_user["id"]}
-        )
+        response = api_client.get("/data/export", params={"user_id": test_user["id"]})
         assert response.status_code == 200
         data = response.json()
         assert data["version"] == "1.0"
@@ -34,9 +32,7 @@ class TestDataMigration:
 
     def test_export_with_data(self, api_client, test_user, test_company, test_project):
         """Export includes companies and projects."""
-        response = api_client.get(
-            "/data/export", params={"user_id": test_user["id"]}
-        )
+        response = api_client.get("/data/export", params={"user_id": test_user["id"]})
         assert response.status_code == 200
         data = response.json()
         assert len(data["companies"]) >= 1
