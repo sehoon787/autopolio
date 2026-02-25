@@ -42,7 +42,7 @@ jobs:
       - name: Get PR diff
         if: steps.check-key.outputs.skip != 'true'
         id: diff
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Paginate to handle PRs with >100 changed files
@@ -194,7 +194,7 @@ jobs:
 
       - name: Post or update review comment
         if: steps.check-key.outputs.skip != 'true' && steps.diff.outputs.has_diff == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REVIEW_BODY: ${{ steps.review.outputs.review_body }}
         with:
@@ -232,7 +232,7 @@ jobs:
 
       - name: Post skip comment (no reviewable changes)
         if: steps.check-key.outputs.skip != 'true' && steps.diff.outputs.has_diff == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const marker = '<!-- ai-review-bot -->';
