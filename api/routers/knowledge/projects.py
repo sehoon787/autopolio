@@ -9,6 +9,7 @@ from api.database import get_db
 from api.models.project import Project, Technology, ProjectTechnology
 from api.models.project_repository import ProjectRepository
 from api.models.achievement import ProjectAchievement
+from api.models.company import Company
 from api.models.user import User
 from api.schemas.project import (
     ProjectCreate,
@@ -361,6 +362,13 @@ async def create_project(
     result = await db.execute(select(User).where(User.id == user_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")
+
+    if project_data.company_id:
+        company_result = await db.execute(
+            select(Company).where(Company.id == project_data.company_id)
+        )
+        if not company_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Company not found")
 
     technologies = project_data.technologies or []
     repositories = project_data.repositories

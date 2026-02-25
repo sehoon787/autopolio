@@ -140,7 +140,7 @@ class ReportBaseService:
         # Get analyzed projects
         projects_result = await self.db.execute(
             select(Project)
-            .where(Project.user_id == user_id, Project.is_analyzed.is_(True))
+            .where(Project.user_id == user_id, Project.is_analyzed == 1)
             .options(
                 selectinload(Project.technologies).selectinload(
                     ProjectTechnology.technology
