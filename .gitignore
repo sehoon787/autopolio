@@ -92,11 +92,11 @@ test_*.png
 test-*.png
 
 # Development scripts (logo extraction, template creation)
-/scripts/
+/scripts/*
+!/scripts/bump-version.cjs
+!/scripts/ai-pr-reviewer.md
 # Keep frontend build scripts
 !frontend/scripts/
-/package.json
-/package-lock.json
 
 # Debug/development PowerShell scripts
 *.ps1
@@ -119,6 +119,9 @@ frontend/electron/services/*.js
 # Backend packaging
 backend.spec
 backend_entry.py
+
+# Local test scripts with hardcoded paths/secrets
+start-test.bat
 
 # Ad-hoc test scripts (not in tests/ structure)
 /test_electron_github_flow.py

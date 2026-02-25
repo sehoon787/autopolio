@@ -1,0 +1,43 @@
+name: Merge macOS Manifests
+description: Merge multi-architecture macOS artifacts into a universal binary (future expansion)
+
+inputs:
+  arm64-path:
+    description: Path to arm64 artifact
+    required: true
+  x64-path:
+    description: Path to x64 artifact
+    required: true
+  output-path:
+    description: Output path for merged universal artifact
+    required: true
+
+outputs:
+  artifact-path:
+    description: Path to the merged artifact
+    value: ${{ inputs.output-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Merge architectures
+      shell: bash
+      run: |
+        echo "Merging macOS architectures..."
+        echo "  arm64: ${{ inputs.arm64-path }}"
+        echo "  x64:   ${{ inputs.x64-path }}"
+        echo "  out:   ${{ inputs.output-path }}"
+
+        # For DMG files, just use the arm64 build as primary for now.
+        # Universal binary merging (lipo) applies to .app bundles, not .dmg.
+        # This action is a placeholder for future multi-arch support.
+        if [ -f "${{ inputs.arm64-path }}" ]; then
+          cp "${{ inputs.arm64-path }}" "${{ inputs.output-path }}"
+          echo "Using arm64 artifact as primary output."
+        elif [ -f "${{ inputs.x64-path }}" ]; then
+          cp "${{ inputs.x64-path }}" "${{ inputs.output-path }}"
+          echo "Fallback: using x64 artifact."
+        else
+          echo "::error::No input artifacts found."
+          exit 1
+        fi

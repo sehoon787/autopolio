@@ -12,6 +12,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+  id-token: write
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -24,21 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Setup Python backend
+        uses: ./.github/actions/setup-python-backend
         with:
-          python-version: '3.11'
+          install-deps: 'false'
 
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci --legacy-peer-deps
+      - name: Setup Node frontend
+        uses: ./.github/actions/setup-node-frontend
 
       - name: Download bundled Python (Windows)
         working-directory: frontend
@@ -60,6 +56,43 @@ jobs:
           echo "=== Artifact sizes ==="
           du -sh *.exe 2>/dev/null || true
 
+      # --- Azure Trusted Signing (conditional) ---
+      - name: Check Azure credentials
+        id: azure-check
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && \
+             [ -n "${{ secrets.AZURE_TENANT_ID }}" ] && \
+             [ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ]; then
+            echo "has-creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-creds=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Azure signing skipped (credentials not configured)"
+          fi
+
+      - name: Azure Login (OIDC)
+        if: steps.azure-check.outputs.has-creds == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign with Azure Trusted Signing
+        if: steps.azure-check.outputs.has-creds == 'true'
+        uses: azure/trusted-signing-action@v0.5.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          files-folder: frontend/release
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -74,35 +107,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Setup Python backend
+        uses: ./.github/actions/setup-python-backend
         with:
-          python-version: '3.11'
+          install-deps: 'false'
 
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci --legacy-peer-deps
+      - name: Setup Node frontend
+        uses: ./.github/actions/setup-node-frontend
 
       - name: Download bundled Python (macOS)
         working-directory: frontend
         run: npm run python:download:mac
+
+      # --- Apple code signing (conditional) ---
+      - name: Check Apple credentials
+        id: apple-check
+        run: |
+          if [ -n "${{ secrets.APPLE_CERTIFICATE }}" ] && \
+             [ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ]; then
+            echo "has-creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-creds=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Apple code signing skipped (credentials not configured)"
+          fi
+
+      - name: Import Apple certificate
+        if: steps.apple-check.outputs.has-creds == 'true'
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
 
       - name: Build Electron (macOS)
         working-directory: frontend
         run: npm run electron:build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: macOS code signing
-          # CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
-          # CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ steps.apple-check.outputs.has-creds == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Verify build artifacts
         working-directory: frontend/release
@@ -112,6 +165,26 @@ jobs:
           echo ""
           echo "=== Artifact sizes ==="
           du -sh *.dmg 2>/dev/null || true
+
+      # --- Apple notarization (conditional) ---
+      - name: Submit for notarization
+        if: steps.apple-check.outputs.has-creds == 'true'
+        uses: ./.github/actions/submit-macos-notarization
+        with:
+          artifact-path: frontend/release/*.dmg
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Staple notarization
+        if: steps.apple-check.outputs.has-creds == 'true'
+        uses: ./.github/actions/finalize-macos-notarization
+        with:
+          artifact-path: frontend/release/*.dmg
+
+      - name: Cleanup keychain
+        if: always() && steps.apple-check.outputs.has-creds == 'true'
+        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4

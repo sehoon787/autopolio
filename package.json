@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "autopolio-root",
+  "description": "Root package for husky git hooks only",
+  "scripts": {
+    "prepare": "husky || true",
+    "version:patch": "node scripts/bump-version.cjs patch",
+    "version:minor": "node scripts/bump-version.cjs minor",
+    "version:major": "node scripts/bump-version.cjs major"
+  },
+  "devDependencies": {
+    "husky": "^9.1.0"
+  }
+}

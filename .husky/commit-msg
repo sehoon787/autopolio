@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+
+# Enforce conventional commit format
+# Allowed types: feat, fix, docs, refactor, test, chore, perf, ci, style, build
+
+commit_msg=$(cat "$1")
+
+pattern="^(feat|fix|docs|refactor|test|chore|perf|ci|style|build)(\(.+\))?!?:\s.+"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "ERROR: Invalid commit message format."
+  echo ""
+  echo "Expected: <type>(<scope>): <description>"
+  echo ""
+  echo "Allowed types:"
+  echo "  feat, fix, docs, refactor, test, chore, perf, ci, style, build"
+  echo ""
+  echo "Examples:"
+  echo "  feat: add user authentication"
+  echo "  fix(api): resolve null pointer in project query"
+  echo "  docs: update README with new API endpoints"
+  echo "  feat!: breaking change to auth flow"
+  echo ""
+  echo "Your message: $commit_msg"
+  echo ""
+  exit 1
+fi

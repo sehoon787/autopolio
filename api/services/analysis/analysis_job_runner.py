@@ -246,7 +246,7 @@ async def run_background_analysis(
 
             # Auto-detect achievements
             try:
-                achievement_service = AchievementService(llm_provider=None)
+                achievement_service = AchievementService(llm_service=llm_service)
                 project_data = {
                     "name": project.name,
                     "description": project.description or "",
@@ -264,7 +264,7 @@ async def run_background_analysis(
                 achievements, _ = await achievement_service.detect_all(
                     project_data=project_data,
                     commit_messages=commit_messages,
-                    use_llm=False,
+                    use_llm=llm_service is not None,
                     language=language,
                 )
 

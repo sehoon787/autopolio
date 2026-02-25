@@ -27,8 +27,9 @@ from .achievement_patterns import (
 class AchievementService:
     """Service for detecting and generating project achievements."""
 
-    def __init__(self, llm_provider: Optional[str] = None):
+    def __init__(self, llm_provider: Optional[str] = None, llm_service=None):
         self.llm_provider = llm_provider
+        self._llm_service = llm_service
 
     def detect_from_text(self, text: str, language: str = "ko") -> List[Dict[str, Any]]:
         """Detect achievements from any text.
@@ -237,10 +238,10 @@ class AchievementService:
         Args:
             language: Output language ("ko" or "en")
         """
-        if not self.llm_provider:
+        if not self.llm_provider and not self._llm_service:
             return []
 
-        llm_service = LLMService(self.llm_provider)
+        llm_service = self._llm_service or LLMService(self.llm_provider)
 
         try:
             existing_list = ""
@@ -346,8 +347,14 @@ Notes:
 """
                 system_prompt = "당신은 개발자 이력서 작성을 돕는 전문가입니다. 프로젝트 정보를 바탕으로 정량적 성과를 추출하세요."
 
-            # Handle both LLMService (has provider) and CLILLMService (is the provider)
-            if hasattr(llm_service, "provider"):
+            # Handle both LLMService and CLILLMService
+            from api.services.llm.cli_llm_service import CLILLMService as _CLILLMService
+
+            if isinstance(llm_service, _CLILLMService):
+                # CLI-based LLM service (Claude Code CLI, Gemini CLI)
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+                response, _ = await llm_service.generate_with_cli(full_prompt)
+            elif hasattr(llm_service, "provider"):
                 # API-based LLM service (OpenAI, Anthropic, Gemini)
                 response = await llm_service.provider.generate(
                     prompt,
@@ -356,9 +363,7 @@ Notes:
                     temperature=0.3,
                 )
             else:
-                # CLI-based LLM service (Claude Code CLI, Gemini CLI)
-                full_prompt = f"{system_prompt}\n\n{prompt}"
-                response, _ = await llm_service.generate_with_cli(full_prompt)
+                return []
 
             # Parse JSON response
             import json
@@ -438,7 +443,7 @@ Notes:
         stats["code_stats_generated"] = len(code_stats_achievements)
 
         # 4. Generate with LLM if enabled
-        if use_llm and self.llm_provider:
+        if use_llm and (self.llm_provider or self._llm_service):
             llm_achievements = await self.generate_with_llm(
                 project_data,
                 commit_summary=project_data.get("commit_summary"),

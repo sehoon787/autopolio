@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.19.0",
   "description": "Portfolio and Resume Automation Platform",
-  "author": "Autopolio Team",
+  "license": "UNLICENSED",
+  "author": "Sehoon Kim",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {

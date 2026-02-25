@@ -1,4 +1,4 @@
-# Autopolio v1.19
+# Autopolio v1.20
 
 GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플랫폼
 
@@ -14,21 +14,21 @@ GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플
 - **국제화(i18n)**: 한국어/영어 전체 UI 지원
 - **플랫폼 이력서 템플릿**: 사람인, 리멤버, 점핏 HTML 렌더링 및 내보내기
 - **Multi-Repo 지원**: 프로젝트당 여러 Git 레포지토리 연결
-- **CI/CD**: GitHub Actions 기반 테스트, 린트, 보안 스캔, 릴리즈 자동화
+- **CI/CD**: GitHub Actions 기반 테스트, 린트, 보안 스캔, AI 코드 리뷰, 릴리즈 자동화
 
 ## 기술 스택
 
 | 레이어 | 기술 |
 |--------|------|
 | Backend | FastAPI, SQLAlchemy, SQLite |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/ui |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Shadcn/ui |
 | Desktop | Electron, electron-builder, electron-serve |
 | State | Zustand, TanStack Query |
 | i18n | react-i18next, i18next |
 | LLM | OpenAI GPT-4 / Anthropic Claude / Google Gemini |
 | Document | python-docx, reportlab, chevron (Mustache) |
 | Package Manager | uv (Python), npm (Frontend) |
-| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, CodeQL, Bandit) |
+| CI/CD | GitHub Actions (pytest, Playwright, ruff, tsc, CodeQL, Bandit, Gemini AI Review) |
 | Testing | pytest, Playwright |
 
 ## 7단계 파이프라인
@@ -57,19 +57,24 @@ cp .env.example .env
 # .env 파일을 열어 API 키 설정
 ```
 
-### 2. 백엔드 실행 (uv 사용)
+### 2. 한번에 실행 (개발 스크립트)
 
 ```bash
-# 의존성 설치 및 가상환경 생성
-uv sync
+# Windows — 백엔드 + 프론트엔드 동시 실행
+start-dev.bat
 
-# 서버 실행
-uv run uvicorn api.main:app --reload --port 8085
+# Linux/Mac
+./start-dev.sh
 ```
 
-### 3. 프론트엔드 실행
+### 3. 개별 실행
 
 ```bash
+# 백엔드 (uv 사용)
+uv sync
+uv run uvicorn api.main:app --reload --port 8085
+
+# 프론트엔드
 cd frontend
 npm install
 npm run dev
@@ -101,6 +106,22 @@ npm run electron:dev
 npm run electron:build:win   # Windows
 npm run electron:build:mac   # macOS
 npm run electron:build:linux # Linux
+```
+
+## 테스트
+
+```bash
+# 전체 테스트 (Docker → pytest → Playwright)
+tests/scripts/run-all.bat       # Windows
+tests/scripts/run-all.sh        # Linux/Mac
+
+# API 테스트만
+tests/scripts/run-api-tests.bat # Windows
+tests/scripts/run-api-tests.sh  # Linux/Mac
+
+# E2E 테스트만
+tests/scripts/run-e2e-tests.bat # Windows
+tests/scripts/run-e2e-tests.sh  # Linux/Mac
 ```
 
 ## 환경 변수
@@ -164,4 +185,6 @@ Autopolio/
 
 ## 라이센스
 
-MIT License
+Copyright (c) 2026 Sehoon Kim. All Rights Reserved.
+
+이 소프트웨어는 독점 소프트웨어입니다. 소유자의 사전 서면 동의 없이 복제, 수정, 배포, 상업적 사용이 금지됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.

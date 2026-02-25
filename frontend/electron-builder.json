@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.autopolio.app",
   "productName": "Autopolio",
-  "copyright": "Copyright © 2026 Autopolio",
+  "copyright": "Copyright © 2026 Sehoon Kim. All Rights Reserved.",
   "directories": {
     "buildResources": "build",
     "output": "release"

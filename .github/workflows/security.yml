@@ -3,8 +3,25 @@ name: Security Scan
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+      - '.github/WORKFLOWS.md'
+      - 'LICENSE'
+      - 'CHANGELOG.md'
   pull_request:
-    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+      - '.github/WORKFLOWS.md'
+      - 'LICENSE'
+      - 'CHANGELOG.md'
   schedule:
     - cron: '0 6 * * 1' # Weekly on Monday at 6:00 UTC
   workflow_dispatch:
@@ -53,10 +70,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Setup Python backend
+        uses: ./.github/actions/setup-python-backend
         with:
-          python-version: '3.11'
+          install-deps: 'false'
 
       - name: Install Bandit
         run: pip install bandit[toml]

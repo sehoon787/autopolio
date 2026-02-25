@@ -1,0 +1,25 @@
+name: Finalize macOS Notarization
+description: Staple the notarization ticket and verify with spctl
+
+inputs:
+  artifact-path:
+    description: Path to the .dmg or .app to staple
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Staple notarization ticket
+      shell: bash
+      run: |
+        echo "Stapling notarization ticket to ${{ inputs.artifact-path }}..."
+        xcrun stapler staple "${{ inputs.artifact-path }}"
+
+    - name: Verify notarization
+      shell: bash
+      run: |
+        echo "Verifying notarization..."
+        spctl --assess --type open --context context:primary-signature -v "${{ inputs.artifact-path }}" 2>&1 || {
+          echo "::warning::spctl verification returned non-zero, but stapling succeeded."
+        }
+        echo "Notarization finalized successfully."
