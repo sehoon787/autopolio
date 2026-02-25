@@ -20,6 +20,7 @@ from api.routers import (
     platforms,
     lookup,
     oauth,
+    data_migration,
 )
 from api.routers.knowledge import companies, projects, achievements, credentials
 
@@ -107,6 +108,7 @@ if os.environ.get("AUTOPOLIO_RUNTIME") == "electron":
 app.include_router(platforms.router, prefix="/api/platforms", tags=["Platforms"])
 app.include_router(lookup.router, prefix="/api", tags=["Lookup"])
 app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])
+app.include_router(data_migration.router, prefix="/api/data", tags=["DataMigration"])
 
 
 @app.exception_handler(RequestValidationError)

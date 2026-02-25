@@ -15,7 +15,7 @@ ENV PATH="/root/.local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
 # Copy project files
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY api/ ./api/
 COPY config/ ./config/
 

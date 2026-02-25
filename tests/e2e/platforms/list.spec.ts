@@ -71,6 +71,7 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const previewBtns = page.getByRole('button', { name: 'Preview' })
+    await expect(previewBtns.first()).toBeVisible({ timeout: 5000 })
     const count = await previewBtns.count()
     expect(count).toBeGreaterThan(0)
   })
@@ -80,6 +81,7 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const exportBtns = page.getByRole('button', { name: 'Export' })
+    await expect(exportBtns.first()).toBeVisible({ timeout: 5000 })
     const count = await exportBtns.count()
     expect(count).toBeGreaterThan(0)
   })

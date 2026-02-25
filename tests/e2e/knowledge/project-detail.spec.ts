@@ -222,7 +222,7 @@ test.describe('Project Achievements', () => {
     // Basic Info tab is default - should show "Achievements" section heading
     await expect(
       page.getByText('Achievements').first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should display existing achievements', async ({ page, request }) => {

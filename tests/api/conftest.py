@@ -376,6 +376,34 @@ def github_project(
         pass
 
 
+@pytest.fixture(params=["sqlite"])
+def db_backend(request):
+    """Parameterized fixture for testing with different database backends.
+
+    By default only tests SQLite. To also test PostgreSQL, set
+    TEST_POSTGRESQL_URL environment variable:
+        TEST_POSTGRESQL_URL=postgresql+asyncpg://user:pass@localhost:5432/test_autopolio
+
+    The fixture yields the backend name ("sqlite" or "postgresql").
+    """
+    backend = request.param
+    if backend == "postgresql":
+        pg_url = os.getenv("TEST_POSTGRESQL_URL")
+        if not pg_url:
+            pytest.skip("TEST_POSTGRESQL_URL not set")
+    return backend
+
+
+# Dynamically add postgresql param if TEST_POSTGRESQL_URL is set
+def pytest_generate_tests(metafunc):
+    """Add postgresql parameter to db_backend fixture when available."""
+    if "db_backend" in metafunc.fixturenames:
+        backends = ["sqlite"]
+        if os.getenv("TEST_POSTGRESQL_URL"):
+            backends.append("postgresql")
+        metafunc.parametrize("db_backend", backends, indirect=True)
+
+
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
@@ -385,6 +413,9 @@ def pytest_configure(config):
         "markers", "llm_required: mark test as requiring LLM service (API or CLI)"
     )
     config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line(
+        "markers", "requires_postgresql: mark test as requiring PostgreSQL"
+    )
 
 
 def pytest_collection_modifyitems(config, items):

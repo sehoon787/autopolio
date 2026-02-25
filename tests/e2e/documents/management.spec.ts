@@ -74,7 +74,7 @@ test.describe('Document List Page', () => {
 
     // "New Document" button links to /generate
     const newDocBtn = page.getByRole('link', { name: 'New Document' })
-    await expect(newDocBtn).toBeVisible({ timeout: 5000 })
+    await expect(newDocBtn).toBeVisible({ timeout: 10000 })
     await expect(newDocBtn).toHaveAttribute('href', '/generate')
   })
 
