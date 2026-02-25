@@ -1,4 +1,21 @@
 services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=autopolio
+      - POSTGRES_PASSWORD=autopolio
+      - POSTGRES_DB=autopolio
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autopolio"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       context: .
@@ -12,9 +29,13 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/autopolio.db
+      - DATABASE_URL=postgresql+asyncpg://autopolio:autopolio@db:5432/autopolio
+      - ENABLE_MIGRATIONS=true
       - TZ=Asia/Seoul
       - AUTOPOLIO_RUNTIME=docker
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -28,5 +49,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  data:
-  result:
+  pgdata:

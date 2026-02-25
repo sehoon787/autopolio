@@ -58,6 +58,6 @@ export default defineConfig({
   /* Timeout settings */
   timeout: 30000, // 30 seconds per test
   expect: {
-    timeout: 5000, // 5 seconds for assertions
+    timeout: 10000, // 10 seconds for assertions (Docker parallel execution)
   },
 })

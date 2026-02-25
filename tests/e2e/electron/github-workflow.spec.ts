@@ -19,8 +19,21 @@
 
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test'
 import path from 'path'
+import fs from 'fs'
 
 import { API_BASE_URL, FRONTEND_URL } from '../runtimeConfig'
+
+// Skip entire file if Electron binary is not available (CI/Docker environment)
+function electronBinaryExists(): boolean {
+  try {
+    const electronPath = require('electron') as string
+    return typeof electronPath === 'string' && fs.existsSync(electronPath)
+  } catch {
+    return false
+  }
+}
+
+test.skip(!electronBinaryExists(), 'Electron binary not available — skipping Electron tests')
 
 const BACKEND_URL = API_BASE_URL.replace(/\/api$/, '')
 const API_BASE = `${BACKEND_URL}/api`
