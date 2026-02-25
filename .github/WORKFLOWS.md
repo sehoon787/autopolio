@@ -8,7 +8,7 @@ Autopolio의 CI/CD 파이프라인 및 자동화 워크플로우 가이드.
 |-----------|------|--------|----------|------|
 | CI Tests | `ci.yml` | push/PR (main) | O | pytest API + Playwright E2E |
 | Lint & Type Check | `lint.yml` | push/PR (main) | O | ruff + tsc |
-| Security Scan | `security.yml` | push/PR/주간 | O | CodeQL + Bandit |
+| Security Scan | `security.yml` | push/PR/주간 | O | Bandit 보안 스캔 |
 | Release | `release.yml` | `vX.Y.Z` 태그 | O | Windows exe + macOS dmg |
 | Beta Release | `beta-release.yml` | `vX.Y.Z-beta.*` 태그 | O | 프리릴리즈 빌드 |
 | Prepare Release | `prepare-release.yml` | 수동만 | O | 버전 범프 + CHANGELOG + PR |
@@ -18,6 +18,7 @@ Autopolio의 CI/CD 파이프라인 및 자동화 워크플로우 가이드.
 | Stale | `stale.yml` | 매일 00:00 UTC | X | 비활성 이슈/PR 관리 |
 | Welcome | `welcome.yml` | PR/이슈 생성 | X | 신규 기여자 환영 |
 | AI Code Review | `ai-review.yml` | PR 오픈/업데이트 | X | Gemini API 기반 AI 코드 리뷰 |
+| Release Drafter | `release-drafter.yml` | PR 머지/라벨링 | X | 릴리즈 노트 초안 자동 생성 |
 
 ---
 
@@ -50,16 +51,14 @@ Python 코드 품질과 TypeScript 타입 검사를 수행합니다.
 
 ## Security Scan (`security.yml`)
 
-코드 보안 취약점을 분석합니다.
+Python 코드 보안 취약점을 분석합니다.
 
 **트리거**: push/PR + 매주 월요일 06:00 UTC
 
 **Jobs**:
-1. **CodeQL Analysis** - JavaScript/TypeScript + Python 시맨틱 분석
-   - `continue-on-error: true` — Code scanning이 repo 설정에서 비활성화되어 있으면 실패하지만 전체 워크플로우를 차단하지 않음
-   - 활성화: Settings > Code security and analysis > Code scanning > Set up
-2. **Python Security (Bandit)** - medium 이상 심각도 스캔
+1. **Python Security (Bandit)** - medium 이상 심각도 스캔
    - 결과를 bandit-report.json 아티팩트로 업로드 (30일 보관)
+2. **Security Complete** - Bandit 결과 집계 (필수 통과)
 
 ---
 
@@ -71,8 +70,12 @@ Python 코드 품질과 TypeScript 타입 검사를 수행합니다.
 
 **Jobs**:
 1. **Build Windows** - Electron exe 빌드 (번들 Python 포함)
+   - Azure Trusted Signing으로 코드 서명 (시크릿 설정 시)
 2. **Build macOS** - Electron dmg 빌드
+   - Apple 인증서로 코드 서명 + 공증 (시크릿 설정 시)
+   - 서명 시크릿 미설정 시에도 빌드는 정상 진행 (unsigned)
 3. **Create GitHub Release** - 에셋 업로드 + SHA256 체크섬
+   - Windows 빌드 필수, macOS 빌드는 선택 (실패 시에도 릴리즈 생성)
 
 **릴리즈 절차**:
 ```bash
@@ -114,7 +117,7 @@ git push origin v1.20.0-beta.1
 
 PR이 열리거나 업데이트될 때 Gemini API로 자동 코드 리뷰를 수행합니다.
 
-**트리거**: PR `opened` / `synchronize`
+**트리거**: PR `opened` / `synchronize` / `reopened`
 
 **동작**:
 1. `GEMINI_API_KEY` 시크릿 존재 확인 (미설정 시 스킵)
@@ -130,6 +133,21 @@ PR이 열리거나 업데이트될 때 Gemini API로 자동 코드 리뷰를 수
 
 ---
 
+## Release Drafter (`release-drafter.yml`)
+
+PR이 main에 머지되면 자동으로 다음 릴리즈 노트 초안을 작성합니다.
+
+**트리거**: PR `closed` (main 머지) / PR `labeled`
+
+**동작**:
+1. 머지된 PR의 라벨 기반으로 카테고리 분류 (Features, Bug Fixes, Maintenance 등)
+2. Draft release 자동 업데이트
+3. 버전 자동 계산 (`major`, `minor`, `patch` 라벨 기반)
+
+**설정 파일**: `.github/release-drafter.yml`
+
+---
+
 ## 시크릿 설정
 
 | 시크릿 | 용도 | 필수 |
@@ -138,18 +156,23 @@ PR이 열리거나 업데이트될 때 Gemini API로 자동 코드 리뷰를 수
 | `ENCRYPTION_KEY` | CI 테스트용 Fernet 키 | 선택 (자동 생성) |
 | `VIRUSTOTAL_API_KEY` | 바이너리 스캔 | 선택 |
 | `GEMINI_API_KEY` | AI 코드 리뷰 | 선택 |
-| `APPLE_CERTIFICATE` | macOS 코드 서명 | 선택 (미사용) |
-| `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 선택 (미사용) |
-| `APPLE_TEAM_ID` | Apple 팀 ID | 선택 (미사용) |
+| `APPLE_CERTIFICATE` | macOS 코드 서명 | 선택 |
+| `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 선택 |
+| `APPLE_ID` | Apple 공증 계정 | 선택 |
+| `APPLE_APP_SPECIFIC_PASSWORD` | Apple 공증 비밀번호 | 선택 |
+| `APPLE_TEAM_ID` | Apple 팀 ID | 선택 |
+| `AZURE_CLIENT_ID` | Azure OIDC 클라이언트 ID | 선택 |
+| `AZURE_TENANT_ID` | Azure OIDC 테넌트 ID | 선택 |
+| `AZURE_SUBSCRIPTION_ID` | Azure 구독 ID | 선택 |
+| `AZURE_SIGNING_ENDPOINT` | Azure Trusted Signing 엔드포인트 | 선택 |
+| `AZURE_SIGNING_ACCOUNT` | Azure 서명 계정 이름 | 선택 |
+| `AZURE_SIGNING_PROFILE` | Azure 인증서 프로필 이름 | 선택 |
 
 설정: Settings > Secrets and variables > Actions > New repository secret
 
 ---
 
 ## 트러블슈팅
-
-### CodeQL "Code scanning is not enabled"
-Settings > Code security and analysis > Code scanning에서 활성화 필요. 비활성화 상태에서도 Bandit 스캔은 정상 동작.
 
 ### E2E 테스트 타임아웃
 Docker 컨테이너 기동에 최대 120초 대기. 느린 환경에서는 `ci.yml`의 wait 루프 `seq 1 60`과 `sleep 2` 값 조정.
