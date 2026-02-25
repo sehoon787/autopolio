@@ -17,7 +17,7 @@ Autopolio의 CI/CD 파이프라인 및 자동화 워크플로우 가이드.
 | Issue Auto Label | `issue-auto-label.yml` | 이슈 생성 | X | 키워드 기반 라벨링 |
 | Stale | `stale.yml` | 매일 00:00 UTC | X | 비활성 이슈/PR 관리 |
 | Welcome | `welcome.yml` | PR/이슈 생성 | X | 신규 기여자 환영 |
-| AI Code Review | `ai-review.yml` | PR 오픈/업데이트 | X | Gemini API 기반 AI 코드 리뷰 |
+| AI Code Review | Gemini Code Assist (App) | PR 오픈/업데이트 | X | Google AI 기반 자동 코드 리뷰 |
 | Release Drafter | `release-drafter.yml` | PR 머지/라벨링 | X | 릴리즈 노트 초안 자동 생성 |
 
 ---
@@ -113,23 +113,21 @@ git push origin v1.20.0-beta.1
 
 ---
 
-## AI Code Review (`ai-review.yml`)
+## AI Code Review (Gemini Code Assist)
 
-PR이 열리거나 업데이트될 때 Gemini API로 자동 코드 리뷰를 수행합니다.
+PR이 열리거나 업데이트될 때 Google Gemini Code Assist가 자동으로 코드 리뷰를 수행합니다.
 
-**트리거**: PR `opened` / `synchronize` / `reopened`
+**방식**: GitHub Marketplace App (워크플로우 파일 아님)
 
 **동작**:
-1. `GEMINI_API_KEY` 시크릿 존재 확인 (미설정 시 스킵)
-2. PR 변경 파일 수집 (lock 파일, node_modules, dist, .min.js 등 제외)
-3. Gemini 2.0 Flash API 호출 (diff 200KB 제한)
-4. PR 댓글로 리뷰 결과 게시 (기존 댓글 업데이트, 중복 방지)
+1. PR 오픈/업데이트 시 `gemini-code-assist[bot]`이 자동 리뷰
+2. 인라인 diff 코멘트로 파일별 구체적 피드백
+3. 우선순위별 이슈 분류 (high/medium severity)
+4. PR 요약 자동 생성
 
 **리뷰 항목**: 버그/로직 오류, 보안 취약점, 성능 이슈, 코드 품질
 
-**시크릿**: `GEMINI_API_KEY` (선택 — 미설정 시 워크플로우 자동 스킵)
-
-**Concurrency**: PR 번호 기준 — 같은 PR의 이전 리뷰가 진행 중이면 취소 후 새 리뷰 실행
+**설정**: GitHub Marketplace에서 Gemini Code Assist 앱 설치 필요 (API 키 불필요)
 
 ---
 
@@ -155,7 +153,6 @@ PR이 main에 머지되면 자동으로 다음 릴리즈 노트 초안을 작성
 | `GITHUB_TOKEN` | 빌트인 (자동 제공) | 자동 |
 | `ENCRYPTION_KEY` | CI 테스트용 Fernet 키 | 선택 (자동 생성) |
 | `VIRUSTOTAL_API_KEY` | 바이너리 스캔 | 선택 |
-| `GEMINI_API_KEY` | AI 코드 리뷰 | 선택 |
 | `APPLE_CERTIFICATE` | macOS 코드 서명 | 선택 |
 | `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 선택 |
 | `APPLE_ID` | Apple 공증 계정 | 선택 |
