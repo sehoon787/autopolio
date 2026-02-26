@@ -119,5 +119,23 @@
     "failed": "내보내기 실패",
     "error": "내보내기 중 오류가 발생했습니다",
     "includeCodeStats": "코드 기여 통계 포함 (추가/삭제 라인 수, 커밋 수)"
+  },
+  "sort": {
+    "label": "정렬",
+    "asc": "오름차순",
+    "desc": "내림차순",
+    "recentUpdate": "최근 업데이트",
+    "recentPush": "최근 푸시",
+    "name": "이름",
+    "createdAt": "생성일",
+    "recentCreated": "최근 생성",
+    "projectName": "프로젝트명",
+    "startDate": "시작일",
+    "recentModified": "최근 수정",
+    "analysisStatus": "분석 상태",
+    "searchProjects": "프로젝트 검색...",
+    "documentName": "문서명",
+    "fileSize": "파일 크기",
+    "fileFormat": "파일 형식"
   }
 }

@@ -46,6 +46,8 @@ def _resolve_file_path(stored_path: str) -> str:
 async def get_documents(
     user_id: int = Query(..., description="User ID"),
     status: Optional[str] = None,
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", description="Sort direction (asc/desc)"),
     skip: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
@@ -56,9 +58,14 @@ async def get_documents(
     if status:
         query = query.where(GeneratedDocument.status == status)
 
-    query = (
-        query.order_by(GeneratedDocument.created_at.desc()).offset(skip).limit(limit)
-    )
+    # Dynamic sort
+    column = getattr(GeneratedDocument, sort_by, None)
+    if column is not None:
+        query = query.order_by(column.desc() if sort_order == "desc" else column.asc())
+    else:
+        query = query.order_by(GeneratedDocument.created_at.desc())
+
+    query = query.offset(skip).limit(limit)
 
     result = await db.execute(query)
     documents = result.scalars().all()

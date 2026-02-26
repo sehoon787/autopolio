@@ -182,6 +182,8 @@ export interface PerformanceSummaryData {
 export const documentsApi = {
   getAll: (userId: number, params?: {
     status?: string
+    sort_by?: string
+    sort_order?: string
     skip?: number
     limit?: number
   }) =>

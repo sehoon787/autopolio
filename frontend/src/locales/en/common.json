@@ -119,5 +119,23 @@
     "failed": "Export failed",
     "error": "An error occurred during export",
     "includeCodeStats": "Include code contribution statistics (lines added/deleted, commits)"
+  },
+  "sort": {
+    "label": "Sort",
+    "asc": "Ascending",
+    "desc": "Descending",
+    "recentUpdate": "Recently Updated",
+    "recentPush": "Recently Pushed",
+    "name": "Name",
+    "createdAt": "Created",
+    "recentCreated": "Recently Created",
+    "projectName": "Project Name",
+    "startDate": "Start Date",
+    "recentModified": "Recently Modified",
+    "analysisStatus": "Analysis Status",
+    "searchProjects": "Search projects...",
+    "documentName": "Document Name",
+    "fileSize": "File Size",
+    "fileFormat": "File Format"
   }
 }

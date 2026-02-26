@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,10 +24,10 @@ import {
 import { useUserStore } from '@/stores/userStore'
 import { educationsApi, Education, EducationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, BookOpen, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, BookOpen, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { useCrudOperations } from '@/hooks/useCrudOperations'
-import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
+import { useSortableList, SortOption } from '@/hooks/useSortableList'
 
 // Training/Course degree options (non-formal education)
 const TRAINING_DEGREE_OPTIONS = [
@@ -76,7 +76,12 @@ const cleanFormData = (data: EducationCreate): EducationCreate => ({
   description: data.description || undefined,
 })
 
-export function TrainingsTab() {
+interface TrainingsTabProps {
+  createTrigger?: number
+  sortBy?: SortOption
+}
+
+export function TrainingsTab({ createTrigger, sortBy: externalSortBy }: TrainingsTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
   const queryClient = useQueryClient()
@@ -114,6 +119,16 @@ export function TrainingsTab() {
     },
   })
 
+  // Sync external sort
+  useEffect(() => {
+    if (externalSortBy) sort.setSortBy(externalSortBy)
+  }, [externalSortBy])
+
+  // Trigger create from parent
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) crud.handleCreate()
+  }, [createTrigger])
+
   if (!user) return null
 
   const handleMoveUp = (index: number) => {
@@ -142,30 +157,6 @@ export function TrainingsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header with sort and add button */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
-              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
-              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
-              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
-              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={crud.handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('credentials:trainings.add')}
-        </Button>
-      </div>
-
-      {/* Content */}
       {crud.isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
       ) : sort.sortedItems.length === 0 ? (

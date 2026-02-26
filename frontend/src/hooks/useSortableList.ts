@@ -159,23 +159,23 @@ export function useSortableList<TItem extends SortableItem>(
 
   // Move item up in list
   const handleMoveUp = useCallback((index: number) => {
-    if (index === 0) return
+    if (sortBy !== 'manual' || index === 0) return
     const newItems = [...sortedItems]
     const temp = newItems[index]
     newItems[index] = newItems[index - 1]
     newItems[index - 1] = temp
     reorderMutation.mutate(newItems.map(item => item.id))
-  }, [sortedItems, reorderMutation])
+  }, [sortBy, sortedItems, reorderMutation])
 
   // Move item down in list
   const handleMoveDown = useCallback((index: number) => {
-    if (index === sortedItems.length - 1) return
+    if (sortBy !== 'manual' || index === sortedItems.length - 1) return
     const newItems = [...sortedItems]
     const temp = newItems[index]
     newItems[index] = newItems[index + 1]
     newItems[index + 1] = temp
     reorderMutation.mutate(newItems.map(item => item.id))
-  }, [sortedItems, reorderMutation])
+  }, [sortBy, sortedItems, reorderMutation])
 
   return {
     sortBy,

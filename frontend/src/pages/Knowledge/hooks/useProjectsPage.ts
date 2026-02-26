@@ -69,7 +69,7 @@ export function useProjectsPage() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
   // Filter state
-  const [filters, setFilters] = useState<ProjectFiltersType>({ sort_by: 'is_analyzed,created_at', sort_order: 'asc,desc' })
+  const [filters, setFilters] = useState<ProjectFiltersType>({ sort_by: 'updated_at', sort_order: 'desc' })
   const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters])
 
   // Selection state
@@ -238,7 +238,7 @@ export function useProjectsPage() {
   }
 
   // Handlers
-  const clearFilters = () => { setFilters({ sort_by: 'is_analyzed,created_at', sort_order: 'asc,desc' }); setSearchInput(''); selection.deselectAll() }
+  const clearFilters = () => { setFilters({ sort_by: 'updated_at', sort_order: 'desc' }); setSearchInput(''); selection.deselectAll() }
   const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput || undefined }))
 
   const handleRepoSelected = async (repoUrl: string) => {

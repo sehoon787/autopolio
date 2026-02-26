@@ -29,6 +29,8 @@ export function useRepoSelector() {
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('updated_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Track Electron CLI auth state separately
   const [cliAuthStatus, setCliAuthStatus] = useState<{
@@ -191,11 +193,11 @@ export function useRepoSelector() {
     return Array.from(langSet).sort()
   }, [repos])
 
-  // Filtered repos
+  // Filtered and sorted repos
   const filteredRepos = useMemo(() => {
     const githubUsername = user?.github_username?.toLowerCase() || ''
 
-    return repos.filter((repo) => {
+    const filtered = repos.filter((repo) => {
       const matchesSearch = searchQuery === '' ||
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -215,7 +217,21 @@ export function useRepoSelector() {
 
       return matchesSearch && matchesLanguage && matchesOwner
     })
-  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username])
+
+    return [...filtered].sort((a, b) => {
+      const dir = sortOrder === 'asc' ? 1 : -1
+      if (sortBy === 'name') {
+        return dir * a.name.localeCompare(b.name)
+      }
+      const dateField = sortBy as 'updated_at' | 'pushed_at' | 'created_at'
+      const aVal = a[dateField]
+      const bVal = b[dateField]
+      if (!aVal && !bVal) return 0
+      if (!aVal) return 1
+      if (!bVal) return -1
+      return dir * (new Date(aVal).getTime() - new Date(bVal).getTime())
+    })
+  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username, sortBy, sortOrder])
 
   // Virtual list configuration with dynamic measurement
   const virtualizer = useVirtualizer({
@@ -398,6 +414,8 @@ export function useRepoSelector() {
     setSearchQuery('')
     setLanguageFilter('all')
     setOwnerFilter('all')
+    setSortBy('updated_at')
+    setSortOrder('desc')
   }
 
   return {
@@ -428,6 +446,10 @@ export function useRepoSelector() {
     setLanguageFilter,
     ownerFilter,
     setOwnerFilter,
+    sortBy,
+    sortOrder,
+    setSortBy,
+    setSortOrder,
     languages,
     clearFilters,
 

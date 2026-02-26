@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { documentsApi } from '@/api/documents'
+import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { formatDateTime, formatFileSize } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { FileText, Download, Trash2, Eye, Archive, Plus, CheckSquare, Square, Loader2 } from 'lucide-react'
@@ -20,14 +21,18 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient()
   const { user } = useUserStore()
 
+  // Sort state
+  const [sortBy, setSortBy] = useState('updated_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
 
   const { data: documentsData, isLoading } = useQuery({
-    queryKey: ['documents', user?.id],
-    queryFn: () => documentsApi.getAll(user!.id),
+    queryKey: ['documents', user?.id, sortBy, sortOrder],
+    queryFn: () => documentsApi.getAll(user!.id, { sort_by: sortBy, sort_order: sortOrder }),
     enabled: !!user?.id,
   })
 
@@ -135,6 +140,14 @@ export default function DocumentsPage() {
     }
   }
 
+  const docSortOptions: SortOption[] = [
+    { label: tc('sort.recentCreated'), value: 'created_at', defaultOrder: 'desc' },
+    { label: tc('sort.documentName'), value: 'document_name', defaultOrder: 'asc' },
+    { label: tc('sort.fileSize'), value: 'file_size', defaultOrder: 'desc' },
+    { label: tc('sort.fileFormat'), value: 'file_format', defaultOrder: 'asc' },
+    { label: tc('sort.recentModified'), value: 'updated_at', defaultOrder: 'desc' },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -142,12 +155,20 @@ export default function DocumentsPage() {
           <h1 className="text-3xl font-bold">{t('title')}</h1>
           <p className="text-gray-600 dark:text-gray-400">{t('subtitle')}</p>
         </div>
-        <Link to="/generate">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('newDocument')}
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <SortDropdown
+            options={docSortOptions}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(newSortBy, newSortOrder) => { setSortBy(newSortBy); setSortOrder(newSortOrder) }}
+          />
+          <Link to="/generate">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('newDocument')}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Bulk actions bar */}

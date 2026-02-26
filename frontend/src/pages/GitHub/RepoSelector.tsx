@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
+import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { GitHubRepo } from '@/api/github'
 import { isElectron } from '@/lib/electron'
 import {
@@ -26,6 +27,7 @@ import {
 import { useRepoSelector, BundleRepoEntry } from './hooks/useRepoSelector'
 
 export default function RepoSelector() {
+  const { t: tc } = useTranslation('common')
   const {
     navigate,
     t,
@@ -47,6 +49,10 @@ export default function RepoSelector() {
     setLanguageFilter,
     ownerFilter,
     setOwnerFilter,
+    sortBy,
+    sortOrder,
+    setSortBy,
+    setSortOrder,
     languages,
     clearFilters,
     selection,
@@ -156,6 +162,13 @@ export default function RepoSelector() {
     )
   }
 
+  const repoSortOptions: SortOption[] = [
+    { label: tc('sort.recentUpdate'), value: 'updated_at', defaultOrder: 'desc' },
+    { label: tc('sort.recentPush'), value: 'pushed_at', defaultOrder: 'desc' },
+    { label: tc('sort.name'), value: 'name', defaultOrder: 'asc' },
+    { label: tc('sort.createdAt'), value: 'created_at', defaultOrder: 'desc' },
+  ]
+
   // Render: Connected and valid - show repos
   return (
     <div className="space-y-6">
@@ -245,6 +258,13 @@ export default function RepoSelector() {
                 ))}
               </SelectContent>
             </Select>
+
+            <SortDropdown
+              options={repoSortOptions}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortChange={(newSortBy, newSortOrder) => { setSortBy(newSortBy); setSortOrder(newSortOrder) }}
+            />
 
             {(searchQuery || languageFilter !== 'all' || ownerFilter !== 'all') && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>

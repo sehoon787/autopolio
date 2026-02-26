@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,18 +17,11 @@ import {
 import { useUserStore } from '@/stores/userStore'
 import { certificationsApi, Certification, CertificationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Medal, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Plus, Pencil, Trash2, Medal, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { CertificationAutocomplete } from '@/components/Autocomplete'
 import { useCrudOperations } from '@/hooks/useCrudOperations'
-import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
+import { useSortableList, SortOption } from '@/hooks/useSortableList'
 
 // Initial form data for certifications
 const INITIAL_FORM_DATA: CertificationCreate = {
@@ -62,7 +56,12 @@ const cleanFormData = (data: CertificationCreate): CertificationCreate => ({
   description: data.description || undefined,
 })
 
-export function CertificationsTab() {
+interface CertificationsTabProps {
+  createTrigger?: number
+  sortBy?: SortOption
+}
+
+export function CertificationsTab({ createTrigger, sortBy: externalSortBy }: CertificationsTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
 
@@ -84,34 +83,20 @@ export function CertificationsTab() {
     dateConfig: { dateField: 'issue_date' },
   })
 
+  // Sync external sort
+  useEffect(() => {
+    if (externalSortBy) sort.setSortBy(externalSortBy)
+  }, [externalSortBy])
+
+  // Trigger create from parent
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) crud.handleCreate()
+  }, [createTrigger])
+
   if (!user) return null
 
   return (
     <div className="space-y-4">
-      {/* Header with sort and add button */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
-              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
-              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
-              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
-              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={crud.handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('credentials:certifications.add')}
-        </Button>
-      </div>
-
-      {/* Content */}
       {crud.isLoading ? (
         <LoadingState message={t('common:loading')} />
       ) : sort.sortedItems.length === 0 ? (
