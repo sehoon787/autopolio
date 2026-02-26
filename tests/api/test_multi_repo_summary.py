@@ -65,13 +65,20 @@ class TestGenerateMultiRepoSummaryLLM:
         from api.services.llm.llm_generation import generate_multi_repo_summary_llm
 
         provider = _make_fake_provider(EXPECTED_LLM_RESPONSE)
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+            )
+        )
 
         assert result["summary"] == EXPECTED_LLM_RESPONSE["summary"]
         assert result["key_features"] == EXPECTED_LLM_RESPONSE["key_features"]
-        assert result["technical_highlights"] == EXPECTED_LLM_RESPONSE["technical_highlights"]
+        assert (
+            result["technical_highlights"]
+            == EXPECTED_LLM_RESPONSE["technical_highlights"]
+        )
         assert result["role_description"] == EXPECTED_LLM_RESPONSE["role_description"]
         assert result["token_usage"] == 42
 
@@ -83,9 +90,13 @@ class TestGenerateMultiRepoSummaryLLM:
         provider = AsyncMock()
         provider.generate = AsyncMock(return_value=(wrapped, 10))
 
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+            )
+        )
 
         assert result["summary"] == EXPECTED_LLM_RESPONSE["summary"]
         assert result["token_usage"] == 10
@@ -97,9 +108,13 @@ class TestGenerateMultiRepoSummaryLLM:
         provider = AsyncMock()
         provider.generate = AsyncMock(return_value=("This is not JSON", 5))
 
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+            )
+        )
 
         assert result["summary"] == "This is not JSON"
         assert result["key_features"] == []
@@ -112,9 +127,13 @@ class TestGenerateMultiRepoSummaryLLM:
         provider = AsyncMock()
         provider.generate = AsyncMock(side_effect=RuntimeError("Connection failed"))
 
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+            )
+        )
 
         assert result["summary"] == ""
         assert result["key_features"] == []
@@ -125,10 +144,14 @@ class TestGenerateMultiRepoSummaryLLM:
         from api.services.llm.llm_generation import generate_multi_repo_summary_llm
 
         provider = _make_fake_provider(EXPECTED_LLM_RESPONSE)
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-            language="en",
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+                language="en",
+            )
+        )
 
         call_args = provider.generate.call_args
         prompt = call_args[0][0]
@@ -141,10 +164,14 @@ class TestGenerateMultiRepoSummaryLLM:
         from api.services.llm.llm_generation import generate_multi_repo_summary_llm
 
         provider = _make_fake_provider(EXPECTED_LLM_RESPONSE)
-        result = _run(generate_multi_repo_summary_llm(
-            provider, SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-            language="ko",
-        ))
+        result = _run(
+            generate_multi_repo_summary_llm(
+                provider,
+                SAMPLE_PROJECT_DATA,
+                SAMPLE_REPO_SUMMARIES,
+                language="ko",
+            )
+        )
 
         call_args = provider.generate.call_args
         prompt = call_args[0][0]
@@ -184,9 +211,12 @@ class TestCLILLMServiceMultiRepo:
             new_callable=AsyncMock,
             return_value=mock_result,
         ) as mock_fn:
-            result = _run(service.generate_multi_repo_summary(
-                SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-            ))
+            result = _run(
+                service.generate_multi_repo_summary(
+                    SAMPLE_PROJECT_DATA,
+                    SAMPLE_REPO_SUMMARIES,
+                )
+            )
 
             mock_fn.assert_called_once_with(
                 service.provider,
@@ -221,9 +251,12 @@ class TestLLMServiceMultiRepo:
             new_callable=AsyncMock,
             return_value=mock_result,
         ) as mock_fn:
-            result = _run(service.generate_multi_repo_summary(
-                SAMPLE_PROJECT_DATA, SAMPLE_REPO_SUMMARIES,
-            ))
+            result = _run(
+                service.generate_multi_repo_summary(
+                    SAMPLE_PROJECT_DATA,
+                    SAMPLE_REPO_SUMMARIES,
+                )
+            )
 
             mock_fn.assert_called_once()
             assert result["summary"] == "mocked summary"

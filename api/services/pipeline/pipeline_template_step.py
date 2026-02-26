@@ -18,7 +18,10 @@ from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.repo_analysis import RepoAnalysis
 from api.schemas.pipeline import PipelineRunRequest
-from api.services.template.static_doc_templates import get_static_doc_template_by_id, is_static_doc_id
+from api.services.template.static_doc_templates import (
+    get_static_doc_template_by_id,
+    is_static_doc_id,
+)
 
 logger = logging.getLogger(__name__)
 
