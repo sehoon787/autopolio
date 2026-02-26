@@ -4,6 +4,7 @@
   "checkingConnection": "GitHub 연동 상태 확인 중...",
   "connectionRequired": "GitHub 연동 필요",
   "connectionRequiredDesc": "레포지토리를 가져오려면 먼저 GitHub를 연동해주세요.",
+  "cliConnectionRequiredDesc": "GitHub CLI 인증이 필요합니다. 터미널에서 gh auth login을 실행하세요.",
   "connectionCheckFailed": "연동 상태 확인 실패",
   "connectionCheckFailedDesc": "GitHub 연동 상태를 확인할 수 없습니다. 다시 시도하거나 GitHub 설정으로 이동해주세요.",
   "goToSetup": "GitHub 설정으로 이동",

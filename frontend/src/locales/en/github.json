@@ -4,6 +4,7 @@
   "checkingConnection": "Checking GitHub connection...",
   "connectionRequired": "GitHub Connection Required",
   "connectionRequiredDesc": "Please connect your GitHub account to import repositories.",
+  "cliConnectionRequiredDesc": "GitHub CLI authentication is required. Run gh auth login in the terminal.",
   "connectionCheckFailed": "Connection Check Failed",
   "connectionCheckFailedDesc": "Could not verify GitHub connection. Please try again or go to GitHub settings.",
   "goToSetup": "Go to GitHub Settings",

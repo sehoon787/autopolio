@@ -69,6 +69,31 @@
   "logout": "Log out",
   "loginToSave": "Log in",
   "loginNow": "Log in now",
+  "fullscreen": "Fullscreen",
+  "scrollToTop": "Scroll to top",
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Please refresh the page or try again.",
+    "errorDetails": "Error details:",
+    "retry": "Retry",
+    "reload": "Reload",
+    "goToDashboard": "Dashboard",
+    "sectionError": "An error occurred while loading this section"
+  },
+  "editor": {
+    "modified": "Modified",
+    "editBtn": "Edit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "resetToOriginal": "Reset",
+    "newItemPlaceholder": "Add new item...",
+    "addItem": "Add",
+    "noItems": "No items.",
+    "sectionTitlePlaceholder": "Section title...",
+    "itemPlaceholder": "Item content...",
+    "addItemBtn": "Add Item",
+    "addSection": "Add New Section"
+  },
   "export": {
     "title": "Export Projects",
     "titleSingleProject": "Export {{name}}",

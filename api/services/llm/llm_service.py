@@ -19,6 +19,7 @@ from .llm_generation import (
     generate_key_tasks_llm,
     generate_implementation_details_llm,
     generate_detailed_achievements_llm,
+    generate_multi_repo_summary_llm,
 )
 
 settings = get_settings()
@@ -239,136 +240,13 @@ Respond in the following JSON format:
         language: str = "ko",
     ) -> Dict[str, Any]:
         """Generate a holistic AI summary for a multi-repo project.
-
-        Args:
-            project_data: Project-level info (name, role, team_size, etc.)
-            repo_summaries: List of per-repo dicts, each with:
-                label, git_url, ai_summary, key_tasks, technologies
-            style: Summary style.
-            language: Output language.
-
-        Returns same JSON structure as generate_project_summary().
+        Delegates to llm_generation module.
         """
-        prompts = get_prompts(language)
-        style_map = {
-            "professional": prompts["style_professional"],
-            "casual": prompts["style_casual"],
-            "technical": prompts["style_technical"],
-        }
-        system_prompt = f"""{prompts["system_resume"]}
-{style_map.get(style, style_map["professional"])}
-{prompts["json_format"]}"""
-
-        # Build per-repo section
-        repo_sections = []
-        for repo in repo_summaries:
-            label = repo.get("label", "Repository")
-            techs = ", ".join(repo.get("technologies", [])[:15])
-            tasks = "\n".join(f"  - {t}" for t in (repo.get("key_tasks") or [])[:5])
-            summary = repo.get("ai_summary") or "(No summary)"
-            repo_sections.append(
-                f"### {label}\n"
-                f"- Technologies: {techs or 'N/A'}\n"
-                f"- Key Tasks:\n{tasks or '  (None)'}\n"
-                f"- AI Summary: {summary}"
-            )
-        repos_text = "\n\n".join(repo_sections)
-
-        if language == "en":
-            prompt = f"""This project consists of MULTIPLE repositories. Based on the project info and each repository's analysis below, write a HOLISTIC project summary suitable for a resume.
-
-Project Information:
-- Name: {project_data.get("name", "N/A")}
-- Description: {project_data.get("description", "N/A")}
-- Role: {project_data.get("role", "N/A")}
-- Team Size: {project_data.get("team_size", "N/A")} members
-- Contribution: {project_data.get("contribution_percent", "N/A")}%
-- Period: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
-
-Per-Repository Analysis:
-{repos_text}
-
-Instructions:
-1. Write a comprehensive HOLISTIC summary (5-8 sentences) that:
-   - Explains the overall project scope spanning all repositories
-   - Highlights correlations and interactions between the repositories
-   - Describes your specific contributions across the full stack
-   - Mentions technical challenges and how they were resolved
-   - Provides measurable impact or outcomes
-
-2. List 5-7 key features you implemented across ALL repositories combined
-
-3. Highlight 4-5 technical achievements or architectural decisions spanning the whole project
-
-4. Describe your overall responsibilities covering all repositories
-
-Do NOT simply concatenate per-repo summaries. Synthesize a unified narrative.
-
-Respond in JSON:
-{{
-    "summary": "5-8 sentence holistic project summary",
-    "key_features": ["Cross-repo feature 1", "Feature 2", ...],
-    "technical_highlights": ["Architecture decision 1", "Performance improvement 2", ...],
-    "role_description": "Unified role description across all repos"
-}}"""
-        else:
-            prompt = f"""이 프로젝트는 여러 레포지토리로 구성되어 있습니다. 아래의 프로젝트 정보와 각 레포지토리 분석 결과를 바탕으로 이력서에 적합한 **통합적인** 프로젝트 요약을 작성해주세요.
-
-프로젝트 정보:
-- 이름: {project_data.get("name", "N/A")}
-- 설명: {project_data.get("description", "N/A")}
-- 역할: {project_data.get("role", "N/A")}
-- 팀 규모: {project_data.get("team_size", "N/A")}명
-- 기여도: {project_data.get("contribution_percent", "N/A")}%
-- 기간: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
-
-레포지토리별 분석 결과:
-{repos_text}
-
-작성 지침:
-1. 포괄적이고 **통합적인** 요약(5-8문장)을 작성하세요:
-   - 모든 레포지토리를 아우르는 프로젝트 전체 범위 설명
-   - 레포지토리 간의 상관관계와 상호작용 강조
-   - 풀스택에 걸친 본인의 구체적인 기여 설명
-   - 기술적 도전과 해결 방법
-   - 측정 가능한 성과나 영향
-
-2. 모든 레포지토리에 걸쳐 구현한 주요 기능 5-7개 나열
-
-3. 프로젝트 전체에 걸친 기술적 성과나 아키텍처 결정 4-5개 강조
-
-4. 모든 레포지토리를 아우르는 전체적인 역할 설명
-
-각 레포별 요약을 단순히 이어붙이지 말고, **하나의 통합된 서사**로 작성하세요.
-
-다음 JSON 형식으로 응답하세요:
-{{
-    "summary": "5-8문장의 통합적 프로젝트 요약",
-    "key_features": ["레포 전체에 걸친 기능 1", "기능 2", ...],
-    "technical_highlights": ["아키텍처 결정 1", "성능 개선 2", ...],
-    "role_description": "모든 레포를 아우르는 통합 역할 설명"
-}}"""
-
-        response, tokens = await self.provider.generate(prompt, system_prompt)
-        self.total_tokens_used += tokens
-
-        try:
-            json_str = response or ""
-            if "```json" in json_str:
-                json_str = json_str.split("```json")[1].split("```")[0]
-            elif "```" in json_str:
-                json_str = json_str.split("```")[1].split("```")[0]
-            result = json.loads(json_str.strip())
-            result["token_usage"] = tokens
-            return result
-        except json.JSONDecodeError:
-            return {
-                "summary": response or "",
-                "key_features": [],
-                "technical_highlights": [],
-                "role_description": "",
-                "token_usage": tokens,
-            }
+        result = await generate_multi_repo_summary_llm(
+            self.provider, project_data, repo_summaries, style, language
+        )
+        self.total_tokens_used += result.get("token_usage", 0)
+        return result
 
     async def generate_commit_summary(
         self, commit_messages: List[str], language: str = "ko"

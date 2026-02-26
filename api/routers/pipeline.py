@@ -69,9 +69,16 @@ async def run_pipeline(
         pipeline_service.run_pipeline(job.task_id, request),
         name=f"pipeline-{job.task_id}",
     )
-    # Store reference to prevent GC and auto-cleanup on completion
+
+    # Store reference to prevent GC and log unhandled task exceptions
+    def _task_done(t):
+        _background_tasks.discard(t)
+        exc = t.exception() if not t.cancelled() else None
+        if exc:
+            logger.error("[Pipeline] Task %s failed: %s", job.task_id, exc)
+
     _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+    task.add_done_callback(_task_done)
 
     return job
 

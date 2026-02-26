@@ -23,5 +23,48 @@
   "errorOccurred": "An error occurred",
   "pipelineCompleted": "Document generation completed!",
   "pipelineFailed": "Document generation failed.",
-  "generatingDocument": "Generating document..."
+  "generatingDocument": "Generating document...",
+  "sevenStepPipeline": "7-Step Pipeline",
+  "progressLabel": "Progress: {{progress}}%",
+  "skipReason": {
+    "all_projects_analyzed": "Already analyzed",
+    "all_projects_have_summaries": "Already summarized",
+    "user_skipped": "User skipped",
+    "no_data": "No data"
+  },
+  "stepStatus": {
+    "completed": "Done",
+    "running": "In progress",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "pending": "Waiting"
+  },
+  "statusBadge": {
+    "completed": "Completed",
+    "running": "Running",
+    "failed": "Failed",
+    "pending": "Pending",
+    "cancelled": "Cancelled"
+  },
+  "generationComplete": {
+    "title": "Document Generated!",
+    "fallback": "Pipeline completed successfully.",
+    "time": "Generation time: {{seconds}}s",
+    "projects": "{{count}} projects processed"
+  },
+  "generationFailed": {
+    "title": "Generation Failed",
+    "unknown": "An unknown error occurred."
+  },
+  "connectionIssue": {
+    "title": "Connection Issue",
+    "description": "Connection to server is unstable. Please check if the backend is running.",
+    "failCount": "({{count}} connection failures)",
+    "backgroundNote": "The pipeline may still be running in the background.",
+    "reconnect": "Reconnect"
+  },
+  "cancelled": "Cancelled",
+  "skipped": "Skipped",
+  "newGeneration": "New Document",
+  "goToDocuments": "Go to Documents"
 }

@@ -95,8 +95,8 @@ function CollapsibleNavGroup({ group, isAnyChildActive, isOpen, onOpenChange }: 
           ? 'text-primary'
           : 'text-foreground/80 hover:bg-accent'
       )}>
-        <div className="flex items-center gap-3">
-          <Icon className="h-5 w-5" />
+        <div className="flex items-center gap-3 text-left">
+          <Icon className="h-5 w-5 shrink-0" />
           {group.name}
         </div>
         <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />

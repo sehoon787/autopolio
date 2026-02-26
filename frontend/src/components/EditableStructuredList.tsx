@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -49,18 +50,20 @@ interface EditableStructuredListProps {
   translations?: EditorTranslations
 }
 
-// Default translations (Korean as fallback for backwards compatibility)
-const defaultTranslations: EditorTranslations = {
-  modified: '수정됨',
-  editBtn: '편집',
-  cancel: '취소',
-  save: '저장',
-  resetToOriginal: '원본으로',
-  sectionTitlePlaceholder: '섹션 제목...',
-  itemPlaceholder: '항목 내용...',
-  addItemBtn: '항목 추가',
-  addSection: '새 섹션 추가',
-  noItems: '항목이 없습니다.',
+function useDefaultTranslations(): EditorTranslations {
+  const { t } = useTranslation('common')
+  return {
+    modified: t('editor.modified'),
+    editBtn: t('editor.editBtn'),
+    cancel: t('editor.cancel'),
+    save: t('editor.save'),
+    resetToOriginal: t('editor.resetToOriginal'),
+    sectionTitlePlaceholder: t('editor.sectionTitlePlaceholder'),
+    itemPlaceholder: t('editor.itemPlaceholder'),
+    addItemBtn: t('editor.addItemBtn'),
+    addSection: t('editor.addSection'),
+    noItems: t('editor.noItems'),
+  }
 }
 
 export function EditableStructuredList({
@@ -77,7 +80,8 @@ export function EditableStructuredList({
   translations = {},
 }: EditableStructuredListProps) {
   // Merge translations with defaults
-  const t = { ...defaultTranslations, ...translations }
+  const defaults = useDefaultTranslations()
+  const t = { ...defaults, ...translations }
   const actualEmptyMessage = emptyMessage ?? t.noItems
   const [internalIsEditing, setInternalIsEditing] = useState(false)
 

@@ -574,3 +574,22 @@ class CLILLMService:
         )
         # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
         return achievements
+
+    async def generate_multi_repo_summary(
+        self,
+        project_data: dict,
+        repo_summaries: List[dict],
+        style: str = "professional",
+        language: str = "ko",
+    ) -> dict:
+        """
+        Generate a holistic AI summary for a multi-repo project using CLI.
+        Delegates to generate_multi_repo_summary_llm via the provider wrapper.
+        """
+        from .llm_generation import generate_multi_repo_summary_llm
+
+        result = await generate_multi_repo_summary_llm(
+            self.provider, project_data, repo_summaries, style, language
+        )
+        # Note: tokens already counted in generate_with_cli() via self.total_tokens_used
+        return result
