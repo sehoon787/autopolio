@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,7 +43,9 @@ export default function RepoSelector() {
     isLoading,
     isRefreshing,
     isError,
+    isCached,
     refetch,
+    handleRefresh,
     searchQuery,
     setSearchQuery,
     languageFilter,
@@ -183,7 +186,7 @@ export default function RepoSelector() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => refetch()}
+            onClick={handleRefresh}
             disabled={isLoading || isRefreshing}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
@@ -280,6 +283,11 @@ export default function RepoSelector() {
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
           <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
+          {isCached && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+              {t('cachedData')}
+            </Badge>
+          )}
           {selection.selectedCount > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -294,12 +302,7 @@ export default function RepoSelector() {
 
       {/* Repo List */}
       {isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">{t('loadingRepos')}</p>
-          </CardContent>
-        </Card>
+        <LoadingPhaseCard />
       ) : isError ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -399,6 +402,38 @@ export default function RepoSelector() {
         </div>
       )}
     </div>
+  )
+}
+
+// Loading Phase Card Component
+function LoadingPhaseCard() {
+  const { t } = useTranslation('github')
+  const [phase, setPhase] = useState(0)
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setPhase(1), 3000),
+      setTimeout(() => setPhase(2), 8000),
+      setTimeout(() => setPhase(3), 15000),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  const messages = [
+    t('loadingRepos'),
+    t('loadingReposFetchingOrgs'),
+    t('loadingReposProcessing'),
+    t('loadingReposAlmostDone'),
+  ]
+
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+        <p className="text-gray-500">{messages[phase]}</p>
+        <p className="text-xs text-gray-400 mt-2">{t('loadingReposHint')}</p>
+      </CardContent>
+    </Card>
   )
 }
 

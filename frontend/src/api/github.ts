@@ -359,9 +359,9 @@ export const githubApi = {
   disconnect: (userId: number) =>
     apiClient.delete('/github/disconnect', { params: { user_id: userId } }),
 
-  getRepos: (userId: number, fetchAll: boolean = true) =>
-    apiClient.get<{ repos: GitHubRepo[]; total: number; has_more: boolean }>('/github/repos', {
-      params: { user_id: userId, fetch_all: fetchAll },
+  getRepos: (userId: number, fetchAll: boolean = true, forceRefresh: boolean = false) =>
+    apiClient.get<{ repos: GitHubRepo[]; total: number; has_more: boolean; cached?: boolean; cached_at?: string | null }>('/github/repos', {
+      params: { user_id: userId, fetch_all: fetchAll, force_refresh: forceRefresh },
       timeout: ANALYSIS_TIMEOUT, // 5 min - backend makes 5 sequential GitHub API calls
     }),
 

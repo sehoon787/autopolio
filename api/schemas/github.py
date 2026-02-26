@@ -118,6 +118,8 @@ class GitHubRepoListResponse(BaseModel):
     page: int = 1
     per_page: int = 100
     has_more: bool = False
+    cached: bool = False
+    cached_at: Optional[str] = None
 
 
 class ImportReposRequest(BaseModel):
