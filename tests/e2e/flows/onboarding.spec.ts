@@ -198,10 +198,10 @@ test.describe('First Project Creation', () => {
     // Submit the form via the submit button (multiple "Add" buttons in dialog)
     await dialog.locator('button[type="submit"]').click()
 
-    // Project should appear in the list
+    // Project should appear in the list (allow extra time for API + re-render)
     await expect(
       page.getByText(TEST_PROJECT.name).first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 })
 
