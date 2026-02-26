@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -41,16 +42,18 @@ interface EditableListProps {
   translations?: EditorTranslations
 }
 
-// Default translations (Korean as fallback for backwards compatibility)
-const defaultTranslations: EditorTranslations = {
-  modified: '수정됨',
-  editBtn: '편집',
-  cancel: '취소',
-  save: '저장',
-  resetToOriginal: '원본으로',
-  newItemPlaceholder: '새 항목 추가...',
-  addItem: '추가',
-  noItems: '항목이 없습니다.',
+function useDefaultTranslations(): EditorTranslations {
+  const { t } = useTranslation('common')
+  return {
+    modified: t('editor.modified'),
+    editBtn: t('editor.editBtn'),
+    cancel: t('editor.cancel'),
+    save: t('editor.save'),
+    resetToOriginal: t('editor.resetToOriginal'),
+    newItemPlaceholder: t('editor.newItemPlaceholder'),
+    addItem: t('editor.addItem'),
+    noItems: t('editor.noItems'),
+  }
 }
 
 export function EditableList({
@@ -68,7 +71,8 @@ export function EditableList({
   translations = {},
 }: EditableListProps) {
   // Merge translations with defaults
-  const t = { ...defaultTranslations, ...translations }
+  const defaults = useDefaultTranslations()
+  const t = { ...defaults, ...translations }
   const actualEmptyMessage = emptyMessage ?? t.noItems
   const [internalIsEditing, setInternalIsEditing] = useState(false)
 

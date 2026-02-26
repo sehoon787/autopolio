@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -9,6 +10,7 @@ interface ScrollToTopProps {
 }
 
 export function ScrollToTop({ threshold = 300, className }: ScrollToTopProps) {
+  const { t } = useTranslation('common')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function ScrollToTop({ threshold = 300, className }: ScrollToTopProps) {
         'bg-primary text-primary-foreground',
         className
       )}
-      aria-label="맨 위로 이동"
+      aria-label={t('scrollToTop')}
     >
       <ArrowUp className="h-5 w-5" />
     </Button>

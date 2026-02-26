@@ -78,6 +78,15 @@
     "completed": "완료",
     "partial": "부분 완료"
   },
+  "kanban": {
+    "columns": {
+      "pending": "분석 대기",
+      "analyzing": "분석 중",
+      "review": "검토 필요",
+      "completed": "완료"
+    },
+    "noItems": "항목 없음"
+  },
   "backgroundAnalysis": {
     "inProgress": "분석 중",
     "progress": "{{progress}}%",

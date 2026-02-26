@@ -109,9 +109,9 @@ export function PerRepoDetailBreakdown({ perRepoAnalyses, t }: PerRepoDetailBrea
                           className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-1.5 flex items-center gap-1 transition-colors"
                         >
                           {isTaskExpanded ? (
-                            <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', '접기')}</>
+                            <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', 'Collapse')}</>
                           ) : (
-                            <><ChevronDown className="h-3 w-3" />+{taskRemaining} {t('detail.buttons.showMore', '더보기')}</>
+                            <><ChevronDown className="h-3 w-3" />+{taskRemaining} {t('detail.buttons.showMore', 'Show more')}</>
                           )}
                         </button>
                       )}
@@ -164,9 +164,9 @@ export function PerRepoDetailBreakdown({ perRepoAnalyses, t }: PerRepoDetailBrea
                           className="text-xs text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 mt-1.5 flex items-center gap-1 transition-colors"
                         >
                           {isAchExpanded ? (
-                            <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', '접기')}</>
+                            <><ChevronUp className="h-3 w-3" />{t('detail.buttons.collapse', 'Collapse')}</>
                           ) : (
-                            <><ChevronDown className="h-3 w-3" />{t('detail.buttons.showMore', '더보기')}</>
+                            <><ChevronDown className="h-3 w-3" />{t('detail.buttons.showMore', 'Show more')}</>
                           )}
                         </button>
                       )}

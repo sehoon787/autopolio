@@ -403,7 +403,7 @@ class AnalysisJobStatus(BaseModel):
     """Status of an analysis job."""
 
     task_id: str
-    project_id: int
+    project_id: Optional[int] = None
     status: str  # pending, running, completed, failed, cancelled
     progress: int  # 0-100
     current_step: int

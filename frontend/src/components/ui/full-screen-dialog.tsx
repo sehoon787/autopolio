@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useTranslation } from 'react-i18next'
 import { X, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
@@ -143,18 +144,21 @@ interface FullScreenToggleProps {
   className?: string
 }
 
-const FullScreenToggle = ({ onClick, className }: FullScreenToggleProps) => (
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={onClick}
-    className={cn('h-8 w-8', className)}
-    title="전체화면"
-  >
-    <Maximize2 className="h-4 w-4" />
-    <span className="sr-only">전체화면</span>
-  </Button>
-)
+const FullScreenToggle = ({ onClick, className }: FullScreenToggleProps) => {
+  const { t } = useTranslation('common')
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      className={cn('h-8 w-8', className)}
+      title={t('fullscreen')}
+    >
+      <Maximize2 className="h-4 w-4" />
+      <span className="sr-only">{t('fullscreen')}</span>
+    </Button>
+  )
+}
 
 export {
   FullScreenDialog,

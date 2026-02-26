@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -42,6 +43,7 @@ const stepIcons = [
 export default function PipelinePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('pipeline')
   const { currentTaskId, status, setStatus, reset } = usePipelineStore()
   const { trackTokenUsage, incrementLLMCallCount } = useUsageStore()
   const usageTrackedRef = useRef<string | null>(null) // Track which task's usage has been recorded
@@ -182,27 +184,23 @@ export default function PipelinePage() {
   }
 
   const getSkipReasonText = (reason: string): string => {
-    const reasonMap: Record<string, string> = {
-      all_projects_analyzed: '이미 분석됨',
-      all_projects_have_summaries: '이미 요약됨',
-      user_skipped: '사용자 건너뜀',
-      no_data: '데이터 없음',
-    }
-    return reasonMap[reason] || reason
+    const key = `skipReason.${reason}`
+    const translated = t(key)
+    return translated !== key ? translated : reason
   }
 
   const getStatusBadge = () => {
     switch (status.status) {
       case 'completed':
-        return <Badge variant="success">완료</Badge>
+        return <Badge variant="success">{t('statusBadge.completed')}</Badge>
       case 'running':
-        return <Badge variant="default">실행 중</Badge>
+        return <Badge variant="default">{t('statusBadge.running')}</Badge>
       case 'failed':
-        return <Badge variant="destructive">실패</Badge>
+        return <Badge variant="destructive">{t('statusBadge.failed')}</Badge>
       case 'pending':
-        return <Badge variant="secondary">대기 중</Badge>
+        return <Badge variant="secondary">{t('statusBadge.pending')}</Badge>
       case 'cancelled':
-        return <Badge variant="outline">취소됨</Badge>
+        return <Badge variant="outline">{t('statusBadge.cancelled')}</Badge>
       default:
         return <Badge variant="outline">{status.status}</Badge>
     }
@@ -228,10 +226,10 @@ export default function PipelinePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold mb-2">문서 생성 파이프라인</h1>
+        <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
         <div className="flex items-center justify-center gap-3">
           {getStatusBadge()}
-          <span className="text-gray-500 dark:text-gray-400">진행률: {status.progress}%</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('progressLabel', { progress: status.progress })}</span>
         </div>
       </div>
 
@@ -240,7 +238,7 @@ export default function PipelinePage() {
       {/* Pipeline Steps */}
       <Card>
         <CardHeader>
-          <CardTitle>7단계 파이프라인</CardTitle>
+          <CardTitle>{t('sevenStepPipeline')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -286,10 +284,7 @@ export default function PipelinePage() {
                             : 'outline'
                         }
                       >
-                        {step.status === 'completed' ? '완료' :
-                         step.status === 'running' ? '진행중' :
-                         step.status === 'failed' ? '실패' :
-                         step.status === 'skipped' ? '건너뜀' : '대기'}
+                        {t(`stepStatus.${step.status}`, step.status)}
                       </Badge>
                     </div>
                   </div>
@@ -310,29 +305,28 @@ export default function PipelinePage() {
             <div className="flex items-center gap-4">
               <CheckCircle2 className="h-12 w-12 text-green-500" />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">문서 생성 완료!</h3>
+                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">{t('generationComplete.title')}</h3>
                 {status.result ? (
                   <>
                     <p className="text-green-700 dark:text-green-300">
                       {String(status.result.document_name)}.{String(status.result.file_format)}
                     </p>
                     <p className="text-sm text-green-600 dark:text-green-400">
-                      생성 시간: {String(status.result.generation_time_seconds)}초 ·
-                      {String(status.result.projects_processed)}개 프로젝트 처리됨
+                      {t('generationComplete.time', { seconds: String(status.result.generation_time_seconds) })} · {t('generationComplete.projects', { count: Number(status.result.projects_processed) || 0 })}
                     </p>
                   </>
                 ) : (
-                  <p className="text-green-700 dark:text-green-300">파이프라인이 성공적으로 완료되었습니다.</p>
+                  <p className="text-green-700 dark:text-green-300">{t('generationComplete.fallback')}</p>
                 )}
               </div>
               {status.result && (
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={handleViewDocument}>
-                    미리보기
+                    {t('common:preview')}
                   </Button>
                   <Button onClick={handleDownload}>
                     <Download className="h-4 w-4 mr-2" />
-                    다운로드
+                    {t('common:download')}
                   </Button>
                 </div>
               )}
@@ -348,12 +342,12 @@ export default function PipelinePage() {
             <div className="flex items-center gap-4">
               <XCircle className="h-12 w-12 text-red-500" />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">생성 실패</h3>
-                <p className="text-red-700 dark:text-red-300">{status.error || '알 수 없는 오류가 발생했습니다.'}</p>
+                <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">{t('generationFailed.title')}</h3>
+                <p className="text-red-700 dark:text-red-300">{status.error || t('generationFailed.unknown')}</p>
               </div>
               <Button variant="outline" onClick={handleRetry}>
                 <RotateCcw className="h-4 w-4 mr-2" />
-                다시 시도
+                {t('common:tryAgain')}
               </Button>
             </div>
           </CardContent>
@@ -367,13 +361,13 @@ export default function PipelinePage() {
             <div className="flex items-center gap-4">
               <AlertTriangle className="h-12 w-12 text-yellow-500" />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">연결 문제</h3>
+                <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">{t('connectionIssue.title')}</h3>
                 <p className="text-yellow-700 dark:text-yellow-300">
-                  서버와의 연결이 불안정합니다. 백엔드가 실행 중인지 확인해주세요.
-                  ({pollErrorCount}회 연결 실패)
+                  {t('connectionIssue.description')}
+                  {' '}{t('connectionIssue.failCount', { count: pollErrorCount })}
                 </p>
                 <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                  파이프라인은 백그라운드에서 계속 실행 중일 수 있습니다.
+                  {t('connectionIssue.backgroundNote')}
                 </p>
               </div>
               <Button
@@ -385,7 +379,7 @@ export default function PipelinePage() {
                 }}
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
-                다시 연결
+                {t('connectionIssue.reconnect')}
               </Button>
             </div>
           </CardContent>
@@ -396,11 +390,11 @@ export default function PipelinePage() {
       <div className="flex justify-center gap-4">
         {status.status === 'completed' && (
           <Button variant="outline" onClick={handleRetry}>
-            새 문서 생성
+            {t('newGeneration')}
           </Button>
         )}
         <Button variant="ghost" onClick={() => navigate('/documents')}>
-          생성 문서 목록으로
+          {t('goToDocuments')}
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>

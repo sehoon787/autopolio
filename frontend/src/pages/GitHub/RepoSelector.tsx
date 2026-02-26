@@ -116,7 +116,7 @@ export default function RepoSelector() {
             <h2 className="text-xl font-semibold mb-2">{t('connectionRequired')}</h2>
             <p className="text-gray-600 mb-4">
               {isElectron()
-                ? t('cliConnectionRequiredDesc', 'GitHub CLI 인증이 필요합니다. 터미널에서 gh auth login을 실행하세요.')
+                ? t('cliConnectionRequiredDesc')
                 : t('connectionRequiredDesc')
               }
             </p>
