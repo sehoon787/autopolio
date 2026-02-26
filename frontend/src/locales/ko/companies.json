@@ -59,6 +59,7 @@
     "addCompanyBtn": "회사 추가하기",
     "projectsCount": "{{count}}개 프로젝트",
     "ongoing": "진행중",
-    "teamMembers": "{{count}}명"
+    "teamMembers": "{{count}}명",
+    "addProject": "프로젝트 추가"
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,7 @@ import {
 import { useUserStore } from '@/stores/userStore'
 import { awardsApi, Award, AwardCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Award as AwardIcon, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, Trophy, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { useCrudOperations } from '@/hooks/useCrudOperations'
 import { useSortableList, SortOption } from '@/hooks/useSortableList'
@@ -55,6 +56,7 @@ interface AwardsTabProps {
 export function AwardsTab({ createTrigger, sortBy: externalSortBy }: AwardsTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
 
   // CRUD operations hook
   const crud = useCrudOperations<Award, AwardCreate>({
@@ -93,7 +95,7 @@ export function AwardsTab({ createTrigger, sortBy: externalSortBy }: AwardsTabPr
       ) : sort.sortedItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <AwardIcon className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <Trophy className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('credentials:awards.empty')}</h3>
             <p className="text-muted-foreground mb-4">{t('credentials:awards.emptyDesc')}</p>
             <Button onClick={crud.handleCreate}>
@@ -103,14 +105,14 @@ export function AwardsTab({ createTrigger, sortBy: externalSortBy }: AwardsTabPr
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <AwardIcon className="h-5 w-5 text-yellow-500" />
+                      <Trophy className="h-5 w-5 text-yellow-500" />
                       <h3 className="text-xl font-semibold">{item.name}</h3>
                     </div>
                     {item.issuer && (

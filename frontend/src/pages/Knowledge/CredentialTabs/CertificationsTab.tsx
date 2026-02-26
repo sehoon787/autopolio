@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,7 @@ import {
 import { useUserStore } from '@/stores/userStore'
 import { certificationsApi, Certification, CertificationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Medal, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, IdCard, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { CertificationAutocomplete } from '@/components/Autocomplete'
 import { useCrudOperations } from '@/hooks/useCrudOperations'
@@ -64,6 +65,7 @@ interface CertificationsTabProps {
 export function CertificationsTab({ createTrigger, sortBy: externalSortBy }: CertificationsTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
 
   // CRUD operations hook
   const crud = useCrudOperations<Certification, CertificationCreate>({
@@ -101,7 +103,7 @@ export function CertificationsTab({ createTrigger, sortBy: externalSortBy }: Cer
         <LoadingState message={t('common:loading')} />
       ) : sort.sortedItems.length === 0 ? (
         <EmptyState
-          icon={Medal}
+          icon={IdCard}
           title={t('credentials:certifications.empty')}
           description={t('credentials:certifications.emptyDesc')}
           action={{
@@ -112,14 +114,14 @@ export function CertificationsTab({ createTrigger, sortBy: externalSortBy }: Cer
           withCard
         />
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Medal className="h-5 w-5 text-amber-500" />
+                      <IdCard className="h-5 w-5 text-teal-500" />
                       <h3 className="text-xl font-semibold">{item.name}</h3>
                     </div>
                     {item.issuer && (
