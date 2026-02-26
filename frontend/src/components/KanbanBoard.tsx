@@ -1,4 +1,5 @@
 import { useState, ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   DragEndEvent,
@@ -50,6 +51,7 @@ function KanbanColumnComponent({
   renderItem,
   renderEmptyState,
 }: KanbanColumnProps) {
+  const { t } = useTranslation()
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   })
@@ -92,7 +94,7 @@ function KanbanColumnComponent({
               ))
             ) : (
               <div className="text-center py-8 text-gray-400 text-sm">
-                {renderEmptyState?.() || '항목 없음'}
+                {renderEmptyState?.() || t('projects:kanban.noItems')}
               </div>
             )}
           </div>
@@ -301,11 +303,12 @@ export function KanbanBoard<T extends KanbanItem>({
 }
 
 // Predefined project status columns for Autopolio
+// titleKey is used with t() at render time
 export const PROJECT_STATUS_COLUMNS = [
-  { id: 'pending', title: '분석 대기', color: 'gray' },
-  { id: 'analyzing', title: '분석 중', color: 'blue' },
-  { id: 'review', title: '검토 필요', color: 'yellow' },
-  { id: 'completed', title: '완료', color: 'green' },
+  { id: 'pending', titleKey: 'projects:kanban.columns.pending', color: 'gray' },
+  { id: 'analyzing', titleKey: 'projects:kanban.columns.analyzing', color: 'blue' },
+  { id: 'review', titleKey: 'projects:kanban.columns.review', color: 'yellow' },
+  { id: 'completed', titleKey: 'projects:kanban.columns.completed', color: 'green' },
 ]
 
 // Helper function to create columns from items

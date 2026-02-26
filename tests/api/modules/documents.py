@@ -135,8 +135,8 @@ class DocumentsAPI(BaseAPIModule):
         """Run document generation pipeline."""
         return self._post(
             "/pipeline/run",
+            params={"user_id": user_id},
             json={
-                "user_id": user_id,
                 "template_id": template_id,
                 "project_ids": project_ids,
                 "output_format": output_format,

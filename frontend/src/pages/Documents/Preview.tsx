@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import { ArrowLeft, Download, FileText, Eye } from 'lucide-react'
 export default function DocumentPreviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation('documents')
 
   const documentId = parseInt(id || '0')
 
@@ -37,11 +39,11 @@ export default function DocumentPreviewPage() {
   const versions = versionsData?.data?.versions || []
 
   if (isLoading) {
-    return <div className="text-center py-8">로딩 중...</div>
+    return <div className="text-center py-8">{t('previewPage.loading')}</div>
   }
 
   if (!document) {
-    return <div className="text-center py-8">문서를 찾을 수 없습니다.</div>
+    return <div className="text-center py-8">{t('previewPage.notFound')}</div>
   }
 
   return (
@@ -56,15 +58,15 @@ export default function DocumentPreviewPage() {
             <Badge>{document.file_format?.toUpperCase()}</Badge>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
-            <span>생성일: {formatDateTime(document.created_at)}</span>
-            {document.file_size && <span>크기: {formatFileSize(document.file_size)}</span>}
+            <span>{t('previewPage.createdAt', { date: formatDateTime(document.created_at) })}</span>
+            {document.file_size && <span>{t('previewPage.fileSize', { size: formatFileSize(document.file_size) })}</span>}
           </div>
         </div>
         <Button
           onClick={() => window.open(documentsApi.getDownloadUrl(document.id), '_blank')}
         >
           <Download className="h-4 w-4 mr-2" />
-          다운로드
+          {t('previewPage.download')}
         </Button>
       </div>
 
@@ -74,7 +76,7 @@ export default function DocumentPreviewPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              미리보기
+              {t('previewPage.preview')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -86,14 +88,14 @@ export default function DocumentPreviewPage() {
               <div className="text-center py-12 text-gray-500">
                 <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
                 <p className="mb-4">
-                  {preview?.message || `${document.file_format?.toUpperCase()} 파일은 미리보기를 지원하지 않습니다.`}
+                  {preview?.message || t('previewPage.noPreview', { format: document.file_format?.toUpperCase() })}
                 </p>
                 <Button
                   variant="outline"
                   onClick={() => window.open(documentsApi.getDownloadUrl(document.id), '_blank')}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  다운로드하여 확인
+                  {t('previewPage.downloadToView')}
                 </Button>
               </div>
             )}
@@ -104,27 +106,27 @@ export default function DocumentPreviewPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>문서 정보</CardTitle>
+              <CardTitle>{t('previewPage.documentInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <span className="text-sm text-gray-500">포함된 프로젝트</span>
+                <span className="text-sm text-gray-500">{t('previewPage.includedProjects')}</span>
                 <p className="font-medium">
-                  {document.included_projects?.length || 0}개
+                  {t('previewPage.projectCount', { count: document.included_projects?.length || 0 })}
                 </p>
               </div>
               {document.generation_settings && (
                 <>
                   <div>
-                    <span className="text-sm text-gray-500">요약 스타일</span>
+                    <span className="text-sm text-gray-500">{t('previewPage.summaryStyle')}</span>
                     <p className="font-medium">
                       {document.generation_settings.summary_style as string || '-'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-500">성과 포함</span>
+                    <span className="text-sm text-gray-500">{t('previewPage.includeAchievements')}</span>
                     <p className="font-medium">
-                      {document.generation_settings.include_achievements ? '예' : '아니오'}
+                      {document.generation_settings.include_achievements ? t('common:yes') : t('common:no')}
                     </p>
                   </div>
                 </>
@@ -135,7 +137,7 @@ export default function DocumentPreviewPage() {
           {versions.length > 1 && (
             <Card>
               <CardHeader>
-                <CardTitle>버전 기록</CardTitle>
+                <CardTitle>{t('previewPage.versionHistory')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -156,7 +158,7 @@ export default function DocumentPreviewPage() {
                       <div className="flex items-center justify-between">
                         <span className="font-medium">v{version.version}</span>
                         {version.id === document.id && (
-                          <Badge variant="secondary">현재</Badge>
+                          <Badge variant="secondary">{t('previewPage.current')}</Badge>
                         )}
                       </div>
                       <p className="text-xs text-gray-500">

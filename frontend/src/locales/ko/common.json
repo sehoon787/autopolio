@@ -69,6 +69,31 @@
   "logout": "로그아웃",
   "loginToSave": "로그인",
   "loginNow": "지금 로그인",
+  "fullscreen": "전체화면",
+  "scrollToTop": "맨 위로 이동",
+  "errorBoundary": {
+    "title": "문제가 발생했습니다",
+    "description": "예기치 않은 오류가 발생했습니다. 페이지를 새로고침하거나 다시 시도해주세요.",
+    "errorDetails": "오류 내용:",
+    "retry": "다시 시도",
+    "reload": "새로고침",
+    "goToDashboard": "대시보드로",
+    "sectionError": "이 섹션을 불러오는 중 오류가 발생했습니다"
+  },
+  "editor": {
+    "modified": "수정됨",
+    "editBtn": "편집",
+    "cancel": "취소",
+    "save": "저장",
+    "resetToOriginal": "원본으로",
+    "newItemPlaceholder": "새 항목 추가...",
+    "addItem": "추가",
+    "noItems": "항목이 없습니다.",
+    "sectionTitlePlaceholder": "섹션 제목...",
+    "itemPlaceholder": "항목 내용...",
+    "addItemBtn": "항목 추가",
+    "addSection": "새 섹션 추가"
+  },
   "export": {
     "title": "프로젝트 내보내기",
     "titleSingleProject": "{{name}} 내보내기",

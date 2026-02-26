@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.21] - 2026-02-26
+
+### Fixed
+- **파이프라인 문서 생성 FK 오류 수정** (`pipeline_template_step.py`)
+  - 정적 템플릿(ID 9101+) 사용 시 `generated_documents.template_id` FK 제약조건 위반으로 Step 7 실패
+  - 정적 템플릿일 경우 `template_id=None`으로 설정하여 FK 위반 방지
+- **파이프라인 백그라운드 태스크 에러 로깅 개선** (`pipeline.py`)
+  - `asyncio.create_task` done callback에서 예외를 `logger.error`로 출력
+  - 기존에는 예외가 무시되어 디버깅 불가능했음
+- **AnalysisJobStatus schema 수정** (`schemas/github.py`)
+  - `project_id`를 `Optional[int]`로 변경 (파이프라인 작업은 project_id가 None)
+  - `GET /api/github/active-analyses` Pydantic validation 오류 해결
+
+### Added
+- **CLI 멀티레포 통합 요약 지원** (`llm_generation.py`, `cli_llm_service.py`)
+  - `generate_multi_repo_summary_llm()` 공유 함수로 추출
+  - `CLILLMService`에 `generate_multi_repo_summary()` 메서드 추가
+  - CLI 모드(Claude Code/Gemini CLI)에서도 멀티레포 통합 서사 생성 가능
+  - 기존에는 `LLMService`에만 존재하여 CLI 모드에서 `AttributeError` 발생
+- **멀티레포 통합 요약 단위 테스트** (`test_multi_repo_summary.py`)
+  - 9개 테스트 케이스 (공유 함수 직접 호출, LLMService/CLILLMService 위임 등)
+
+### Changed
+- **프론트엔드 컴포넌트 개선**
+  - EditableList/EditableStructuredList: 편집 UX 개선
+  - ErrorBoundary: 에러 표시 로직 리팩터링
+  - KanbanBoard: 칸반 보드 개선
+  - FullScreenDialog: 전체화면 다이얼로그 개선
+  - Pipeline 페이지: 진행 표시 개선
+  - Documents Preview: 문서 미리보기 개선
+- **i18n 번역 추가** (한국어/영어)
+  - common, documents, github, pipeline, projects 번역 키 추가
+
+---
+
 ## [1.20] - 2026-02-24
 
 ### Added

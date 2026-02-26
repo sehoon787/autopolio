@@ -37,6 +37,23 @@
   "bulkDeleteError": "Failed to delete some documents.",
   "bulkDownloadStarted": "{{count}} file downloads started.",
   "bulkDownloadError": "Download failed.",
+  "previewPage": {
+    "loading": "Loading...",
+    "notFound": "Document not found.",
+    "createdAt": "Created: {{date}}",
+    "fileSize": "Size: {{size}}",
+    "download": "Download",
+    "preview": "Preview",
+    "noPreview": "{{format}} files do not support preview.",
+    "downloadToView": "Download to view",
+    "documentInfo": "Document Info",
+    "includedProjects": "Included Projects",
+    "projectCount": "{{count}}",
+    "summaryStyle": "Summary Style",
+    "includeAchievements": "Include Achievements",
+    "versionHistory": "Version History",
+    "current": "Current"
+  },
   "pipeline": {
     "title": "Pipeline Execution",
     "step1": "GitHub Analysis",

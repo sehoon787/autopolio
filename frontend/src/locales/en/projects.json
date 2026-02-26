@@ -78,6 +78,15 @@
     "completed": "Completed",
     "partial": "Partial"
   },
+  "kanban": {
+    "columns": {
+      "pending": "Pending Analysis",
+      "analyzing": "Analyzing",
+      "review": "Needs Review",
+      "completed": "Completed"
+    },
+    "noItems": "No items"
+  },
   "backgroundAnalysis": {
     "inProgress": "Analyzing",
     "progress": "{{progress}}%",

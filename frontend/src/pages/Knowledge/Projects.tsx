@@ -29,7 +29,6 @@ import {
 import { Project } from '@/api/knowledge'
 import {
   KanbanBoard,
-  PROJECT_STATUS_COLUMNS,
 } from '@/components/KanbanBoard'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { ScrollToTop } from '@/components/ScrollToTop'
@@ -350,10 +349,9 @@ export default function ProjectsPage() {
             <KanbanBoard<ProjectKanbanItem> columns={columns} onMove={handleMove} onReorder={() => {}} renderItem={(item) => <ProjectKanbanCard project={item.project} />} renderOverlay={(item) => <ProjectKanbanCard project={item.project} />} renderEmptyState={() => <span>{t('dragProjectHere')}</span>} />
           </div>
           <div className="grid grid-cols-4 gap-4">
-            {PROJECT_STATUS_COLUMNS.map((col) => {
-              const count = columns.find(c => c.id === col.id)?.items.length || 0
-              return <Card key={col.id}><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{count}</div><div className="text-sm text-gray-500">{col.title}</div></CardContent></Card>
-            })}
+            {columns.map((col) => (
+              <Card key={col.id}><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{col.items.length}</div><div className="text-sm text-gray-500">{col.title}</div></CardContent></Card>
+            ))}
           </div>
         </>
       )}

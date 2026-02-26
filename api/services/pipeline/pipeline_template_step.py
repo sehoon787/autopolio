@@ -18,7 +18,7 @@ from api.models.template import Template
 from api.models.document import GeneratedDocument
 from api.models.repo_analysis import RepoAnalysis
 from api.schemas.pipeline import PipelineRunRequest
-from api.services.template.static_doc_templates import get_static_doc_template_by_id
+from api.services.template.static_doc_templates import get_static_doc_template_by_id, is_static_doc_id
 
 logger = logging.getLogger(__name__)
 
@@ -267,9 +267,14 @@ async def step_document_generation(
     )
 
     # Save document record
+    # Static templates (IDs like 9101+) aren't in the DB templates table,
+    # so set template_id=None to avoid FK constraint violation.
+    db_template_id = mapping_results["template_id"]
+    if is_static_doc_id(db_template_id):
+        db_template_id = None
     document = GeneratedDocument(
         user_id=user_id,
-        template_id=mapping_results["template_id"],
+        template_id=db_template_id,
         document_name=document_name,
         file_path=file_path,
         file_format=request.output_format,

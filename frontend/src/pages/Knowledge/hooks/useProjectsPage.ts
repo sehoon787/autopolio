@@ -330,11 +330,12 @@ export function useProjectsPage() {
 
   // Kanban
   const kanbanItems: ProjectKanbanItem[] = projects.map((project) => ({ id: project.id, columnId: getColumnId(project), project }))
-  const columns: KanbanColumn[] = createKanbanColumns(kanbanItems, PROJECT_STATUS_COLUMNS)
+  const translatedColumns = PROJECT_STATUS_COLUMNS.map(c => ({ id: c.id, title: t(c.titleKey), color: c.color }))
+  const columns: KanbanColumn[] = createKanbanColumns(kanbanItems, translatedColumns)
   const handleMove = (itemId: string | number, _fromColumn: string, toColumn: string) => {
     const projectId = typeof itemId === 'string' ? parseInt(itemId) : itemId
     updateStatusMutation.mutate({ id: projectId, status: toColumn })
-    const columnName = PROJECT_STATUS_COLUMNS.find(c => c.id === toColumn)?.title || toColumn
+    const columnName = translatedColumns.find(c => c.id === toColumn)?.title || toColumn
     toast({ title: t('statusChanged'), description: t('statusChangedTo', { column: columnName }) })
   }
 
