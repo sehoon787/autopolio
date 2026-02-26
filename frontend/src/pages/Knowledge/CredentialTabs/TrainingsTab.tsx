@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,7 @@ export function TrainingsTab({ createTrigger, sortBy: externalSortBy }: Training
   const { t } = useTranslation()
   const { user } = useUserStore()
   const queryClient = useQueryClient()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
 
   // CRUD operations hook - uses educations API but with trainings i18n
   const crud = useCrudOperations<Education, EducationCreate>({
@@ -172,7 +174,7 @@ export function TrainingsTab({ createTrigger, sortBy: externalSortBy }: Training
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">

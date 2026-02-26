@@ -9,7 +9,7 @@ import { TrainingsTab } from './CredentialTabs/TrainingsTab'
 import { PublicationsTab } from './CredentialTabs/PublicationsTab'
 import { VolunteerActivitiesTab } from './CredentialTabs/VolunteerActivitiesTab'
 import { ScrollToTop } from '@/components/ScrollToTop'
-import { Award, GraduationCap, FileText, Medal, Heart, BookOpen } from 'lucide-react'
+import { Trophy, GraduationCap, FileText, IdCard, Heart, BookOpen } from 'lucide-react'
 import { useUserStore } from '@/stores/userStore'
 import {
   certificationsApi,
@@ -117,7 +117,7 @@ export default function CredentialsPage() {
             </span>
           </TabsTrigger>
           <TabsTrigger value="certifications_awards" className="flex items-center gap-2">
-            <Medal className="h-4 w-4" />
+            <IdCard className="h-4 w-4" />
             <span className="hidden sm:inline">
               {t('credentials:groups.certificationsAwards')}
               {certificationsAwardsTotal > 0 && ` (${certificationsAwardsTotal})`}
@@ -170,12 +170,12 @@ export default function CredentialsPage() {
           <Tabs value={certificationSubTab} onValueChange={(v) => setCertificationSubTab(v as CertificationSubTab)}>
             <TabsList>
               <TabsTrigger value="certifications" className="flex items-center gap-2">
-                <Medal className="h-4 w-4" />
+                <IdCard className="h-4 w-4" />
                 {t('credentials:tabs.certifications')}
                 {counts.certifications > 0 && ` (${counts.certifications})`}
               </TabsTrigger>
               <TabsTrigger value="awards" className="flex items-center gap-2">
-                <Award className="h-4 w-4" />
+                <Trophy className="h-4 w-4" />
                 {t('credentials:tabs.awards')}
                 {counts.awards > 0 && ` (${counts.awards})`}
               </TabsTrigger>
@@ -200,7 +200,7 @@ export default function CredentialsPage() {
                 {counts.volunteer > 0 && ` (${counts.volunteer})`}
               </TabsTrigger>
               <TabsTrigger value="external" className="flex items-center gap-2">
-                <Award className="h-4 w-4" />
+                <Trophy className="h-4 w-4" />
                 {t('credentials:tabs.externalActivities')}
                 {counts.external > 0 && ` (${counts.external})`}
               </TabsTrigger>

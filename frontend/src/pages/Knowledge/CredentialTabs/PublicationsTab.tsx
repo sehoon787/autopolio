@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -82,6 +83,7 @@ interface PublicationsTabProps {
 export function PublicationsTab({ createTrigger, sortBy: externalSortBy }: PublicationsTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
 
   // CRUD operations hook
   const crud = useCrudOperations<Publication, PublicationCreate>({
@@ -146,7 +148,7 @@ export function PublicationsTab({ createTrigger, sortBy: externalSortBy }: Publi
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">

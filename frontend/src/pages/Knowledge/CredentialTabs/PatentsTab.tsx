@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -117,6 +118,7 @@ export function PatentsTab({ createTrigger, sortBy: externalSortBy }: PatentsTab
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Publication | null>(null)
   const [formData, setFormData] = useState<PatentFormData>(INITIAL_FORM_DATA)
@@ -262,7 +264,7 @@ export function PatentsTab({ createTrigger, sortBy: externalSortBy }: PatentsTab
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => {
             const patentData = parsePatentData(item)
             return (
