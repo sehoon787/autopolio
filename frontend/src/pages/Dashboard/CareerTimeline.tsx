@@ -14,6 +14,7 @@ import {
   ScrollText,
   Heart,
   Users,
+  ArrowRight,
 } from 'lucide-react'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
 import type { Education } from '@/api/credentials'
@@ -85,28 +86,6 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
   const { certifications, awards, educations, publications, volunteerActivities } = credentials
   const hasCredentials = certifications.length + awards.length + educations.length + publications.length + volunteerActivities.length > 0
   const hasCompanies = companies.length > 0
-
-  if (!hasCompanies && !hasCredentials) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('dashboard:careerTimeline.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>{t('dashboard:careerTimeline.empty')}</p>
-            <button
-              onClick={() => navigate('/knowledge/companies')}
-              className="text-primary hover:underline text-sm mt-2"
-            >
-              {t('dashboard:careerTimeline.addCompany')}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
 
   const allDates: (string | null | undefined)[] = []
   companies.forEach((c) => {
@@ -388,25 +367,17 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>{t('dashboard:careerTimeline.title')}</CardTitle>
-            <div className="flex items-center gap-2">
-              <TabsList className="h-7">
-                <TabsTrigger value="summary" className="text-xs px-2 py-1 h-5">
-                  {t('dashboard:careerTimeline.viewSummary')}
-                </TabsTrigger>
-                <TabsTrigger value="detail" className="text-xs px-2 py-1 h-5">
-                  {t('dashboard:careerTimeline.viewDetail')}
-                </TabsTrigger>
-                <TabsTrigger value="project" className="text-xs px-2 py-1 h-5">
-                  {t('dashboard:careerTimeline.viewProject')}
-                </TabsTrigger>
-              </TabsList>
-              <button
-                onClick={() => navigate('/knowledge/companies/timeline')}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {t('dashboard:viewAll')} →
-              </button>
-            </div>
+            <TabsList className="h-7">
+              <TabsTrigger value="summary" className="text-xs px-2 py-1 h-5">
+                {t('dashboard:careerTimeline.viewSummary')}
+              </TabsTrigger>
+              <TabsTrigger value="detail" className="text-xs px-2 py-1 h-5">
+                {t('dashboard:careerTimeline.viewDetail')}
+              </TabsTrigger>
+              <TabsTrigger value="project" className="text-xs px-2 py-1 h-5">
+                {t('dashboard:careerTimeline.viewProject')}
+              </TabsTrigger>
+            </TabsList>
           </div>
         </CardHeader>
         <CardContent>
@@ -414,6 +385,44 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
             <CareerHeatmap data={data} credentials={credentials} />
           </TabsContent>
           <TabsContent value="detail" className="mt-0">
+            {!hasCompanies && !hasCredentials ? (
+              <div className="py-4">
+                {([
+                  { icon: Building2, label: t('dashboard:careerTimeline.emptyCompanies'), addLabel: t('dashboard:careerTimeline.goAddCompany'), path: '/knowledge/companies' },
+                  { icon: GraduationCap, label: t('dashboard:careerTimeline.emptyEducation'), addLabel: t('dashboard:careerTimeline.goAddEducation'), path: '/knowledge/education-publications-patents' },
+                  { icon: IdCard, label: t('dashboard:careerTimeline.emptyCertifications'), addLabel: t('dashboard:careerTimeline.goAddCertification'), path: '/knowledge/certifications-awards' },
+                  { icon: Heart, label: t('dashboard:careerTimeline.emptyActivities'), addLabel: t('dashboard:careerTimeline.goAddActivity'), path: '/knowledge/activities' },
+                ] as const).map(({ icon: Icon, label, addLabel, path }, i) => (
+                  <div key={`${path}-${i}`}>
+                    {i > 0 && (
+                      <div className="flex items-center my-2">
+                        <div className={`${LABEL_COL_CLASS} shrink-0`} />
+                        <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
+                      </div>
+                    )}
+                    <div className="flex items-center py-1.5">
+                      <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-sm font-medium truncate text-muted-foreground">
+                            {label}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 flex items-center justify-center h-7">
+                        <button
+                          onClick={() => navigate(path)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                        >
+                          {addLabel}
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="relative">
               {/* Year ticks */}
               <div className="flex items-center mb-3">
@@ -505,7 +514,52 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                 {/* Accordion groups */}
                 {accordionGroups.map((group, index) => renderGroup(group, index))}
               </TooltipProvider>
+
+              {/* Empty group hints */}
+              {(() => {
+                const emptyGroups = [
+                  !hasCompanies && { icon: Building2, label: t('dashboard:careerTimeline.emptyCompanies'), addLabel: t('dashboard:careerTimeline.goAddCompany'), path: '/knowledge/companies' },
+                  educations.length + papers.length + patents.length === 0 && { icon: GraduationCap, label: t('dashboard:careerTimeline.emptyEducation'), addLabel: t('dashboard:careerTimeline.goAddEducation'), path: '/knowledge/education-publications-patents' },
+                  certifications.length + awards.length === 0 && { icon: IdCard, label: t('dashboard:careerTimeline.emptyCertifications'), addLabel: t('dashboard:careerTimeline.goAddCertification'), path: '/knowledge/certifications-awards' },
+                  volunteerActivities.length === 0 && { icon: Heart, label: t('dashboard:careerTimeline.emptyActivities'), addLabel: t('dashboard:careerTimeline.goAddActivity'), path: '/knowledge/activities' },
+                ].filter(Boolean) as { icon: typeof Building2; label: string; addLabel: string; path: string }[]
+                if (emptyGroups.length === 0) return null
+                const needsSeparator = hasCompanies || hasAccordionGroups
+                return emptyGroups.map((g, i) => {
+                  const Icon = g.icon
+                  return (
+                    <div key={`${g.path}-${i}`}>
+                      {(i > 0 || needsSeparator) && (
+                        <div className="flex items-center my-2">
+                          <div className={`${LABEL_COL_CLASS} shrink-0`} />
+                          <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
+                        </div>
+                      )}
+                      <div className="flex items-center py-1.5">
+                        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="text-sm font-medium truncate text-muted-foreground">
+                              {g.label}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center h-7">
+                          <button
+                            onClick={() => navigate(g.path)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                          >
+                            {g.addLabel}
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
             </div>
+            )}
           </TabsContent>
           <TabsContent value="project" className="mt-0">
             {companies.some((g) => g.projects.length > 0) ? (

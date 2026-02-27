@@ -109,7 +109,7 @@ export default function ActivitiesPage() {
           </div>
           <Button onClick={handleAddClick}>
             <Plus className="h-4 w-4 mr-2" />
-            {t('common:add')}
+            {t(`credentials:volunteerActivities.add_${activeTab}`)}
           </Button>
         </div>
       </div>

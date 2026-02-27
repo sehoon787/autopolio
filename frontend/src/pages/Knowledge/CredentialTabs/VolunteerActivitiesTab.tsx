@@ -157,7 +157,7 @@ export function VolunteerActivitiesTab({ activityType, createTrigger, sortBy: ex
             <p className="text-muted-foreground mb-4">{t('credentials:volunteerActivities.emptyDesc')}</p>
             <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
-              {t('credentials:volunteerActivities.addFirst')}
+              {t(`credentials:volunteerActivities.addFirst_${activityType || 'default'}`)}
             </Button>
           </CardContent>
         </Card>
@@ -273,7 +273,9 @@ export function VolunteerActivitiesTab({ activityType, createTrigger, sortBy: ex
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {crud.editingItem ? t('credentials:volunteerActivities.edit') : t('credentials:volunteerActivities.new')}
+              {crud.editingItem
+                ? t(`credentials:volunteerActivities.edit_${activityType || 'default'}`)
+                : t(`credentials:volunteerActivities.new_${activityType || 'default'}`)}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={crud.handleSubmit} className="space-y-4">
