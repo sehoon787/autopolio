@@ -44,6 +44,16 @@ export function generateYearTicks(start: Date, end: Date): number[] {
   return years
 }
 
+/** Parse a raw date string (possibly pipe-delimited) into a valid date segment or null. */
+export function parseValidDate(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const segment = raw.split('|')[0].trim()
+  if (!segment) return null
+  const d = new Date(segment)
+  if (isNaN(d.getTime())) return null
+  return segment
+}
+
 /** Format a date string as yyyy.MM */
 export function formatDate(date: string | null | undefined): string {
   if (!date) return ''
