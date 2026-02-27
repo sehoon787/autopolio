@@ -48,7 +48,15 @@
     "heatmapMon": "Mon",
     "heatmapWed": "Wed",
     "heatmapFri": "Fri",
-    "heatmapMonths": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec"
+    "heatmapMonths": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+    "emptyCompanies": "Companies",
+    "emptyEducation": "Education & Publications & Patents",
+    "emptyCertifications": "Certifications & Awards",
+    "emptyActivities": "Activities",
+    "goAddCompany": "Add your first company",
+    "goAddEducation": "Add your first education",
+    "goAddCertification": "Add your first certification",
+    "goAddActivity": "Add your first activity"
   },
   "projectTimeline": {
     "title": "Project Timeline",

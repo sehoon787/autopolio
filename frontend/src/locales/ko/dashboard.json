@@ -31,8 +31,8 @@
     "externalActivities": "대외활동",
     "certifications": "자격증",
     "awards": "수상이력",
-    "publications": "논문/특허",
-    "papers": "논문/저술",
+    "publications": "논문·특허",
+    "papers": "논문·저술",
     "noDate": "날짜 미입력",
     "patents": "특허",
     "educationGroup": "교육·저술·특허",
@@ -48,7 +48,15 @@
     "heatmapMon": "월",
     "heatmapWed": "수",
     "heatmapFri": "금",
-    "heatmapMonths": "1월,2월,3월,4월,5월,6월,7월,8월,9월,10월,11월,12월"
+    "heatmapMonths": "1월,2월,3월,4월,5월,6월,7월,8월,9월,10월,11월,12월",
+    "emptyCompanies": "회사",
+    "emptyEducation": "교육·저술·특허",
+    "emptyCertifications": "자격·수상",
+    "emptyActivities": "활동",
+    "goAddCompany": "첫 회사 추가하러 가기",
+    "goAddEducation": "첫 교육·저술·특허 추가하러 가기",
+    "goAddCertification": "첫 자격·수상 추가하러 가기",
+    "goAddActivity": "첫 활동 추가하러 가기"
   },
   "projectTimeline": {
     "title": "프로젝트 타임라인",
