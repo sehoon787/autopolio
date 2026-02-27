@@ -37,7 +37,18 @@
     "patents": "Patents",
     "educationGroup": "Education · Publications · Patents",
     "qualificationsGroup": "Certifications · Awards",
-    "activitiesGroup": "Activities"
+    "activitiesGroup": "Activities",
+    "viewDetail": "Detail",
+    "viewSummary": "Summary",
+    "viewProject": "Projects",
+    "heatmapLess": "Less",
+    "heatmapMore": "More",
+    "heatmapItems": "{{count}} items",
+    "heatmapNoActivity": "No activity",
+    "heatmapMon": "Mon",
+    "heatmapWed": "Wed",
+    "heatmapFri": "Fri",
+    "heatmapMonths": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec"
   },
   "projectTimeline": {
     "title": "Project Timeline",

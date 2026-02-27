@@ -37,7 +37,18 @@
     "patents": "특허",
     "educationGroup": "교육·저술·특허",
     "qualificationsGroup": "자격·수상",
-    "activitiesGroup": "활동"
+    "activitiesGroup": "활동",
+    "viewDetail": "상세",
+    "viewSummary": "요약",
+    "viewProject": "프로젝트",
+    "heatmapLess": "적음",
+    "heatmapMore": "많음",
+    "heatmapItems": "{{count}}건",
+    "heatmapNoActivity": "활동 없음",
+    "heatmapMon": "월",
+    "heatmapWed": "수",
+    "heatmapFri": "금",
+    "heatmapMonths": "1월,2월,3월,4월,5월,6월,7월,8월,9월,10월,11월,12월"
   },
   "projectTimeline": {
     "title": "프로젝트 타임라인",
