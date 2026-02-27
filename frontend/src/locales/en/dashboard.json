@@ -11,24 +11,48 @@
     "analyzedProjects": "Analyzed Projects",
     "documents": "Generated Documents"
   },
-  "recentProjects": "Recent Projects",
-  "recentDocuments": "Recent Documents",
-  "recentJobs": "Recent Jobs",
   "viewAll": "View All",
-  "noProjects": "No projects yet.",
-  "addProject": "Add Project",
-  "noDocuments": "No documents generated yet.",
-  "createFirstDocument": "Create First Document",
-  "noJobs": "No recent job history.",
-  "jobStatus": {
-    "completed": "Completed",
-    "running": "Running",
-    "failed": "Failed"
-  },
-  "pipelineJob": "Document Generation Pipeline",
   "connectGitHub": {
     "title": "Connect GitHub",
     "description": "Connect GitHub to analyze repositories and generate more accurate project summaries.",
     "button": "Connect"
+  },
+  "careerTimeline": {
+    "title": "Career Timeline",
+    "empty": "Add companies to see your career timeline.",
+    "addCompany": "Add Company",
+    "present": "Present",
+    "projects": "{{count}} projects",
+    "techStack": "Tech Stack",
+    "credentials": "Credentials",
+    "degree": "Education",
+    "trainings": "Training",
+    "volunteer": "Volunteer",
+    "externalActivities": "External Activities",
+    "certifications": "Certifications",
+    "awards": "Awards",
+    "noDate": "no date",
+    "publications": "Publications",
+    "papers": "Publications",
+    "patents": "Patents",
+    "educationGroup": "Education · Publications · Patents",
+    "qualificationsGroup": "Certifications · Awards",
+    "activitiesGroup": "Activities"
+  },
+  "projectTimeline": {
+    "title": "Project Timeline",
+    "empty": "Add projects to see the timeline.",
+    "addProject": "Add Project",
+    "present": "Present"
+  },
+  "repoTimeline": {
+    "title": "GitHub Repository Timeline",
+    "empty": "Connect GitHub to see your repository timeline.",
+    "connectGitHub": "Connect GitHub",
+    "noRepos": "No repositories found.",
+    "stars": "{{count}} stars",
+    "forks": "{{count}} forks",
+    "showAll": "Show All ({{count}})",
+    "showLess": "Show Less"
   }
 }
