@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Building2,
+  FolderKanban,
   GraduationCap,
   Code,
   IdCard,
@@ -13,21 +14,12 @@ import {
   ScrollText,
   Heart,
   Users,
-  ChevronRight,
-  ChevronDown,
 } from 'lucide-react'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
 import type { Certification, Award, Education, Publication, VolunteerActivity } from '@/api/credentials'
-import { getTimelineRange, dateToPercent, generateYearTicks, formatDate } from './timelineUtils'
-
-function parseValidDate(raw: string | null | undefined): string | null {
-  if (!raw) return null
-  const segment = raw.split('|')[0].trim()
-  if (!segment) return null
-  const d = new Date(segment)
-  if (isNaN(d.getTime())) return null
-  return segment
-}
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { getTimelineRange, dateToPercent, generateYearTicks, formatDate, parseValidDate } from './timelineUtils'
+import CareerHeatmap from './CareerHeatmap'
 
 type DurationItem = {
   id: string; label: string; subtitle: string | null
@@ -79,15 +71,7 @@ const MIN_BAR_PCT_FOR_LABEL = 4
 export default function CareerTimeline({ data, credentials, isLoading }: CareerTimelineProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }
+  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'project'>('summary')
 
   if (isLoading) {
     return (
@@ -137,7 +121,10 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
   }
 
   const allDates: (string | null | undefined)[] = []
-  companies.forEach((c) => { allDates.push(c.company.start_date, c.company.end_date) })
+  companies.forEach((c) => {
+    allDates.push(c.company.start_date, c.company.end_date)
+    c.projects.forEach((p) => { allDates.push(p.start_date, p.end_date) })
+  })
   educations.forEach((e) => { allDates.push(e.start_date, e.end_date) })
   certifications.forEach((c) => { allDates.push(c.issue_date) })
   awards.forEach((a) => { allDates.push(a.award_date) })
@@ -281,7 +268,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
     if (datedItems.length === 0 && sub.items.length === 0) return null
 
     return (
-      <div key={sub.key} className="flex items-center mb-0.5">
+      <div key={sub.key} className="flex items-center py-1.5">
         <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-6">
           <div className="flex items-center gap-1.5 min-w-0">
             <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -290,7 +277,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
             </span>
           </div>
         </div>
-        <div className="flex-1 relative h-6">
+        <div className="flex-1 relative h-5">
           {datedItems.map((item) => {
             const sDate = new Date(item.date!)
             const eDate = item.endDate ? new Date(item.endDate) : (item.isCurrent ? now : sDate)
@@ -334,7 +321,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
     if (datedItems.length === 0 && sub.items.length === 0) return null
 
     return (
-      <div key={sub.key} className="flex items-center mb-0.5">
+      <div key={sub.key} className="flex items-center py-1.5">
         <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-6">
           <div className="flex items-center gap-1.5 min-w-0">
             <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -343,7 +330,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
             </span>
           </div>
         </div>
-        <div className="flex-1 relative h-4 flex items-center">
+        <div className="flex-1 relative h-5 flex items-center">
           {datedItems.length === 0 && sub.items.length > 0 && (
             <span className="text-[10px] text-muted-foreground/60 italic pl-1">
               ({sub.items.length}건 — {t('dashboard:careerTimeline.noDate')})
@@ -374,8 +361,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
   }
 
   // ── Main render ──
-  const renderAccordionGroup = (group: AccordionGroup, index: number) => {
-    const isExpanded = expandedGroups.has(group.key)
+  const renderGroup = (group: AccordionGroup, index: number) => {
     const Icon = group.icon
 
     return (
@@ -389,16 +375,9 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
         )}
 
         {/* Group header */}
-        <div
-          className="flex items-center mb-1 cursor-pointer select-none"
-          onClick={() => toggleGroup(group.key)}
-        >
+        <div className="flex items-center py-1.5">
           <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
             <div className="flex items-center gap-1 min-w-0">
-              {isExpanded
-                ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              }
               <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="text-sm font-medium truncate">
                 {t(group.i18nKey)} ({group.totalCount})
@@ -408,126 +387,245 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
           <div className="flex-1" />
         </div>
 
-        {/* Sub-type rows: hidden when collapsed, shown when expanded */}
-        {isExpanded && (
-          <>
-            {group.durationSubGroups.map((sub) => renderCompactDuration(sub))}
-            {group.pointSubGroups.map((sub) => renderCompactPoint(sub))}
-          </>
-        )}
+        {/* Sub-type rows: always shown */}
+        {group.durationSubGroups.map((sub) => renderCompactDuration(sub))}
+        {group.pointSubGroups.map((sub) => renderCompactPoint(sub))}
       </div>
     )
   }
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle>{t('dashboard:careerTimeline.title')}</CardTitle>
-          <button
-            onClick={() => navigate('/knowledge/companies/timeline')}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {t('dashboard:viewAll')} →
-          </button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="relative">
-          {/* Year ticks */}
-          <div className="flex items-center mb-3">
-            <div className="w-[140px] lg:w-[180px] shrink-0" />
-            <div className="flex-1 relative h-5">
-              {yearTicks.map((year) => {
-                const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
-                return (
-                  <span
-                    key={year}
-                    className="absolute text-xs text-muted-foreground -translate-x-1/2"
-                    style={{ left: `${pct}%` }}
-                  >
-                    {year}
-                  </span>
-                )
-              })}
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'summary' | 'detail' | 'project')}>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>{t('dashboard:careerTimeline.title')}</CardTitle>
+            <div className="flex items-center gap-2">
+              <TabsList className="h-7">
+                <TabsTrigger value="summary" className="text-xs px-2 py-1 h-5">
+                  {t('dashboard:careerTimeline.viewSummary')}
+                </TabsTrigger>
+                <TabsTrigger value="detail" className="text-xs px-2 py-1 h-5">
+                  {t('dashboard:careerTimeline.viewDetail')}
+                </TabsTrigger>
+                <TabsTrigger value="project" className="text-xs px-2 py-1 h-5">
+                  {t('dashboard:careerTimeline.viewProject')}
+                </TabsTrigger>
+              </TabsList>
+              <button
+                onClick={() => navigate('/knowledge/companies/timeline')}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {t('dashboard:viewAll')} →
+              </button>
             </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          <TabsContent value="summary" className="mt-0">
+            <CareerHeatmap data={data} credentials={credentials} />
+          </TabsContent>
+          <TabsContent value="detail" className="mt-0">
+            <div className="relative">
+              {/* Year ticks */}
+              <div className="flex items-center mb-3">
+                <div className="w-[140px] lg:w-[180px] shrink-0" />
+                <div className="flex-1 relative h-5">
+                  {yearTicks.map((year) => {
+                    const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
+                    return (
+                      <span
+                        key={year}
+                        className="absolute text-xs text-muted-foreground -translate-x-1/2"
+                        style={{ left: `${pct}%` }}
+                      >
+                        {year}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
 
-          <TooltipProvider delayDuration={200}>
-            {/* Company rows */}
-            {companies.map((group) => {
-              const company = group.company
-              const startDate = company.start_date ? new Date(company.start_date) : range.start
-              const endDate = company.end_date ? new Date(company.end_date) : now
-              const startPct = dateToPercent(startDate, range.start, range.end)
-              const endPct = dateToPercent(endDate, range.start, range.end)
-              const widthPct = Math.max(endPct - startPct, 1)
-              const isCurrent = !company.end_date || company.is_current
+              <TooltipProvider delayDuration={200}>
+                {/* Company + project rows */}
+                {companies.map((group) => {
+                  const company = group.company
+                  const startDate = company.start_date ? new Date(company.start_date) : range.start
+                  const endDate = company.end_date ? new Date(company.end_date) : now
+                  const startPct = dateToPercent(startDate, range.start, range.end)
+                  const endPct = dateToPercent(endDate, range.start, range.end)
+                  const widthPct = Math.max(endPct - startPct, 1)
+                  const isCurrent = !company.end_date || company.is_current
 
-              return (
-                <div key={company.id} className="mb-3">
-                  <div className="flex items-center">
-                    <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
-                      <p className="text-sm font-medium truncate">{company.name}</p>
-                      {company.position && (
-                        <p className="text-xs text-muted-foreground truncate">{company.position}</p>
-                      )}
-                    </div>
-                    <div className="flex-1 relative h-7">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            className="absolute top-0 h-7 rounded bg-blue-500/70 dark:bg-blue-400/60 cursor-pointer hover:bg-blue-500/90 dark:hover:bg-blue-400/80 transition-colors flex items-center overflow-hidden"
-                            style={{ left: `${startPct}%`, width: `${widthPct}%`, minWidth: '4px' }}
-                            onClick={() => navigate('/knowledge/companies/timeline')}
-                          >
-                            {widthPct > 8 && (
-                              <span className="text-[10px] text-white px-1.5 truncate">
-                                {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
-                              </span>
-                            )}
-                            {isCurrent && (
-                              <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-300 animate-pulse rounded-r" />
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="font-medium">{company.name}</p>
-                          {company.position && <p className="text-xs">{company.position}</p>}
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t('dashboard:careerTimeline.projects', { count: group.project_count })}
-                          </p>
-                          {group.aggregated_tech_stack.length > 0 && (
-                            <p className="text-xs mt-1">
-                              <span className="text-muted-foreground">{t('dashboard:careerTimeline.techStack')}: </span>
-                              {group.aggregated_tech_stack.slice(0, 5).join(', ')}
-                              {group.aggregated_tech_stack.length > 5 && ` +${group.aggregated_tech_stack.length - 5}`}
+                  return (
+                    <div key={company.id} className="flex items-center py-1.5">
+                      <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
+                        <p className="text-sm font-medium truncate">{company.name}</p>
+                        {company.position && (
+                          <p className="text-xs text-muted-foreground truncate">{company.position}</p>
+                        )}
+                      </div>
+                      <div className="flex-1 relative h-6">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className="absolute top-0 h-6 rounded bg-blue-500/70 dark:bg-blue-400/60 cursor-pointer hover:bg-blue-500/90 dark:hover:bg-blue-400/80 transition-colors flex items-center overflow-hidden"
+                              style={{ left: `${startPct}%`, width: `${widthPct}%`, minWidth: '4px' }}
+                              onClick={() => navigate('/knowledge/companies/timeline')}
+                            >
+                              {widthPct > 8 && (
+                                <span className="text-[10px] text-white px-1.5 truncate">
+                                  {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
+                                </span>
+                              )}
+                              {isCurrent && (
+                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-300 animate-pulse rounded-r" />
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="font-medium">{company.name}</p>
+                            {company.position && <p className="text-xs">{company.position}</p>}
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
                             </p>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
+                            <p className="text-xs text-muted-foreground">
+                              {t('dashboard:careerTimeline.projects', { count: group.project_count })}
+                            </p>
+                            {group.aggregated_tech_stack.length > 0 && (
+                              <p className="text-xs mt-1">
+                                <span className="text-muted-foreground">{t('dashboard:careerTimeline.techStack')}: </span>
+                                {group.aggregated_tech_stack.slice(0, 5).join(', ')}
+                                {group.aggregated_tech_stack.length > 5 && ` +${group.aggregated_tech_stack.length - 5}`}
+                              </p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
+                  )
+                })}
+
+                {/* Separator: companies → accordion groups */}
+                {hasAccordionGroups && hasCompanies && (
+                  <div className="flex items-center my-3">
+                    <div className="w-[140px] lg:w-[180px] shrink-0" />
+                    <div className="flex-1 border-t border-dashed" />
+                  </div>
+                )}
+
+                {/* Accordion groups */}
+                {accordionGroups.map((group, index) => renderGroup(group, index))}
+              </TooltipProvider>
+            </div>
+          </TabsContent>
+          <TabsContent value="project" className="mt-0">
+            {companies.some((g) => g.projects.length > 0) ? (
+              <div className="relative">
+                {/* Year ticks */}
+                <div className="flex items-center mb-3">
+                  <div className="w-[140px] lg:w-[180px] shrink-0" />
+                  <div className="flex-1 relative h-5">
+                    {yearTicks.map((year) => {
+                      const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
+                      return (
+                        <span
+                          key={year}
+                          className="absolute text-xs text-muted-foreground -translate-x-1/2"
+                          style={{ left: `${pct}%` }}
+                        >
+                          {year}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
-              )
-            })}
 
-            {/* Separator: companies → accordion groups */}
-            {hasAccordionGroups && hasCompanies && (
-              <div className="flex items-center my-3">
-                <div className="w-[140px] lg:w-[180px] shrink-0" />
-                <div className="flex-1 border-t border-dashed" />
+                <TooltipProvider delayDuration={200}>
+                  {companies.map((group) => {
+                    if (group.projects.length === 0) return null
+                    const company = group.company
+                    const startDate = company.start_date ? new Date(company.start_date) : range.start
+
+                    return (
+                      <div key={company.id}>
+                        {/* Company label row */}
+                        <div className="flex items-center py-1.5">
+                          <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
+                            <p className="text-xs font-medium text-muted-foreground truncate">{company.name}</p>
+                          </div>
+                          <div className="flex-1" />
+                        </div>
+
+                        {/* Project bars */}
+                        {group.projects.map((project) => {
+                          const pStart = project.start_date ? new Date(project.start_date) : startDate
+                          const pEnd = project.end_date ? new Date(project.end_date) : now
+                          const pStartPct = dateToPercent(pStart, range.start, range.end)
+                          const pEndPct = dateToPercent(pEnd, range.start, range.end)
+                          const pWidthPct = Math.max(pEndPct - pStartPct, 1)
+                          const pIsCurrent = !project.end_date
+
+                          return (
+                            <div key={project.id} className="flex items-center py-1.5">
+                              <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-4">
+                                <p className="text-xs truncate">{project.name}</p>
+                              </div>
+                              <div className="flex-1 relative h-5">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className="absolute top-0 h-5 rounded bg-emerald-500/60 dark:bg-emerald-400/50 cursor-pointer hover:bg-emerald-500/80 dark:hover:bg-emerald-400/70 transition-colors flex items-center overflow-hidden"
+                                      style={{ left: `${pStartPct}%`, width: `${pWidthPct}%`, minWidth: '4px' }}
+                                      onClick={() => navigate(`/knowledge/projects/${project.id}`)}
+                                    >
+                                      {pWidthPct > 8 && (
+                                        <span className="text-[10px] text-white px-1.5 truncate">{project.name}</span>
+                                      )}
+                                      {pIsCurrent && (
+                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse rounded-r" />
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="font-medium">{project.name}</p>
+                                    <p className="text-xs text-muted-foreground">{company.name}</p>
+                                    {project.role && <p className="text-xs">{project.role}</p>}
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(project.start_date)} – {pIsCurrent ? t('dashboard:careerTimeline.present') : formatDate(project.end_date)}
+                                    </p>
+                                    {project.technologies.length > 0 && (
+                                      <p className="text-xs mt-1">
+                                        {project.technologies.slice(0, 5).join(', ')}
+                                        {project.technologies.length > 5 && ` +${project.technologies.length - 5}`}
+                                      </p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </TooltipProvider>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FolderKanban className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>{t('dashboard:projectTimeline.empty')}</p>
+                <button
+                  onClick={() => navigate('/knowledge/projects')}
+                  className="text-primary hover:underline text-sm mt-2"
+                >
+                  {t('dashboard:projectTimeline.addProject')}
+                </button>
               </div>
             )}
-
-            {/* Accordion groups */}
-            {accordionGroups.map((group, index) => renderAccordionGroup(group, index))}
-          </TooltipProvider>
-        </div>
-      </CardContent>
+          </TabsContent>
+        </CardContent>
+      </Tabs>
     </Card>
   )
 }

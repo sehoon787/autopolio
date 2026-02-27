@@ -24,7 +24,6 @@ import {
   Plus,
 } from 'lucide-react'
 import CareerTimeline from './CareerTimeline'
-import ProjectTimeline from './ProjectTimeline'
 import GitHubRepoTimeline from './GitHubRepoTimeline'
 
 export default function Dashboard() {
@@ -175,11 +174,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Career Timeline */}
+      {/* Career Timeline (includes projects) */}
       <CareerTimeline data={groupedData?.data} credentials={credentialData} isLoading={groupedLoading} />
-
-      {/* Project Timeline */}
-      <ProjectTimeline data={groupedData?.data} isLoading={groupedLoading} />
 
       {/* GitHub Repo Timeline */}
       <GitHubRepoTimeline
