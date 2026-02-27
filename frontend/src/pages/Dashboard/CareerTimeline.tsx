@@ -16,9 +16,13 @@ import {
   Users,
 } from 'lucide-react'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
-import type { Certification, Award, Education, Publication, VolunteerActivity } from '@/api/credentials'
+import type { Education } from '@/api/credentials'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { getTimelineRange, dateToPercent, generateYearTicks, formatDate, parseValidDate } from './timelineUtils'
+import {
+  getTimelineRange, dateToPercent, generateYearTicks, formatDate, parseValidDate,
+  sortByDate, LABEL_COL_CLASS, MIN_BAR_WIDTH_PCT, BAR_LABEL_THRESHOLD_PCT, MAX_TOOLTIP_ITEMS,
+  type CredentialData,
+} from './timelineUtils'
 import CareerHeatmap from './CareerHeatmap'
 
 type DurationItem = {
@@ -44,29 +48,13 @@ type AccordionGroup = {
   pointSubGroups: PointSubGroup[]
 }
 
-interface CredentialData {
-  certifications: Certification[]
-  awards: Award[]
-  educations: Education[]
-  publications: Publication[]
-  volunteerActivities: VolunteerActivity[]
-}
-
 interface CareerTimelineProps {
   data: CompanyGroupedResponse | undefined
   credentials: CredentialData
   isLoading: boolean
 }
 
-const sortByDate = (a: { date: string | null }, b: { date: string | null }) => {
-  if (a.date && b.date) return new Date(a.date).getTime() - new Date(b.date).getTime()
-  if (a.date) return -1
-  if (b.date) return 1
-  return 0
-}
-
 const ACADEMIC_DEGREES = ['high_school', 'associate', 'bachelor', 'master', 'doctorate']
-const MIN_BAR_PCT_FOR_LABEL = 4
 
 export default function CareerTimeline({ data, credentials, isLoading }: CareerTimelineProps) {
   const { t } = useTranslation()
@@ -83,7 +71,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
           <div className="space-y-3">
             {[1, 2].map((i) => (
               <div key={i} className="flex items-center gap-4">
-                <div className="w-[140px] lg:w-[180px] h-4 bg-muted animate-pulse rounded" />
+                <div className={`${LABEL_COL_CLASS} h-4 bg-muted animate-pulse rounded`} />
                 <div className="flex-1 h-6 bg-muted animate-pulse rounded" />
               </div>
             ))}
@@ -269,7 +257,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
 
     return (
       <div key={sub.key} className="flex items-center py-1.5">
-        <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-6">
+        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-6`}>
           <div className="flex items-center gap-1.5 min-w-0">
             <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
             <span className="text-xs text-muted-foreground truncate">
@@ -292,7 +280,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                     style={{ left: `${sPct}%`, width: `${wPct}%`, minWidth: '4px', top: '50%', transform: 'translateY(-50%)' }}
                     onClick={() => navigate('/knowledge/credentials')}
                   >
-                    {wPct > MIN_BAR_PCT_FOR_LABEL && (
+                    {wPct > BAR_LABEL_THRESHOLD_PCT && (
                       <span className="text-[10px] text-white px-1 truncate">{item.label}</span>
                     )}
                     {item.isCurrent && (
@@ -322,7 +310,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
 
     return (
       <div key={sub.key} className="flex items-center py-1.5">
-        <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-6">
+        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-6`}>
           <div className="flex items-center gap-1.5 min-w-0">
             <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
             <span className="text-xs text-muted-foreground truncate">
@@ -369,14 +357,14 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
         {/* Separator between groups */}
         {index > 0 && (
           <div className="flex items-center my-2">
-            <div className="w-[140px] lg:w-[180px] shrink-0" />
+            <div className={`${LABEL_COL_CLASS} shrink-0`} />
             <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
           </div>
         )}
 
         {/* Group header */}
         <div className="flex items-center py-1.5">
-          <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
+          <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
             <div className="flex items-center gap-1 min-w-0">
               <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="text-sm font-medium truncate">
@@ -429,7 +417,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
             <div className="relative">
               {/* Year ticks */}
               <div className="flex items-center mb-3">
-                <div className="w-[140px] lg:w-[180px] shrink-0" />
+                <div className={`${LABEL_COL_CLASS} shrink-0`} />
                 <div className="flex-1 relative h-5">
                   {yearTicks.map((year) => {
                     const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
@@ -454,12 +442,12 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                   const endDate = company.end_date ? new Date(company.end_date) : now
                   const startPct = dateToPercent(startDate, range.start, range.end)
                   const endPct = dateToPercent(endDate, range.start, range.end)
-                  const widthPct = Math.max(endPct - startPct, 1)
+                  const widthPct = Math.max(endPct - startPct, MIN_BAR_WIDTH_PCT)
                   const isCurrent = !company.end_date || company.is_current
 
                   return (
                     <div key={company.id} className="flex items-center py-1.5">
-                      <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
+                      <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
                         <p className="text-sm font-medium truncate">{company.name}</p>
                         {company.position && (
                           <p className="text-xs text-muted-foreground truncate">{company.position}</p>
@@ -473,7 +461,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                               style={{ left: `${startPct}%`, width: `${widthPct}%`, minWidth: '4px' }}
                               onClick={() => navigate('/knowledge/companies/timeline')}
                             >
-                              {widthPct > 8 && (
+                              {widthPct > BAR_LABEL_THRESHOLD_PCT && (
                                 <span className="text-[10px] text-white px-1.5 truncate">
                                   {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
                                 </span>
@@ -495,8 +483,8 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                             {group.aggregated_tech_stack.length > 0 && (
                               <p className="text-xs mt-1">
                                 <span className="text-muted-foreground">{t('dashboard:careerTimeline.techStack')}: </span>
-                                {group.aggregated_tech_stack.slice(0, 5).join(', ')}
-                                {group.aggregated_tech_stack.length > 5 && ` +${group.aggregated_tech_stack.length - 5}`}
+                                {group.aggregated_tech_stack.slice(0, MAX_TOOLTIP_ITEMS).join(', ')}
+                                {group.aggregated_tech_stack.length > MAX_TOOLTIP_ITEMS && ` +${group.aggregated_tech_stack.length - MAX_TOOLTIP_ITEMS}`}
                               </p>
                             )}
                           </TooltipContent>
@@ -509,7 +497,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                 {/* Separator: companies → accordion groups */}
                 {hasAccordionGroups && hasCompanies && (
                   <div className="flex items-center my-3">
-                    <div className="w-[140px] lg:w-[180px] shrink-0" />
+                    <div className={`${LABEL_COL_CLASS} shrink-0`} />
                     <div className="flex-1 border-t border-dashed" />
                   </div>
                 )}
@@ -524,7 +512,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
               <div className="relative">
                 {/* Year ticks */}
                 <div className="flex items-center mb-3">
-                  <div className="w-[140px] lg:w-[180px] shrink-0" />
+                  <div className={`${LABEL_COL_CLASS} shrink-0`} />
                   <div className="flex-1 relative h-5">
                     {yearTicks.map((year) => {
                       const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
@@ -551,7 +539,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                       <div key={company.id}>
                         {/* Company label row */}
                         <div className="flex items-center py-1.5">
-                          <div className="w-[140px] lg:w-[180px] shrink-0 pr-3">
+                          <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
                             <p className="text-xs font-medium text-muted-foreground truncate">{company.name}</p>
                           </div>
                           <div className="flex-1" />
@@ -563,12 +551,12 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                           const pEnd = project.end_date ? new Date(project.end_date) : now
                           const pStartPct = dateToPercent(pStart, range.start, range.end)
                           const pEndPct = dateToPercent(pEnd, range.start, range.end)
-                          const pWidthPct = Math.max(pEndPct - pStartPct, 1)
+                          const pWidthPct = Math.max(pEndPct - pStartPct, MIN_BAR_WIDTH_PCT)
                           const pIsCurrent = !project.end_date
 
                           return (
                             <div key={project.id} className="flex items-center py-1.5">
-                              <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 pl-4">
+                              <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-4`}>
                                 <p className="text-xs truncate">{project.name}</p>
                               </div>
                               <div className="flex-1 relative h-5">
@@ -579,7 +567,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                                       style={{ left: `${pStartPct}%`, width: `${pWidthPct}%`, minWidth: '4px' }}
                                       onClick={() => navigate(`/knowledge/projects/${project.id}`)}
                                     >
-                                      {pWidthPct > 8 && (
+                                      {pWidthPct > BAR_LABEL_THRESHOLD_PCT && (
                                         <span className="text-[10px] text-white px-1.5 truncate">{project.name}</span>
                                       )}
                                       {pIsCurrent && (
@@ -596,8 +584,8 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
                                     </p>
                                     {project.technologies.length > 0 && (
                                       <p className="text-xs mt-1">
-                                        {project.technologies.slice(0, 5).join(', ')}
-                                        {project.technologies.length > 5 && ` +${project.technologies.length - 5}`}
+                                        {project.technologies.slice(0, MAX_TOOLTIP_ITEMS).join(', ')}
+                                        {project.technologies.length > MAX_TOOLTIP_ITEMS && ` +${project.technologies.length - MAX_TOOLTIP_ITEMS}`}
                                       </p>
                                     )}
                                   </TooltipContent>

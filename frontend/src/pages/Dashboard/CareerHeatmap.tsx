@@ -2,16 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
-import type { Certification, Award, Education, Publication, VolunteerActivity } from '@/api/credentials'
-import { parseValidDate } from './timelineUtils'
-
-interface CredentialData {
-  certifications: Certification[]
-  awards: Award[]
-  educations: Education[]
-  publications: Publication[]
-  volunteerActivities: VolunteerActivity[]
-}
+import { parseValidDate, MAX_TOOLTIP_ITEMS, type CredentialData } from './timelineUtils'
 
 interface CareerHeatmapProps {
   data: CompanyGroupedResponse | undefined
@@ -44,15 +35,23 @@ const LEVEL_CLASSES: Record<number, string> = {
   4: 'bg-emerald-700 dark:bg-emerald-400',
 }
 
-const GAP = 3
+const GRID_GAP = 3
+const HEATMAP_LABEL_WIDTH = '28px'
+const HEATMAP_MIN_WIDTH = 600
+const DAY_LABELS: Record<number, string> = {
+  1: 'dashboard:careerTimeline.heatmapMon',
+  3: 'dashboard:careerTimeline.heatmapWed',
+  5: 'dashboard:careerTimeline.heatmapFri',
+}
+const LEVEL_THRESHOLDS = [0.25, 0.50, 0.75] as const
 
 function getLevel(count: number, maxCount: number): 0 | 1 | 2 | 3 | 4 {
   if (count === 0) return 0
   if (maxCount <= 4) return Math.min(count, 4) as 0 | 1 | 2 | 3 | 4
   const ratio = count / maxCount
-  if (ratio <= 0.25) return 1
-  if (ratio <= 0.50) return 2
-  if (ratio <= 0.75) return 3
+  if (ratio <= LEVEL_THRESHOLDS[0]) return 1
+  if (ratio <= LEVEL_THRESHOLDS[1]) return 2
+  if (ratio <= LEVEL_THRESHOLDS[2]) return 3
   return 4
 }
 
@@ -195,14 +194,14 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
 
   const todayKey = toDayKey(new Date())
   const numCols = weeks.length
-  const colTemplate = `28px repeat(${numCols}, 1fr)`
+  const colTemplate = `${HEATMAP_LABEL_WIDTH} repeat(${numCols}, 1fr)`
 
   return (
     <div className="flex gap-4">
       <div className="flex-1 min-w-0 overflow-x-auto">
-        <div style={{ minWidth: 600 }}>
+        <div style={{ minWidth: HEATMAP_MIN_WIDTH }}>
           {/* Month labels — same grid columns so they align */}
-          <div className="grid mb-1" style={{ gridTemplateColumns: colTemplate, columnGap: GAP }}>
+          <div className="grid mb-1" style={{ gridTemplateColumns: colTemplate, columnGap: GRID_GAP }}>
             <div /> {/* spacer for day-label column */}
             {weeks.map((_, wIdx) => (
               <div key={wIdx} className="overflow-visible min-w-0">
@@ -223,15 +222,15 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
                 gridTemplateColumns: colTemplate,
                 gridTemplateRows: 'repeat(7, auto)',
                 gridAutoFlow: 'column',
-                gap: GAP,
+                gap: GRID_GAP,
               }}
             >
               {/* Day-of-week labels (7 items → fills first column) */}
               {[0, 1, 2, 3, 4, 5, 6].map((d) => (
                 <div key={`dl-${d}`} className="flex items-center justify-end pr-1">
-                  {d === 1 && <span className="text-[10px] text-muted-foreground leading-none">{t('dashboard:careerTimeline.heatmapMon')}</span>}
-                  {d === 3 && <span className="text-[10px] text-muted-foreground leading-none">{t('dashboard:careerTimeline.heatmapWed')}</span>}
-                  {d === 5 && <span className="text-[10px] text-muted-foreground leading-none">{t('dashboard:careerTimeline.heatmapFri')}</span>}
+                  {DAY_LABELS[d] && (
+                    <span className="text-[10px] text-muted-foreground leading-none">{t(DAY_LABELS[d])}</span>
+                  )}
                 </div>
               ))}
 
@@ -260,13 +259,13 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
                               {t('dashboard:careerTimeline.heatmapItems', { count: cell.count })}
                             </p>
                             <div className="mt-1 space-y-0.5">
-                              {cell.items.slice(0, 5).map((item, i) => (
+                              {cell.items.slice(0, MAX_TOOLTIP_ITEMS).map((item, i) => (
                                 <p key={i} className="text-[11px]">
                                   <span className="text-muted-foreground">{item.category}:</span> {item.label}
                                 </p>
                               ))}
-                              {cell.items.length > 5 && (
-                                <p className="text-[11px] text-muted-foreground">+{cell.items.length - 5}</p>
+                              {cell.items.length > MAX_TOOLTIP_ITEMS && (
+                                <p className="text-[11px] text-muted-foreground">+{cell.items.length - MAX_TOOLTIP_ITEMS}</p>
                               )}
                             </div>
                           </>

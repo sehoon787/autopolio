@@ -3,6 +3,45 @@
  * Converts dates to percent positions for horizontal bar rendering.
  */
 
+import type { Certification, Award, Education, Publication, VolunteerActivity } from '@/api/credentials'
+
+// ── Shared types ──
+
+export interface CredentialData {
+  certifications: Certification[]
+  awards: Award[]
+  educations: Education[]
+  publications: Publication[]
+  volunteerActivities: VolunteerActivity[]
+}
+
+// ── Layout constants ──
+
+/** CSS classes for the left label column width in timeline rows. */
+export const LABEL_COL_CLASS = 'w-[140px] lg:w-[180px]'
+
+/** Minimum bar width percentage to prevent invisible bars. */
+export const MIN_BAR_WIDTH_PCT = 1
+
+/** Minimum bar width percentage to show inline text label. */
+export const BAR_LABEL_THRESHOLD_PCT = 8
+
+/** Maximum items shown in a tooltip before truncation. */
+export const MAX_TOOLTIP_ITEMS = 5
+
+/** Range padding in months for timeline visual breathing room. */
+const RANGE_PADDING_MONTHS = 6
+
+// ── Sort utility ──
+
+/** Sort items by date ascending, nulls last. */
+export const sortByDate = (a: { date: string | null }, b: { date: string | null }) => {
+  if (a.date && b.date) return new Date(a.date).getTime() - new Date(b.date).getTime()
+  if (a.date) return -1
+  if (b.date) return 1
+  return 0
+}
+
 /** Calculate the overall start/end range from a list of date strings. */
 export function getTimelineRange(dates: (string | null | undefined)[]): { start: Date; end: Date } {
   const now = new Date()
@@ -18,9 +57,10 @@ export function getTimelineRange(dates: (string | null | undefined)[]): { start:
   const min = new Date(Math.min(...parsed.map((d) => d.getTime())))
   const max = new Date(Math.max(...parsed.map((d) => d.getTime())))
 
-  // Pad 6 months on each side for visual breathing room
-  const start = new Date(min.getFullYear(), min.getMonth() - 6, 1)
-  const end = max > now ? new Date(max.getFullYear(), max.getMonth() + 6, 1) : new Date(now.getFullYear(), now.getMonth() + 6, 1)
+  const start = new Date(min.getFullYear(), min.getMonth() - RANGE_PADDING_MONTHS, 1)
+  const end = max > now
+    ? new Date(max.getFullYear(), max.getMonth() + RANGE_PADDING_MONTHS, 1)
+    : new Date(now.getFullYear(), now.getMonth() + RANGE_PADDING_MONTHS, 1)
 
   return { start, end }
 }

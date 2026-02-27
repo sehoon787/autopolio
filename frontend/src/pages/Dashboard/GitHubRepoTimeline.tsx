@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { Github, Filter, X } from 'lucide-react'
 import type { GitHubRepo } from '@/api/github'
-import { getTimelineRange, dateToPercent, generateYearTicks, formatDate } from './timelineUtils'
+import { getTimelineRange, dateToPercent, generateYearTicks, formatDate, LABEL_COL_CLASS, MIN_BAR_WIDTH_PCT } from './timelineUtils'
 
 // GitHub language color map (matches github.com)
 const LANG_COLORS: Record<string, string> = {
@@ -105,7 +105,7 @@ export default function GitHubRepoTimeline({ repos, isConnected, isLoading, gith
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-4">
-                <div className="w-[140px] lg:w-[180px] h-4 bg-muted animate-pulse rounded" />
+                <div className={`${LABEL_COL_CLASS} h-4 bg-muted animate-pulse rounded`} />
                 <div className="flex-1 h-5 bg-muted animate-pulse rounded" />
               </div>
             ))}
@@ -228,7 +228,7 @@ export default function GitHubRepoTimeline({ repos, isConnected, isLoading, gith
         <div className="relative">
           {/* Year ticks */}
           <div className="flex items-center mb-3">
-            <div className="w-[140px] lg:w-[180px] shrink-0" />
+            <div className={`${LABEL_COL_CLASS} shrink-0`} />
             <div className="flex-1 relative h-5">
               {yearTicks.map((year) => {
                 const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
@@ -257,12 +257,12 @@ export default function GitHubRepoTimeline({ repos, isConnected, isLoading, gith
                 const endAt = repo.pushed_at ? new Date(repo.pushed_at) : new Date()
                 const startPct = dateToPercent(createdAt, range.start, range.end)
                 const endPct = dateToPercent(endAt, range.start, range.end)
-                const widthPct = Math.max(endPct - startPct, 0.5)
+                const widthPct = Math.max(endPct - startPct, MIN_BAR_WIDTH_PCT)
                 const color = (repo.language && LANG_COLORS[repo.language]) || DEFAULT_COLOR
 
                 return (
                   <div key={repo.id} className="flex items-center mb-2">
-                    <div className="w-[140px] lg:w-[180px] shrink-0 pr-3 flex items-center gap-1.5 min-w-0">
+                    <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 flex items-center gap-1.5 min-w-0`}>
                       <span className={`text-sm truncate ${repo.fork ? 'opacity-50' : ''}`}>
                         {repo.name}
                       </span>
