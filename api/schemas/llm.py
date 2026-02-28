@@ -9,7 +9,9 @@ from typing import Optional, List
 class CLIStatus(BaseModel):
     """Status of a CLI tool installation."""
 
-    tool: str = Field(..., description="Tool identifier: 'claude_code', 'gemini_cli', or 'codex_cli'")
+    tool: str = Field(
+        ..., description="Tool identifier: 'claude_code', 'gemini_cli', or 'codex_cli'"
+    )
     installed: bool = Field(..., description="Whether the CLI is installed")
     version: Optional[str] = Field(None, description="Installed version")
     latest_version: Optional[str] = Field(None, description="Latest available version")
@@ -56,9 +58,7 @@ class LLMConfigResponse(BaseModel):
         False, description="Whether Anthropic API key is set"
     )
     gemini_configured: bool = Field(False, description="Whether Gemini API key is set")
-    openai_model: str = Field(
-        "gpt-4.1", description="Selected OpenAI model"
-    )
+    openai_model: str = Field("gpt-4.1", description="Selected OpenAI model")
     anthropic_model: str = Field(
         "claude-sonnet-4-6-20260217", description="Selected Anthropic model"
     )
@@ -67,14 +67,13 @@ class LLMConfigResponse(BaseModel):
     gemini_cli_status: Optional[CLIStatus] = Field(
         None, description="Gemini CLI status"
     )
-    codex_cli_status: Optional[CLIStatus] = Field(
-        None, description="Codex CLI status"
-    )
+    codex_cli_status: Optional[CLIStatus] = Field(None, description="Codex CLI status")
     providers: List[LLMProvider] = Field(
         default_factory=list, description="Available providers"
     )
     runtime: str = Field(
-        "external", description="Runtime environment: 'docker', 'local', 'electron', or 'external'"
+        "external",
+        description="Runtime environment: 'docker', 'local', 'electron', or 'external'",
     )
 
 
@@ -152,7 +151,9 @@ class CLIConnectResponse(BaseModel):
     success: bool = Field(..., description="Whether the operation was successful")
     message: str = Field(..., description="Result message")
     provider: Optional[str] = Field(None, description="Mapped provider ID")
-    env_var: Optional[str] = Field(None, description="Environment variable that was set/unset")
+    env_var: Optional[str] = Field(
+        None, description="Environment variable that was set/unset"
+    )
 
 
 class LLMTestRequest(BaseModel):

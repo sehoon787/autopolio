@@ -336,10 +336,18 @@ async def run_background_analysis(
 
             _steps_start = time.time()
             total_tokens += await _run_llm_steps(
-                service, task_id, project_id, analysis_result,
-                llm_service, github_service, project_data,
-                analysis_data_for_step6, language, is_cli_mode,
-                key_tasks, detailed_content,
+                service,
+                task_id,
+                project_id,
+                analysis_result,
+                llm_service,
+                github_service,
+                project_data,
+                analysis_data_for_step6,
+                language,
+                is_cli_mode,
+                key_tasks,
+                detailed_content,
             )
 
             _steps_elapsed = time.time() - _steps_start
@@ -475,10 +483,18 @@ async def run_background_analysis(
 
 
 async def _run_llm_steps(
-    service, task_id, project_id, analysis_result,
-    llm_service, github_service, project_data,
-    analysis_data_for_step6, language, is_cli_mode,
-    key_tasks, detailed_content,
+    service,
+    task_id,
+    project_id,
+    analysis_result,
+    llm_service,
+    github_service,
+    project_data,
+    analysis_data_for_step6,
+    language,
+    is_cli_mode,
+    key_tasks,
+    detailed_content,
 ) -> int:
     """Run Steps 5+6 (key tasks + detailed content). Returns tokens used.
 
@@ -501,12 +517,14 @@ async def _run_llm_steps(
             tokens += t
             logger.info(
                 "[BackgroundAnalysis] Step 5 done: %d key tasks, %d tokens",
-                len(tasks), t,
+                len(tasks),
+                t,
             )
         except Exception as e:
             logger.error(
                 "[BackgroundAnalysis] Step 5 (key_tasks) failed: %s: %s",
-                type(e).__name__, e,
+                type(e).__name__,
+                e,
             )
 
         await service.update_step_progress(
@@ -533,15 +551,14 @@ async def _run_llm_steps(
         except Exception as e:
             logger.error(
                 "[BackgroundAnalysis] Step 6 (detailed_content) failed: %s: %s",
-                type(e).__name__, e,
+                type(e).__name__,
+                e,
             )
     else:
         await service.update_step_progress(task_id, 6, "running")
 
         results = await asyncio.gather(
-            _generate_key_tasks_bg(
-                project_id, analysis_result, llm_service, language
-            ),
+            _generate_key_tasks_bg(project_id, analysis_result, llm_service, language),
             github_service.generate_detailed_content(
                 project_data=project_data,
                 analysis_data=analysis_data_for_step6,
@@ -561,7 +578,8 @@ async def _run_llm_steps(
             tokens += t
             logger.info(
                 "[BackgroundAnalysis] Generated %d key tasks, tokens=%d",
-                len(tasks), t,
+                len(tasks),
+                t,
             )
 
         if isinstance(results[1], Exception):

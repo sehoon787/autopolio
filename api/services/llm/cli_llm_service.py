@@ -79,7 +79,11 @@ class CLILLMService:
         """
         cli_path = self._find_cli_path()
         if not cli_path:
-            cli_names = {"claude_code": "claude", "gemini_cli": "gemini", "codex_cli": "codex"}
+            cli_names = {
+                "claude_code": "claude",
+                "gemini_cli": "gemini",
+                "codex_cli": "codex",
+            }
             cli_name = cli_names.get(self.cli_type, self.cli_type)
             logger.error(
                 "[CLI] %s CLI not found! Searched: shutil.which, npm global paths",
@@ -302,7 +306,11 @@ class CLILLMService:
 
     def _find_cli_path(self) -> Optional[str]:
         """Find CLI executable path with Windows npm global support."""
-        exe_names = {"claude_code": "claude", "gemini_cli": "gemini", "codex_cli": "codex"}
+        exe_names = {
+            "claude_code": "claude",
+            "gemini_cli": "gemini",
+            "codex_cli": "codex",
+        }
         exe_name = exe_names.get(self.cli_type, "claude")
 
         # Windows: Prefer .cmd files for proper execution
@@ -349,7 +357,9 @@ class CLILLMService:
 
     async def _ensure_codex_login(self, cli_path: str) -> None:
         """Ensure Codex CLI is authenticated. Auto-login with API key if available."""
-        api_key = os.environ.get("CODEX_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+        api_key = os.environ.get("CODEX_API_KEY") or os.environ.get(
+            "OPENAI_API_KEY", ""
+        )
         if not api_key:
             logger.debug("[Codex] No API key found for auto-login")
             return
@@ -365,7 +375,9 @@ class CLILLMService:
                 logger.info("[Codex] Auto-login successful")
             else:
                 stderr = proc.stderr.decode("utf-8", errors="replace").strip()
-                logger.debug("[Codex] Login returned code %d: %s", proc.returncode, stderr)
+                logger.debug(
+                    "[Codex] Login returned code %d: %s", proc.returncode, stderr
+                )
         except Exception as e:
             logger.debug("[Codex] Auto-login failed: %s", e)
 
@@ -443,7 +455,9 @@ class CLILLMService:
             usage = data.get("usage", {})
             token_count = usage.get("total_tokens", 0)
             if token_count == 0:
-                token_count = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+                token_count = usage.get("input_tokens", 0) + usage.get(
+                    "output_tokens", 0
+                )
         elif self.cli_type == "gemini_cli" and "response" in data:
             # Gemini format
             content = (

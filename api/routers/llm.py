@@ -56,7 +56,10 @@ def _get_env_path() -> str:
     from pathlib import Path
 
     # In Docker, .env is mounted at /app/.env
-    env_path = Path(os.environ.get("AUTOPOLIO_BASE_DIR", Path(__file__).parent.parent.parent)) / ".env"
+    env_path = (
+        Path(os.environ.get("AUTOPOLIO_BASE_DIR", Path(__file__).parent.parent.parent))
+        / ".env"
+    )
     return str(env_path)
 
 
@@ -83,8 +86,13 @@ def _unset_env_key(key: str) -> None:
     # Verify removal
     remaining = os.environ.get(key)
     if remaining:
-        logger.warning("_unset_env_key: %s still in os.environ after pop (value length=%d), forcing removal", key, len(remaining))
+        logger.warning(
+            "_unset_env_key: %s still in os.environ after pop (value length=%d), forcing removal",
+            key,
+            len(remaining),
+        )
         del os.environ[key]
+
 
 # Available LLM providers configuration (order: Anthropic → Gemini → OpenAI)
 LLM_PROVIDERS = [
@@ -415,7 +423,11 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         status = await cli_service.detect_gemini_cli()
 
     if not status.get("installed"):
-        cli_names = {"claude_code": "Claude Code", "gemini_cli": "Gemini", "codex_cli": "Codex"}
+        cli_names = {
+            "claude_code": "Claude Code",
+            "gemini_cli": "Gemini",
+            "codex_cli": "Codex",
+        }
         cli_name = cli_names.get(cli_type, cli_type)
         return CLITestResponse(
             success=False,
@@ -435,21 +447,43 @@ async def test_cli(cli_type: str, model: str = Query(None)):
 
         # Check if output content indicates auth failure (CLI may not error out)
         content_lower = (content or "").lower()
-        auth_fail_patterns = ["not logged in", "please run /login", "login required", "api key", "unauthorized",
-                              "credit balance", "quota exceeded", "model metadata", "model not found",
-                              "does not exist", "insufficient"]
+        auth_fail_patterns = [
+            "not logged in",
+            "please run /login",
+            "login required",
+            "api key",
+            "unauthorized",
+            "credit balance",
+            "quota exceeded",
+            "model metadata",
+            "model not found",
+            "does not exist",
+            "insufficient",
+        ]
         is_content_auth_fail = any(p in content_lower for p in auth_fail_patterns)
 
         if is_content_auth_fail and token_count == 0:
             # Classify CLI error for consistent messaging
-            cli_names = {"claude_code": "Anthropic", "codex_cli": "OpenAI", "gemini_cli": "Google"}
+            cli_names = {
+                "claude_code": "Anthropic",
+                "codex_cli": "OpenAI",
+                "gemini_cli": "Google",
+            }
             account_name = cli_names.get(cli_type, cli_type)
             if "quota" in content_lower or "exceeded" in content_lower:
                 fail_msg = f"Quota exceeded — check your {account_name} billing plan."
             elif "credit" in content_lower or "balance" in content_lower:
-                fail_msg = f"Insufficient credit balance — top up your {account_name} account."
-            elif "model" in content_lower and ("not found" in content_lower or "not exist" in content_lower or "metadata" in content_lower):
-                fail_msg = f"Model not found — {used_model or 'default'} is not available."
+                fail_msg = (
+                    f"Insufficient credit balance — top up your {account_name} account."
+                )
+            elif "model" in content_lower and (
+                "not found" in content_lower
+                or "not exist" in content_lower
+                or "metadata" in content_lower
+            ):
+                fail_msg = (
+                    f"Model not found — {used_model or 'default'} is not available."
+                )
             else:
                 fail_msg = content[:200] if content else "Unknown error"
             return CLITestResponse(
@@ -490,14 +524,22 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         error_str = str(e)
         logger.warning("CLI test failed for %s: %s", cli_type, error_str[:300])
 
-        cli_names = {"claude_code": "Anthropic", "codex_cli": "OpenAI", "gemini_cli": "Google"}
+        cli_names = {
+            "claude_code": "Anthropic",
+            "codex_cli": "OpenAI",
+            "gemini_cli": "Google",
+        }
         account_name = cli_names.get(cli_type, cli_type)
         error_lower = error_str.lower()
         if "quota" in error_lower or "exceeded" in error_lower or "429" in error_str:
             msg = f"Quota exceeded — check your {account_name} billing plan."
         elif "credit" in error_lower or "balance" in error_lower:
             msg = f"Insufficient credit balance — top up your {account_name} account."
-        elif "not found" in error_lower or "does not exist" in error_lower or "metadata" in error_lower:
+        elif (
+            "not found" in error_lower
+            or "does not exist" in error_lower
+            or "metadata" in error_lower
+        ):
             msg = f"Model not found — {used_model or 'default'} is not available."
         else:
             msg = f"CLI test failed: {error_str[:200]}"
@@ -558,6 +600,7 @@ async def disconnect_cli(cli_type: str):
 
     try:
         import os
+
         _unset_env_key(env_var)
         # Verify the key is truly gone from both os.environ and settings
         env_val = os.environ.get(env_var, "")
@@ -565,7 +608,10 @@ async def disconnect_cli(cli_type: str):
         settings_val = getattr(settings, env_var.lower(), "")
         logger.info(
             "CLI disconnect: %s → %s removed. os.environ has key=%s, settings has key=%s",
-            cli_type, env_var, bool(env_val), bool(settings_val),
+            cli_type,
+            env_var,
+            bool(env_val),
+            bool(settings_val),
         )
 
         return CLIConnectResponse(
@@ -748,11 +794,23 @@ async def test_provider(
         error_lower = error_str.lower()
         if "quota" in error_lower or "exceeded" in error_lower or "429" in error_str:
             msg = f"Quota exceeded — check your {provider.capitalize()} billing plan."
-        elif "credit" in error_lower or "balance" in error_lower or "insufficient" in error_lower:
+        elif (
+            "credit" in error_lower
+            or "balance" in error_lower
+            or "insufficient" in error_lower
+        ):
             msg = f"Insufficient credit balance — top up your {provider.capitalize()} account."
-        elif "401" in error_str or "unauthorized" in error_lower or "invalid" in error_lower:
+        elif (
+            "401" in error_str
+            or "unauthorized" in error_lower
+            or "invalid" in error_lower
+        ):
             msg = f"Invalid API key — check your {provider.capitalize()} API key."
-        elif "404" in error_str or "not found" in error_lower or "does not exist" in error_lower:
+        elif (
+            "404" in error_str
+            or "not found" in error_lower
+            or "does not exist" in error_lower
+        ):
             msg = f"Model not found — {model} is not available for your {provider.capitalize()} account."
         else:
             msg = f"Test failed: {error_str[:200]}"

@@ -32,7 +32,11 @@ from api.services.template.static_doc_templates import (
 router = APIRouter()
 settings = get_settings()
 
-_FIELDS_JSON = Path(__file__).resolve().parent.parent.parent / "config" / "template_available_fields.json"
+_FIELDS_JSON = (
+    Path(__file__).resolve().parent.parent.parent
+    / "config"
+    / "template_available_fields.json"
+)
 
 
 @lru_cache(maxsize=1)

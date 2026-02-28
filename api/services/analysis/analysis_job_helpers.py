@@ -21,7 +21,9 @@ from api.services.llm.llm_utils import parse_json_from_llm
 logger = logging.getLogger(__name__)
 
 
-def build_summary_project_data(project, analysis_result: Dict[str, Any] = None) -> Dict[str, Any]:
+def build_summary_project_data(
+    project, analysis_result: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """Build a project data dict for LLM summary generation.
 
     Used by analysis_job_runner (single-repo), analysis_job_multi, and pipeline_steps.

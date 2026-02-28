@@ -53,8 +53,7 @@ async def get_user_repos(
                 cached_time, tz=timezone.utc
             ).isoformat()
             logger.info(
-                f"Returning cached repos for user {user_id} "
-                f"({len(cached_repos)} repos)"
+                f"Returning cached repos for user {user_id} ({len(cached_repos)} repos)"
             )
             return {
                 "repos": cached_repos,

@@ -407,7 +407,9 @@ def seed_profile(client: httpx.Client, user_id: int) -> dict:
 
 def seed_generation_options(client: httpx.Client, user_id: int) -> dict:
     """Set generation options."""
-    result = _put(client, f"/users/{user_id}/generation-options", SAMPLE_GENERATION_OPTIONS)
+    result = _put(
+        client, f"/users/{user_id}/generation-options", SAMPLE_GENERATION_OPTIONS
+    )
     logger.info("Generation options updated")
     return result
 
@@ -537,7 +539,9 @@ def clean_user_data(client: httpx.Client, user_id: int) -> None:
     r = client.get("/knowledge/companies", params={"user_id": user_id})
     if r.status_code == 200:
         for c in r.json():
-            client.delete(f"/knowledge/companies/{c['id']}", params={"user_id": user_id})
+            client.delete(
+                f"/knowledge/companies/{c['id']}", params={"user_id": user_id}
+            )
 
     logger.info("Cleaned all data for user %d", user_id)
 
@@ -589,7 +593,9 @@ def main():
         default="http://localhost:8085/api",
         help="API base URL (default: http://localhost:8085/api)",
     )
-    parser.add_argument("--user-id", type=int, default=None, help="User ID to seed data for")
+    parser.add_argument(
+        "--user-id", type=int, default=None, help="User ID to seed data for"
+    )
     parser.add_argument(
         "--create-user", action="store_true", help="Create a new test user"
     )
@@ -609,7 +615,10 @@ def main():
         user_id = args.user_id
         if user_id is None:
             if args.create_user:
-                r = client.post("/users", json={"name": "Sample User", "email": "sample@example.com"})
+                r = client.post(
+                    "/users",
+                    json={"name": "Sample User", "email": "sample@example.com"},
+                )
                 r.raise_for_status()
                 user_id = r.json()["id"]
                 logger.info("Created user: %d", user_id)
@@ -622,7 +631,9 @@ def main():
                     logger.error("No users found. Use --create-user or --user-id")
                     sys.exit(1)
                 user_id = users[0]["id"]
-                logger.info("Using existing user: %d (%s)", user_id, users[0].get("name"))
+                logger.info(
+                    "Using existing user: %d (%s)", user_id, users[0].get("name")
+                )
 
         if args.clean:
             clean_user_data(client, user_id)
