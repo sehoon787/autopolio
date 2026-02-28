@@ -127,7 +127,7 @@ jobs:
   test-e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     continue-on-error: true
 
     steps:
@@ -155,36 +155,46 @@ jobs:
           ENVFILE
           echo "ENCRYPTION_KEY=${{ env.ENCRYPTION_KEY }}" >> .env
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-${{ runner.os }}-${{ hashFiles('Dockerfile.api', 'frontend/Dockerfile', 'pyproject.toml', 'uv.lock', 'frontend/package-lock.json') }}
+          restore-keys: docker-${{ runner.os }}-
+
       - name: Build and start Docker containers
         run: docker compose up -d --build
 
       - name: Wait for API to be ready
         run: |
           echo "Waiting for API..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 15); do
             if curl -sf http://localhost:8085/health > /dev/null 2>&1; then
               echo "API is ready!"
               exit 0
             fi
-            echo "Attempt $i/30..."
-            sleep 2
+            echo "Attempt $i/15..."
+            sleep 3
           done
-          echo "ERROR: API did not start within 60 seconds"
+          echo "ERROR: API did not start within 45 seconds"
           docker compose logs api --tail=50
           exit 1
 
       - name: Wait for Frontend to be ready
         run: |
           echo "Waiting for Frontend..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 15); do
             if curl -sf http://localhost:3035/ > /dev/null 2>&1; then
               echo "Frontend is ready!"
               exit 0
             fi
-            echo "Attempt $i/30..."
-            sleep 2
+            echo "Attempt $i/15..."
+            sleep 3
           done
-          echo "ERROR: Frontend did not start within 60 seconds"
+          echo "ERROR: Frontend did not start within 45 seconds"
           docker compose logs frontend --tail=50
           exit 1
 
@@ -197,9 +207,23 @@ jobs:
         working-directory: tests/e2e
         run: npm ci
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/e2e/package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: tests/e2e
         run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: tests/e2e
+        run: npx playwright install-deps chromium
 
       - name: Run E2E tests
         working-directory: tests/e2e

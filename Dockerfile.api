@@ -12,24 +12,24 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install CLI tools (optional — build continues if installation fails)
-RUN curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null || true
-RUN npm install -g @google/gemini-cli 2>/dev/null || true
-RUN npm install -g @openai/codex 2>/dev/null || true
+# Install CLI tools in a single layer (optional — build continues if installation fails)
+RUN curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null || true; \
+    npm install -g @google/gemini-cli @openai/codex 2>/dev/null || true
 
 # Add uv and CLI paths to PATH
 ENV PATH="/root/.local/bin:/root/.claude/local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-# Copy project files
-COPY pyproject.toml uv.lock README.md alembic.ini ./
+# Install Python dependencies first (better layer caching — code changes don't invalidate)
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev
+
+# Copy application code (changes here don't re-install dependencies)
 COPY api/ ./api/
 COPY config/ ./config/
+COPY alembic.ini ./
 COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
-
-# Install dependencies with uv
-RUN uv sync --frozen --no-dev
 
 # Create data directories
 RUN mkdir -p data result
