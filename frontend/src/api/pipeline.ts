@@ -23,7 +23,7 @@ export interface PipelineRunRequest {
   include_tech_stack?: boolean
   // LLM settings (for auto-analysis)
   llm_provider?: string
-  cli_mode?: 'claude_code' | 'gemini_cli'
+  cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
   cli_model?: string
 }
 

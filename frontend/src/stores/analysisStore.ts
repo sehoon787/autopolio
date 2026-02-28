@@ -10,6 +10,7 @@ function mapProviderToUsageKey(provider?: string): keyof LLMUsage | null {
   // CLI providers must be checked FIRST — 'claude_code'.includes('claude') is true
   if (providerLower === 'claude_code') return 'claude_code_cli'
   if (providerLower === 'gemini_cli') return 'gemini_cli'
+  if (providerLower === 'codex_cli') return 'codex_cli'
   // API providers
   if (providerLower === 'openai' || providerLower.includes('gpt')) return 'openai'
   if (providerLower === 'anthropic' || providerLower.includes('claude')) return 'anthropic'
@@ -47,7 +48,7 @@ interface AnalysisState {
     projectId?: number,
     options?: {
       provider?: string
-      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language
       project_repository_id?: number  // Specific repo in multi-repo project

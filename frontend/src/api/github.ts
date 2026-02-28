@@ -371,7 +371,7 @@ export const githubApi = {
     projectId?: number,
     options?: {
       provider?: string
-      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language (v1.12)
       project_repository_id?: number  // Specific repo in multi-repo project
@@ -447,7 +447,7 @@ export const githubApi = {
     projectIds: number[],
     options?: {
       llm_provider?: string
-      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
       cli_model?: string
     }
   ) =>
@@ -526,7 +526,7 @@ export const githubApi = {
     projectId?: number,
     options?: {
       provider?: string
-      cli_mode?: 'claude_code' | 'gemini_cli'
+      cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language (v1.12)
       project_repository_id?: number  // Specific repo in multi-repo project

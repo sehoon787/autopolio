@@ -20,7 +20,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { usePipelineStore } from '@/stores/pipelineStore'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useSelection } from '@/hooks/useSelection'
 import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
@@ -36,7 +36,7 @@ export default function GeneratePage() {
   const { toast } = useToast()
   const { user } = useUserStore()
   const { setTaskId, setRequest } = usePipelineStore()
-  const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
+  const { aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel, codexCLIModel } = useAppStore()
   const selection = useSelection<number>()
 
   const [templateId, setTemplateId] = useState<string>('')
@@ -145,10 +145,11 @@ export default function GeneratePage() {
 
     // Build LLM/CLI settings based on appStore preferences
     const llmSettings: Pick<PipelineRunRequest, 'llm_provider' | 'cli_mode' | 'cli_model'> = {}
-    if (aiMode === 'cli' && isElectronApp) {
-      // CLI mode (Electron only)
+    if (aiMode === 'cli') {
+      // CLI mode
       llmSettings.cli_mode = selectedCLI
-      llmSettings.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+      const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+      llmSettings.cli_model = resolveModelForAPI(cliModel)
     } else {
       // API mode
       llmSettings.llm_provider = selectedLLMProvider
