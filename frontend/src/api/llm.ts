@@ -35,7 +35,9 @@ export interface LLMConfigResponse {
   gemini_model: string
   claude_code_status: CLIStatus
   gemini_cli_status: CLIStatus | null
+  codex_cli_status: CLIStatus | null
   providers: LLMProvider[]
+  runtime: string
 }
 
 export interface LLMConfigUpdate {
@@ -72,17 +74,19 @@ export interface CLITestResponse {
   provider?: string
   token_usage?: number
   tokens?: number
+  auth_status?: 'authenticated' | 'auth_failed' | 'unknown'
+}
+
+export interface CLIConnectResponse {
+  success: boolean
+  message: string
+  provider?: string
+  env_var?: string
 }
 
 export interface LLMTestRequest {
   api_key?: string
   model?: string
-}
-
-export interface StoredAPIKeysResponse {
-  openai_api_key: string | null
-  anthropic_api_key: string | null
-  gemini_api_key: string | null
 }
 
 export interface LLMTestResponse {
@@ -118,6 +122,10 @@ export const llmApi = {
   getGeminiCLIStatus: () =>
     apiClient.get<CLIStatus>('/llm/cli/gemini/status'),
 
+  // Get Codex CLI status
+  getCodexCLIStatus: () =>
+    apiClient.get<CLIStatus>('/llm/cli/codex/status'),
+
   // Force refresh CLI status
   refreshCLI: () =>
     apiClient.post<CLIStatus>('/llm/cli/refresh'),
@@ -126,9 +134,19 @@ export const llmApi = {
   getProviders: () =>
     apiClient.get<LLMProviderInfo[]>('/llm/providers'),
 
-  // Test CLI tool
-  testCLI: (cliType: 'claude_code' | 'gemini_cli') =>
-    apiClient.post<CLITestResponse>(`/llm/cli/test/${cliType}`),
+  // Test CLI tool (with optional model parameter)
+  testCLI: (cliType: 'claude_code' | 'gemini_cli' | 'codex_cli', model?: string) =>
+    apiClient.post<CLITestResponse>(`/llm/cli/test/${cliType}`, null, {
+      params: model ? { model } : undefined,
+    }),
+
+  // Connect CLI tool (save API key to .env)
+  connectCLI: (cliType: 'claude_code' | 'gemini_cli' | 'codex_cli', apiKey: string) =>
+    apiClient.post<CLIConnectResponse>(`/llm/cli/connect/${cliType}`, { api_key: apiKey }),
+
+  // Disconnect CLI tool (remove API key from .env)
+  disconnectCLI: (cliType: 'claude_code' | 'gemini_cli' | 'codex_cli') =>
+    apiClient.post<CLIConnectResponse>(`/llm/cli/disconnect/${cliType}`),
 
   // Test LLM provider
   // api_key: directly test with this key (without saving)
@@ -149,10 +167,4 @@ export const llmApi = {
       },
     })
   },
-
-  // Get stored (decrypted) API keys for the user (Electron/desktop only)
-  getStoredKeys: (userId: number) =>
-    apiClient.get<StoredAPIKeysResponse>('/llm/keys', {
-      params: { user_id: userId },
-    }),
 }

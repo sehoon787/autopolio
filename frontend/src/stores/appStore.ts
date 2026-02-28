@@ -1,22 +1,32 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus } from '@/lib/electron'
+import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus, getCodexCLIStatus } from '@/lib/electron'
 import { externalBackendUrl } from '@/config/runtime'
+import { llmApi } from '@/api/llm'
 
-type CLIType = 'claude_code' | 'gemini_cli'
+type CLIType = 'claude_code' | 'gemini_cli' | 'codex_cli'
 type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
 type AIMode = 'cli' | 'api'  // CLI tools or API providers
 
 export const CLAUDE_CODE_MODELS = [
+  'claude-sonnet-4-6-20260217',
+  'claude-opus-4-6-20260205',
   'claude-sonnet-4-20250514',
   'claude-opus-4-20250514',
-  'claude-haiku-4-20250514',
+  'claude-haiku-4-5-20251001',
 ] as const
 
 export const GEMINI_CLI_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.5-pro',
   'gemini-2.0-flash',
+] as const
+
+export const CODEX_CLI_MODELS = [
+  'default',  // default (Codex CLI picks best available)
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex',
 ] as const
 
 interface AppState {
@@ -38,6 +48,7 @@ interface AppState {
   selectedLLMProvider: LLMProviderType
   claudeCodeModel: string
   geminiCLIModel: string
+  codexCLIModel: string
   _defaultsApplied: boolean  // Whether auto-detection defaults have been applied
 
   // Actions
@@ -47,6 +58,7 @@ interface AppState {
   setSelectedLLMProvider: (provider: LLMProviderType) => void
   setClaudeCodeModel: (model: string) => void
   setGeminiCLIModel: (model: string) => void
+  setCodexCLIModel: (model: string) => void
   setBackendError: (error: string) => void
   clearBackendError: () => void
 }
@@ -80,6 +92,7 @@ export const useAppStore = create<AppState>()(
       selectedLLMProvider: initialIsElectron ? 'openai' : 'gemini',
       claudeCodeModel: CLAUDE_CODE_MODELS[0],
       geminiCLIModel: GEMINI_CLI_MODELS[0],
+      codexCLIModel: CODEX_CLI_MODELS[0],
       _defaultsApplied: false,
 
       // Initialize the app store (for async values)
@@ -107,17 +120,22 @@ export const useAppStore = create<AppState>()(
         // Auto-detect installed CLI and set defaults (Electron only, first run)
         if (isElectronApp && !get()._defaultsApplied) {
           try {
-            const [claudeStatus, geminiStatus] = await Promise.all([
+            const [claudeStatus, geminiStatus, codexStatus] = await Promise.all([
               getClaudeCLIStatus(),
               getGeminiCLIStatus(),
+              getCodexCLIStatus(),
             ])
             const claudeInstalled = claudeStatus?.installed ?? false
             const geminiInstalled = geminiStatus?.installed ?? false
+            const codexInstalled = codexStatus?.installed ?? false
 
             const updates: Partial<AppState> = { _defaultsApplied: true }
 
             if (claudeInstalled) {
               updates.selectedCLI = 'claude_code'
+              updates.aiMode = 'cli'
+            } else if (codexInstalled) {
+              updates.selectedCLI = 'codex_cli'
               updates.aiMode = 'cli'
             } else if (geminiInstalled) {
               updates.selectedCLI = 'gemini_cli'
@@ -131,11 +149,40 @@ export const useAppStore = create<AppState>()(
             console.log('[AppStore] Auto-detected CLI defaults:', {
               claudeInstalled,
               geminiInstalled,
+              codexInstalled,
               selectedCLI: updates.selectedCLI,
               aiMode: updates.aiMode,
             })
           } catch (error) {
             console.error('[AppStore] CLI auto-detection failed:', error)
+            set({ _defaultsApplied: true })
+          }
+        }
+
+        // Web mode: auto-detect CLI via backend API (first run only)
+        if (!isElectronApp && !get()._defaultsApplied) {
+          try {
+            const response = await llmApi.getConfig()
+            const config = response.data
+            const claudeInstalled = config.claude_code_status?.installed ?? false
+            const geminiInstalled = config.gemini_cli_status?.installed ?? false
+            const codexInstalled = config.codex_cli_status?.installed ?? false
+
+            const updates: Partial<AppState> = { _defaultsApplied: true }
+            if (claudeInstalled) {
+              updates.selectedCLI = 'claude_code'
+              updates.aiMode = 'cli'
+            } else if (codexInstalled) {
+              updates.selectedCLI = 'codex_cli'
+              updates.aiMode = 'cli'
+            } else if (geminiInstalled) {
+              updates.selectedCLI = 'gemini_cli'
+              updates.aiMode = 'cli'
+            }
+            set(updates as AppState)
+            console.log('[AppStore] Web CLI auto-detected:', { claudeInstalled, geminiInstalled, codexInstalled })
+          } catch (error) {
+            console.error('[AppStore] Web CLI auto-detection failed:', error)
             set({ _defaultsApplied: true })
           }
         }
@@ -171,6 +218,10 @@ export const useAppStore = create<AppState>()(
         set({ geminiCLIModel: model })
       },
 
+      setCodexCLIModel: (model) => {
+        set({ codexCLIModel: model })
+      },
+
       // Backend error handling
       setBackendError: (error) => {
         set({ backendError: error })
@@ -189,8 +240,27 @@ export const useAppStore = create<AppState>()(
         selectedLLMProvider: state.selectedLLMProvider,
         claudeCodeModel: state.claudeCodeModel,
         geminiCLIModel: state.geminiCLIModel,
+        codexCLIModel: state.codexCLIModel,
         _defaultsApplied: state._defaultsApplied,
       }),
+      // Validate persisted models on rehydration — reset stale values
+      merge: (persisted, current) => {
+        const p = persisted as Partial<AppState>
+        const validModel = (model: string | undefined, list: readonly string[]) =>
+          model && (list as readonly string[]).includes(model) ? model : list[0]
+        return {
+          ...current,
+          ...p,
+          claudeCodeModel: validModel(p.claudeCodeModel, CLAUDE_CODE_MODELS),
+          geminiCLIModel: validModel(p.geminiCLIModel, GEMINI_CLI_MODELS),
+          codexCLIModel: validModel(p.codexCLIModel, CODEX_CLI_MODELS),
+        }
+      },
     }
   )
 )
+
+/** Convert 'default' sentinel back to empty string for backend API */
+export function resolveModelForAPI(model: string): string {
+  return model === 'default' ? '' : model
+}

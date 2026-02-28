@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
 import { LLMProviderCard } from '@/components/LLMProviderCard'
-import type { LLMProvider, APIKeyValidationResponse } from '@/api/llm'
+import type { LLMProvider } from '@/api/llm'
 
 interface APITabProps {
   providers: LLMProvider[]
@@ -12,13 +12,17 @@ interface APITabProps {
   isLoadingConfig: boolean
   isConfigError: boolean
   isUpdating: boolean
-  getStoredKeyForProvider: (providerId: string) => string | null
-  onSaveKey: (providerId: string, apiKey: string) => Promise<void>
-  onValidateKey: (providerId: string, apiKey: string) => Promise<APIKeyValidationResponse>
-  onTestKey: (providerId: string, apiKey: string) => Promise<{ success: boolean; response: string }>
+  isElectronApp: boolean
+  isLocalMode: boolean
+  providerAuthStatuses: Record<string, 'authenticated' | 'auth_failed' | 'unknown'>
+  providerAuthMessages: Record<string, string>
+  checkingAuthProviders: Set<string>
+  savingKeyProvider: string | null
+  onSaveKey: (providerId: string, apiKey: string) => void
+  onTest: (providerId: string) => void
+  onRefresh: (providerId: string) => void
   onSelectProvider: (providerId: string) => void
   onModelChange: (providerId: string, model: string) => Promise<void>
-  onTestStored: (providerId: string) => void
 }
 
 export function APITab({
@@ -28,15 +32,26 @@ export function APITab({
   isLoadingConfig,
   isConfigError,
   isUpdating,
-  getStoredKeyForProvider,
+  isElectronApp,
+  isLocalMode,
+  providerAuthStatuses,
+  providerAuthMessages,
+  checkingAuthProviders,
+  savingKeyProvider,
   onSaveKey,
-  onValidateKey,
-  onTestKey,
+  onTest,
+  onRefresh,
   onSelectProvider,
   onModelChange,
-  onTestStored,
 }: APITabProps) {
   const { t } = useTranslation('settings')
+
+  const isEditable = isElectronApp || isLocalMode
+  const visibleProviders = isEditable
+    ? providers
+    : providers.filter((p) => p.env_configured)
+  // Key management (key icon, Get API Key link) in Electron + local mode
+  const showKeyManagement = isElectronApp || isLocalMode
 
   return (
     <div className="space-y-4">
@@ -59,21 +74,31 @@ export function APITab({
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
         </>
+      ) : visibleProviders.length === 0 ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {t('llm.noProviders', 'No API providers are configured. Set API keys in the server .env file, or use Local mode to configure them in the browser.')}
+          </AlertDescription>
+        </Alert>
       ) : (
         <div className="space-y-3">
-          {providers.map((provider) => (
+          {visibleProviders.map((provider) => (
             <LLMProviderCard
               key={provider.id}
               provider={provider}
               isSelected={selectedLLMProvider === provider.id}
-              storedKey={getStoredKeyForProvider(provider.id)}
-              onSaveKey={onSaveKey}
-              onValidateKey={onValidateKey}
-              onTestKey={onTestKey}
+              readOnly={!showKeyManagement}
+              authStatus={providerAuthStatuses[provider.id] || 'unknown'}
+              authMessage={providerAuthMessages[provider.id]}
+              isCheckingAuth={checkingAuthProviders.has(provider.id)}
+              isSavingKey={savingKeyProvider === provider.id}
+              isTesting={testingProvider === provider.id}
+              onSaveKey={showKeyManagement ? (apiKey) => onSaveKey(provider.id, apiKey) : undefined}
+              onTest={() => onTest(provider.id)}
+              onRefresh={showKeyManagement ? () => onRefresh(provider.id) : undefined}
               onSelect={onSelectProvider}
               onModelChange={onModelChange}
-              onTestStored={() => onTestStored(provider.id)}
-              isTesting={testingProvider === provider.id}
               isUpdating={isUpdating}
             />
           ))}

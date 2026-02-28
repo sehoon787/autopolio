@@ -10,9 +10,11 @@ import {
   FolderOpen,
   Play,
   Loader2,
+  KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Tooltip,
   TooltipContent,
@@ -27,25 +29,34 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { ClaudeCodeIcon, GeminiIcon } from './icons/LLMIcons'
+import { getModelDisplayName } from '@/lib/model-display'
+import { ClaudeCodeIcon, GeminiIcon, OpenAIIcon } from './icons/LLMIcons'
 import type { CLIStatus } from '@/api/llm'
 
 // CLI display configuration
-const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: string }> = {
+const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: string; authUrl: string }> = {
   claude_code: {
     name: 'Claude Code CLI',
     docsUrl: 'https://claude.ai/code',
     changelogUrl: 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md',
+    authUrl: 'https://console.anthropic.com/settings/keys',
   },
   gemini_cli: {
     name: 'Gemini CLI',
     docsUrl: 'https://ai.google.dev/gemini-cli',
     changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
+    authUrl: 'https://aistudio.google.com/apikey',
+  },
+  codex_cli: {
+    name: 'Codex CLI',
+    docsUrl: 'https://github.com/openai/codex',
+    changelogUrl: 'https://github.com/openai/codex/releases',
+    authUrl: 'https://platform.openai.com/api-keys',
   },
 }
 
 interface CLIStatusCardProps {
-  cliType: 'claude_code' | 'gemini_cli'  // Explicit CLI type for loading state
+  cliType: 'claude_code' | 'gemini_cli' | 'codex_cli'
   status: CLIStatus | null
   isLoading: boolean
   isSelected: boolean
@@ -56,21 +67,29 @@ interface CLIStatusCardProps {
   models?: readonly string[]
   selectedModel?: string
   onModelChange?: (model: string) => void
+  authStatus?: 'authenticated' | 'auth_failed' | 'unknown'
+  authMessage?: string
+  isCheckingAuth?: boolean
+  isSavingKey?: boolean
+  onSaveKey?: (apiKey: string) => void
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange }: CLIStatusCardProps) {
+export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange, authStatus, authMessage, isCheckingAuth, isSavingKey, onSaveKey }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
+  const [showKeyInput, setShowKeyInput] = useState(false)
+  const [apiKeyInput, setApiKeyInput] = useState('')
 
-  // Get CLI config based on explicit cliType prop (not status.tool) to handle loading state
   const cliConfig = CLI_CONFIG[cliType]
 
-  // Get the appropriate icon based on CLI type with brand colors
   const getCliIcon = () => {
     if (cliType === 'gemini_cli') {
       return <GeminiIcon className="h-5 w-5" size={20} colored />
+    }
+    if (cliType === 'codex_cli') {
+      return <OpenAIIcon className="h-5 w-5" size={20} colored />
     }
     return <ClaudeCodeIcon className="h-5 w-5" size={20} colored />
   }
@@ -110,33 +129,93 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
     }
   }
 
-  const getStatusBadge = () => {
-    switch (statusType) {
-      case 'installed':
-        return (
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            {t('settings:cli.installed')}
-          </Badge>
-        )
-      case 'outdated':
-        return (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-            {t('settings:cli.outdated')}
-          </Badge>
-        )
-      case 'not-found':
-        return (
-          <Badge variant="destructive">
-            {t('settings:cli.notInstalled')}
-          </Badge>
-        )
-      default:
-        return (
-          <Badge variant="secondary">
-            {t('settings:cli.checking')}
-          </Badge>
-        )
+  // Auth status badge: 연결됨 / 연결 안됨
+  const getAuthBadge = () => {
+    if (!status?.installed) {
+      return (
+        <Badge variant="destructive">
+          {t('settings:cli.notInstalled')}
+        </Badge>
+      )
     }
+    if (isCheckingAuth) {
+      return (
+        <Badge variant="secondary">
+          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          {t('settings:cli.checking')}
+        </Badge>
+      )
+    }
+    if (authStatus === 'authenticated') {
+      return (
+        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          {t('settings:llm.configured')}
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        {t('settings:llm.notConfigured')}
+      </Badge>
+    )
+  }
+
+  // Key button: color-coded by auth status (green=key valid, red=no key/invalid, spinner=checking)
+  const getKeyButton = () => {
+    if (!status?.installed || !onSaveKey) return null
+
+    // Checking auth — show spinner
+    if (isCheckingAuth) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('settings:cli.checking', 'Checking...')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+
+    const keyColorClass =
+      authStatus === 'authenticated'
+        ? 'text-green-600 hover:text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30'
+        : authStatus === 'auth_failed'
+          ? 'text-red-500 hover:text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30'
+          : 'text-muted-foreground hover:text-foreground'
+
+    const keyTooltip =
+      authStatus === 'authenticated'
+        ? t('settings:cli.connected', 'Connected')
+        : authStatus === 'auth_failed'
+          ? (authMessage || t('settings:cli.enterApiKey', 'Enter API key'))
+          : t('settings:cli.authUnknown', 'Not tested')
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-8 w-8', keyColorClass)}
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              disabled={isSavingKey || isTesting || isLoading}
+            >
+              {isSavingKey ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{keyTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
   }
 
   const copyCommand = async () => {
@@ -157,7 +236,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
         isSelected && 'border-primary bg-primary/5 ring-1 ring-primary'
       )}
     >
-      {/* Header - Clickable for selection */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div
           className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
@@ -168,14 +247,12 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
             {getCliIcon()}
-            {/* Status indicator */}
             <span
               className={cn(
                 'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background',
                 getStatusColor()
               )}
             />
-            {/* Selection checkmark */}
             {isSelected && (
               <span className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Check className="h-3 w-3" />
@@ -202,9 +279,11 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {getStatusBadge()}
-          {/* Test Button */}
+        <div className="flex items-center gap-1">
+          {getAuthBadge()}
+          {/* API Key management */}
+          {getKeyButton()}
+          {/* Test button */}
           {onTest && status?.installed && (
             <TooltipProvider>
               <Tooltip>
@@ -227,6 +306,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
               </Tooltip>
             </TooltipProvider>
           )}
+          {/* Refresh button */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -243,8 +323,72 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
               <TooltipContent>{t('settings:cli.refresh')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {/* Get API Key link - only when key management is available */}
+          {onSaveKey && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs text-muted-foreground"
+              onClick={() => window.open(cliConfig.authUrl, '_blank')}
+            >
+              {t('settings:llm.getApiKey')}
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Inline API key input (separate from connect/disconnect) */}
+      {showKeyInput && onSaveKey && (
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            placeholder={t('settings:cli.enterApiKey', 'Enter API key')}
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            className="h-8 text-xs flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && apiKeyInput.trim()) {
+                onSaveKey(apiKeyInput)
+                setApiKeyInput('')
+                setShowKeyInput(false)
+              }
+              if (e.key === 'Escape') {
+                setShowKeyInput(false)
+                setApiKeyInput('')
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              onSaveKey(apiKeyInput)
+              setApiKeyInput('')
+              setShowKeyInput(false)
+            }}
+            disabled={isSavingKey || !apiKeyInput.trim()}
+          >
+            {isSavingKey ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              t('settings:cli.save', 'Save')
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              setShowKeyInput(false)
+              setApiKeyInput('')
+            }}
+          >
+            {t('settings:cli.cancel', 'Cancel')}
+          </Button>
+        </div>
+      )}
 
       {/* Version Info */}
       {status && !isLoading && (
@@ -285,7 +429,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
             {t('settings:cli.model', 'Model')}
           </label>
           <Select
-            value={selectedModel || models[0]}
+            value={selectedModel && models.includes(selectedModel) ? selectedModel : models[0]}
             onValueChange={onModelChange}
           >
             <SelectTrigger className="w-full">
@@ -294,7 +438,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
             <SelectContent>
               {models.map((model) => (
                 <SelectItem key={model} value={model}>
-                  {model}
+                  {getModelDisplayName(model)}
                   {model === models[0] && (
                     <span className="ml-2 text-muted-foreground text-xs">
                       ({t('settings:llm.default', 'default')})

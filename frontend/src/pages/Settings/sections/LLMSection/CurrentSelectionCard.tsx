@@ -10,6 +10,7 @@ import {
   Loader2,
   Play,
 } from 'lucide-react'
+import { getModelDisplayName } from '@/lib/model-display'
 import type { TestResult, CurrentSelection } from './types'
 
 interface CurrentSelectionCardProps {
@@ -51,7 +52,7 @@ export function CurrentSelectionCard({
               <span className="text-sm text-muted-foreground">v{currentSelection.version}</span>
             )}
             {aiMode === 'api' && 'model' in currentSelection && (
-              <span className="text-sm text-muted-foreground">{currentSelection.model}</span>
+              <span className="text-sm text-muted-foreground">{getModelDisplayName(currentSelection.model || '')}</span>
             )}
           </div>
           <div className="flex items-center gap-2">

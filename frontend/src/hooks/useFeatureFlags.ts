@@ -1,28 +1,21 @@
-import { useAppStore } from '@/stores/appStore'
-
 /**
  * Feature flags for conditional rendering based on environment
  */
 export function useFeatureFlags() {
-  const { isElectronApp } = useAppStore()
-
   return {
-    // CLI status is only relevant in Electron (desktop app)
-    // since CLI tools need local system access
-    showCLIStatus: isElectronApp,
+    // CLI status — available in both web (via backend API) and Electron (via IPC)
+    showCLIStatus: true,
 
-    // API keys should only be configured in Electron
-    // for security reasons (browser storage is less secure)
-    showAPIKeys: isElectronApp,
+    // API keys — available in both modes
+    showAPIKeys: true,
 
     // LLM provider selection is always visible
-    // (but API key input is hidden in web mode)
     showLLMProviders: true,
 
     // Model selection is always visible
     showModelSelection: true,
 
-    // Desktop download notice for web mode
-    showDesktopDownloadNotice: !isElectronApp,
+    // Desktop download notice — no longer needed since CLI works in web mode
+    showDesktopDownloadNotice: false,
   }
 }
