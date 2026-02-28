@@ -97,6 +97,7 @@ test-*.png
 /scripts/*
 !/scripts/bump-version.cjs
 !/scripts/ai-pr-reviewer.md
+!/scripts/docker-entrypoint.sh
 # Keep frontend build scripts
 !frontend/scripts/
 
