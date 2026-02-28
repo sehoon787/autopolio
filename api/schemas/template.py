@@ -48,3 +48,18 @@ class TemplateResponse(TemplateBase):
 class TemplateListResponse(BaseModel):
     templates: List[TemplateResponse]
     total: int
+
+
+class TemplatePreviewRequest(BaseModel):
+    """Request body for template preview."""
+
+    template_content: str
+    sample_data: Optional[dict] = None
+
+
+class TemplatePreviewResponse(BaseModel):
+    """Response for template preview."""
+
+    preview_html: str
+    preview_text: str
+    fields_used: List[str]

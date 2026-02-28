@@ -366,15 +366,9 @@ Notes:
                 return []
 
             # Parse JSON response
-            import json
+            from api.services.llm.llm_utils import parse_json_from_llm
 
-            json_str = response
-            if "```json" in response:
-                json_str = response.split("```json")[1].split("```")[0]
-            elif "```" in response:
-                json_str = response.split("```")[1].split("```")[0]
-
-            achievements = json.loads(json_str.strip())
+            achievements = parse_json_from_llm(response)
 
             # Add source field
             for a in achievements:

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import Optional
+import json
 import os
 import uuid
+from functools import lru_cache
+from pathlib import Path
 
 from api.database import get_db
 from api.config import get_settings, PLATFORM_CONFIGS
@@ -15,6 +17,8 @@ from api.schemas.template import (
     TemplateUpdate,
     TemplateResponse,
     TemplateListResponse,
+    TemplatePreviewRequest,
+    TemplatePreviewResponse,
 )
 from api.services.document import DocumentService
 from api.services.user_data import UserDataCollector
@@ -28,20 +32,26 @@ from api.services.template.static_doc_templates import (
 router = APIRouter()
 settings = get_settings()
 
-
-class TemplatePreviewRequest(BaseModel):
-    """Request body for template preview."""
-
-    template_content: str
-    sample_data: Optional[dict] = None
+_FIELDS_JSON = Path(__file__).resolve().parent.parent.parent / "config" / "template_available_fields.json"
 
 
-class TemplatePreviewResponse(BaseModel):
-    """Response for template preview."""
+@lru_cache(maxsize=1)
+def _load_available_fields() -> dict:
+    with open(_FIELDS_JSON, encoding="utf-8") as f:
+        return json.load(f)
 
-    preview_html: str
-    preview_text: str
-    fields_used: List[str]
+
+async def _get_mutable_template(template_id: int, db: AsyncSession) -> Template:
+    """Get a non-system template or raise 403/404."""
+    if is_static_doc_id(template_id):
+        raise HTTPException(status_code=403, detail="Cannot modify system templates")
+    result = await db.execute(select(Template).where(Template.id == template_id))
+    template = result.scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if template.is_system:
+        raise HTTPException(status_code=403, detail="Cannot modify system templates")
+    return template
 
 
 @router.get("", response_model=TemplateListResponse)
@@ -107,517 +117,7 @@ async def get_platforms():
 @router.get("/fields/available")
 async def get_available_fields():
     """Get list of all available template fields with descriptions."""
-    return {
-        "user_fields": [
-            {"field": "name", "description": "사용자 이름", "example": "홍길동"},
-            {
-                "field": "email",
-                "description": "이메일 주소",
-                "example": "hong@example.com",
-            },
-            {
-                "field": "github_username",
-                "description": "GitHub 사용자명",
-                "example": "honggildong",
-            },
-            {
-                "field": "summary",
-                "description": "자기소개 요약",
-                "example": "5년차 개발자입니다.",
-            },
-            {
-                "field": "skills",
-                "description": "기술 스택 (쉼표 구분)",
-                "example": "React, Python, FastAPI",
-            },
-        ],
-        "company_fields": [
-            {
-                "field": "companies",
-                "description": "회사 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "name",
-                "description": "회사명",
-                "example": "테크 스타트업",
-                "parent": "companies",
-            },
-            {
-                "field": "position",
-                "description": "직책",
-                "example": "시니어 개발자",
-                "parent": "companies",
-            },
-            {
-                "field": "department",
-                "description": "부서",
-                "example": "개발팀",
-                "parent": "companies",
-            },
-            {
-                "field": "start_date",
-                "description": "입사일",
-                "example": "2022.01",
-                "parent": "companies",
-            },
-            {
-                "field": "end_date",
-                "description": "퇴사일/현재",
-                "example": "현재",
-                "parent": "companies",
-            },
-            {
-                "field": "description",
-                "description": "업무 설명",
-                "example": "웹 서비스 개발",
-                "parent": "companies",
-            },
-        ],
-        "project_fields": [
-            {
-                "field": "projects",
-                "description": "프로젝트 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "name",
-                "description": "프로젝트명",
-                "example": "이커머스 플랫폼",
-                "parent": "projects",
-            },
-            {
-                "field": "short_description",
-                "description": "한 줄 설명",
-                "example": "B2C 서비스",
-                "parent": "projects",
-            },
-            {
-                "field": "description",
-                "description": "상세 설명",
-                "example": "대규모 플랫폼 개발",
-                "parent": "projects",
-            },
-            {
-                "field": "role",
-                "description": "역할",
-                "example": "백엔드 리드",
-                "parent": "projects",
-            },
-            {
-                "field": "team_size",
-                "description": "팀 규모",
-                "example": "5",
-                "parent": "projects",
-            },
-            {
-                "field": "contribution_percent",
-                "description": "기여도(%)",
-                "example": "40",
-                "parent": "projects",
-            },
-            {
-                "field": "start_date",
-                "description": "시작일",
-                "example": "2023.01",
-                "parent": "projects",
-            },
-            {
-                "field": "end_date",
-                "description": "종료일",
-                "example": "2023.12",
-                "parent": "projects",
-            },
-            {
-                "field": "technologies",
-                "description": "기술 스택",
-                "example": "FastAPI, React",
-                "parent": "projects",
-            },
-        ],
-        "achievement_fields": [
-            # === 3 LEVELS OF ACHIEVEMENT FORMAT ===
-            # 1. 기본 (Basic): From ProjectAchievement model - simple metric_name: metric_value
-            # 2. 요약 (Summary): From RepoAnalysis.detailed_achievements - titles grouped by category (DEFAULT)
-            # 3. 상세 (Detailed): From RepoAnalysis.detailed_achievements - full title + description
-            # === STRING FORMATS (use directly in template) ===
-            # Default field - uses Summary format (요약)
-            {
-                "field": "achievements",
-                "description": "성과 (요약 형식 - 기본값)",
-                "example": "**[성능 개선]**\n• 캐싱 전략 도입\n• API 응답 최적화\n\n**[신규 기능]**\n• 대시보드 개발",
-                "parent": "projects",
-                "level": "default",
-            },
-            # Level 1: 기본 (Basic) - From ProjectAchievement model
-            {
-                "field": "achievements_basic",
-                "description": "성과 (기본 형식) - 지표명: 수치만",
-                "example": "• 기능 개발: 16개 기능\n• 버그 수정: 8건 해결",
-                "parent": "projects",
-                "level": "basic",
-            },
-            # Level 2: 요약 (Summary) - From detailed_achievements (titles only)
-            {
-                "field": "achievements_summary",
-                "description": "성과 (요약 형식) - 카테고리별 제목",
-                "example": "**[성능 개선]**\n• 캐싱 전략 도입\n• API 응답 최적화",
-                "parent": "projects",
-                "level": "summary",
-            },
-            # Level 3: 상세 (Detailed) - From detailed_achievements (full)
-            {
-                "field": "achievements_detailed",
-                "description": "성과 (상세 형식) - 제목 + 설명",
-                "example": "**[성능 개선]**\n• **캐싱 전략 도입**\n  Redis 캐싱으로 40% 성능 향상",
-                "parent": "projects",
-                "level": "detailed",
-            },
-            # Conditional field
-            {
-                "field": "has_achievements",
-                "description": "성과 유무 (조건문용)",
-                "example": "true/false",
-                "parent": "projects",
-            },
-            # === LIST FORMATS (for iteration with {{#list}}...{{/list}}) ===
-            # Default list - uses Summary format
-            {
-                "field": "achievements_list",
-                "description": "성과 목록 (요약 - 기본값)",
-                "is_section": True,
-                "parent": "projects",
-                "level": "default",
-            },
-            # Level 1: 기본 (Basic) list
-            {
-                "field": "achievements_basic_list",
-                "description": "성과 목록 (기본 형식)",
-                "is_section": True,
-                "parent": "projects",
-                "level": "basic",
-            },
-            # Level 2: 요약 (Summary) list
-            {
-                "field": "achievements_summary_list",
-                "description": "성과 목록 (요약 형식)",
-                "is_section": True,
-                "parent": "projects",
-                "level": "summary",
-            },
-            # Level 3: 상세 (Detailed) list
-            {
-                "field": "achievements_detailed_list",
-                "description": "성과 목록 (상세 형식)",
-                "is_section": True,
-                "parent": "projects",
-                "level": "detailed",
-            },
-            # === LIST ITEM FIELDS (available in all list formats) ===
-            {
-                "field": "title",
-                "description": "성과 제목",
-                "example": "캐싱 전략 도입",
-                "parent": "achievements_*_list",
-            },
-            {
-                "field": "category",
-                "description": "성과 카테고리",
-                "example": "성능 개선",
-                "parent": "achievements_*_list",
-            },
-            {
-                "field": "description",
-                "description": "성과 설명 (상세 형식만)",
-                "example": "Redis 캐싱으로 40% 성능 향상",
-                "parent": "achievements_*_list",
-            },
-            {
-                "field": "has_description",
-                "description": "설명 유무",
-                "example": "true/false",
-                "parent": "achievements_*_list",
-            },
-            # === LEGACY FIELDS (for backwards compatibility with Basic format) ===
-            {
-                "field": "metric_name",
-                "description": "성과 지표명 (기본 형식)",
-                "example": "기능 개발",
-                "parent": "achievements_basic_list",
-            },
-            {
-                "field": "metric_value",
-                "description": "성과 수치 (기본 형식)",
-                "example": "16개 기능",
-                "parent": "achievements_basic_list",
-            },
-            {
-                "field": "before_value",
-                "description": "개선 전 상태 (기본 형식)",
-                "example": "평균 2초",
-                "parent": "achievements_basic_list",
-            },
-            {
-                "field": "after_value",
-                "description": "개선 후 상태 (기본 형식)",
-                "example": "평균 0.5초",
-                "parent": "achievements_basic_list",
-            },
-            {
-                "field": "has_before_after",
-                "description": "전후 비교 유무 (기본 형식)",
-                "example": "true/false",
-                "parent": "achievements_basic_list",
-            },
-        ],
-        "certification_fields": [
-            {
-                "field": "certifications",
-                "description": "자격증 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "name",
-                "description": "자격증명",
-                "example": "정보처리기사",
-                "parent": "certifications",
-            },
-            {
-                "field": "issuer",
-                "description": "발급기관",
-                "example": "한국산업인력공단",
-                "parent": "certifications",
-            },
-            {
-                "field": "issue_date",
-                "description": "취득일",
-                "example": "2019.05",
-                "parent": "certifications",
-            },
-            {
-                "field": "expiry_date",
-                "description": "만료일",
-                "example": "2024.05",
-                "parent": "certifications",
-            },
-            {
-                "field": "credential_id",
-                "description": "자격번호",
-                "example": "12345678",
-                "parent": "certifications",
-            },
-        ],
-        "award_fields": [
-            {
-                "field": "awards",
-                "description": "수상이력 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "name",
-                "description": "수상명",
-                "example": "최우수상",
-                "parent": "awards",
-            },
-            {
-                "field": "issuer",
-                "description": "수여기관",
-                "example": "한국IT협회",
-                "parent": "awards",
-            },
-            {
-                "field": "award_date",
-                "description": "수상일",
-                "example": "2023.11",
-                "parent": "awards",
-            },
-            {
-                "field": "description",
-                "description": "상세 설명",
-                "example": "AI 경진대회 1위",
-                "parent": "awards",
-            },
-        ],
-        "education_fields": [
-            {
-                "field": "educations",
-                "description": "교육 이력 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "school_name",
-                "description": "학교명",
-                "example": "서울대학교",
-                "parent": "educations",
-            },
-            {
-                "field": "major",
-                "description": "전공",
-                "example": "컴퓨터공학",
-                "parent": "educations",
-            },
-            {
-                "field": "degree",
-                "description": "학위",
-                "example": "학사",
-                "parent": "educations",
-            },
-            {
-                "field": "period",
-                "description": "기간",
-                "example": "2015.03 - 2019.02",
-                "parent": "educations",
-            },
-            {
-                "field": "gpa",
-                "description": "학점",
-                "example": "3.8/4.5",
-                "parent": "educations",
-            },
-        ],
-        "publication_fields": [
-            {
-                "field": "publications",
-                "description": "논문/저술 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "title",
-                "description": "제목",
-                "example": "AI 기반 코드 분석",
-                "parent": "publications",
-            },
-            {
-                "field": "authors",
-                "description": "저자",
-                "example": "홍길동, 김철수",
-                "parent": "publications",
-            },
-            {
-                "field": "publication_type",
-                "description": "유형",
-                "example": "학술지 논문",
-                "parent": "publications",
-            },
-            {
-                "field": "publisher",
-                "description": "출판사/학술지",
-                "example": "한국정보과학회",
-                "parent": "publications",
-            },
-            {
-                "field": "publication_date",
-                "description": "발표일",
-                "example": "2023.06",
-                "parent": "publications",
-            },
-            {
-                "field": "doi",
-                "description": "DOI",
-                "example": "10.1000/xyz123",
-                "parent": "publications",
-            },
-        ],
-        "volunteer_activity_fields": [
-            {
-                "field": "volunteer_activities",
-                "description": "봉사/대외활동 목록 (반복 섹션)",
-                "is_section": True,
-            },
-            {
-                "field": "name",
-                "description": "활동명",
-                "example": "오픈소스 컨트리뷰션",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "organization",
-                "description": "기관/단체명",
-                "example": "한국오픈소스협회",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "activity_type",
-                "description": "활동 유형 (volunteer/external)",
-                "example": "external",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "period",
-                "description": "활동 기간",
-                "example": "2023.01 - 2023.06",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "hours",
-                "description": "봉사시간",
-                "example": "120",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "role",
-                "description": "역할",
-                "example": "멘토",
-                "parent": "volunteer_activities",
-            },
-            {
-                "field": "description",
-                "description": "상세 설명",
-                "example": "신입 개발자 교육 및 코드리뷰",
-                "parent": "volunteer_activities",
-            },
-        ],
-        "syntax_guide": {
-            "simple_field": "{{field_name}}",
-            "section_start": "{{#section_name}}",
-            "section_end": "{{/section_name}}",
-            "conditional": "{{#has_field}}내용{{/has_field}}",
-            "achievement_levels": {
-                "description": "성과는 3가지 레벨로 제공됩니다. 기본값은 '요약' 형식입니다.",
-                "basic": "achievements_basic - 지표명: 수치 (예: 기능 개발: 16개 기능)",
-                "summary": "achievements (기본값), achievements_summary - 카테고리별 제목 목록",
-                "detailed": "achievements_detailed - 제목 + 상세 설명",
-            },
-            "example_basic": """{{#projects}}
-### {{name}}
-**성과 (기본)**
-{{achievements_basic}}
-{{/projects}}""",
-            "example_summary": """{{#projects}}
-### {{name}}
-**성과 (요약 - 기본값)**
-{{achievements}}
-{{/projects}}""",
-            "example_detailed": """{{#projects}}
-### {{name}}
-**성과 (상세)**
-{{achievements_detailed}}
-{{/projects}}""",
-            "example_summary_list": """{{#projects}}
-### {{name}}
-**성과 (요약 목록)**
-{{#achievements_summary_list}}
-- **{{title}}** ({{category}})
-{{/achievements_summary_list}}
-{{/projects}}""",
-            "example_detailed_list": """{{#projects}}
-### {{name}}
-**성과 (상세 목록)**
-{{#achievements_detailed_list}}
-- **{{title}}** ({{category}})
-  {{#has_description}}{{description}}{{/has_description}}
-{{/achievements_detailed_list}}
-{{/projects}}""",
-            "example_basic_list": """{{#projects}}
-### {{name}}
-**성과 (기본 목록)**
-{{#achievements_basic_list}}
-- **{{metric_name}}**: {{metric_value}}
-  {{#has_before_after}}▶ {{before_value}} → {{after_value}}{{/has_before_after}}
-{{/achievements_basic_list}}
-{{/projects}}""",
-        },
-    }
+    return _load_available_fields()
 
 
 @router.post("/preview", response_model=TemplatePreviewResponse)
@@ -841,18 +341,7 @@ async def update_template(
     template_id: int, template_data: TemplateUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update a template."""
-    # Static system templates cannot be modified
-    if is_static_doc_id(template_id):
-        raise HTTPException(status_code=403, detail="Cannot modify system templates")
-
-    result = await db.execute(select(Template).where(Template.id == template_id))
-    template = result.scalar_one_or_none()
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    # Don't allow editing system templates
-    if template.is_system:
-        raise HTTPException(status_code=403, detail="Cannot modify system templates")
+    template = await _get_mutable_template(template_id, db)
 
     update_data = template_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -866,18 +355,7 @@ async def update_template(
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(template_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a template."""
-    # Static system templates cannot be deleted
-    if is_static_doc_id(template_id):
-        raise HTTPException(status_code=403, detail="Cannot delete system templates")
-
-    result = await db.execute(select(Template).where(Template.id == template_id))
-    template = result.scalar_one_or_none()
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    # Don't allow deleting system templates
-    if template.is_system:
-        raise HTTPException(status_code=403, detail="Cannot delete system templates")
+    template = await _get_mutable_template(template_id, db)
 
     # Delete template file if exists
     if template.template_file_path and os.path.exists(template.template_file_path):
