@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
 import { parseValidDate, MAX_TOOLTIP_ITEMS, type CredentialData } from './timelineUtils'
@@ -44,6 +45,8 @@ const DAY_LABELS: Record<number, string> = {
   5: 'dashboard:careerTimeline.heatmapFri',
 }
 const LEVEL_THRESHOLDS = [0.25, 0.50, 0.75] as const
+const MAX_VISIBLE_YEARS = 7
+const YEAR_BUTTON_HEIGHT = 24
 
 function getLevel(count: number, maxCount: number): 0 | 1 | 2 | 3 | 4 {
   if (count === 0) return 0
@@ -114,14 +117,14 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
     publications.forEach((p) =>
       addSpan(parseValidDate(p.publication_date), null, false, p.title, t('dashboard:careerTimeline.publications')))
 
-    const years = Array.from(yearSet).sort((a, b) => a - b)
+    const years = Array.from(yearSet).sort((a, b) => b - a)
     if (years.length === 0) years.push(new Date().getFullYear())
     return { spans, availableYears: years }
   }, [data, credentials, t])
 
   const [selectedYear, setSelectedYear] = useState(() => {
     const cy = new Date().getFullYear()
-    return availableYears.includes(cy) ? cy : availableYears[availableYears.length - 1]
+    return availableYears.includes(cy) ? cy : availableYears[0]
   })
 
   // Build weekly grid for selected year
@@ -189,6 +192,21 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
     })
     return { weeks: weeksArr, monthLabelMap: mlMap, maxCount: mx }
   }, [selectedYear, spans, monthNames])
+
+  const yearListRef = useRef<HTMLDivElement>(null)
+  const selectedYearRef = useRef<HTMLButtonElement>(null)
+  const needsScroll = availableYears.length > MAX_VISIBLE_YEARS
+
+  useEffect(() => {
+    selectedYearRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedYear])
+
+  const scrollYears = (direction: 'up' | 'down') => {
+    yearListRef.current?.scrollBy({
+      top: direction === 'up' ? -YEAR_BUTTON_HEIGHT : YEAR_BUTTON_HEIGHT,
+      behavior: 'smooth',
+    })
+  }
 
   if (availableYears.length === 0) return null
 
@@ -290,20 +308,46 @@ export default function CareerHeatmap({ data, credentials }: CareerHeatmapProps)
       </div>
 
       {/* Year selector */}
-      <div className="flex flex-col gap-1 shrink-0 pt-4">
-        {availableYears.map((year) => (
+      <div className="flex flex-col items-center shrink-0 pt-4 gap-0.5">
+        {needsScroll && (
           <button
-            key={year}
-            onClick={() => setSelectedYear(year)}
-            className={`text-xs px-2 py-0.5 rounded text-right transition-colors ${
-              year === selectedYear
-                ? 'font-bold text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            onClick={() => scrollYears('up')}
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            {year}
+            <ChevronUp className="w-3.5 h-3.5" />
           </button>
-        ))}
+        )}
+        <div
+          ref={yearListRef}
+          className="flex flex-col gap-1 overflow-y-auto"
+          style={{
+            maxHeight: needsScroll ? `${MAX_VISIBLE_YEARS * YEAR_BUTTON_HEIGHT}px` : undefined,
+            scrollbarWidth: 'none',
+          }}
+        >
+          {availableYears.map((year) => (
+            <button
+              key={year}
+              ref={year === selectedYear ? selectedYearRef : undefined}
+              onClick={() => setSelectedYear(year)}
+              className={`text-xs px-2 py-0.5 rounded text-right transition-colors ${
+                year === selectedYear
+                  ? 'font-bold text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+        {needsScroll && (
+          <button
+            onClick={() => scrollYears('down')}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )

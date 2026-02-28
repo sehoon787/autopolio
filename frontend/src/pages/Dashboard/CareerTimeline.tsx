@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Building2,
-  FolderKanban,
   GraduationCap,
   Code,
   IdCard,
@@ -14,40 +12,18 @@ import {
   ScrollText,
   Heart,
   Users,
-  ArrowRight,
 } from 'lucide-react'
 import type { CompanyGroupedResponse } from '@/api/knowledge'
 import type { Education } from '@/api/credentials'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
-  getTimelineRange, dateToPercent, generateYearTicks, formatDate, parseValidDate,
-  sortByDate, LABEL_COL_CLASS, MIN_BAR_WIDTH_PCT, BAR_LABEL_THRESHOLD_PCT, MAX_TOOLTIP_ITEMS,
-  type CredentialData,
+  getTimelineRange, generateYearTicks, parseValidDate, sortByDate,
+  LABEL_COL_CLASS, ACADEMIC_DEGREES,
+  type CredentialData, type DurationItem, type DurationSubGroup,
+  type PointSubGroup, type AccordionGroup, type EmptyHint,
 } from './timelineUtils'
 import CareerHeatmap from './CareerHeatmap'
-
-type DurationItem = {
-  id: string; label: string; subtitle: string | null
-  date: string | null; endDate?: string | null; isCurrent?: boolean
-}
-type DurationSubGroup = {
-  key: string; i18nKey: string; icon: typeof GraduationCap
-  color: string; hoverColor: string; items: DurationItem[]
-}
-type PointItem = {
-  id: string; label: string; subtitle: string | null
-  date: string | null; dotColor: string
-}
-type PointSubGroup = {
-  key: string; i18nKey: string; icon: typeof GraduationCap
-  items: PointItem[]
-}
-type AccordionGroup = {
-  key: string; i18nKey: string; icon: typeof GraduationCap
-  totalCount: number
-  durationSubGroups: DurationSubGroup[]
-  pointSubGroups: PointSubGroup[]
-}
+import { TimelineDetailTab } from './TimelineDetailTab'
+import { TimelineProjectTab } from './TimelineProjectTab'
 
 interface CareerTimelineProps {
   data: CompanyGroupedResponse | undefined
@@ -55,11 +31,8 @@ interface CareerTimelineProps {
   isLoading: boolean
 }
 
-const ACADEMIC_DEGREES = ['high_school', 'associate', 'bachelor', 'master', 'doctorate']
-
 export default function CareerTimeline({ data, credentials, isLoading }: CareerTimelineProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'project'>('summary')
 
   if (isLoading) {
@@ -100,7 +73,6 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
 
   const range = getTimelineRange(allDates)
   const yearTicks = generateYearTicks(range.start, range.end)
-  const now = new Date()
 
   const toEduItem = (e: Education): DurationItem => ({
     id: `edu-${e.id}`, label: e.school_name,
@@ -113,7 +85,7 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
   const volunteers = volunteerActivities.filter((v) => v.activity_type === 'volunteer')
   const externals = volunteerActivities.filter((v) => v.activity_type !== 'volunteer')
 
-  // ── Build 3 accordion groups ──
+  // ── Build accordion groups ──
   const accordionGroups: AccordionGroup[] = []
 
   // 1. 교육/저술
@@ -228,138 +200,12 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
 
   const hasAccordionGroups = accordionGroups.length > 0
 
-  // ── Render: sub-type row (shown when expanded) ──
-  const renderCompactDuration = (sub: DurationSubGroup) => {
-    const SubIcon = sub.icon
-    const datedItems = sub.items.filter((item) => item.date)
-    if (datedItems.length === 0 && sub.items.length === 0) return null
-
-    return (
-      <div key={sub.key} className="flex items-center py-1.5">
-        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-6`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground truncate">
-              {t(sub.i18nKey)} ({sub.items.length})
-            </span>
-          </div>
-        </div>
-        <div className="flex-1 relative h-5">
-          {datedItems.map((item) => {
-            const sDate = new Date(item.date!)
-            const eDate = item.endDate ? new Date(item.endDate) : (item.isCurrent ? now : sDate)
-            const sPct = dateToPercent(sDate, range.start, range.end)
-            const ePct = dateToPercent(eDate, range.start, range.end)
-            const wPct = Math.max(ePct - sPct, 0.5)
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={`absolute h-5 rounded ${sub.color} ${sub.hoverColor} cursor-pointer transition-colors flex items-center overflow-hidden`}
-                    style={{ left: `${sPct}%`, width: `${wPct}%`, minWidth: '4px', top: '50%', transform: 'translateY(-50%)' }}
-                    onClick={() => navigate('/knowledge/credentials')}
-                  >
-                    {wPct > BAR_LABEL_THRESHOLD_PCT && (
-                      <span className="text-[10px] text-white px-1 truncate">{item.label}</span>
-                    )}
-                    {item.isCurrent && (
-                      <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse rounded-r" />
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
-                  <p className="font-medium">{item.label}</p>
-                  {item.subtitle && <p className="text-xs text-muted-foreground">{item.subtitle}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(item.date)} – {item.isCurrent ? t('dashboard:careerTimeline.present') : (formatDate(item.endDate) || '')}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  const renderCompactPoint = (sub: PointSubGroup) => {
-    const SubIcon = sub.icon
-    const datedItems = sub.items.filter((item) => item.date)
-    if (datedItems.length === 0 && sub.items.length === 0) return null
-
-    return (
-      <div key={sub.key} className="flex items-center py-1.5">
-        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-6`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <SubIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground truncate">
-              {t(sub.i18nKey)} ({sub.items.length})
-            </span>
-          </div>
-        </div>
-        <div className="flex-1 relative h-5 flex items-center">
-          {datedItems.length === 0 && sub.items.length > 0 && (
-            <span className="text-[10px] text-muted-foreground/60 italic pl-1">
-              ({sub.items.length}건 — {t('dashboard:careerTimeline.noDate')})
-            </span>
-          )}
-          {datedItems.map((item) => {
-            const pct = dateToPercent(new Date(item.date!), range.start, range.end)
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={`absolute w-2.5 h-2.5 rounded-full ${item.dotColor} cursor-pointer hover:scale-125 transition-transform ring-2 ring-background`}
-                    style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
-                    onClick={() => navigate('/knowledge/credentials')}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
-                  <p className="font-medium">{item.label}</p>
-                  {item.subtitle && <p className="text-xs text-muted-foreground">{item.subtitle}</p>}
-                  <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
-                </TooltipContent>
-              </Tooltip>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  // ── Main render ──
-  const renderGroup = (group: AccordionGroup, index: number) => {
-    const Icon = group.icon
-
-    return (
-      <div key={group.key}>
-        {/* Separator between groups */}
-        {index > 0 && (
-          <div className="flex items-center my-2">
-            <div className={`${LABEL_COL_CLASS} shrink-0`} />
-            <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
-          </div>
-        )}
-
-        {/* Group header */}
-        <div className="flex items-center py-1.5">
-          <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
-            <div className="flex items-center gap-1 min-w-0">
-              <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-medium truncate">
-                {t(group.i18nKey)} ({group.totalCount})
-              </span>
-            </div>
-          </div>
-          <div className="flex-1" />
-        </div>
-
-        {/* Sub-type rows: always shown */}
-        {group.durationSubGroups.map((sub) => renderCompactDuration(sub))}
-        {group.pointSubGroups.map((sub) => renderCompactPoint(sub))}
-      </div>
-    )
-  }
+  const emptyHints = [
+    !hasCompanies && { icon: Building2, label: t('dashboard:careerTimeline.emptyCompanies'), addLabel: t('dashboard:careerTimeline.goAddCompany'), path: '/knowledge/companies' },
+    educations.length + papers.length + patents.length === 0 && { icon: GraduationCap, label: t('dashboard:careerTimeline.emptyEducation'), addLabel: t('dashboard:careerTimeline.goAddEducation'), path: '/knowledge/education-publications-patents' },
+    certifications.length + awards.length === 0 && { icon: IdCard, label: t('dashboard:careerTimeline.emptyCertifications'), addLabel: t('dashboard:careerTimeline.goAddCertification'), path: '/knowledge/certifications-awards' },
+    volunteerActivities.length === 0 && { icon: Heart, label: t('dashboard:careerTimeline.emptyActivities'), addLabel: t('dashboard:careerTimeline.goAddActivity'), path: '/knowledge/activities' },
+  ].filter(Boolean) as EmptyHint[]
 
   return (
     <Card>
@@ -385,286 +231,23 @@ export default function CareerTimeline({ data, credentials, isLoading }: CareerT
             <CareerHeatmap data={data} credentials={credentials} />
           </TabsContent>
           <TabsContent value="detail" className="mt-0">
-            {!hasCompanies && !hasCredentials ? (
-              <div className="py-4">
-                {([
-                  { icon: Building2, label: t('dashboard:careerTimeline.emptyCompanies'), addLabel: t('dashboard:careerTimeline.goAddCompany'), path: '/knowledge/companies' },
-                  { icon: GraduationCap, label: t('dashboard:careerTimeline.emptyEducation'), addLabel: t('dashboard:careerTimeline.goAddEducation'), path: '/knowledge/education-publications-patents' },
-                  { icon: IdCard, label: t('dashboard:careerTimeline.emptyCertifications'), addLabel: t('dashboard:careerTimeline.goAddCertification'), path: '/knowledge/certifications-awards' },
-                  { icon: Heart, label: t('dashboard:careerTimeline.emptyActivities'), addLabel: t('dashboard:careerTimeline.goAddActivity'), path: '/knowledge/activities' },
-                ] as const).map(({ icon: Icon, label, addLabel, path }, i) => (
-                  <div key={`${path}-${i}`}>
-                    {i > 0 && (
-                      <div className="flex items-center my-2">
-                        <div className={`${LABEL_COL_CLASS} shrink-0`} />
-                        <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
-                      </div>
-                    )}
-                    <div className="flex items-center py-1.5">
-                      <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
-                        <div className="flex items-center gap-1 min-w-0">
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="text-sm font-medium truncate text-muted-foreground">
-                            {label}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-1 flex items-center justify-center h-7">
-                        <button
-                          onClick={() => navigate(path)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                        >
-                          {addLabel}
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-            <div className="relative">
-              {/* Year ticks */}
-              <div className="flex items-center mb-3">
-                <div className={`${LABEL_COL_CLASS} shrink-0`} />
-                <div className="flex-1 relative h-5">
-                  {yearTicks.map((year) => {
-                    const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
-                    return (
-                      <span
-                        key={year}
-                        className="absolute text-xs text-muted-foreground -translate-x-1/2"
-                        style={{ left: `${pct}%` }}
-                      >
-                        {year}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <TooltipProvider delayDuration={200}>
-                {/* Company + project rows */}
-                {companies.map((group) => {
-                  const company = group.company
-                  const startDate = company.start_date ? new Date(company.start_date) : range.start
-                  const endDate = company.end_date ? new Date(company.end_date) : now
-                  const startPct = dateToPercent(startDate, range.start, range.end)
-                  const endPct = dateToPercent(endDate, range.start, range.end)
-                  const widthPct = Math.max(endPct - startPct, MIN_BAR_WIDTH_PCT)
-                  const isCurrent = !company.end_date || company.is_current
-
-                  return (
-                    <div key={company.id} className="flex items-center py-1.5">
-                      <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
-                        <p className="text-sm font-medium truncate">{company.name}</p>
-                        {company.position && (
-                          <p className="text-xs text-muted-foreground truncate">{company.position}</p>
-                        )}
-                      </div>
-                      <div className="flex-1 relative h-6">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="absolute top-0 h-6 rounded bg-blue-500/70 dark:bg-blue-400/60 cursor-pointer hover:bg-blue-500/90 dark:hover:bg-blue-400/80 transition-colors flex items-center overflow-hidden"
-                              style={{ left: `${startPct}%`, width: `${widthPct}%`, minWidth: '4px' }}
-                              onClick={() => navigate('/knowledge/companies/timeline')}
-                            >
-                              {widthPct > BAR_LABEL_THRESHOLD_PCT && (
-                                <span className="text-[10px] text-white px-1.5 truncate">
-                                  {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
-                                </span>
-                              )}
-                              {isCurrent && (
-                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-300 animate-pulse rounded-r" />
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">
-                            <p className="font-medium">{company.name}</p>
-                            {company.position && <p className="text-xs">{company.position}</p>}
-                            <p className="text-xs text-muted-foreground">
-                              {formatDate(company.start_date)} – {isCurrent ? t('dashboard:careerTimeline.present') : formatDate(company.end_date)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('dashboard:careerTimeline.projects', { count: group.project_count })}
-                            </p>
-                            {group.aggregated_tech_stack.length > 0 && (
-                              <p className="text-xs mt-1">
-                                <span className="text-muted-foreground">{t('dashboard:careerTimeline.techStack')}: </span>
-                                {group.aggregated_tech_stack.slice(0, MAX_TOOLTIP_ITEMS).join(', ')}
-                                {group.aggregated_tech_stack.length > MAX_TOOLTIP_ITEMS && ` +${group.aggregated_tech_stack.length - MAX_TOOLTIP_ITEMS}`}
-                              </p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* Separator: companies → accordion groups */}
-                {hasAccordionGroups && hasCompanies && (
-                  <div className="flex items-center my-3">
-                    <div className={`${LABEL_COL_CLASS} shrink-0`} />
-                    <div className="flex-1 border-t border-dashed" />
-                  </div>
-                )}
-
-                {/* Accordion groups */}
-                {accordionGroups.map((group, index) => renderGroup(group, index))}
-              </TooltipProvider>
-
-              {/* Empty group hints */}
-              {(() => {
-                const emptyGroups = [
-                  !hasCompanies && { icon: Building2, label: t('dashboard:careerTimeline.emptyCompanies'), addLabel: t('dashboard:careerTimeline.goAddCompany'), path: '/knowledge/companies' },
-                  educations.length + papers.length + patents.length === 0 && { icon: GraduationCap, label: t('dashboard:careerTimeline.emptyEducation'), addLabel: t('dashboard:careerTimeline.goAddEducation'), path: '/knowledge/education-publications-patents' },
-                  certifications.length + awards.length === 0 && { icon: IdCard, label: t('dashboard:careerTimeline.emptyCertifications'), addLabel: t('dashboard:careerTimeline.goAddCertification'), path: '/knowledge/certifications-awards' },
-                  volunteerActivities.length === 0 && { icon: Heart, label: t('dashboard:careerTimeline.emptyActivities'), addLabel: t('dashboard:careerTimeline.goAddActivity'), path: '/knowledge/activities' },
-                ].filter(Boolean) as { icon: typeof Building2; label: string; addLabel: string; path: string }[]
-                if (emptyGroups.length === 0) return null
-                const needsSeparator = hasCompanies || hasAccordionGroups
-                return emptyGroups.map((g, i) => {
-                  const Icon = g.icon
-                  return (
-                    <div key={`${g.path}-${i}`}>
-                      {(i > 0 || needsSeparator) && (
-                        <div className="flex items-center my-2">
-                          <div className={`${LABEL_COL_CLASS} shrink-0`} />
-                          <div className="flex-1 border-t border-dashed border-muted-foreground/20" />
-                        </div>
-                      )}
-                      <div className="flex items-center py-1.5">
-                        <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
-                          <div className="flex items-center gap-1 min-w-0">
-                            <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="text-sm font-medium truncate text-muted-foreground">
-                              {g.label}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center h-7">
-                          <button
-                            onClick={() => navigate(g.path)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                          >
-                            {g.addLabel}
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-            )}
+            <TimelineDetailTab
+              companies={companies}
+              accordionGroups={accordionGroups}
+              hasCompanies={hasCompanies}
+              hasCredentials={hasCredentials}
+              hasAccordionGroups={hasAccordionGroups}
+              range={range}
+              yearTicks={yearTicks}
+              emptyHints={emptyHints}
+            />
           </TabsContent>
           <TabsContent value="project" className="mt-0">
-            {companies.some((g) => g.projects.length > 0) ? (
-              <div className="relative">
-                {/* Year ticks */}
-                <div className="flex items-center mb-3">
-                  <div className={`${LABEL_COL_CLASS} shrink-0`} />
-                  <div className="flex-1 relative h-5">
-                    {yearTicks.map((year) => {
-                      const pct = dateToPercent(new Date(year, 0, 1), range.start, range.end)
-                      return (
-                        <span
-                          key={year}
-                          className="absolute text-xs text-muted-foreground -translate-x-1/2"
-                          style={{ left: `${pct}%` }}
-                        >
-                          {year}
-                        </span>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <TooltipProvider delayDuration={200}>
-                  {companies.map((group) => {
-                    if (group.projects.length === 0) return null
-                    const company = group.company
-                    const startDate = company.start_date ? new Date(company.start_date) : range.start
-
-                    return (
-                      <div key={company.id}>
-                        {/* Company label row */}
-                        <div className="flex items-center py-1.5">
-                          <div className={`${LABEL_COL_CLASS} shrink-0 pr-3`}>
-                            <p className="text-xs font-medium text-muted-foreground truncate">{company.name}</p>
-                          </div>
-                          <div className="flex-1" />
-                        </div>
-
-                        {/* Project bars */}
-                        {group.projects.map((project) => {
-                          const pStart = project.start_date ? new Date(project.start_date) : startDate
-                          const pEnd = project.end_date ? new Date(project.end_date) : now
-                          const pStartPct = dateToPercent(pStart, range.start, range.end)
-                          const pEndPct = dateToPercent(pEnd, range.start, range.end)
-                          const pWidthPct = Math.max(pEndPct - pStartPct, MIN_BAR_WIDTH_PCT)
-                          const pIsCurrent = !project.end_date
-
-                          return (
-                            <div key={project.id} className="flex items-center py-1.5">
-                              <div className={`${LABEL_COL_CLASS} shrink-0 pr-3 pl-4`}>
-                                <p className="text-xs truncate">{project.name}</p>
-                              </div>
-                              <div className="flex-1 relative h-5">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      className="absolute top-0 h-5 rounded bg-emerald-500/60 dark:bg-emerald-400/50 cursor-pointer hover:bg-emerald-500/80 dark:hover:bg-emerald-400/70 transition-colors flex items-center overflow-hidden"
-                                      style={{ left: `${pStartPct}%`, width: `${pWidthPct}%`, minWidth: '4px' }}
-                                      onClick={() => navigate(`/knowledge/projects/${project.id}`)}
-                                    >
-                                      {pWidthPct > BAR_LABEL_THRESHOLD_PCT && (
-                                        <span className="text-[10px] text-white px-1.5 truncate">{project.name}</span>
-                                      )}
-                                      {pIsCurrent && (
-                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse rounded-r" />
-                                      )}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <p className="font-medium">{project.name}</p>
-                                    <p className="text-xs text-muted-foreground">{company.name}</p>
-                                    {project.role && <p className="text-xs">{project.role}</p>}
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(project.start_date)} – {pIsCurrent ? t('dashboard:careerTimeline.present') : formatDate(project.end_date)}
-                                    </p>
-                                    {project.technologies.length > 0 && (
-                                      <p className="text-xs mt-1">
-                                        {project.technologies.slice(0, MAX_TOOLTIP_ITEMS).join(', ')}
-                                        {project.technologies.length > MAX_TOOLTIP_ITEMS && ` +${project.technologies.length - MAX_TOOLTIP_ITEMS}`}
-                                      </p>
-                                    )}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
-                </TooltipProvider>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <FolderKanban className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>{t('dashboard:projectTimeline.empty')}</p>
-                <button
-                  onClick={() => navigate('/knowledge/projects')}
-                  className="text-primary hover:underline text-sm mt-2"
-                >
-                  {t('dashboard:projectTimeline.addProject')}
-                </button>
-              </div>
-            )}
+            <TimelineProjectTab
+              companies={companies}
+              range={range}
+              yearTicks={yearTicks}
+            />
           </TabsContent>
         </CardContent>
       </Tabs>

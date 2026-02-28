@@ -4,8 +4,37 @@
  */
 
 import type { Certification, Award, Education, Publication, VolunteerActivity } from '@/api/credentials'
+import type { LucideIcon } from 'lucide-react'
 
 // ── Shared types ──
+
+export type DurationItem = {
+  id: string; label: string; subtitle: string | null
+  date: string | null; endDate?: string | null; isCurrent?: boolean
+}
+export type DurationSubGroup = {
+  key: string; i18nKey: string; icon: LucideIcon
+  color: string; hoverColor: string; items: DurationItem[]
+}
+export type PointItem = {
+  id: string; label: string; subtitle: string | null
+  date: string | null; dotColor: string
+}
+export type PointSubGroup = {
+  key: string; i18nKey: string; icon: LucideIcon
+  items: PointItem[]
+}
+export type AccordionGroup = {
+  key: string; i18nKey: string; icon: LucideIcon
+  totalCount: number
+  durationSubGroups: DurationSubGroup[]
+  pointSubGroups: PointSubGroup[]
+}
+export type EmptyHint = {
+  icon: LucideIcon; label: string; addLabel: string; path: string
+}
+
+export const ACADEMIC_DEGREES = ['high_school', 'associate', 'bachelor', 'master', 'doctorate']
 
 export interface CredentialData {
   certifications: Certification[]
