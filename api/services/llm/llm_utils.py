@@ -19,7 +19,15 @@ def parse_json_from_llm(response: str) -> Any:
         json_str = json_str.split("```json")[1].split("```")[0]
     elif "```" in json_str:
         json_str = json_str.split("```")[1].split("```")[0]
-    return json.loads(json_str.strip())
+    try:
+        return json.loads(json_str.strip())
+    except json.JSONDecodeError as e:
+        logger.warning(
+            "[parse_json_from_llm] JSON parse failed: %s (preview=%.200s)",
+            e,
+            json_str[:200],
+        )
+        raise
 
 
 def create_llm_service(options: dict):

@@ -131,40 +131,45 @@ JSON 배열 형식으로만 응답하세요:
             # Both LLMService and CLILLMService have .provider attribute
             # CLILLMProvider.generate() delegates to generate_with_cli() internally
             response, tokens = await llm_service.provider.generate(
-                prompt, system_prompt=system_prompt, max_tokens=500, temperature=0.3
+                prompt, system_prompt=system_prompt, max_tokens=2000, temperature=0.3
             )
 
-            logger.info(
-                "[_generate_key_tasks_bg] Response len=%d, tokens=%d, preview=%.100s",
-                len(response) if response else 0,
-                tokens,
-                (response or "")[:100],
+            print(
+                f"[_generate_key_tasks_bg] Response len={len(response) if response else 0}, "
+                f"tokens={tokens}, preview={repr((response or '')[:300])}",
+                flush=True,
             )
 
             tasks = parse_json_from_llm(response)
 
-            if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-                logger.info(
-                    "[_generate_key_tasks_bg] Extracted %d tasks", len(tasks[:5])
-                )
-                return tasks[:5], tokens
+            if isinstance(tasks, list):
+                cleaned = [str(t).strip() for t in tasks if t and str(t).strip()]
+                if cleaned:
+                    logger.info(
+                        "[_generate_key_tasks_bg] Extracted %d tasks", len(cleaned[:5])
+                    )
+                    return cleaned[:5], tokens
 
             logger.warning(
-                "[_generate_key_tasks_bg] Unexpected format: %s", type(tasks).__name__
+                "[_generate_key_tasks_bg] Unexpected format: %s (preview=%.200s)",
+                type(tasks).__name__,
+                str(tasks)[:200],
             )
             return [], tokens
 
         except json.JSONDecodeError as e:
             logger.error(
-                "[_generate_key_tasks_bg] JSON parse failed: %s (response_preview=%.200s)",
+                "[_generate_key_tasks_bg] JSON parse failed: %s (response=%.300s)",
                 e,
-                (response if "response" in dir() else "N/A")[:200]
+                (response if "response" in dir() else "N/A")[:300]
                 if response
                 else "empty",
             )
             return [], 0
         except Exception as e:
-            logger.error("[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e)
+            logger.error(
+                "[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e
+            )
             return [], 0
 
 
@@ -367,6 +372,13 @@ async def save_llm_results(
     ai_key_features: List[str] = None,
 ) -> None:
     """Save LLM-generated results to RepoAnalysis and optionally to Project."""
+    logger.info(
+        "[save_llm_results] analysis_id=%d, key_tasks=%d, ai_summary=%s, ai_key_features=%s",
+        analysis_id,
+        len(key_tasks) if key_tasks else 0,
+        bool(ai_summary),
+        len(ai_key_features) if ai_key_features else 0,
+    )
     async with AsyncSessionLocal() as db:
         analysis_db_result = await db.execute(
             select(RepoAnalysis).where(RepoAnalysis.id == analysis_id)
@@ -376,7 +388,7 @@ async def save_llm_results(
             return
 
         repo_analysis.analysis_language = language
-        if key_tasks:
+        if key_tasks is not None:
             repo_analysis.key_tasks = key_tasks
         if detailed_content.get("implementation_details"):
             repo_analysis.implementation_details = detailed_content[
