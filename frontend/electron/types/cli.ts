@@ -8,7 +8,7 @@
 // CLI Types
 // ============================================================================
 
-export type CLIType = 'claude_code' | 'gemini_cli' | 'github_cli'
+export type CLIType = 'claude_code' | 'gemini_cli' | 'codex_cli' | 'github_cli'
 
 export interface CLIStatus {
   tool: CLIType
@@ -169,6 +169,14 @@ export const CLI_CONFIGS: Record<CLIType, CLIConfig> = {
     npmPackage: '@google/gemini-cli',
     docsUrl: 'https://ai.google.dev/gemini-cli',
     changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
+  },
+  codex_cli: {
+    tool: 'codex_cli',
+    name: 'Codex CLI',
+    executable: 'codex',
+    npmPackage: '@openai/codex',
+    docsUrl: 'https://github.com/openai/codex',
+    changelogUrl: 'https://github.com/openai/codex/releases',
   },
   github_cli: {
     tool: 'github_cli',

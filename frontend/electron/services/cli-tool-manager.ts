@@ -111,11 +111,13 @@ export class CLIToolManager {
   async refreshAll(): Promise<Record<CLIType, CLIStatus>> {
     const claude = await this.refreshCLI('claude_code')
     const gemini = await this.refreshCLI('gemini_cli')
+    const codex = await this.refreshCLI('codex_cli')
     const github = await this.refreshCLI('github_cli')
 
     return {
       claude_code: claude,
       gemini_cli: gemini,
+      codex_cli: codex,
       github_cli: github,
     }
   }
@@ -201,6 +203,13 @@ export class CLIToolManager {
         const usage = data.usage || {}
         const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
           + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0)
+        return { content, tokens }
+      }
+
+      if (tool === 'codex_cli' && 'output' in data) {
+        const content = typeof data.output === 'string' ? data.output : String(data.output)
+        const usage = data.usage || {}
+        const tokens = (usage as any).total_tokens || ((usage as any).input_tokens || 0) + ((usage as any).output_tokens || 0)
         return { content, tokens }
       }
 

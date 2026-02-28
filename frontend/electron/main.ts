@@ -129,14 +129,16 @@ initBackendManager({
 async function prefetchCLIStatus(): Promise<void> {
   try {
     const manager = getCLIToolManager()
-    const [claude, gemini] = await Promise.all([
+    const [claude, gemini, codex] = await Promise.all([
       manager.detectCLI('claude_code').catch(() => null),
       manager.detectCLI('gemini_cli').catch(() => null),
+      manager.detectCLI('codex_cli').catch(() => null),
     ])
-    setCachedCLIStatus({ claude, gemini })
+    setCachedCLIStatus({ claude, gemini, codex })
     console.log('[Main] CLI status prefetched:', {
       claude: claude?.installed ?? 'error',
       gemini: gemini?.installed ?? 'error',
+      codex: codex?.installed ?? 'error',
     })
   } catch (error) {
     console.error('[Main] CLI status prefetch failed:', error)

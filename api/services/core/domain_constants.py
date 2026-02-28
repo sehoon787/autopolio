@@ -4,9 +4,41 @@ Domain Constants - Shared categorization keywords for technology domain classifi
 Used by:
 - template_exporter.py: For categorizing skills by domain in exports
 - user_data_collector.py: For categorizing technologies in user data collection
+- companies.py: For grouping technologies in company summaries
 """
 
 from typing import Dict, Any, List
+
+
+# Exact-name technology categories for company/project grouping
+TECH_CATEGORIES: Dict[str, List[str]] = {
+    "Backend": [
+        "Python", "FastAPI", "Django", "Flask", "Spring", "Spring Boot",
+        "Java", "Kotlin", "Node.js", "Express", "NestJS", "Go", "Rust",
+        "Ruby", "Rails", "PHP", "Laravel", ".NET", "C#", "ASP.NET",
+    ],
+    "Frontend": [
+        "React", "Vue", "Angular", "Next.js", "Nuxt.js", "Svelte",
+        "TypeScript", "JavaScript", "HTML", "CSS", "SCSS", "Tailwind CSS",
+        "Bootstrap", "Material UI", "Ant Design",
+    ],
+    "Mobile": [
+        "Flutter", "React Native", "Swift", "SwiftUI", "Kotlin",
+        "Android", "iOS", "Xamarin", "Ionic",
+    ],
+    "Database": [
+        "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Oracle",
+        "SQL Server", "DynamoDB", "Cassandra", "Elasticsearch",
+    ],
+    "DevOps/Infra": [
+        "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Jenkins",
+        "GitHub Actions", "GitLab CI", "Terraform", "Ansible", "Nginx", "Linux",
+    ],
+    "AI/ML": [
+        "TensorFlow", "PyTorch", "scikit-learn", "Keras", "OpenAI",
+        "LangChain", "Pandas", "NumPy", "OpenCV",
+    ],
+}
 
 # Domain categorization keywords for technology classification
 DOMAIN_CATEGORIES: Dict[str, Dict[str, Any]] = {

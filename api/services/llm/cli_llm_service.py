@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 # Note: Analysis may make multiple LLM calls, so total time can be longer
 CLI_TIMEOUT_SECONDS = 180
 
+# CLI type → (env var to read, env var to set in subprocess)
+# e.g. CLAUDE_CODE_API_KEY value → passed as ANTHROPIC_API_KEY to subprocess
+CLI_SUBPROCESS_ENV_MAP = {
+    "claude_code": ("CLAUDE_CODE_API_KEY", "ANTHROPIC_API_KEY"),
+    "codex_cli": ("CODEX_API_KEY", "OPENAI_API_KEY"),
+    "gemini_cli": ("GEMINI_CLI_API_KEY", "GEMINI_API_KEY"),
+}
+
 
 class CLILLMProvider:
     """Provider wrapper for CLI LLM to match API LLMService interface."""
@@ -52,7 +60,7 @@ class CLILLMService:
     def __init__(self, cli_type: str = "claude_code", model: str | None = None):
         """
         Args:
-            cli_type: 'claude_code' or 'gemini_cli'
+            cli_type: 'claude_code', 'gemini_cli', or 'codex_cli'
             model: Optional model name to pass via --model flag
         """
         self.cli_type = cli_type
@@ -71,13 +79,19 @@ class CLILLMService:
         """
         cli_path = self._find_cli_path()
         if not cli_path:
-            cli_name = "claude" if self.cli_type == "claude_code" else "gemini"
+            cli_names = {"claude_code": "claude", "gemini_cli": "gemini", "codex_cli": "codex"}
+            cli_name = cli_names.get(self.cli_type, self.cli_type)
             logger.error(
                 "[CLI] %s CLI not found! Searched: shutil.which, npm global paths",
                 cli_name,
             )
             raise RuntimeError(f"{cli_name} CLI not found. Please install it first.")
         logger.info("[CLI] Found CLI at: %s (type=%s)", cli_path, self.cli_type)
+
+        # Codex CLI uses session-based auth (codex login), not env vars.
+        # Auto-login with API key if CODEX_API_KEY or OPENAI_API_KEY is set.
+        if self.cli_type == "codex_cli":
+            await self._ensure_codex_login(cli_path)
 
         args = self._build_args(cli_path)
         cli_path_lower = cli_path.lower()
@@ -128,6 +142,14 @@ class CLILLMService:
             # Clean env: remove CLAUDECODE to avoid "nested session" error when backend
             # itself runs inside a Claude Code session (e.g., local dev testing).
             clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+            # Inject CLI-specific API key into subprocess environment
+            cli_env_mapping = CLI_SUBPROCESS_ENV_MAP.get(self.cli_type)
+            if cli_env_mapping:
+                src_var, dst_var = cli_env_mapping
+                cli_key = os.environ.get(src_var, "")
+                if cli_key:
+                    clean_env[dst_var] = cli_key
 
             process = subprocess.Popen(
                 exec_args,
@@ -280,7 +302,8 @@ class CLILLMService:
 
     def _find_cli_path(self) -> Optional[str]:
         """Find CLI executable path with Windows npm global support."""
-        exe_name = "claude" if self.cli_type == "claude_code" else "gemini"
+        exe_names = {"claude_code": "claude", "gemini_cli": "gemini", "codex_cli": "codex"}
+        exe_name = exe_names.get(self.cli_type, "claude")
 
         # Windows: Prefer .cmd files for proper execution
         if sys.platform == "win32":
@@ -324,8 +347,38 @@ class CLILLMService:
         logger.warning("%s not found in PATH or npm global paths", exe_name)
         return None
 
+    async def _ensure_codex_login(self, cli_path: str) -> None:
+        """Ensure Codex CLI is authenticated. Auto-login with API key if available."""
+        api_key = os.environ.get("CODEX_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+        if not api_key:
+            logger.debug("[Codex] No API key found for auto-login")
+            return
+
+        try:
+            proc = subprocess.run(
+                [cli_path, "login", "--with-api-key"],
+                input=api_key.encode("utf-8"),
+                capture_output=True,
+                timeout=10,
+            )
+            if proc.returncode == 0:
+                logger.info("[Codex] Auto-login successful")
+            else:
+                stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+                logger.debug("[Codex] Login returned code %d: %s", proc.returncode, stderr)
+        except Exception as e:
+            logger.debug("[Codex] Auto-login failed: %s", e)
+
     def _build_args(self, cli_path: str) -> list:
         """Build CLI command arguments (prompt passed via stdin)."""
+        if self.cli_type == "codex_cli":
+            # Codex CLI: codex exec --skip-git-repo-check - --json [--model MODEL]
+            args = [cli_path, "exec", "--skip-git-repo-check", "-", "--json"]
+            if self.model:
+                args.extend(["--model", self.model])
+            return args
+
+        # Claude Code / Gemini CLI: cli -p - --output-format json
         # Use -p without argument to read prompt from stdin
         # This avoids command-line length limits on Windows (~8191 chars)
         args = [cli_path, "-p", "-", "--output-format", "json"]
@@ -339,6 +392,7 @@ class CLILLMService:
 
         Claude JSON: { "result": "...", "usage": { "input_tokens": N, "output_tokens": N } }
         Gemini JSON: { "response": "...", "stats": { "models": { "model-name": { "tokens": { "total": N } } } } }
+        Codex JSON:  { "output": "...", "usage": { "total_tokens": N } }
 
         Falls back to (raw_output, 0) on parse failure.
         """
@@ -379,6 +433,17 @@ class CLILLMService:
                     "usage" in data,
                     list(usage.keys()) if usage else "empty",
                 )
+        elif self.cli_type == "codex_cli" and "output" in data:
+            # Codex format
+            content = (
+                data["output"]
+                if isinstance(data["output"], str)
+                else str(data["output"])
+            )
+            usage = data.get("usage", {})
+            token_count = usage.get("total_tokens", 0)
+            if token_count == 0:
+                token_count = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
         elif self.cli_type == "gemini_cli" and "response" in data:
             # Gemini format
             content = (

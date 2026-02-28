@@ -52,6 +52,11 @@ export function getConfig(tool: CLIType): { name: string; executable: string; np
       executable: 'gemini',
       npmPackage: '@google/gemini-cli',
     },
+    codex_cli: {
+      name: 'Codex CLI',
+      executable: 'codex',
+      npmPackage: '@openai/codex',
+    },
     github_cli: {
       name: 'GitHub CLI',
       executable: 'gh',

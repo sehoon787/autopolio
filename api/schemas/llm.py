@@ -9,7 +9,7 @@ from typing import Optional, List
 class CLIStatus(BaseModel):
     """Status of a CLI tool installation."""
 
-    tool: str = Field(..., description="Tool identifier: 'claude_code' or 'gemini_cli'")
+    tool: str = Field(..., description="Tool identifier: 'claude_code', 'gemini_cli', or 'codex_cli'")
     installed: bool = Field(..., description="Whether the CLI is installed")
     version: Optional[str] = Field(None, description="Installed version")
     latest_version: Optional[str] = Field(None, description="Latest available version")
@@ -57,18 +57,24 @@ class LLMConfigResponse(BaseModel):
     )
     gemini_configured: bool = Field(False, description="Whether Gemini API key is set")
     openai_model: str = Field(
-        "gpt-4-turbo-preview", description="Selected OpenAI model"
+        "gpt-4.1", description="Selected OpenAI model"
     )
     anthropic_model: str = Field(
-        "claude-3-5-sonnet-20241022", description="Selected Anthropic model"
+        "claude-sonnet-4-6-20260217", description="Selected Anthropic model"
     )
-    gemini_model: str = Field("gemini-2.0-flash", description="Selected Gemini model")
+    gemini_model: str = Field("gemini-2.5-flash", description="Selected Gemini model")
     claude_code_status: CLIStatus = Field(..., description="Claude Code CLI status")
     gemini_cli_status: Optional[CLIStatus] = Field(
         None, description="Gemini CLI status"
     )
+    codex_cli_status: Optional[CLIStatus] = Field(
+        None, description="Codex CLI status"
+    )
     providers: List[LLMProvider] = Field(
         default_factory=list, description="Available providers"
+    )
+    runtime: str = Field(
+        "external", description="Runtime environment: 'docker', 'local', 'electron', or 'external'"
     )
 
 
@@ -123,10 +129,30 @@ class CLITestResponse(BaseModel):
     tool: str = Field(..., description="Tool that was tested")
     message: str = Field(..., description="Test result message")
     output: Optional[str] = Field(None, description="CLI output if any")
+    model: Optional[str] = Field(None, description="Model used for the test")
     provider: Optional[str] = Field(
         None, description="Mapped provider for usage tracking"
     )
-    token_usage: int = Field(default=0, description="Token usage (always 0 for CLI)")
+    token_usage: int = Field(default=0, description="Token usage from actual API call")
+    auth_status: str = Field(
+        default="unknown",
+        description="Authentication status: 'authenticated', 'auth_failed', or 'unknown'",
+    )
+
+
+class CLIConnectRequest(BaseModel):
+    """Request to connect a CLI tool by providing an API key."""
+
+    api_key: str = Field(..., description="API key for the CLI tool's provider")
+
+
+class CLIConnectResponse(BaseModel):
+    """Response from CLI connect/disconnect."""
+
+    success: bool = Field(..., description="Whether the operation was successful")
+    message: str = Field(..., description="Result message")
+    provider: Optional[str] = Field(None, description="Mapped provider ID")
+    env_var: Optional[str] = Field(None, description="Environment variable that was set/unset")
 
 
 class LLMTestRequest(BaseModel):

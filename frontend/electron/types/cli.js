@@ -20,6 +20,14 @@ export const CLI_CONFIGS = {
         docsUrl: 'https://ai.google.dev/gemini-cli',
         changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
     },
+    codex_cli: {
+        tool: 'codex_cli',
+        name: 'Codex CLI',
+        executable: 'codex',
+        npmPackage: '@openai/codex',
+        docsUrl: 'https://github.com/openai/codex',
+        changelogUrl: 'https://github.com/openai/codex/releases',
+    },
     github_cli: {
         tool: 'github_cli',
         name: 'GitHub CLI',

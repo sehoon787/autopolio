@@ -130,9 +130,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
-    openai_model: str = "gpt-4-turbo-preview"
-    anthropic_model: str = "claude-3-5-sonnet-20241022"
-    gemini_model: str = "gemini-2.0-flash"
+    openai_model: str = "gpt-4.1"
+    anthropic_model: str = "claude-sonnet-4-6-20260217"
+    gemini_model: str = "gemini-2.5-flash"
+
+    # CLI-specific API keys (separate from API provider keys)
+    claude_code_api_key: str = ""
+    codex_api_key: str = ""
+    gemini_cli_api_key: str = ""
 
     base_dir: Path = _get_base_dir()
     data_dir: Path = _get_data_dir()
