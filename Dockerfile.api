@@ -3,21 +3,30 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies and uv
+# Install system dependencies, Node.js, and uv
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Add uv to PATH and disable Python output buffering
-ENV PATH="/root/.local/bin:$PATH"
+# Install CLI tools (optional — build continues if installation fails)
+RUN curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null || true
+RUN npm install -g @google/gemini-cli 2>/dev/null || true
+RUN npm install -g @openai/codex 2>/dev/null || true
+
+# Add uv and CLI paths to PATH
+ENV PATH="/root/.local/bin:/root/.claude/local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
 # Copy project files
 COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY api/ ./api/
 COPY config/ ./config/
+COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Install dependencies with uv
 RUN uv sync --frozen --no-dev
@@ -27,6 +36,9 @@ RUN mkdir -p data result
 
 # Expose port
 EXPOSE 8000
+
+# Entrypoint copies .env.init → .env (writable internal copy)
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # Run the application
 CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
