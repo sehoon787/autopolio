@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useUsageStore } from '@/stores/usageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { generateWithCLI } from '@/services/cliLLMService'
@@ -189,8 +189,8 @@ export function useProjectsPage() {
   const handleStartBatchAnalysis = async (projectsToAnalyze: Project[]) => {
     if (!user?.id || projectsToAnalyze.length === 0) return
 
-    const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, selectedLLMProvider } = useAppStore.getState()
-    const useCli = aiMode === 'cli' && isElectron()
+    const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, codexCLIModel, selectedLLMProvider } = useAppStore.getState()
+    const useCli = aiMode === 'cli'
 
     setIsBatchAnalyzing(true)
     setBatchProgress({ current: 0, total: projectsToAnalyze.length })
@@ -210,8 +210,9 @@ export function useProjectsPage() {
           language: i18n.language as 'ko' | 'en',
         }
         if (useCli) {
-          options.cli_mode = selectedCLI as 'claude_code' | 'gemini_cli'
-          options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+          options.cli_mode = selectedCLI
+          const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+          options.cli_model = resolveModelForAPI(cliModel)
         } else if (selectedLLMProvider) {
           options.provider = selectedLLMProvider
         }
@@ -284,10 +285,10 @@ export function useProjectsPage() {
   const handleGenerateAI = async () => {
     if (!user?.id || !createForm.formData.git_url) { toast({ title: t('gitUrlRequired'), variant: 'destructive' }); return }
     const { aiMode, selectedCLI } = useAppStore.getState()
-    const useCli = aiMode === 'cli' && isElectron()
+    const useDirectCli = aiMode === 'cli' && isElectron()
     setIsGeneratingAI(true)
     try {
-      if (useCli) {
+      if (useDirectCli) {
         const cli = selectedCLI as 'claude_code' | 'gemini_cli'
         const prompt = `Analyze this GitHub repository and generate a project description for a resume/portfolio.\nRepository URL: ${createForm.formData.git_url}\nProject name: ${createForm.formData.name || 'Unknown'}\n\nReturn JSON with: { "short_description": "...", "description": "...", "technologies": ["..."] }`
         const result = await generateWithCLI(prompt, cli)
