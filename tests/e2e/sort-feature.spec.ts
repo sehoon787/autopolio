@@ -127,7 +127,8 @@ test.describe('Sort feature across pages', () => {
     await page.waitForTimeout(1000)
 
     // Add button should be in the header area (top-right)
-    const addButton = page.getByRole('button', { name: /추가|Add/ })
+    // Use .first() to avoid matching empty-state buttons like "Add First Education"
+    const addButton = page.getByRole('button', { name: /추가|Add/ }).first()
     await expect(addButton).toBeVisible()
 
     // Sort dropdown should be in the subtab row
@@ -148,7 +149,8 @@ test.describe('Sort feature across pages', () => {
     await page.waitForTimeout(1000)
 
     // Add button should be in the header
-    const addButton = page.getByRole('button', { name: /추가|Add/ })
+    // Use .first() to avoid matching empty-state buttons like "Add First Education"
+    const addButton = page.getByRole('button', { name: /추가|Add/ }).first()
     await expect(addButton).toBeVisible()
 
     await page.screenshot({ path: 'test-results/education-layout.png', fullPage: true })

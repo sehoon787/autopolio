@@ -460,6 +460,72 @@ test.describe.serial('Credentials Management', () => {
       expect(pageContent.length).toBeGreaterThan(0)
     })
 
+    test('Check Academic Education data renders', async ({ page }) => {
+      // Login via localStorage
+      await page.goto(APP_URL)
+      await page.evaluate(() => {
+        localStorage.setItem('user_id', '46')
+        localStorage.setItem('user_name', 'sehoon787')
+      })
+      await page.goto(`${APP_URL}/knowledge/credentials`)
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+
+      // Click Education/Publications tab first
+      const eduMainTab = page.locator('[role="tab"], button').filter({
+        hasText: /education|학력|논문/i
+      })
+      if (await eduMainTab.count() > 0) {
+        await eduMainTab.first().click()
+        await page.waitForTimeout(500)
+      }
+
+      // Click Academic sub-tab
+      const academicTab = page.locator('[role="tab"], button').filter({
+        hasText: /academic|학력/i
+      })
+      if (await academicTab.count() > 0) {
+        await academicTab.first().click()
+        await page.waitForTimeout(1000)
+      }
+
+      // Verify seeded academic education data is displayed
+      await expect(page.getByText('한국공학대학교')).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText('서울대학교 대학원')).toBeVisible({ timeout: 5000 })
+    })
+
+    test('Check Trainings data renders', async ({ page }) => {
+      // Login via localStorage
+      await page.goto(APP_URL)
+      await page.evaluate(() => {
+        localStorage.setItem('user_id', '46')
+        localStorage.setItem('user_name', 'sehoon787')
+      })
+      await page.goto(`${APP_URL}/knowledge/credentials`)
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+
+      // Click Education/Publications tab first
+      const eduMainTab = page.locator('[role="tab"], button').filter({
+        hasText: /education|학력|논문/i
+      })
+      if (await eduMainTab.count() > 0) {
+        await eduMainTab.first().click()
+        await page.waitForTimeout(500)
+      }
+
+      // Click Trainings sub-tab
+      const trainingsTab = page.locator('[role="tab"], button').filter({
+        hasText: /training|교육이력/i
+      })
+      if (await trainingsTab.count() > 0) {
+        await trainingsTab.first().click()
+        await page.waitForTimeout(1000)
+      }
+
+      // Verify seeded training data is displayed
+      await expect(page.getByText('네이버 부스트캠프')).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText('삼성 멀티캠퍼스')).toBeVisible({ timeout: 5000 })
+    })
+
     test('Check Activities tab', async ({ page }) => {
       await page.goto(`${APP_URL}/knowledge/credentials`)
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
