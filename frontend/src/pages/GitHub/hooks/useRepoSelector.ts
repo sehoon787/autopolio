@@ -29,6 +29,8 @@ export function useRepoSelector() {
   const [searchQuery, setSearchQuery] = useState('')
   const [languageFilter, setLanguageFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('updated_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Track Electron CLI auth state separately
   const [cliAuthStatus, setCliAuthStatus] = useState<{
@@ -147,13 +149,19 @@ export function useRepoSelector() {
   // Determine if backend has the GitHub token synced (Electron + Web)
   const isBackendTokenSynced = statusData?.data?.connected === true && statusData?.data?.valid === true
 
+  // Force refresh ref for manual refresh
+  const forceRefreshRef = useRef(false)
+
   // Step 2: Fetch repos
   const { data: reposData, isLoading: reposLoading, isFetching: reposFetching, isError: reposError, refetch } = useQuery({
     queryKey: ['github-repos', user?.id, isBackendTokenSynced ? 'backend' : (isElectron() ? 'cli' : 'api')],
     queryFn: async () => {
+      const forceRefresh = forceRefreshRef.current
+      forceRefreshRef.current = false
+
       if (isBackendTokenSynced && user?.id) {
-        console.log('[RepoSelector] Fetching repos via backend API (token synced)...')
-        return githubApi.getRepos(user.id, true)
+        console.log('[RepoSelector] Fetching repos via backend API (token synced, forceRefresh:', forceRefresh, ')...')
+        return githubApi.getRepos(user.id, true, forceRefresh)
       }
       if (isElectron() && window.electron) {
         console.log('[RepoSelector] Fetching repos via gh CLI (token not yet synced)...')
@@ -163,12 +171,18 @@ export function useRepoSelector() {
         }
         return { data: { repos: result.repos, total: result.total, has_more: false } }
       }
-      console.log('[RepoSelector] Fetching repos via backend API...')
-      return githubApi.getRepos(user!.id, true)
+      console.log('[RepoSelector] Fetching repos via backend API (forceRefresh:', forceRefresh, ')...')
+      return githubApi.getRepos(user!.id, true, forceRefresh)
     },
     enabled: canFetchRepos && (isElectron() ? cliAuthStatus.checked : !!user?.id),
     retry: 1,
   })
+
+  // Handle manual refresh with force_refresh
+  const handleRefresh = useCallback(() => {
+    forceRefreshRef.current = true
+    refetch()
+  }, [refetch])
 
   // Loading state
   const isCheckingAuth = isElectron() ? !cliAuthStatus.checked : statusLoading
@@ -181,6 +195,7 @@ export function useRepoSelector() {
 
   const repos: GitHubRepo[] = (reposData?.data?.repos as GitHubRepo[]) || []
   const totalRepos = reposData?.data?.total || 0
+  const isCached = (reposData?.data as any)?.cached === true
 
   // Get unique languages for filter
   const languages = useMemo(() => {
@@ -191,11 +206,11 @@ export function useRepoSelector() {
     return Array.from(langSet).sort()
   }, [repos])
 
-  // Filtered repos
+  // Filtered and sorted repos
   const filteredRepos = useMemo(() => {
     const githubUsername = user?.github_username?.toLowerCase() || ''
 
-    return repos.filter((repo) => {
+    const filtered = repos.filter((repo) => {
       const matchesSearch = searchQuery === '' ||
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -215,7 +230,21 @@ export function useRepoSelector() {
 
       return matchesSearch && matchesLanguage && matchesOwner
     })
-  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username])
+
+    return [...filtered].sort((a, b) => {
+      const dir = sortOrder === 'asc' ? 1 : -1
+      if (sortBy === 'name') {
+        return dir * a.name.localeCompare(b.name)
+      }
+      const dateField = sortBy as 'updated_at' | 'pushed_at' | 'created_at'
+      const aVal = a[dateField]
+      const bVal = b[dateField]
+      if (!aVal && !bVal) return 0
+      if (!aVal) return 1
+      if (!bVal) return -1
+      return dir * (new Date(aVal).getTime() - new Date(bVal).getTime())
+    })
+  }, [repos, searchQuery, languageFilter, ownerFilter, user?.github_username, sortBy, sortOrder])
 
   // Virtual list configuration with dynamic measurement
   const virtualizer = useVirtualizer({
@@ -398,6 +427,8 @@ export function useRepoSelector() {
     setSearchQuery('')
     setLanguageFilter('all')
     setOwnerFilter('all')
+    setSortBy('updated_at')
+    setSortOrder('desc')
   }
 
   return {
@@ -419,7 +450,9 @@ export function useRepoSelector() {
     isLoading,
     isRefreshing,
     isError,
+    isCached,
     refetch,
+    handleRefresh,
 
     // Filters
     searchQuery,
@@ -428,6 +461,10 @@ export function useRepoSelector() {
     setLanguageFilter,
     ownerFilter,
     setOwnerFilter,
+    sortBy,
+    sortOrder,
+    setSortBy,
+    setSortOrder,
     languages,
     clearFilters,
 

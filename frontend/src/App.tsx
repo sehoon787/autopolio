@@ -115,6 +115,20 @@ function App() {
                 console.log('[App] Found existing user:', response.data.id, response.data.name)
                 setUser(response.data)
                 setIsInitializing(false)
+
+                // Background prefetch: GitHub repos
+                if (response.data.github_username) {
+                  githubApi.getStatus(response.data.id).then((statusRes) => {
+                    if (statusRes.data?.connected && statusRes.data?.valid) {
+                      queryClient.prefetchQuery({
+                        queryKey: ['github-repos', response.data.id, 'backend'],
+                        queryFn: () => githubApi.getRepos(response.data.id, true),
+                        staleTime: 5 * 60 * 1000,
+                      })
+                    }
+                  }).catch(() => {}) // Prefetch failure is non-critical
+                }
+
                 return
               }
             }

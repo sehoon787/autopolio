@@ -35,6 +35,7 @@ import { ScrollToTop } from '@/components/ScrollToTop'
 import { ExportDialog } from '@/components/ExportDialog'
 import { ProjectFormFields } from '@/components/ProjectFormFields'
 import { ProjectFilters } from '@/components/ProjectFilters'
+import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown, StopCircle, Star } from 'lucide-react'
 import { useProjectsPage, ProjectKanbanItem } from './hooks/useProjectsPage'
 
@@ -159,6 +160,22 @@ export default function ProjectsPage() {
     handleMove,
   } = useProjectsPage()
 
+  const projectSortOptions: SortOption[] = [
+    { label: tc('sort.recentCreated'), value: 'created_at', defaultOrder: 'desc' },
+    { label: tc('sort.projectName'), value: 'name', defaultOrder: 'asc' },
+    { label: tc('sort.startDate'), value: 'start_date', defaultOrder: 'desc' },
+    { label: tc('sort.recentModified'), value: 'updated_at', defaultOrder: 'desc' },
+    { label: tc('sort.analysisStatus'), value: 'is_analyzed', defaultOrder: 'asc' },
+  ]
+
+  // Extract current sort state from filters
+  const currentSortBy = filters.sort_by?.split(',')[0] || 'created_at'
+  const currentSortOrder = (filters.sort_order?.split(',')[0] || 'desc') as 'asc' | 'desc'
+
+  const handleSortChange = (newSortBy: string, newSortOrder: 'asc' | 'desc') => {
+    setFilters((prev) => ({ ...prev, sort_by: newSortBy, sort_order: newSortOrder }))
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,6 +210,12 @@ export default function ProjectsPage() {
           </div>
           <Button variant="outline" onClick={handleSearch}>{tc('search')}</Button>
         </div>
+        <SortDropdown
+          options={projectSortOptions}
+          sortBy={currentSortBy}
+          sortOrder={currentSortOrder}
+          onSortChange={handleSortChange}
+        />
         <Button variant={isFilterOpen ? 'secondary' : 'outline'} onClick={() => setIsFilterOpen(!isFilterOpen)}>
           <Filter className="h-4 w-4 mr-2" />{t('filter')}{activeFilterCount > 0 && <Badge variant="destructive" className="ml-2 px-1.5 py-0.5 text-xs">{activeFilterCount}</Badge>}
         </Button>

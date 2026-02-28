@@ -24,7 +24,7 @@ class BaseLLMProvider(ABC):
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI GPT provider."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4-turbo-preview"):
+    def __init__(self, api_key: str, model: str = "gpt-4.1"):
         self.api_key = api_key
         self.model = model
 
@@ -68,7 +68,7 @@ class OpenAIProvider(BaseLLMProvider):
 class AnthropicProvider(BaseLLMProvider):
     """Anthropic Claude provider."""
 
-    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022"):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-6-20260217"):
         self.api_key = api_key
         self.model = model
 
@@ -117,7 +117,7 @@ class AnthropicProvider(BaseLLMProvider):
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini provider using the new google.genai SDK."""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         self.api_key = api_key
         self.model = model
 

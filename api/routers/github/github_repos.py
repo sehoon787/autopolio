@@ -4,10 +4,12 @@ Handles repository listing, info, file tree, and technology detection.
 """
 
 import logging
+import time
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from api.database import get_db
 from api.models.user import User
@@ -26,6 +28,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["github"])
 encryption = EncryptionService()
 
+# In-memory cache for repo lists: user_id -> (repos_list, timestamp)
+_repos_cache: Dict[int, Tuple[List[Dict[str, Any]], float]] = {}
+_CACHE_TTL_SECONDS = 600  # 10 minutes
+
 
 @router.get("/repos", response_model=GitHubRepoListResponse)
 async def get_user_repos(
@@ -35,9 +41,33 @@ async def get_user_repos(
         100, description="Items per page (ignored if fetch_all=true)"
     ),
     fetch_all: bool = Query(True, description="Fetch all repositories"),
+    force_refresh: bool = Query(False, description="Force refresh, bypass cache"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get user's GitHub repositories."""
+    # Check cache first (only for fetch_all requests)
+    if fetch_all and not force_refresh and user_id in _repos_cache:
+        cached_repos, cached_time = _repos_cache[user_id]
+        if time.time() - cached_time < _CACHE_TTL_SECONDS:
+            cached_at_str = datetime.fromtimestamp(
+                cached_time, tz=timezone.utc
+            ).isoformat()
+            logger.info(
+                f"Returning cached repos for user {user_id} ({len(cached_repos)} repos)"
+            )
+            return {
+                "repos": cached_repos,
+                "total": len(cached_repos),
+                "page": 1,
+                "per_page": len(cached_repos),
+                "has_more": False,
+                "cached": True,
+                "cached_at": cached_at_str,
+            }
+        else:
+            # Cache expired
+            del _repos_cache[user_id]
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -49,6 +79,8 @@ async def get_user_repos(
 
     if fetch_all:
         repos = await github_service.get_all_user_repos()
+        # Update cache
+        _repos_cache[user_id] = (repos, time.time())
     else:
         repos = await github_service.get_user_repos(page=page, per_page=per_page)
 
@@ -58,6 +90,8 @@ async def get_user_repos(
         "page": page if not fetch_all else 1,
         "per_page": per_page if not fetch_all else len(repos),
         "has_more": False if fetch_all else len(repos) == per_page,
+        "cached": False,
+        "cached_at": None,
     }
 
 

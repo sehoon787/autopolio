@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { projectsApi, companiesApi, type ProjectCreate } from '@/api/knowledge'
 import { useProjectForm } from '@/hooks/useProjectForm'
@@ -18,7 +18,7 @@ export function useProjectDetail() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
-  const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
+  const { aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel, codexCLIModel } = useAppStore()
 
   // Analysis store for background analysis tracking
   const {
@@ -206,10 +206,11 @@ export function useProjectDetail() {
       language: analysisLanguage,  // Pass selected analysis language
     }
 
-    if (aiMode === 'cli' && isElectronApp) {
-      // CLI mode (Electron only)
+    if (aiMode === 'cli') {
+      // CLI mode
       options.cli_mode = selectedCLI
-      options.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+      const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+      options.cli_model = resolveModelForAPI(cliModel)
     } else {
       // API mode
       options.provider = selectedLLMProvider

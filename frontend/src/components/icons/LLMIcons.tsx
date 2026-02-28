@@ -140,6 +140,8 @@ export function getCLIIcon(cliType: string, props?: IconProps) {
   switch (cliType) {
     case 'claude_code':
       return <ClaudeCodeIcon {...iconProps} />
+    case 'codex_cli':
+      return <OpenAIIcon {...iconProps} />
     case 'gemini_cli':
       return <GeminiIcon {...iconProps} />
     default:

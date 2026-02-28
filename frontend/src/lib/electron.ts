@@ -6,7 +6,7 @@
 // CLI Types (shared with Electron)
 // ============================================================================
 
-export type CLIType = 'claude_code' | 'gemini_cli'
+export type CLIType = 'claude_code' | 'gemini_cli' | 'codex_cli'
 
 export interface CLIStatus {
   tool: CLIType
@@ -28,6 +28,7 @@ export interface CLITestResult {
   path?: string
   output?: string
   tokens?: number
+  auth_status?: 'authenticated' | 'auth_failed' | 'unknown'
   error?: CLIError
 }
 
@@ -93,6 +94,7 @@ interface ElectronAPI {
   // CLI Detection APIs
   getClaudeCLIStatus: () => Promise<CLIStatus>
   getGeminiCLIStatus: () => Promise<CLIStatus>
+  getCodexCLIStatus: () => Promise<CLIStatus>
   refreshCLIStatus: () => Promise<{ claude_code: CLIStatus; gemini_cli: CLIStatus }>
   refreshSingleCLIStatus: (tool: CLIType) => Promise<CLIStatus>
 
@@ -265,6 +267,22 @@ export async function getGeminiCLIStatus(): Promise<CLIStatus | null> {
       return await window.electron.getGeminiCLIStatus()
     } catch (error) {
       console.error('[Electron] Failed to get Gemini CLI status:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Get Codex CLI status
+ * In Electron: detects CLI directly via IPC
+ * In Web: returns null
+ */
+export async function getCodexCLIStatus(): Promise<CLIStatus | null> {
+  if (isElectron() && window.electron) {
+    try {
+      return await window.electron.getCodexCLIStatus()
+    } catch (error) {
+      console.error('[Electron] Failed to get Codex CLI status:', error)
     }
   }
   return null

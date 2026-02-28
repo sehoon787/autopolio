@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,9 +26,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { publicationsApi, Publication, PublicationCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, ScrollText, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ScrollText, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
-import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
+import { useSortableList, SortOption } from '@/hooks/useSortableList'
 
 const PATENT_OFFICES = [
   { value: 'KR', label: 'credentials:publications.patentOffices.KR' },
@@ -107,11 +108,17 @@ const packPatentData = (formData: PatentFormData): PublicationCreate => ({
   description: formData.description || undefined,
 })
 
-export function PatentsTab() {
+interface PatentsTabProps {
+  createTrigger?: number
+  sortBy?: SortOption
+}
+
+export function PatentsTab({ createTrigger, sortBy: externalSortBy }: PatentsTabProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Publication | null>(null)
   const [formData, setFormData] = useState<PatentFormData>(INITIAL_FORM_DATA)
@@ -205,6 +212,16 @@ export function PatentsTab() {
     }
   }, [deleteMutation, t])
 
+  // Sync external sort
+  useEffect(() => {
+    if (externalSortBy) sort.setSortBy(externalSortBy)
+  }, [externalSortBy])
+
+  // Trigger create from parent
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) handleCreate()
+  }, [createTrigger])
+
   if (!user) return null
 
   const getPatentOfficeLabel = (code: string | null) => {
@@ -232,30 +249,6 @@ export function PatentsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header with sort and add button */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
-              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
-              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
-              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
-              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('credentials:patents.add')}
-        </Button>
-      </div>
-
-      {/* Content */}
       {isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
       ) : sort.sortedItems.length === 0 ? (
@@ -271,7 +264,7 @@ export function PatentsTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => {
             const patentData = parsePatentData(item)
             return (

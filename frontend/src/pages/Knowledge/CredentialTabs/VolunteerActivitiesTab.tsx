@@ -1,4 +1,5 @@
-import { useMemo, useCallback } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,10 +24,10 @@ import {
 import { useUserStore } from '@/stores/userStore'
 import { volunteerActivitiesApi, VolunteerActivity, VolunteerActivityCreate } from '@/api/credentials'
 import { formatDate } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Heart, ExternalLink, Users, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, Heart, ExternalLink, Users, ChevronUp, ChevronDown } from 'lucide-react'
 import { AttachmentUpload } from '@/components/AttachmentUpload'
 import { useCrudOperations } from '@/hooks/useCrudOperations'
-import { useSortableList, SortOption, SORT_OPTIONS } from '@/hooks/useSortableList'
+import { useSortableList, SortOption } from '@/hooks/useSortableList'
 
 const ACTIVITY_TYPES = [
   { value: 'volunteer', label: 'credentials:volunteerActivities.types.volunteer' },
@@ -35,6 +36,8 @@ const ACTIVITY_TYPES = [
 
 interface VolunteerActivitiesTabProps {
   activityType?: 'volunteer' | 'external'
+  createTrigger?: number
+  sortBy?: SortOption
 }
 
 // Initial form data for volunteer activities
@@ -79,9 +82,10 @@ const cleanFormData = (data: VolunteerActivityCreate): VolunteerActivityCreate =
   certificate_url: data.certificate_url || undefined,
 })
 
-export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabProps) {
+export function VolunteerActivitiesTab({ activityType, createTrigger, sortBy: externalSortBy }: VolunteerActivitiesTabProps) {
   const { t } = useTranslation()
   const { user } = useUserStore()
+  const [animateRef] = useAutoAnimate({ duration: 200 })
 
   // CRUD operations hook
   const crud = useCrudOperations<VolunteerActivity, VolunteerActivityCreate>({
@@ -115,6 +119,16 @@ export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabP
     crud.setIsDialogOpen(true)
   }, [activityType, crud])
 
+  // Sync external sort
+  useEffect(() => {
+    if (externalSortBy) sort.setSortBy(externalSortBy)
+  }, [externalSortBy])
+
+  // Trigger create from parent
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) handleCreate()
+  }, [createTrigger])
+
   if (!user) return null
 
   const getTypeLabel = (type: string | null) => {
@@ -133,30 +147,6 @@ export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabP
 
   return (
     <div className="space-y-4">
-      {/* Header with sort and add button */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sort.sortBy} onValueChange={(v) => sort.setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dateDesc">{t(SORT_OPTIONS.dateDesc)}</SelectItem>
-              <SelectItem value="dateAsc">{t(SORT_OPTIONS.dateAsc)}</SelectItem>
-              <SelectItem value="nameAsc">{t(SORT_OPTIONS.nameAsc)}</SelectItem>
-              <SelectItem value="nameDesc">{t(SORT_OPTIONS.nameDesc)}</SelectItem>
-              <SelectItem value="manual">{t(SORT_OPTIONS.manual)}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('credentials:volunteerActivities.add')}
-        </Button>
-      </div>
-
-      {/* Content */}
       {crud.isLoading ? (
         <div className="text-center py-8">{t('common:loading')}</div>
       ) : sort.sortedItems.length === 0 ? (
@@ -167,12 +157,12 @@ export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabP
             <p className="text-muted-foreground mb-4">{t('credentials:volunteerActivities.emptyDesc')}</p>
             <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
-              {t('credentials:volunteerActivities.addFirst')}
+              {t(`credentials:volunteerActivities.addFirst_${activityType || 'default'}`)}
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div ref={animateRef} className="grid gap-4">
           {sort.sortedItems.map((item, index) => (
             <Card key={item.id}>
               <CardContent className="p-6">
@@ -283,7 +273,9 @@ export function VolunteerActivitiesTab({ activityType }: VolunteerActivitiesTabP
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {crud.editingItem ? t('credentials:volunteerActivities.edit') : t('credentials:volunteerActivities.new')}
+              {crud.editingItem
+                ? t(`credentials:volunteerActivities.edit_${activityType || 'default'}`)
+                : t(`credentials:volunteerActivities.new_${activityType || 'default'}`)}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={crud.handleSubmit} className="space-y-4">

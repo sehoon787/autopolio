@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/components/ui/use-toast'
@@ -76,12 +76,12 @@ function defaultGetItemName(item: SortableItem): string {
 
 /**
  * Hook for sortable list functionality with manual reordering
- * 
+ *
  * Provides:
  * - Multiple sort options (date ascending/descending, name ascending/descending, manual)
  * - Manual reorder with up/down buttons
  * - Optimistic updates for smooth UX
- * 
+ *
  * @example
  * ```tsx
  * const sort = useSortableList({
@@ -112,13 +112,24 @@ export function useSortableList<TItem extends SortableItem>(
 
   const [sortBy, setSortBy] = useState<SortOption>(initialSort)
 
-  // Reorder mutation
+  // Debounce ref to prevent rapid consecutive clicks from firing multiple API calls
+  const pendingReorderRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestOrderRef = useRef<number[] | null>(null)
+
+  // Reorder mutation with optimistic update
   const reorderMutation = useMutation({
     mutationFn: (itemIds: number[]) => reorderApi(user!.id, itemIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [queryKey] })
     },
-    onError: () => toast({ title: t('common:error'), variant: 'destructive' }),
+    onError: (_err, _vars, context: unknown) => {
+      // Rollback optimistic update on error
+      const ctx = context as { previousItems: TItem[] } | undefined
+      if (ctx?.previousItems) {
+        queryClient.setQueryData([queryKey, user?.id], ctx.previousItems)
+      }
+      toast({ title: t('common:error'), variant: 'destructive' })
+    },
   })
 
   // Get date value from item
@@ -133,22 +144,22 @@ export function useSortableList<TItem extends SortableItem>(
   // Sort items based on selected option
   const sortedItems = useMemo(() => {
     const itemsCopy = [...items]
-    
+
     switch (sortBy) {
       case 'dateDesc':
-        return itemsCopy.sort((a, b) => 
+        return itemsCopy.sort((a, b) =>
           getDateValue(b).localeCompare(getDateValue(a))
         )
       case 'dateAsc':
-        return itemsCopy.sort((a, b) => 
+        return itemsCopy.sort((a, b) =>
           getDateValue(a).localeCompare(getDateValue(b))
         )
       case 'nameAsc':
-        return itemsCopy.sort((a, b) => 
+        return itemsCopy.sort((a, b) =>
           getItemName(a).localeCompare(getItemName(b))
         )
       case 'nameDesc':
-        return itemsCopy.sort((a, b) => 
+        return itemsCopy.sort((a, b) =>
           getItemName(b).localeCompare(getItemName(a))
         )
       case 'manual':
@@ -157,25 +168,73 @@ export function useSortableList<TItem extends SortableItem>(
     }
   }, [items, sortBy, getDateValue, getItemName])
 
+  // Apply optimistic reorder: update display_order in query cache immediately
+  const applyOptimisticReorder = useCallback((newOrder: number[]) => {
+    const cacheKey = [queryKey, user?.id]
+    const previousItems = queryClient.getQueryData<{ data: TItem[] } | TItem[]>(cacheKey)
+
+    // Try to update the cache optimistically
+    queryClient.setQueryData(cacheKey, (old: { data: TItem[] } | TItem[] | undefined) => {
+      if (!old) return old
+      // Handle both { data: TItem[] } and TItem[] shapes
+      const itemsList = Array.isArray(old) ? old : old.data
+      if (!itemsList) return old
+
+      const updated = itemsList.map(item => {
+        const orderIndex = newOrder.indexOf(item.id)
+        if (orderIndex !== -1) {
+          return { ...item, display_order: orderIndex }
+        }
+        return item
+      })
+
+      return Array.isArray(old) ? updated : { ...old, data: updated }
+    })
+
+    return previousItems
+  }, [queryClient, queryKey, user?.id])
+
+  // Debounced reorder: optimistic UI immediately, API call after brief delay
+  const debouncedReorder = useCallback((newOrder: number[]) => {
+    // Apply optimistic update immediately for smooth animation
+    applyOptimisticReorder(newOrder)
+    latestOrderRef.current = newOrder
+
+    // Clear any pending API call
+    if (pendingReorderRef.current) {
+      clearTimeout(pendingReorderRef.current)
+    }
+
+    // Debounce the API call (300ms) so rapid clicks batch into one request
+    pendingReorderRef.current = setTimeout(() => {
+      const order = latestOrderRef.current
+      if (order) {
+        reorderMutation.mutate(order)
+        latestOrderRef.current = null
+      }
+      pendingReorderRef.current = null
+    }, 300)
+  }, [applyOptimisticReorder, reorderMutation])
+
   // Move item up in list
   const handleMoveUp = useCallback((index: number) => {
-    if (index === 0) return
+    if (sortBy !== 'manual' || index === 0) return
     const newItems = [...sortedItems]
     const temp = newItems[index]
     newItems[index] = newItems[index - 1]
     newItems[index - 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }, [sortedItems, reorderMutation])
+    debouncedReorder(newItems.map(item => item.id))
+  }, [sortBy, sortedItems, debouncedReorder])
 
   // Move item down in list
   const handleMoveDown = useCallback((index: number) => {
-    if (index === sortedItems.length - 1) return
+    if (sortBy !== 'manual' || index === sortedItems.length - 1) return
     const newItems = [...sortedItems]
     const temp = newItems[index]
     newItems[index] = newItems[index + 1]
     newItems[index + 1] = temp
-    reorderMutation.mutate(newItems.map(item => item.id))
-  }, [sortedItems, reorderMutation])
+    debouncedReorder(newItems.map(item => item.id))
+  }, [sortBy, sortedItems, debouncedReorder])
 
   return {
     sortBy,

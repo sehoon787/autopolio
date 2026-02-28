@@ -6,6 +6,7 @@ export interface LLMUsage {
   anthropic: number
   gemini: number
   claude_code_cli: number
+  codex_cli: number
   gemini_cli: number
 }
 
@@ -28,7 +29,7 @@ function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-const emptyLLM: LLMUsage = { openai: 0, anthropic: 0, gemini: 0, claude_code_cli: 0, gemini_cli: 0 }
+const emptyLLM: LLMUsage = { openai: 0, anthropic: 0, gemini: 0, claude_code_cli: 0, codex_cli: 0, gemini_cli: 0 }
 
 // Storage key generator for per-user tracking
 const getStorageKey = (userId: number | null) => `usage-storage-${userId || 'guest'}`

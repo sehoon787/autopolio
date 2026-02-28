@@ -2,9 +2,8 @@
 LLM Configuration Router - Manage API keys and CLI status.
 """
 
-import asyncio
 import logging
-import sys
+import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,6 +21,8 @@ from api.schemas.llm import (
     LLMProvider,
     LLMProviderInfo,
     CLITestResponse,
+    CLIConnectRequest,
+    CLIConnectResponse,
     LLMTestRequest,
     LLMTestResponse,
 )
@@ -33,29 +34,80 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 encryption_service = EncryptionService()
-settings = get_settings()
 
-# Available LLM providers configuration
+# CLI type → .env variable mapping (separate from API provider keys)
+CLI_ENV_MAP = {
+    "claude_code": "CLAUDE_CODE_API_KEY",
+    "codex_cli": "CODEX_API_KEY",
+    "gemini_cli": "GEMINI_CLI_API_KEY",
+}
+
+# CLI type → provider ID mapping
+CLI_PROVIDER_MAP = {
+    "claude_code": "anthropic",
+    "codex_cli": "openai",
+    "gemini_cli": "gemini",
+}
+
+
+def _get_env_path() -> str:
+    """Get the path to the .env file."""
+    import os
+    from pathlib import Path
+
+    # In Docker, .env is mounted at /app/.env
+    env_path = (
+        Path(os.environ.get("AUTOPOLIO_BASE_DIR", Path(__file__).parent.parent.parent))
+        / ".env"
+    )
+    return str(env_path)
+
+
+def _set_env_key(key: str, value: str) -> None:
+    """Set a key in .env file and update os.environ + settings cache."""
+    import os
+    from dotenv import set_key
+
+    env_path = _get_env_path()
+    set_key(env_path, key, value)
+    os.environ[key] = value
+    get_settings.cache_clear()
+
+
+def _unset_env_key(key: str) -> None:
+    """Remove a key from .env file and update os.environ + settings cache."""
+    import os
+    from dotenv import unset_key
+
+    env_path = _get_env_path()
+    unset_key(env_path, key)
+    os.environ.pop(key, None)
+    get_settings.cache_clear()
+    # Verify removal
+    remaining = os.environ.get(key)
+    if remaining:
+        logger.warning(
+            "_unset_env_key: %s still in os.environ after pop (value length=%d), forcing removal",
+            key,
+            len(remaining),
+        )
+        del os.environ[key]
+
+
+# Available LLM providers configuration (order: Anthropic → Gemini → OpenAI)
 LLM_PROVIDERS = [
-    LLMProviderInfo(
-        id="openai",
-        name="OpenAI",
-        description="GPT-4 and GPT-3.5 models for text generation",
-        models=["gpt-4-turbo-preview", "gpt-4", "gpt-3.5-turbo"],
-        default_model="gpt-4-turbo-preview",
-        docs_url="https://platform.openai.com/docs",
-        has_cli=False,
-    ),
     LLMProviderInfo(
         id="anthropic",
         name="Anthropic",
         description="Claude models for text generation",
         models=[
-            "claude-3-5-sonnet-20241022",
-            "claude-3-opus-20240229",
-            "claude-3-haiku-20240307",
+            "claude-sonnet-4-6-20260217",
+            "claude-opus-4-6-20260205",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
+            "claude-haiku-4-5-20251001",
         ],
-        default_model="claude-3-5-sonnet-20241022",
+        default_model="claude-sonnet-4-6-20260217",
         docs_url="https://docs.anthropic.com",
         has_cli=True,  # Claude Code CLI exists
     ),
@@ -63,10 +115,19 @@ LLM_PROVIDERS = [
         id="gemini",
         name="Google Gemini",
         description="Gemini models for text generation",
-        models=["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
-        default_model="gemini-2.0-flash",
+        models=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+        default_model="gemini-2.5-flash",
         docs_url="https://ai.google.dev/docs",
         has_cli=True,  # Gemini CLI supported
+    ),
+    LLMProviderInfo(
+        id="openai",
+        name="OpenAI",
+        description="GPT-4.1 and GPT-4o models for text generation",
+        models=["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini"],
+        default_model="gpt-4.1",
+        docs_url="https://platform.openai.com/docs",
+        has_cli=True,  # Codex CLI exists
     ),
 ]
 
@@ -86,8 +147,10 @@ async def get_llm_config(
     cli_service = get_cli_service()
     claude_status = await cli_service.detect_claude_code()
     gemini_status = await cli_service.detect_gemini_cli()
+    codex_status = await cli_service.detect_codex_cli()
 
     # Build provider list with configuration status
+    current_settings = get_settings()
     providers = []
     for provider_info in LLM_PROVIDERS:
         env_configured = False
@@ -97,11 +160,11 @@ async def get_llm_config(
 
         # Check environment variable configuration (.env)
         if provider_info.id == "openai":
-            env_configured = bool(settings.openai_api_key)
+            env_configured = bool(current_settings.openai_api_key)
         elif provider_info.id == "anthropic":
-            env_configured = bool(settings.anthropic_api_key)
+            env_configured = bool(current_settings.anthropic_api_key)
         elif provider_info.id == "gemini":
-            env_configured = bool(settings.gemini_api_key)
+            env_configured = bool(current_settings.gemini_api_key)
 
         # Check user database configuration
         if user:
@@ -134,6 +197,8 @@ async def get_llm_config(
             )
         )
 
+    runtime = os.environ.get("AUTOPOLIO_RUNTIME", "external")
+
     return LLMConfigResponse(
         preferred_llm=user.preferred_llm if user else "openai",
         openai_configured=user.openai_api_key_encrypted is not None if user else False,
@@ -141,12 +206,14 @@ async def get_llm_config(
         if user
         else False,
         gemini_configured=user.gemini_api_key_encrypted is not None if user else False,
-        openai_model=user.openai_model if user else "gpt-4-turbo-preview",
-        anthropic_model=user.anthropic_model if user else "claude-3-5-sonnet-20241022",
-        gemini_model=user.gemini_model if user else "gemini-2.0-flash",
+        openai_model=user.openai_model if user else "gpt-4.1",
+        anthropic_model=user.anthropic_model if user else "claude-sonnet-4-6-20260217",
+        gemini_model=user.gemini_model if user else "gemini-2.5-flash",
         claude_code_status=CLIStatus(**claude_status),
         gemini_cli_status=CLIStatus(**gemini_status),
+        codex_cli_status=CLIStatus(**codex_status),
         providers=providers,
+        runtime=runtime,
     )
 
 
@@ -259,7 +326,7 @@ async def validate_api_key(
             client = anthropic.AsyncAnthropic(api_key=api_key)
             # Simple message to validate
             await client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-haiku-4-5-20251001",
                 max_tokens=10,
                 messages=[{"role": "user", "content": "Hi"}],
             )
@@ -311,6 +378,14 @@ async def get_gemini_cli_status():
     return CLIStatus(**status)
 
 
+@router.get("/cli/codex/status", response_model=CLIStatus)
+async def get_codex_cli_status():
+    """Get Codex CLI detection status."""
+    cli_service = get_cli_service()
+    status = await cli_service.detect_codex_cli()
+    return CLIStatus(**status)
+
+
 @router.post("/cli/refresh", response_model=CLIStatus)
 async def refresh_cli_status():
     """Force refresh CLI detection (clears cache)."""
@@ -331,103 +406,227 @@ async def get_providers():
 
 
 @router.post("/cli/test/{cli_type}", response_model=CLITestResponse)
-async def test_cli(cli_type: str):
-    """Test a CLI tool by running a simple command."""
-    import subprocess
-    from concurrent.futures import ThreadPoolExecutor
-
-    if cli_type not in ["claude_code", "gemini_cli"]:
+async def test_cli(cli_type: str, model: str = Query(None)):
+    """Test a CLI tool by sending a real prompt to verify authentication."""
+    if cli_type not in ["claude_code", "gemini_cli", "codex_cli"]:
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
-    provider_map = {"claude_code": "anthropic", "gemini_cli": "gemini"}
-    mapped_provider = provider_map[cli_type]
+    mapped_provider = CLI_PROVIDER_MAP[cli_type]
     cli_service = get_cli_service()
 
-    def run_cli_version(cli_path: str) -> tuple:
-        """Run CLI --version in a thread (Windows asyncio subprocess compatibility)."""
-        cli_path_lower = cli_path.lower()
-        use_shell = sys.platform == "win32" and (
-            cli_path_lower.endswith(".cmd") or cli_path_lower.endswith(".bat")
-        )
+    # 1. Check CLI installation
+    if cli_type == "claude_code":
+        status = await cli_service.detect_claude_code()
+    elif cli_type == "codex_cli":
+        status = await cli_service.detect_codex_cli()
+    else:
+        status = await cli_service.detect_gemini_cli()
 
-        if use_shell:
-            args = ["cmd.exe", "/c", cli_path, "--version"]
-        else:
-            args = [cli_path, "--version"]
-
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            timeout=10,
-            text=True,
-        )
-        return result.stdout.strip() or result.stderr.strip(), result.returncode
-
-    try:
-        if cli_type == "claude_code":
-            status = await cli_service.detect_claude_code()
-            if not status.get("installed"):
-                return CLITestResponse(
-                    success=False,
-                    tool=cli_type,
-                    message="Claude Code CLI is not installed",
-                    provider=mapped_provider,
-                )
-            cli_path = status["path"]
-
-            # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                output, returncode = await loop.run_in_executor(
-                    executor, run_cli_version, cli_path
-                )
-
-            return CLITestResponse(
-                success=True,
-                tool=cli_type,
-                message=f"Claude Code CLI is working! Version: {status.get('version', 'unknown')}",
-                output=output,
-                provider=mapped_provider,
-            )
-        else:  # gemini_cli
-            status = await cli_service.detect_gemini_cli()
-            if not status.get("installed"):
-                return CLITestResponse(
-                    success=False,
-                    tool=cli_type,
-                    message="Gemini CLI is not installed",
-                    provider=mapped_provider,
-                )
-            cli_path = status["path"]
-
-            # Run subprocess in thread pool (Windows asyncio subprocess compatibility)
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                output, returncode = await loop.run_in_executor(
-                    executor, run_cli_version, cli_path
-                )
-
-            return CLITestResponse(
-                success=True,
-                tool=cli_type,
-                message=f"Gemini CLI is working! Version: {status.get('version', 'unknown')}",
-                output=output,
-                provider=mapped_provider,
-            )
-    except subprocess.TimeoutExpired:
+    if not status.get("installed"):
+        cli_names = {
+            "claude_code": "Claude Code",
+            "gemini_cli": "Gemini",
+            "codex_cli": "Codex",
+        }
+        cli_name = cli_names.get(cli_type, cli_type)
         return CLITestResponse(
             success=False,
             tool=cli_type,
-            message="CLI test timed out",
+            message=f"{cli_name} CLI is not installed",
             provider=mapped_provider,
+            auth_status="unknown",
+        )
+
+    # 2. Send a real prompt via CLILLMService to test authentication
+    used_model = model or ""
+    try:
+        from api.services.llm.cli_llm_service import CLILLMService
+
+        cli_llm = CLILLMService(cli_type=cli_type, model=model)
+        content, token_count = await cli_llm.generate_with_cli("Reply with only 'OK'")
+
+        # Check if output content indicates auth failure (CLI may not error out)
+        content_lower = (content or "").lower()
+        auth_fail_patterns = [
+            "not logged in",
+            "please run /login",
+            "login required",
+            "api key",
+            "unauthorized",
+            "credit balance",
+            "quota exceeded",
+            "model metadata",
+            "model not found",
+            "does not exist",
+            "insufficient",
+        ]
+        is_content_auth_fail = any(p in content_lower for p in auth_fail_patterns)
+
+        if is_content_auth_fail and token_count == 0:
+            # Classify CLI error for consistent messaging
+            cli_names = {
+                "claude_code": "Anthropic",
+                "codex_cli": "OpenAI",
+                "gemini_cli": "Google",
+            }
+            account_name = cli_names.get(cli_type, cli_type)
+            if "quota" in content_lower or "exceeded" in content_lower:
+                fail_msg = f"Quota exceeded — check your {account_name} billing plan."
+            elif "credit" in content_lower or "balance" in content_lower:
+                fail_msg = (
+                    f"Insufficient credit balance — top up your {account_name} account."
+                )
+            elif "model" in content_lower and (
+                "not found" in content_lower
+                or "not exist" in content_lower
+                or "metadata" in content_lower
+            ):
+                fail_msg = (
+                    f"Model not found — {used_model or 'default'} is not available."
+                )
+            else:
+                fail_msg = content[:200] if content else "Unknown error"
+            return CLITestResponse(
+                success=False,
+                tool=cli_type,
+                message=fail_msg,
+                output=content[:200] if content else None,
+                model=used_model,
+                provider=mapped_provider,
+                token_usage=0,
+                auth_status="auth_failed",
+            )
+
+        # No meaningful response = failure
+        if not content or not content.strip():
+            return CLITestResponse(
+                success=False,
+                tool=cli_type,
+                message="CLI returned empty response",
+                output=None,
+                model=used_model,
+                provider=mapped_provider,
+                token_usage=0,
+                auth_status="auth_failed",
+            )
+
+        return CLITestResponse(
+            success=True,
+            tool=cli_type,
+            message=f"CLI authenticated and working! Version: {status.get('version', 'unknown')}",
+            output=content[:200] if content else None,
+            model=used_model,
+            provider=mapped_provider,
+            token_usage=token_count,
+            auth_status="authenticated",
         )
     except Exception as e:
-        logger.exception("CLI test failed for %s: %s", cli_type, e)
+        error_str = str(e)
+        logger.warning("CLI test failed for %s: %s", cli_type, error_str[:300])
+
+        cli_names = {
+            "claude_code": "Anthropic",
+            "codex_cli": "OpenAI",
+            "gemini_cli": "Google",
+        }
+        account_name = cli_names.get(cli_type, cli_type)
+        error_lower = error_str.lower()
+        if "quota" in error_lower or "exceeded" in error_lower or "429" in error_str:
+            msg = f"Quota exceeded — check your {account_name} billing plan."
+        elif "credit" in error_lower or "balance" in error_lower:
+            msg = f"Insufficient credit balance — top up your {account_name} account."
+        elif (
+            "not found" in error_lower
+            or "does not exist" in error_lower
+            or "metadata" in error_lower
+        ):
+            msg = f"Model not found — {used_model or 'default'} is not available."
+        else:
+            msg = f"CLI test failed: {error_str[:200]}"
+
         return CLITestResponse(
             success=False,
             tool=cli_type,
-            message=f"CLI test failed: {type(e).__name__}: {str(e)}",
+            message=msg,
+            model=used_model,
             provider=mapped_provider,
+            auth_status="auth_failed",
+        )
+
+
+@router.post("/cli/connect/{cli_type}", response_model=CLIConnectResponse)
+async def connect_cli(cli_type: str, request: CLIConnectRequest):
+    """Connect a CLI tool by saving its API key to .env."""
+    if cli_type not in CLI_ENV_MAP:
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    env_var = CLI_ENV_MAP[cli_type]
+    provider = CLI_PROVIDER_MAP[cli_type]
+
+    try:
+        api_key = request.api_key.strip()
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key cannot be empty")
+
+        _set_env_key(env_var, api_key)
+        logger.info("CLI connect: %s → %s set in .env", cli_type, env_var)
+
+        return CLIConnectResponse(
+            success=True,
+            message=f"{env_var} saved to .env",
+            provider=provider,
+            env_var=env_var,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("CLI connect failed for %s: %s", cli_type, e)
+        return CLIConnectResponse(
+            success=False,
+            message=f"Failed to save API key: {str(e)[:200]}",
+            provider=provider,
+            env_var=env_var,
+        )
+
+
+@router.post("/cli/disconnect/{cli_type}", response_model=CLIConnectResponse)
+async def disconnect_cli(cli_type: str):
+    """Disconnect a CLI tool by removing its API key from .env."""
+    if cli_type not in CLI_ENV_MAP:
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    env_var = CLI_ENV_MAP[cli_type]
+    provider = CLI_PROVIDER_MAP[cli_type]
+
+    try:
+        import os
+
+        _unset_env_key(env_var)
+        # Verify the key is truly gone from both os.environ and settings
+        env_val = os.environ.get(env_var, "")
+        settings = get_settings()
+        settings_val = getattr(settings, env_var.lower(), "")
+        logger.info(
+            "CLI disconnect: %s → %s removed. os.environ has key=%s, settings has key=%s",
+            cli_type,
+            env_var,
+            bool(env_val),
+            bool(settings_val),
+        )
+
+        return CLIConnectResponse(
+            success=True,
+            message=f"{env_var} removed from .env",
+            provider=provider,
+            env_var=env_var,
+        )
+    except Exception as e:
+        logger.exception("CLI disconnect failed for %s: %s", cli_type, e)
+        return CLIConnectResponse(
+            success=False,
+            message=f"Failed to remove API key: {str(e)[:200]}",
+            provider=provider,
+            env_var=env_var,
         )
 
 
@@ -451,9 +650,9 @@ async def test_provider(
 
     # Default model based on provider
     default_models = {
-        "openai": "gpt-4-turbo-preview",
-        "anthropic": "claude-3-5-sonnet-20241022",
-        "gemini": "gemini-2.0-flash",
+        "openai": "gpt-4.1",
+        "anthropic": "claude-sonnet-4-6-20260217",
+        "gemini": "gemini-2.5-flash",
     }
 
     # Priority 1: Use API key from request body (for direct testing without saving)
@@ -487,15 +686,16 @@ async def test_provider(
 
     # Priority 3: Fall back to settings (environment variables) only if use_env is True (Web mode)
     if not api_key and use_env:
+        current_settings = get_settings()
         if provider == "openai":
-            api_key = settings.openai_api_key or None
-            model = model or settings.openai_model
+            api_key = current_settings.openai_api_key or None
+            model = model or current_settings.openai_model
         elif provider == "anthropic":
-            api_key = settings.anthropic_api_key or None
-            model = model or settings.anthropic_model
+            api_key = current_settings.anthropic_api_key or None
+            model = model or current_settings.anthropic_model
         elif provider == "gemini":
-            api_key = settings.gemini_api_key or None
-            model = model or settings.gemini_model
+            api_key = current_settings.gemini_api_key or None
+            model = model or current_settings.gemini_model
 
     # Ensure model is set
     model = model or default_models.get(provider, "unknown")
@@ -587,10 +787,37 @@ async def test_provider(
             )
 
     except Exception as e:
-        logger.warning("LLM test failed for %s: %s", provider, str(e)[:200])
+        error_str = str(e)
+        logger.warning("LLM test failed for %s: %s", provider, error_str[:300])
+
+        # Classify error for consistent messaging
+        error_lower = error_str.lower()
+        if "quota" in error_lower or "exceeded" in error_lower or "429" in error_str:
+            msg = f"Quota exceeded — check your {provider.capitalize()} billing plan."
+        elif (
+            "credit" in error_lower
+            or "balance" in error_lower
+            or "insufficient" in error_lower
+        ):
+            msg = f"Insufficient credit balance — top up your {provider.capitalize()} account."
+        elif (
+            "401" in error_str
+            or "unauthorized" in error_lower
+            or "invalid" in error_lower
+        ):
+            msg = f"Invalid API key — check your {provider.capitalize()} API key."
+        elif (
+            "404" in error_str
+            or "not found" in error_lower
+            or "does not exist" in error_lower
+        ):
+            msg = f"Model not found — {model} is not available for your {provider.capitalize()} account."
+        else:
+            msg = f"Test failed: {error_str[:200]}"
+
         return LLMTestResponse(
             success=False,
             provider=provider,
             model=model or "unknown",
-            response=f"Test failed: {str(e)[:200]}",
+            response=msg,
         )

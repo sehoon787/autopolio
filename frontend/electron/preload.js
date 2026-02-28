@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld('electron', {
   // Get Gemini CLI status
   getGeminiCLIStatus: () => ipcRenderer.invoke('get-gemini-cli-status'),
 
+  // Get Codex CLI status
+  getCodexCLIStatus: () => ipcRenderer.invoke('get-codex-cli-status'),
+
   // Refresh all CLI statuses
   refreshCLIStatus: () => ipcRenderer.invoke('refresh-cli-status'),
 

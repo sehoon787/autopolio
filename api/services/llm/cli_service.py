@@ -23,6 +23,7 @@ class CLIService:
     # Cache for latest version (avoid hammering npm registry)
     _cached_latest_version: Optional[dict] = None
     _cached_gemini_latest_version: Optional[dict] = None
+    _cached_codex_latest_version: Optional[dict] = None
     _cache_duration_seconds = 24 * 60 * 60  # 24 hours
 
     # Platform-specific detection paths for Claude Code
@@ -41,6 +42,7 @@ class CLIService:
         ],
         "linux": [
             "{HOME}/.local/bin/claude",
+            "{HOME}/.claude/local/bin/claude",
             "/usr/local/bin/claude",
             "{HOME}/.npm-global/bin/claude",
         ],
@@ -64,6 +66,24 @@ class CLIService:
         ],
     }
 
+    # Platform-specific detection paths for Codex CLI
+    CODEX_PATHS = {
+        "win32": [
+            "{USERPROFILE}\\AppData\\Local\\npm\\codex.cmd",
+            "{USERPROFILE}\\AppData\\Roaming\\npm\\codex.cmd",
+        ],
+        "darwin": [
+            "/opt/homebrew/bin/codex",
+            "/usr/local/bin/codex",
+            "{HOME}/.npm-global/bin/codex",
+        ],
+        "linux": [
+            "{HOME}/.local/bin/codex",
+            "/usr/local/bin/codex",
+            "{HOME}/.npm-global/bin/codex",
+        ],
+    }
+
     # Installation commands per platform for Claude Code (native installer)
     INSTALL_COMMANDS = {
         "win32": "irm https://claude.ai/install.ps1 | iex",
@@ -76,6 +96,9 @@ class CLIService:
 
     # Installation command for Gemini CLI (npm package)
     GEMINI_INSTALL_COMMAND = "npm install -g @google/gemini-cli"
+
+    # Installation command for Codex CLI (npm package)
+    CODEX_INSTALL_COMMAND = "npm install -g @openai/codex"
 
     def __init__(self):
         system = platform.system().lower()
@@ -336,6 +359,95 @@ class CLIService:
 
         return result
 
+    async def detect_codex_cli(self) -> dict:
+        """
+        Detect Codex CLI installation status.
+        Returns dict with: installed, version, latest_version, is_outdated, path, install_command
+        """
+        result = {
+            "tool": "codex_cli",
+            "installed": False,
+            "version": None,
+            "latest_version": None,
+            "is_outdated": False,
+            "path": None,
+            "install_command": self.CODEX_INSTALL_COMMAND,
+            "platform": self.platform,
+        }
+
+        # First, try to find in system PATH
+        path = await self._find_cli_in_path("codex")
+
+        # If not found in PATH, check npm global path
+        if not path:
+            npm_global = await self._find_npm_global_path()
+            if npm_global:
+                if self.platform == "win32":
+                    codex_cmd = os.path.join(npm_global, "codex.cmd")
+                    if os.path.exists(codex_cmd):
+                        path = codex_cmd
+                else:
+                    codex_bin = os.path.join(npm_global, "codex")
+                    if os.path.exists(codex_bin):
+                        path = codex_bin
+
+        # If still not found, check known locations
+        if not path:
+            paths = self.CODEX_PATHS.get(self.platform, self.CODEX_PATHS["linux"])
+            for path_template in paths:
+                expanded_path = self._expand_path(path_template)
+                if os.path.exists(expanded_path):
+                    path = expanded_path
+                    break
+
+        if path:
+            result["installed"] = True
+            result["path"] = path
+            result["version"] = await self._get_cli_version(path)
+
+        # Fetch latest version from npm registry
+        try:
+            result["latest_version"] = await self.get_latest_codex_version()
+            if result["version"] and result["latest_version"]:
+                result["is_outdated"] = self._compare_versions(
+                    result["version"], result["latest_version"]
+                )
+        except Exception:
+            result["latest_version"] = "unknown"
+
+        return result
+
+    async def get_latest_codex_version(self) -> str:
+        """Fetch the latest version of Codex CLI from npm registry."""
+        import time
+
+        # Check cache first
+        if (
+            self._cached_codex_latest_version
+            and time.time() - self._cached_codex_latest_version.get("timestamp", 0)
+            < self._cache_duration_seconds
+        ):
+            return self._cached_codex_latest_version["version"]
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://registry.npmjs.org/@openai/codex/latest",
+                headers={"Accept": "application/json"},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            version = data.get("version")
+
+            if version:
+                CLIService._cached_codex_latest_version = {
+                    "version": version,
+                    "timestamp": time.time(),
+                }
+                return version
+
+        raise ValueError("Could not fetch latest Codex CLI version from npm registry")
+
     async def get_latest_gemini_version(self) -> str:
         """Fetch the latest version of Gemini CLI from npm registry."""
         import time
@@ -392,6 +504,8 @@ class CLIService:
             )
         elif tool == "gemini_cli":
             return self.GEMINI_INSTALL_COMMAND
+        elif tool == "codex_cli":
+            return self.CODEX_INSTALL_COMMAND
         return ""
 
 

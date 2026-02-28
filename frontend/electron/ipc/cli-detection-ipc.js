@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { getCLIToolManager } from '../services/cli-tool-manager.js';
-let cachedCLIStatus = { claude: null, gemini: null };
+let cachedCLIStatus = { claude: null, gemini: null, codex: null };
 // Promise that resolves when prefetch completes (or times out).
 // IPC handlers await this before falling back to slow detection.
 let _prefetchResolve;
@@ -256,18 +256,121 @@ export function registerCLIDetectionIPC() {
         }
     });
     // --------------------------------------------------------------------------
+    // Codex CLI Status
+    // --------------------------------------------------------------------------
+    ipcMain.handle('get-codex-cli-status', async () => {
+        console.log('[IPC] get-codex-cli-status called');
+        try {
+            await _prefetchWithTimeout;
+            if (cachedCLIStatus.codex) {
+                console.log('[IPC] get-codex-cli-status returning cached result');
+                return cachedCLIStatus.codex;
+            }
+            let codexPath = null;
+            const homeDir = os.homedir();
+            if (process.platform === 'win32') {
+                const windowsPaths = [
+                    path.join(homeDir, 'AppData', 'Roaming', 'npm', 'codex.cmd'),
+                    path.join(homeDir, 'AppData', 'Local', 'npm', 'codex.cmd'),
+                ];
+                for (const p of windowsPaths) {
+                    if (fs.existsSync(p)) {
+                        codexPath = p;
+                        console.log(`[IPC] Codex found at Windows path: ${p}`);
+                        break;
+                    }
+                }
+            }
+            else if (process.platform === 'darwin') {
+                const macosPaths = [
+                    '/opt/homebrew/bin/codex',
+                    '/usr/local/bin/codex',
+                    path.join(homeDir, '.npm-global', 'bin', 'codex'),
+                ];
+                for (const p of macosPaths) {
+                    if (fs.existsSync(p)) {
+                        codexPath = p;
+                        console.log(`[IPC] Codex found at macOS path: ${p}`);
+                        break;
+                    }
+                }
+            }
+            else {
+                const linuxPaths = [
+                    path.join(homeDir, '.local', 'bin', 'codex'),
+                    '/usr/local/bin/codex',
+                    '/usr/bin/codex',
+                ];
+                for (const p of linuxPaths) {
+                    if (fs.existsSync(p)) {
+                        codexPath = p;
+                        console.log(`[IPC] Codex found at Linux path: ${p}`);
+                        break;
+                    }
+                }
+            }
+            if (codexPath) {
+                console.log('[IPC] Using fast-path detection for Codex CLI');
+                const status = {
+                    tool: 'codex_cli',
+                    installed: true,
+                    version: null,
+                    latest_version: null,
+                    is_outdated: false,
+                    path: codexPath,
+                    install_command: 'npm install -g @openai/codex',
+                    update_command: null,
+                    platform: process.platform,
+                };
+                try {
+                    const versionOutput = execSync(`"${codexPath}" --version`, { encoding: 'utf8', timeout: 5000 }).trim();
+                    status.version = versionOutput.split(' ')[0] || versionOutput;
+                    console.log(`[IPC] Codex version: ${status.version}`);
+                }
+                catch (e) {
+                    console.log(`[IPC] Could not get version: ${e instanceof Error ? e.message : e}`);
+                }
+                cachedCLIStatus.codex = status;
+                return status;
+            }
+            console.log('[IPC] Fast-path not found, using CLIToolManager...');
+            const manager = getCLIToolManager();
+            const result = await manager.detectCLI('codex_cli');
+            cachedCLIStatus.codex = result;
+            console.log('[IPC] get-codex-cli-status result:', JSON.stringify(result, null, 2));
+            return result;
+        }
+        catch (error) {
+            console.error('[IPC] get-codex-cli-status CRITICAL error:', error);
+            return {
+                tool: 'codex_cli',
+                installed: false,
+                version: null,
+                latest_version: null,
+                is_outdated: false,
+                path: null,
+                install_command: 'npm install -g @openai/codex',
+                update_command: null,
+                platform: process.platform,
+                _error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    });
+    // --------------------------------------------------------------------------
     // Refresh All CLI Status
     // --------------------------------------------------------------------------
     ipcMain.handle('refresh-cli-status', async () => {
         console.log('[IPC] refresh-cli-status called');
         try {
-            cachedCLIStatus = { claude: null, gemini: null };
+            cachedCLIStatus = { claude: null, gemini: null, codex: null };
             const manager = getCLIToolManager();
             const result = await manager.refreshAll();
             if (result.claude_code)
                 cachedCLIStatus.claude = result.claude_code;
             if (result.gemini_cli)
                 cachedCLIStatus.gemini = result.gemini_cli;
+            if (result.codex_cli)
+                cachedCLIStatus.codex = result.codex_cli;
             console.log('[IPC] refresh-cli-status result:', result);
             return result;
         }
@@ -286,6 +389,9 @@ export function registerCLIDetectionIPC() {
             const result = await manager.refreshCLI(tool);
             if (tool === 'claude_code') {
                 cachedCLIStatus.claude = result;
+            }
+            else if (tool === 'codex_cli') {
+                cachedCLIStatus.codex = result;
             }
             else {
                 cachedCLIStatus.gemini = result;

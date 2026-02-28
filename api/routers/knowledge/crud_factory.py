@@ -121,6 +121,34 @@ def create_credential_crud_endpoints(
         await db.refresh(item)
         return item
 
+    # NOTE: reorder must be defined BEFORE /{name}/{id} routes,
+    # otherwise FastAPI matches "reorder" as {id} and fails int parsing.
+    @router.put(f"/{name}/reorder", response_model=List[response_schema])
+    async def reorder(
+        data: ReorderRequest,
+        user_id: int = Query(..., description="User ID"),
+        db: AsyncSession = Depends(get_db),
+    ):
+        """Reorder items by providing list of IDs in desired order."""
+        result = await db.execute(
+            select(model_class).where(model_class.user_id == user_id)
+        )
+        items = {item.id: item for item in result.scalars().all()}
+
+        for order, item_id in enumerate(data.item_ids):
+            if item_id in items:
+                items[item_id].display_order = order
+
+        await db.flush()
+
+        # Return reordered list
+        result = await db.execute(
+            select(model_class)
+            .where(model_class.user_id == user_id)
+            .order_by(model_class.display_order)
+        )
+        return result.scalars().all()
+
     @router.get(f"/{name}/{{id}}", response_model=response_schema)
     async def get_one(
         id: int,
@@ -185,31 +213,5 @@ def create_credential_crud_endpoints(
             raise HTTPException(status_code=404, detail=f"{singular_name} not found")
 
         await db.delete(item)
-
-    @router.put(f"/{name}/reorder", response_model=List[response_schema])
-    async def reorder(
-        data: ReorderRequest,
-        user_id: int = Query(..., description="User ID"),
-        db: AsyncSession = Depends(get_db),
-    ):
-        """Reorder items by providing list of IDs in desired order."""
-        result = await db.execute(
-            select(model_class).where(model_class.user_id == user_id)
-        )
-        items = {item.id: item for item in result.scalars().all()}
-
-        for order, item_id in enumerate(data.item_ids):
-            if item_id in items:
-                items[item_id].display_order = order
-
-        await db.flush()
-
-        # Return reordered list
-        result = await db.execute(
-            select(model_class)
-            .where(model_class.user_id == user_id)
-            .order_by(model_class.display_order)
-        )
-        return result.scalars().all()
 
     return router

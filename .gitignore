@@ -64,6 +64,8 @@ logs/
 
 # Playwright test results
 frontend/test-results/
+test-results/
+tests/e2e/test-results/
 playwright-report/
 
 # Temporary files

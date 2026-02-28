@@ -16,8 +16,32 @@ from api.models.repo_analysis import RepoAnalysis
 from api.models.achievement import ProjectAchievement
 from api.models.contributor_analysis import ContributorAnalysis
 from api.database import AsyncSessionLocal
+from api.services.llm.llm_utils import parse_json_from_llm
 
 logger = logging.getLogger(__name__)
+
+
+def build_summary_project_data(
+    project, analysis_result: Dict[str, Any] = None
+) -> Dict[str, Any]:
+    """Build a project data dict for LLM summary generation.
+
+    Used by analysis_job_runner (single-repo), analysis_job_multi, and pipeline_steps.
+    """
+    data = {
+        "name": project.name,
+        "description": project.description,
+        "role": project.role,
+        "team_size": project.team_size,
+        "contribution_percent": project.contribution_percent,
+        "start_date": str(project.start_date) if project.start_date else None,
+        "end_date": str(project.end_date) if project.end_date else None,
+    }
+    if analysis_result:
+        data["technologies"] = analysis_result.get("detected_technologies", [])
+        data["total_commits"] = analysis_result.get("total_commits", 0)
+        data["commit_summary"] = analysis_result.get("commit_messages_summary", "")
+    return data
 
 
 async def _generate_key_tasks_bg(
@@ -117,13 +141,7 @@ JSON 배열 형식으로만 응답하세요:
                 (response or "")[:100],
             )
 
-            json_str = response.strip()
-            if "```json" in json_str:
-                json_str = json_str.split("```json")[1].split("```")[0]
-            elif "```" in json_str:
-                json_str = json_str.split("```")[1].split("```")[0]
-
-            tasks = json.loads(json_str.strip())
+            tasks = parse_json_from_llm(response)
 
             if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
                 logger.info(
@@ -208,15 +226,7 @@ async def _generate_combined_ai_summary(
                 }
             )
 
-        project_data = {
-            "name": project.name,
-            "description": project.description,
-            "role": project.role,
-            "team_size": project.team_size,
-            "contribution_percent": project.contribution_percent,
-            "start_date": str(project.start_date) if project.start_date else None,
-            "end_date": str(project.end_date) if project.end_date else None,
-        }
+        project_data = build_summary_project_data(project)
 
     summary_result = await llm_service.generate_multi_repo_summary(
         project_data=project_data,
@@ -421,7 +431,10 @@ async def save_contributor_analysis(
         )
         existing = existing_result.scalar_one_or_none()
         fields = {
+            "email": contributor_data.get("email"),
             "total_commits": contributor_data.get("total_commits", 0),
+            "first_commit_date": contributor_data.get("first_commit_date"),
+            "last_commit_date": contributor_data.get("last_commit_date"),
             "lines_added": contributor_data.get("lines_added", 0),
             "lines_deleted": contributor_data.get("lines_deleted", 0),
             "file_extensions": contributor_data.get("file_extensions", {}),

@@ -7,6 +7,30 @@ import json
 
 from .llm_providers import BaseLLMProvider
 from .llm_prompts import get_prompts
+from .llm_utils import parse_json_from_llm
+
+
+def _project_info_section(project_data: Dict[str, Any], language: str) -> str:
+    """Build the common project info section for LLM prompts."""
+    technologies = project_data.get("technologies", [])
+    if language == "en":
+        tech_str = ", ".join(technologies) if technologies else "Not specified"
+        return (
+            f"Project Information:\n"
+            f"- Name: {project_data.get('name', 'N/A')}\n"
+            f"- Description: {project_data.get('description', 'N/A')}\n"
+            f"- Role: {project_data.get('role', 'N/A')}\n"
+            f"- Tech Stack: {tech_str}"
+        )
+    else:
+        tech_str = ", ".join(technologies) if technologies else "미지정"
+        return (
+            f"프로젝트 정보:\n"
+            f"- 이름: {project_data.get('name', 'N/A')}\n"
+            f"- 설명: {project_data.get('description', 'N/A')}\n"
+            f"- 역할: {project_data.get('role', 'N/A')}\n"
+            f"- 기술 스택: {tech_str}"
+        )
 
 
 async def generate_key_tasks_llm(
@@ -38,17 +62,12 @@ async def generate_key_tasks_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_key_tasks"]
 
-    technologies = project_data.get("technologies", [])
+    info = _project_info_section(project_data, language)
 
     if language == "en":
-        tech_str = ", ".join(technologies) if technologies else "Not specified"
         prompt = f"""Based on the following project information, write the key tasks performed.
 
-Project Information:
-- Name: {project_data.get("name", "N/A")}
-- Description: {project_data.get("description", "N/A")}
-- Role: {project_data.get("role", "N/A")}
-- Tech Stack: {tech_str}
+{info}
 - Period: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 Code Analysis (if available):
@@ -64,14 +83,9 @@ Response Format:
 Respond only with a JSON array. No other explanations.
 ["Task 1", "Task 2", "Task 3", ...]"""
     else:
-        tech_str = ", ".join(technologies) if technologies else "미지정"
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 수행 업무를 작성해주세요.
 
-프로젝트 정보:
-- 이름: {project_data.get("name", "N/A")}
-- 설명: {project_data.get("description", "N/A")}
-- 역할: {project_data.get("role", "N/A")}
-- 기술 스택: {tech_str}
+{info}
 - 기간: {project_data.get("start_date", "N/A")} ~ {project_data.get("end_date", "N/A")}
 
 코드 분석 (있는 경우):
@@ -115,14 +129,7 @@ Based on the code above, identify specific technical implementations and feature
             prompt, system_prompt, max_tokens=1500, temperature=0.3
         )
 
-        # Parse JSON response
-        json_str = response
-        if "```json" in response:
-            json_str = response.split("```json")[1].split("```")[0]
-        elif "```" in response:
-            json_str = response.split("```")[1].split("```")[0]
-
-        tasks = json.loads(json_str.strip())
+        tasks = parse_json_from_llm(response)
 
         # Validate and clean
         if isinstance(tasks, list):
@@ -169,17 +176,12 @@ async def generate_implementation_details_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_implementation"]
 
-    technologies = project_data.get("technologies", [])
+    info = _project_info_section(project_data, language)
 
     if language == "en":
-        tech_str = ", ".join(technologies) if technologies else "Not specified"
         prompt = f"""Based on the following project information, organize the main implementation features by category.
 
-Project Information:
-- Name: {project_data.get("name", "N/A")}
-- Description: {project_data.get("description", "N/A")}
-- Role: {project_data.get("role", "N/A")}
-- Tech Stack: {tech_str}
+{info}
 
 Code Analysis:
 - Total Commits: {project_data.get("total_commits", "N/A")}
@@ -214,14 +216,9 @@ Code Analysis:
 Response Format:
 Respond only with a JSON array."""
     else:
-        tech_str = ", ".join(technologies) if technologies else "미지정"
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 카테고리별로 정리해주세요.
 
-프로젝트 정보:
-- 이름: {project_data.get("name", "N/A")}
-- 설명: {project_data.get("description", "N/A")}
-- 역할: {project_data.get("role", "N/A")}
-- 기술 스택: {tech_str}
+{info}
 
 코드 분석:
 - 총 커밋: {project_data.get("total_commits", "N/A")}
@@ -265,14 +262,7 @@ Respond only with a JSON array."""
             prompt, system_prompt, max_tokens=2000, temperature=0.3
         )
 
-        # Parse JSON response
-        json_str = response
-        if "```json" in response:
-            json_str = response.split("```json")[1].split("```")[0]
-        elif "```" in response:
-            json_str = response.split("```")[1].split("```")[0]
-
-        details = json.loads(json_str.strip())
+        details = parse_json_from_llm(response)
 
         # Validate structure
         if isinstance(details, list):
@@ -329,10 +319,9 @@ async def generate_detailed_achievements_llm(
     prompts = get_prompts(language)
     system_prompt = prompts["system_achievements"]
 
-    technologies = project_data.get("technologies", [])
+    info = _project_info_section(project_data, language)
 
     if language == "en":
-        tech_str = ", ".join(technologies) if technologies else "Not specified"
         existing_str = ""
         if existing_achievements:
             existing_str = "\nPreviously detected achievements:\n" + "\n".join(
@@ -342,11 +331,7 @@ async def generate_detailed_achievements_llm(
 
         prompt = f"""Based on the following project information, organize the main achievements by category.
 
-Project Information:
-- Name: {project_data.get("name", "N/A")}
-- Description: {project_data.get("description", "N/A")}
-- Role: {project_data.get("role", "N/A")}
-- Tech Stack: {tech_str}
+{info}
 
 Code Statistics:
 - Total Commits: {project_data.get("total_commits", "N/A")}
@@ -391,7 +376,6 @@ Code Statistics:
 Response Format:
 Respond only with a JSON object."""
     else:
-        tech_str = ", ".join(technologies) if technologies else "미지정"
         existing_str = ""
         if existing_achievements:
             existing_str = "\n기존에 감지된 성과:\n" + "\n".join(
@@ -401,11 +385,7 @@ Respond only with a JSON object."""
 
         prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 정리해주세요.
 
-프로젝트 정보:
-- 이름: {project_data.get("name", "N/A")}
-- 설명: {project_data.get("description", "N/A")}
-- 역할: {project_data.get("role", "N/A")}
-- 기술 스택: {tech_str}
+{info}
 
 코드 통계:
 - 총 커밋: {project_data.get("total_commits", "N/A")}
@@ -459,14 +439,7 @@ Respond only with a JSON object."""
             prompt, system_prompt, max_tokens=2500, temperature=0.3
         )
 
-        # Parse JSON response
-        json_str = response
-        if "```json" in response:
-            json_str = response.split("```json")[1].split("```")[0]
-        elif "```" in response:
-            json_str = response.split("```")[1].split("```")[0]
-
-        achievements = json.loads(json_str.strip())
+        achievements = parse_json_from_llm(response)
 
         # Validate structure
         if isinstance(achievements, dict):
@@ -617,12 +590,7 @@ Respond in JSON:
     try:
         response, tokens = await provider.generate(prompt, system_prompt)
 
-        json_str = response or ""
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            json_str = json_str.split("```")[1].split("```")[0]
-        result = json.loads(json_str.strip())
+        result = parse_json_from_llm(response or "")
         result["token_usage"] = tokens
         return result
     except json.JSONDecodeError:

@@ -59,6 +59,7 @@
     "addCompanyBtn": "Add Company",
     "projectsCount": "{{count}} projects",
     "ongoing": "Ongoing",
-    "teamMembers": "{{count}} members"
+    "teamMembers": "{{count}} members",
+    "addProject": "Add Project"
   }
 }

@@ -1,14 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Check,
-  X,
-  Eye,
-  EyeOff,
+  ExternalLink,
   Loader2,
   Star,
   Play,
-  Save,
+  RefreshCw,
+  KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,201 +19,148 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { getModelDisplayName } from '@/lib/model-display'
 import { getProviderIcon } from './icons/LLMIcons'
 import type { LLMProvider } from '@/api/llm'
-import { useUsageStore } from '@/stores/usageStore'
-import type { LLMUsage } from '@/stores/usageStore'
+
+// API key management URLs per provider
+const PROVIDER_KEY_URLS: Record<string, string> = {
+  openai: 'https://platform.openai.com/api-keys',
+  anthropic: 'https://console.anthropic.com/settings/keys',
+  gemini: 'https://aistudio.google.com/apikey',
+}
 
 interface LLMProviderCardProps {
   provider: LLMProvider
   isSelected: boolean
-  storedKey?: string | null  // Pre-loaded stored API key (decrypted)
-  onSaveKey: (providerId: string, apiKey: string) => Promise<void>
-  onValidateKey: (providerId: string, apiKey: string) => Promise<{ valid: boolean; error?: string | null }>
-  onTestKey: (providerId: string, apiKey: string) => Promise<{ success: boolean; response: string }>
   onSelect: (providerId: string) => void
   onModelChange: (providerId: string, model: string) => Promise<void>
-  onTestStored?: () => void  // Test with stored key (for configured providers)
-  isTesting?: boolean
   isUpdating: boolean
-  readOnly?: boolean  // Web mode: hide API key input, only show selection and test
-}
-
-type OperationStatus = 'idle' | 'validating' | 'testing' | 'saving'
-type ResultType = 'success' | 'error' | 'info'
-
-interface OperationResult {
-  type: ResultType
-  message: string
+  readOnly?: boolean
+  authStatus?: 'authenticated' | 'auth_failed' | 'unknown'
+  authMessage?: string
+  isCheckingAuth?: boolean
+  isSavingKey?: boolean
+  isTesting?: boolean
+  onSaveKey?: (apiKey: string) => void
+  onTest?: () => void
+  onRefresh?: () => void
 }
 
 export function LLMProviderCard({
   provider,
   isSelected,
-  storedKey,
-  onSaveKey,
-  onValidateKey,
-  onTestKey,
   onSelect,
   onModelChange,
-  onTestStored,
-  isTesting,
   isUpdating,
   readOnly = false,
+  authStatus,
+  authMessage,
+  isCheckingAuth,
+  isSavingKey,
+  isTesting,
+  onSaveKey,
+  onTest,
+  onRefresh,
 }: LLMProviderCardProps) {
   const { t } = useTranslation(['settings'])
-  const [apiKey, setApiKey] = useState(storedKey || '')
-  const [showKey, setShowKey] = useState(false)
-  const [status, setStatus] = useState<OperationStatus>('idle')
-  const [result, setResult] = useState<OperationResult | null>(null)
+  const [showKeyInput, setShowKeyInput] = useState(false)
+  const [apiKeyInput, setApiKeyInput] = useState('')
 
-  // Update apiKey when storedKey changes (e.g., after initial fetch)
-  useEffect(() => {
-    if (storedKey && !apiKey) {
-      setApiKey(storedKey)
-    }
-  }, [storedKey])
-
-  const isProcessing = status !== 'idle'
-  const hasKey = apiKey.trim().length > 0
-
-  // Validate only
-  const handleValidate = async () => {
-    if (!apiKey.trim()) return
-
-    setStatus('validating')
-    setResult(null)
-
-    try {
-      const validationResult = await onValidateKey(provider.id, apiKey)
-      if (validationResult.valid) {
-        setResult({ type: 'success', message: t('settings:llm.valid') })
-      } else {
-        setResult({ type: 'error', message: validationResult.error || t('settings:llm.invalid') })
-      }
-    } catch (error) {
-      setResult({ type: 'error', message: t('settings:llm.validationFailed', 'Validation failed') })
-    } finally {
-      setStatus('idle')
-    }
-  }
-
-  // Test: Validate first, then test with the input API key
-  const handleTest = async () => {
-    if (!apiKey.trim()) return
-
-    console.log('[LLM Card Test] handleTest called:', { providerId: provider.id, hasKey: !!apiKey.trim() })
-    setStatus('validating')
-    setResult({ type: 'info', message: t('settings:llm.validating', 'Validating...') })
-
-    try {
-      // Step 1: Validate
-      const validationResult = await onValidateKey(provider.id, apiKey)
-      console.log('[LLM Card Test] Validation result:', validationResult)
-      if (!validationResult.valid) {
-        setResult({ type: 'error', message: validationResult.error || t('settings:llm.invalid') })
-        setStatus('idle')
-        return
-      }
-
-      // Step 2: Test
-      setStatus('testing')
-      setResult({ type: 'info', message: t('settings:llm.testing', 'Testing...') })
-
-      const testResult = await onTestKey(provider.id, apiKey)
-      console.log('[LLM Card Test] Test result:', { success: testResult.success, response: testResult.response?.substring(0, 100) })
-      if (testResult.success) {
-        setResult({ type: 'success', message: testResult.response })
-      } else {
-        setResult({ type: 'error', message: testResult.response })
-      }
-    } catch (error) {
-      console.log('[LLM Card Test] Error:', error)
-      setResult({ type: 'error', message: t('settings:llm.testFailed', 'Test failed') })
-    } finally {
-      setStatus('idle')
-    }
-  }
-
-  // Save: Validate + Test + Save
-  const handleSave = async () => {
-    if (!apiKey.trim()) return
-
-    setStatus('validating')
-    setResult({ type: 'info', message: t('settings:llm.validating', 'Validating...') })
-
-    try {
-      // Step 1: Validate
-      const validationResult = await onValidateKey(provider.id, apiKey)
-      if (!validationResult.valid) {
-        setResult({ type: 'error', message: validationResult.error || t('settings:llm.invalid') })
-        setStatus('idle')
-        return
-      }
-
-      // Step 2: Test
-      setStatus('testing')
-      setResult({ type: 'info', message: t('settings:llm.testing', 'Testing...') })
-
-      const testResult = await onTestKey(provider.id, apiKey)
-      if (!testResult.success) {
-        setResult({ type: 'error', message: testResult.response })
-        setStatus('idle')
-        return
-      }
-
-      // Step 3: Save
-      setStatus('saving')
-      setResult({ type: 'info', message: t('settings:llm.saving', 'Saving...') })
-
-      await onSaveKey(provider.id, apiKey)
-      // Keep the API key in the input field after successful save
-      setResult({ type: 'success', message: t('settings:llm.saved', 'Saved successfully!') })
-    } catch (error) {
-      setResult({ type: 'error', message: t('settings:llm.saveFailed', 'Save failed') })
-    } finally {
-      setStatus('idle')
-    }
-  }
-
-  const handleClear = async () => {
-    setStatus('saving')
-    setResult(null)
-    try {
-      await onSaveKey(provider.id, '')
-      setApiKey('')
-      // Reset usage counters for this provider
-      const providerKey = provider.id as keyof LLMUsage
-      if (['openai', 'anthropic', 'gemini'].includes(provider.id)) {
-        useUsageStore.getState().resetProviderUsage(providerKey)
-      }
-      setResult({ type: 'success', message: t('settings:llm.cleared', 'API key cleared') })
-    } catch (error) {
-      setResult({ type: 'error', message: t('settings:llm.clearFailed', 'Failed to clear') })
-    } finally {
-      setStatus('idle')
-    }
+  const handleSelect = () => {
+    onSelect(provider.id)
   }
 
   const handleModelChange = async (model: string) => {
     await onModelChange(provider.id, model)
   }
 
-  const handleSelect = () => {
-    onSelect(provider.id)
+  // Auth status badge (same pattern as CLIStatusCard)
+  const getAuthBadge = () => {
+    if (isCheckingAuth) {
+      return (
+        <Badge variant="secondary">
+          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          {t('settings:cli.checking')}
+        </Badge>
+      )
+    }
+    if (authStatus === 'authenticated') {
+      return (
+        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          {t('settings:llm.configured')}
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        {t('settings:llm.notConfigured')}
+      </Badge>
+    )
   }
 
-  const getResultClassName = () => {
-    if (!result) return ''
-    switch (result.type) {
-      case 'success':
-        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-      case 'error':
-        return 'bg-destructive/10 text-destructive'
-      case 'info':
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+  // Key button: color-coded by auth status (same pattern as CLIStatusCard)
+  const getKeyButton = () => {
+    if (readOnly || !onSaveKey) return null
+
+    if (isCheckingAuth) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('settings:cli.checking', 'Checking...')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
     }
+
+    const keyColorClass =
+      authStatus === 'authenticated'
+        ? 'text-green-600 hover:text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30'
+        : authStatus === 'auth_failed'
+          ? 'text-red-500 hover:text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30'
+          : 'text-muted-foreground hover:text-foreground'
+
+    const keyTooltip =
+      authStatus === 'authenticated'
+        ? t('settings:cli.connected', 'Connected')
+        : authStatus === 'auth_failed'
+          ? (authMessage || t('settings:cli.enterApiKey', 'Enter API key'))
+          : t('settings:cli.authUnknown', 'Not tested')
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-8 w-8', keyColorClass)}
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              disabled={isSavingKey || isTesting || isUpdating}
+            >
+              {isSavingKey ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{keyTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
   }
 
   return (
@@ -224,7 +170,7 @@ export function LLMProviderCard({
         isSelected && 'border-primary bg-primary/5 ring-1 ring-primary'
       )}
     >
-      {/* Header - Clickable for selection */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div
           className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
@@ -235,7 +181,6 @@ export function LLMProviderCard({
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
             {getProviderIcon(provider.id, { size: 20, className: 'text-foreground' })}
-            {/* Selection checkmark */}
             {isSelected && (
               <span className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Check className="h-3 w-3" />
@@ -255,77 +200,115 @@ export function LLMProviderCard({
             <p className="text-xs text-muted-foreground">{provider.description}</p>
           </div>
         </div>
-        <Badge variant={provider.configured ? 'secondary' : 'outline'}>
-          {provider.configured
-            ? t('settings:llm.configured')
-            : t('settings:llm.notConfigured')}
-        </Badge>
+        <div className="flex items-center gap-1">
+          {getAuthBadge()}
+          {getKeyButton()}
+          {/* Test button */}
+          {onTest && (readOnly ? provider.configured : true) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onTest}
+                    disabled={isTesting || isUpdating}
+                  >
+                    {isTesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('settings:llm.test', 'Test')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {/* Refresh button */}
+          {!readOnly && onRefresh && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onRefresh}
+                    disabled={isCheckingAuth || isUpdating}
+                  >
+                    <RefreshCw className={cn('h-4 w-4', isCheckingAuth && 'animate-spin')} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('settings:llm.refresh', 'Refresh')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {/* Get API Key link - hidden in readOnly (dev/prod) mode */}
+          {!readOnly && PROVIDER_KEY_URLS[provider.id] && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs text-muted-foreground"
+              onClick={() => window.open(PROVIDER_KEY_URLS[provider.id], '_blank')}
+            >
+              {t('settings:llm.getApiKey')}
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* API Key Input - hidden in readOnly mode */}
-      {!readOnly && (
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">
-            {t('settings:llm.apiKey')}
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={showKey ? 'text' : 'password'}
-                placeholder={
-                  provider.configured
-                    ? t('settings:llm.keyConfigured')
-                    : t('settings:llm.enterKey')
-                }
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value)
-                  setResult(null)
-                }}
-                className="pr-10 font-mono text-sm"
-                disabled={isProcessing}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full w-10"
-                onClick={() => setShowKey(!showKey)}
-              >
-                {showKey ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleValidate}
-              disabled={!hasKey || isProcessing}
-            >
-              {status === 'validating' && !result?.message.includes('Testing') && !result?.message.includes('Saving') ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                t('settings:llm.validate')
-              )}
-            </Button>
-          </div>
-
-          {/* Result Message */}
-          {result && (
-            <div
-              className={cn(
-                'flex items-center gap-2 text-xs p-2 rounded-md',
-                getResultClassName()
-              )}
-            >
-              {result.type === 'success' && <Check className="h-3 w-3 flex-shrink-0" />}
-              {result.type === 'error' && <X className="h-3 w-3 flex-shrink-0" />}
-              {result.type === 'info' && <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />}
-              <span className="break-all">{result.message}</span>
-            </div>
-          )}
+      {/* Inline API key input (same pattern as CLIStatusCard) */}
+      {showKeyInput && onSaveKey && (
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            placeholder={t('settings:cli.enterApiKey', 'Enter API key')}
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            className="h-8 text-xs flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && apiKeyInput.trim()) {
+                onSaveKey(apiKeyInput)
+                setApiKeyInput('')
+                setShowKeyInput(false)
+              }
+              if (e.key === 'Escape') {
+                setShowKeyInput(false)
+                setApiKeyInput('')
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              onSaveKey(apiKeyInput)
+              setApiKeyInput('')
+              setShowKeyInput(false)
+            }}
+            disabled={isSavingKey || !apiKeyInput.trim()}
+          >
+            {isSavingKey ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              t('settings:cli.save', 'Save')
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              setShowKeyInput(false)
+              setApiKeyInput('')
+            }}
+          >
+            {t('settings:cli.cancel', 'Cancel')}
+          </Button>
         </div>
       )}
 
@@ -335,9 +318,9 @@ export function LLMProviderCard({
           {t('settings:llm.model')}
         </label>
         <Select
-          value={provider.selected_model}
+          value={provider.models.includes(provider.selected_model) ? provider.selected_model : provider.default_model}
           onValueChange={handleModelChange}
-          disabled={isUpdating || isProcessing}
+          disabled={isUpdating}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder={t('settings:llm.selectModel')} />
@@ -345,7 +328,7 @@ export function LLMProviderCard({
           <SelectContent>
             {provider.models.map((model) => (
               <SelectItem key={model} value={model}>
-                {model}
+                {getModelDisplayName(model)}
                 {model === provider.default_model && (
                   <span className="ml-2 text-muted-foreground text-xs">
                     ({t('settings:llm.default')})
@@ -355,66 +338,6 @@ export function LLMProviderCard({
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-2 flex-wrap">
-        {/* Test/Save buttons for input key - hidden in readOnly mode */}
-        {!readOnly && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTest}
-              disabled={!hasKey || isProcessing || isUpdating}
-            >
-              {status === 'testing' ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <Play className="h-4 w-4 mr-1" />
-              )}
-              {t('settings:llm.test', 'Test')}
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!hasKey || isProcessing || isUpdating}
-            >
-              {status === 'saving' ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
-              )}
-              {t('settings:llm.save')}
-            </Button>
-            {provider.configured && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClear}
-                disabled={isProcessing || isUpdating}
-              >
-                {t('settings:llm.clear')}
-              </Button>
-            )}
-          </>
-        )}
-        {/* Test Stored Key Button - shown when provider is configured (for readOnly mode) */}
-        {readOnly && onTestStored && provider.configured && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onTestStored}
-            disabled={isTesting || isUpdating}
-          >
-            {isTesting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-            ) : (
-              <Play className="h-4 w-4 mr-1" />
-            )}
-            {t('settings:llm.test', 'Test')}
-          </Button>
-        )}
       </div>
     </div>
   )

@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserStore } from '@/stores/userStore'
 import { companiesApi, CompanySummaryResponse } from '@/api/knowledge'
 import { formatDate } from '@/lib/utils'
+import { useTimelineProjectCrud } from './hooks/useTimelineProjectCrud'
+import { TimelineProjectDialogs } from './components/TimelineProjectDialogs'
 import {
   Building2,
   FolderGit2,
@@ -22,6 +24,10 @@ import {
   Code,
   Briefcase,
   MapPin,
+  Plus,
+  Pencil,
+  Trash2,
+  Link2,
 } from 'lucide-react'
 
 function TechCategoryBadges({ techCategories }: { techCategories: Record<string, string[]> }) {
@@ -44,13 +50,21 @@ function CompanyCard({
   t,
   isFirst,
   isLast,
-  userId
+  userId,
+  onAddProject,
+  onLinkProject,
+  onEditProject,
+  onDeleteProject,
 }: {
   companySummary: CompanySummaryResponse
   t: (key: string, options?: any) => string
   isFirst?: boolean
   isLast?: boolean
   userId: number
+  onAddProject: (companyId: number) => void
+  onLinkProject: (companyId: number) => void
+  onEditProject: (projectId: number) => void
+  onDeleteProject: (id: number, name: string) => void
 }) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(true)
@@ -240,6 +254,16 @@ function CompanyCard({
                           </div>
                         )}
                       </div>
+
+                      {/* Edit / Delete buttons */}
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditProject(project.id)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDeleteProject(project.id, project.name)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -250,6 +274,28 @@ function CompanyCard({
                     <p className="text-sm">{t('timeline.noProjectsRegistered')}</p>
                   </div>
                 )}
+              </div>
+
+              {/* Add / Link project buttons */}
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => onAddProject(company.id)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('timeline.addProject')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => onLinkProject(company.id)}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  {t('linkProject')}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -271,6 +317,8 @@ export default function CompanyTimelinePage() {
     queryFn: () => companiesApi.getGroupedByCompany(user!.id),
     enabled: !!user?.id,
   })
+
+  const crud = useTimelineProjectCrud()
 
   if (!user) return null
 
@@ -370,6 +418,10 @@ export default function CompanyTimelinePage() {
                   isFirst={index === 0}
                   isLast={index === companySummaries.length - 1}
                   userId={user!.id}
+                  onAddProject={crud.handleOpenCreate}
+                  onLinkProject={crud.handleOpenLink}
+                  onEditProject={crud.handleOpenEdit}
+                  onDeleteProject={crud.handleOpenDelete}
                 />
               ))}
             </div>
@@ -420,6 +472,8 @@ export default function CompanyTimelinePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <TimelineProjectDialogs crud={crud} />
     </div>
   )
 }

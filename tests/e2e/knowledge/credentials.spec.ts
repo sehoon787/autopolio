@@ -157,8 +157,8 @@ test.describe('Certifications CRUD', () => {
     await page.waitForTimeout(300)
 
     // Should be on Certifications sub-tab by default
-    // Click "Add Certification" button
-    await page.getByRole('button', { name: 'Add Certification' }).click()
+    // Click "Add" button (header "Add" or empty-state "Add First Certification")
+    await page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ }).first().click()
 
     // Wait for dialog
     const dialog = page.getByRole('dialog')
@@ -300,8 +300,8 @@ test.describe('Education CRUD', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Default is Education & Publications > Education tab
-    // Click "Add Education" button in header
-    await page.getByRole('button', { name: 'Add Education' }).first().click()
+    // Click "Add" button (header "Add" or empty-state "Add First Education")
+    await page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ }).first().click()
 
     // Wait for dialog
     const dialog = page.getByRole('dialog')
@@ -401,8 +401,8 @@ test.describe('Awards CRUD', () => {
     // Should show empty state
     await expect(page.getByText('No awards registered')).toBeVisible()
 
-    // Click "Add Award" button
-    await page.getByRole('button', { name: 'Add Award' }).click()
+    // Click "Add" button (header "Add" or empty-state "Add First Award")
+    await page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ }).first().click()
 
     // Wait for dialog
     const dialog = page.getByRole('dialog')

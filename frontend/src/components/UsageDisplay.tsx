@@ -13,6 +13,7 @@ const providerColors: Record<string, string> = {
   gemini: 'bg-blue-500',
   claude_code_cli: 'bg-orange-400',
   gemini_cli: 'bg-blue-400',
+  codex_cli: 'bg-yellow-500',
 }
 
 const providerLabels: Record<string, string> = {
@@ -21,6 +22,7 @@ const providerLabels: Record<string, string> = {
   gemini: 'Gemini',
   claude_code_cli: 'Claude CLI',
   gemini_cli: 'Gemini CLI',
+  codex_cli: 'Codex CLI',
 }
 
 export function UsageDisplay({ compact = true }: UsageDisplayProps) {
@@ -35,8 +37,11 @@ export function UsageDisplay({ compact = true }: UsageDisplayProps) {
   const isCliMode = aiMode === 'cli'
 
   // Map CLI selection to its own usage category
+  const cliUsageKey = selectedCLI === 'claude_code' ? 'claude_code_cli'
+    : selectedCLI === 'codex_cli' ? 'codex_cli'
+    : 'gemini_cli'
   const provider: keyof LLMUsage = isCliMode
-    ? (selectedCLI === 'claude_code' ? 'claude_code_cli' : 'gemini_cli')
+    ? cliUsageKey
     : (selectedLLMProvider as 'openai' | 'anthropic' | 'gemini')
 
   const calls = provider ? getLLMCallCount(provider) : 0

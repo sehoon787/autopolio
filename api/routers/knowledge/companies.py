@@ -21,6 +21,7 @@ from api.schemas.company import (
     CompanyGroupedResponse,
     ProjectSummary,
 )
+from api.services.core.domain_constants import TECH_CATEGORIES
 
 # Logo upload settings
 LOGO_DIR = "data/logos"
@@ -28,98 +29,6 @@ ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5MB
 
 router = APIRouter()
-
-
-# Technology categories for grouping
-TECH_CATEGORIES = {
-    "Backend": [
-        "Python",
-        "FastAPI",
-        "Django",
-        "Flask",
-        "Spring",
-        "Spring Boot",
-        "Java",
-        "Kotlin",
-        "Node.js",
-        "Express",
-        "NestJS",
-        "Go",
-        "Rust",
-        "Ruby",
-        "Rails",
-        "PHP",
-        "Laravel",
-        ".NET",
-        "C#",
-        "ASP.NET",
-    ],
-    "Frontend": [
-        "React",
-        "Vue",
-        "Angular",
-        "Next.js",
-        "Nuxt.js",
-        "Svelte",
-        "TypeScript",
-        "JavaScript",
-        "HTML",
-        "CSS",
-        "SCSS",
-        "Tailwind CSS",
-        "Bootstrap",
-        "Material UI",
-        "Ant Design",
-    ],
-    "Mobile": [
-        "Flutter",
-        "React Native",
-        "Swift",
-        "SwiftUI",
-        "Kotlin",
-        "Android",
-        "iOS",
-        "Xamarin",
-        "Ionic",
-    ],
-    "Database": [
-        "PostgreSQL",
-        "MySQL",
-        "MongoDB",
-        "Redis",
-        "SQLite",
-        "Oracle",
-        "SQL Server",
-        "DynamoDB",
-        "Cassandra",
-        "Elasticsearch",
-    ],
-    "DevOps/Infra": [
-        "Docker",
-        "Kubernetes",
-        "AWS",
-        "GCP",
-        "Azure",
-        "Jenkins",
-        "GitHub Actions",
-        "GitLab CI",
-        "Terraform",
-        "Ansible",
-        "Nginx",
-        "Linux",
-    ],
-    "AI/ML": [
-        "TensorFlow",
-        "PyTorch",
-        "scikit-learn",
-        "Keras",
-        "OpenAI",
-        "LangChain",
-        "Pandas",
-        "NumPy",
-        "OpenCV",
-    ],
-}
 
 
 def categorize_technologies(technologies: List[str]) -> Dict[str, List[str]]:
@@ -150,6 +59,46 @@ def format_date_range(start_date, end_date, is_current: bool = False) -> str:
     else:
         end = end_date.strftime("%Y.%m") if end_date else "?"
     return f"{start} ~ {end}"
+
+
+def _build_company_summary(company, projects) -> CompanySummaryResponse:
+    """Build a CompanySummaryResponse from a company and its projects."""
+    all_technologies = set()
+    project_summaries = []
+
+    for project in projects:
+        tech_names = (
+            [pt.technology.name for pt in project.technologies if pt.technology]
+            if project.technologies
+            else []
+        )
+        all_technologies.update(tech_names)
+
+        project_summaries.append(
+            ProjectSummary(
+                id=project.id,
+                name=project.name,
+                start_date=project.start_date,
+                end_date=project.end_date,
+                role=project.role,
+                description=project.description,
+                git_url=project.git_url,
+                team_size=project.team_size,
+                technologies=tech_names,
+            )
+        )
+
+    sorted_technologies = sorted(list(all_technologies))
+    return CompanySummaryResponse(
+        company=CompanyResponse.model_validate(company),
+        projects=project_summaries,
+        project_count=len(projects),
+        aggregated_tech_stack=sorted_technologies,
+        tech_categories=categorize_technologies(sorted_technologies),
+        date_range=format_date_range(
+            company.start_date, company.end_date, company.is_current
+        ),
+    )
 
 
 @router.get("", response_model=List[CompanyResponse])
@@ -189,7 +138,6 @@ async def get_companies_grouped(
     total_projects = 0
 
     for company in companies:
-        # Get projects with technologies for this company
         projects_result = await db.execute(
             select(Project)
             .where(Project.company_id == company.id)
@@ -200,51 +148,8 @@ async def get_companies_grouped(
             )
             .order_by(Project.start_date.desc())
         )
-        projects = projects_result.scalars().all()
-
-        # Aggregate technologies
-        all_technologies = set()
-        project_summaries = []
-
-        for project in projects:
-            tech_names = (
-                [pt.technology.name for pt in project.technologies if pt.technology]
-                if project.technologies
-                else []
-            )
-            all_technologies.update(tech_names)
-
-            project_summaries.append(
-                ProjectSummary(
-                    id=project.id,
-                    name=project.name,
-                    start_date=project.start_date,
-                    end_date=project.end_date,
-                    role=project.role,
-                    description=project.description,
-                    git_url=project.git_url,
-                    team_size=project.team_size,
-                    technologies=tech_names,
-                )
-            )
-
-        sorted_technologies = sorted(list(all_technologies))
-        tech_categories = categorize_technologies(sorted_technologies)
-        date_range = format_date_range(
-            company.start_date, company.end_date, company.is_current
-        )
-
-        company_summaries.append(
-            CompanySummaryResponse(
-                company=CompanyResponse.model_validate(company),
-                projects=project_summaries,
-                project_count=len(projects),
-                aggregated_tech_stack=sorted_technologies,
-                tech_categories=tech_categories,
-                date_range=date_range,
-            )
-        )
-
+        projects = list(projects_result.scalars().all())
+        company_summaries.append(_build_company_summary(company, projects))
         total_projects += len(projects)
 
     return CompanyGroupedResponse(
@@ -468,53 +373,9 @@ async def get_company_summary(
         )
         .order_by(Project.start_date.desc())
     )
-    projects = projects_result.scalars().all()
+    projects = list(projects_result.scalars().all())
 
-    # Aggregate technologies
-    all_technologies = set()
-    project_summaries = []
-
-    for project in projects:
-        tech_names = (
-            [pt.technology.name for pt in project.technologies if pt.technology]
-            if project.technologies
-            else []
-        )
-        all_technologies.update(tech_names)
-
-        project_summaries.append(
-            ProjectSummary(
-                id=project.id,
-                name=project.name,
-                start_date=project.start_date,
-                end_date=project.end_date,
-                role=project.role,
-                description=project.description,
-                git_url=project.git_url,
-                team_size=project.team_size,
-                technologies=tech_names,
-            )
-        )
-
-    # Sort technologies
-    sorted_technologies = sorted(list(all_technologies))
-
-    # Categorize technologies
-    tech_categories = categorize_technologies(sorted_technologies)
-
-    # Format date range
-    date_range = format_date_range(
-        company.start_date, company.end_date, company.is_current
-    )
-
-    return CompanySummaryResponse(
-        company=CompanyResponse.model_validate(company),
-        projects=project_summaries,
-        project_count=len(projects),
-        aggregated_tech_stack=sorted_technologies,
-        tech_categories=tech_categories,
-        date_range=date_range,
-    )
+    return _build_company_summary(company, projects)
 
 
 @router.post("/{company_id}/logo", status_code=status.HTTP_200_OK)

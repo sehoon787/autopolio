@@ -419,6 +419,81 @@ test.describe('Example Feature', () => {
 2. **Database errors**: Run `./scripts/setup-test-db.sh`
 3. **Port conflicts**: Ensure ports 3035 and 8085 are available
 
+## Seed Sample Data
+
+The `seed_sample_data.py` script populates comprehensive test data for all Knowledge sub-menus.
+
+### Usage
+
+```bash
+# Seed to running server (default user)
+python tests/seed_sample_data.py
+
+# Seed for a specific user
+python tests/seed_sample_data.py --user-id 46
+
+# Create a new user and seed
+python tests/seed_sample_data.py --create-user
+
+# Clean existing data before seeding
+python tests/seed_sample_data.py --clean
+
+# Verbose logging
+python tests/seed_sample_data.py -v
+```
+
+### Seeded Data
+
+| Category | Count | Notes |
+|----------|-------|-------|
+| Companies | 3 | VibeCraft, Aircok, TechStar Solutions |
+| Projects | 6 | Linked to companies by index |
+| Educations (학력) | 2 | bachelor, master |
+| Trainings (교육이력) | 4 | bootcamp, course, workshop |
+| Certifications | 3 | 정보처리기사, AWS SAA, SQLD |
+| Awards | 2 | 부스트캠프 우수상, 해커톤 최우수상 |
+| Publications | 3 | conference, journal, book |
+| Patents | 2 | Stored as publications with `publication_type: "patent"` |
+| Volunteer Activities | 2 | external, volunteer |
+
+### Programmatic Import
+
+```python
+from tests.seed_sample_data import seed_all, SAMPLE_DATA
+```
+
+### Degree Value Convention
+
+Education `degree` values must be **lowercase** to match frontend filter logic:
+- Academic: `bachelor`, `master`, `doctor`, `associate`
+- Training: `bootcamp`, `course`, `workshop`, `certification_program`, `online_degree`
+
+## Frontend E2E Tests
+
+Tests under `frontend/e2e/` run against the local dev server or Docker:
+
+| File | Description |
+|------|-------------|
+| `credentials.spec.ts` | Credential group rendering (학력, 교육이력 등) |
+| `llm-settings-ui.spec.ts` | LLM provider card UI (auth badge, key input) |
+| `dashboard.spec.ts` | Dashboard page rendering |
+| `companies.spec.ts` | Company CRUD |
+| `projects.spec.ts` | Project CRUD |
+| `templates.spec.ts` | Template management |
+| `platforms.spec.ts` | Platform template rendering |
+| `settings.spec.ts` | Settings page |
+| `github.spec.ts` | GitHub integration |
+| `navigation.spec.ts` | Page navigation |
+| `api-health.spec.ts` | API health check |
+| `comprehensive.spec.ts` | Comprehensive feature tests |
+| `full-workflow.spec.ts` | End-to-end workflow |
+
+```bash
+# Run from frontend directory
+cd frontend
+npx playwright test e2e/credentials.spec.ts
+```
+
 ## Contributing
 
 1. Follow the test naming convention: `test_<action>_<target>`

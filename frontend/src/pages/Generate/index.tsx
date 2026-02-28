@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -20,14 +20,15 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useUserStore } from '@/stores/userStore'
 import { usePipelineStore } from '@/stores/pipelineStore'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useSelection } from '@/hooks/useSelection'
 import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
 import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
 import { usersApi } from '@/api/users'
-import { Play, FolderKanban, AlertCircle } from 'lucide-react'
+import { Play, FolderKanban, AlertCircle, Search } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { SortDropdown, SortOption } from '@/components/SortDropdown'
 
 export default function GeneratePage() {
   const { t } = useTranslation()
@@ -35,7 +36,7 @@ export default function GeneratePage() {
   const { toast } = useToast()
   const { user } = useUserStore()
   const { setTaskId, setRequest } = usePipelineStore()
-  const { isElectronApp, aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel } = useAppStore()
+  const { aiMode, selectedCLI, selectedLLMProvider, claudeCodeModel, geminiCLIModel, codexCLIModel } = useAppStore()
   const selection = useSelection<number>()
 
   const [templateId, setTemplateId] = useState<string>('')
@@ -46,6 +47,9 @@ export default function GeneratePage() {
     includeTechStack: true,
   })
   const [optionsLoaded, setOptionsLoaded] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('recentModified')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Load user's default generation options from settings
   const { data: generationOptionsData } = useQuery({
@@ -91,6 +95,39 @@ export default function GeneratePage() {
   const projects = projectsData?.data?.projects || []
   const templates = templatesData?.data?.templates || []
 
+  const generateSortOptions: SortOption[] = useMemo(() => [
+    { label: t('common:sort.recentModified'), value: 'recentModified', defaultOrder: 'desc' },
+    { label: t('common:sort.projectName'), value: 'projectName', defaultOrder: 'asc' },
+    { label: t('common:sort.startDate'), value: 'startDate', defaultOrder: 'desc' },
+    { label: t('common:sort.analysisStatus'), value: 'analysisStatus', defaultOrder: 'desc' },
+  ], [t])
+
+  const filteredProjects = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim()
+    let result = projects
+    if (query) {
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        (p.short_description && p.short_description.toLowerCase().includes(query))
+      )
+    }
+    result = [...result].sort((a, b) => {
+      const dir = sortOrder === 'asc' ? 1 : -1
+      switch (sortBy) {
+        case 'projectName':
+          return dir * a.name.localeCompare(b.name)
+        case 'startDate':
+          return dir * ((a.start_date || '').localeCompare(b.start_date || ''))
+        case 'analysisStatus':
+          return dir * (Number(a.is_analyzed) - Number(b.is_analyzed))
+        case 'recentModified':
+        default:
+          return dir * ((a.updated_at || '').localeCompare(b.updated_at || ''))
+      }
+    })
+    return result
+  }, [projects, searchQuery, sortBy, sortOrder])
+
   // Check if any selected project is not analyzed
   const selectedProjects = projects.filter(p => selection.isSelected(p.id))
   const unanalyzedProjects = selectedProjects.filter(p => !p.is_analyzed)
@@ -108,10 +145,11 @@ export default function GeneratePage() {
 
     // Build LLM/CLI settings based on appStore preferences
     const llmSettings: Pick<PipelineRunRequest, 'llm_provider' | 'cli_mode' | 'cli_model'> = {}
-    if (aiMode === 'cli' && isElectronApp) {
-      // CLI mode (Electron only)
+    if (aiMode === 'cli') {
+      // CLI mode
       llmSettings.cli_mode = selectedCLI
-      llmSettings.cli_model = selectedCLI === 'claude_code' ? claudeCodeModel : geminiCLIModel
+      const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+      llmSettings.cli_model = resolveModelForAPI(cliModel)
     } else {
       // API mode
       llmSettings.llm_provider = selectedLLMProvider
@@ -149,20 +187,40 @@ export default function GeneratePage() {
                 <CardTitle>{t('generate:projectSelection')}</CardTitle>
                 <CardDescription>{t('generate:selectProjectsToInclude')}</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={() => selection.toggleAll(projects.map(p => p.id))}>
-                {selection.selectedCount === projects.length ? t('generate:deselectAll') : t('generate:selectAll')}
+              <Button variant="outline" size="sm" onClick={() => selection.toggleAll(filteredProjects.map(p => p.id))}>
+                {selection.selectedCount === filteredProjects.length && filteredProjects.length > 0 ? t('generate:deselectAll') : t('generate:selectAll')}
               </Button>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('common:sort.searchProjects')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <SortDropdown
+                options={generateSortOptions}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSortChange={(newSortBy, newSortOrder) => {
+                  setSortBy(newSortBy)
+                  setSortOrder(newSortOrder)
+                }}
+              />
             </div>
           </CardHeader>
           <CardContent>
-            {projects.length === 0 ? (
+            {filteredProjects.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FolderKanban className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>{t('generate:noProjects')}</p>
+                <p>{searchQuery ? t('common:noResults') : t('generate:noProjects')}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <SelectableTile
                     key={project.id}
                     id={project.id}

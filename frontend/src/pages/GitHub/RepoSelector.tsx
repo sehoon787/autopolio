@@ -3,18 +3,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { SelectableTile } from '@/components/ui/selectable-tile'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog'
+import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { GitHubRepo } from '@/api/github'
 import { isElectron } from '@/lib/electron'
 import {
   Github,
   Search,
-  Star,
-  GitFork,
   RefreshCw,
   Download,
   CheckCircle2,
@@ -23,9 +18,13 @@ import {
   X,
   Layers,
 } from 'lucide-react'
-import { useRepoSelector, BundleRepoEntry } from './hooks/useRepoSelector'
+import { useRepoSelector } from './hooks/useRepoSelector'
+import { RepoCard } from './components/RepoCard'
+import { BundleDialog } from './components/BundleDialog'
+import { LoadingPhaseCard } from './components/LoadingPhaseCard'
 
 export default function RepoSelector() {
+  const { t: tc } = useTranslation('common')
   const {
     navigate,
     t,
@@ -40,13 +39,19 @@ export default function RepoSelector() {
     isLoading,
     isRefreshing,
     isError,
+    isCached,
     refetch,
+    handleRefresh,
     searchQuery,
     setSearchQuery,
     languageFilter,
     setLanguageFilter,
     ownerFilter,
     setOwnerFilter,
+    sortBy,
+    sortOrder,
+    setSortBy,
+    setSortOrder,
     languages,
     clearFilters,
     selection,
@@ -156,6 +161,13 @@ export default function RepoSelector() {
     )
   }
 
+  const repoSortOptions: SortOption[] = [
+    { label: tc('sort.recentUpdate'), value: 'updated_at', defaultOrder: 'desc' },
+    { label: tc('sort.recentPush'), value: 'pushed_at', defaultOrder: 'desc' },
+    { label: tc('sort.name'), value: 'name', defaultOrder: 'asc' },
+    { label: tc('sort.createdAt'), value: 'created_at', defaultOrder: 'desc' },
+  ]
+
   // Render: Connected and valid - show repos
   return (
     <div className="space-y-6">
@@ -170,7 +182,7 @@ export default function RepoSelector() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => refetch()}
+            onClick={handleRefresh}
             disabled={isLoading || isRefreshing}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
@@ -246,6 +258,13 @@ export default function RepoSelector() {
               </SelectContent>
             </Select>
 
+            <SortDropdown
+              options={repoSortOptions}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortChange={(newSortBy, newSortOrder) => { setSortBy(newSortBy); setSortOrder(newSortOrder) }}
+            />
+
             {(searchQuery || languageFilter !== 'all' || ownerFilter !== 'all') && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="mr-1 h-4 w-4" />
@@ -260,6 +279,11 @@ export default function RepoSelector() {
       <div className="flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
           <span>{t('showingCount', { showing: filteredRepos.length, total: totalRepos })}</span>
+          {isCached && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+              {t('cachedData')}
+            </Badge>
+          )}
           {selection.selectedCount > 0 && (
             <Badge variant="secondary">
               <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -274,12 +298,7 @@ export default function RepoSelector() {
 
       {/* Repo List */}
       {isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">{t('loadingRepos')}</p>
-          </CardContent>
-        </Card>
+        <LoadingPhaseCard />
       ) : isError ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -379,168 +398,5 @@ export default function RepoSelector() {
         </div>
       )}
     </div>
-  )
-}
-
-// Repo Card Component
-interface RepoCardProps {
-  repo: GitHubRepo
-  selected: boolean
-  onToggle: () => void
-}
-
-function RepoCard({ repo, selected, onToggle }: RepoCardProps) {
-  const { t } = useTranslation('github')
-  const { i18n } = useTranslation()
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  return (
-    <SelectableTile
-      id={repo.clone_url}
-      selected={selected}
-      onSelectChange={onToggle}
-    >
-      <CardContent className="py-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold truncate">{repo.name}</h3>
-            {repo.language && (
-              <Badge variant="outline" className="text-xs">
-                {repo.language}
-              </Badge>
-            )}
-          </div>
-
-          {repo.description && (
-            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-              {repo.description}
-            </p>
-          )}
-
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <Star className="h-3 w-3" />
-              {repo.stargazers_count}
-            </span>
-            <span className="flex items-center gap-1">
-              <GitFork className="h-3 w-3" />
-              {repo.forks_count}
-            </span>
-            <span>
-              {t('updated')} {formatDate(repo.updated_at)}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </SelectableTile>
-  )
-}
-
-// Bundle Dialog Component
-interface BundleDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  projectName: string
-  onProjectNameChange: (name: string) => void
-  repos: BundleRepoEntry[]
-  onSetPrimary: (url: string) => void
-  onLabelChange: (url: string, label: string) => void
-  onSubmit: () => void
-  isPending: boolean
-}
-
-function BundleDialog({
-  open,
-  onOpenChange,
-  projectName,
-  onProjectNameChange,
-  repos,
-  onSetPrimary,
-  onLabelChange,
-  onSubmit,
-  isPending,
-}: BundleDialogProps) {
-  const { t } = useTranslation('github')
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{t('bundleDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {t('bundleDialog.primaryNote')}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Project Name */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t('bundleDialog.projectName')}</label>
-            <Input
-              value={projectName}
-              onChange={(e) => onProjectNameChange(e.target.value)}
-              placeholder={t('bundleDialog.projectNamePlaceholder')}
-            />
-          </div>
-
-          {/* Repo List */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {t('bundleDialog.selectedRepos', { count: repos.length })}
-            </label>
-            <div className="space-y-2 max-h-[280px] overflow-y-auto">
-              {repos.map((repo) => (
-                <div
-                  key={repo.url}
-                  className="flex items-center gap-2 p-2 rounded-md border bg-muted/30"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSetPrimary(repo.url)}
-                    className="shrink-0 text-lg leading-none hover:scale-110 transition-transform"
-                    title={repo.isPrimary ? 'Primary' : 'Set as primary'}
-                  >
-                    {repo.isPrimary ? (
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ) : (
-                      <Star className="h-4 w-4 text-gray-300" />
-                    )}
-                  </button>
-                  <span className="text-sm font-medium truncate min-w-0 flex-1">
-                    {repo.name}
-                  </span>
-                  <Input
-                    value={repo.label}
-                    onChange={(e) => onLabelChange(repo.url, e.target.value)}
-                    placeholder={t('bundleDialog.labelPlaceholder')}
-                    className="w-[140px] h-8 text-xs"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-            {t('bundleDialog.cancel')}
-          </Button>
-          <Button
-            onClick={onSubmit}
-            disabled={isPending || !projectName.trim()}
-          >
-            {isPending ? t('bundleDialog.creating') : t('bundleDialog.create')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

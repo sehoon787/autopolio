@@ -13,10 +13,12 @@ from .analysis_job_runner import AnalysisCancelledException, STEPS_PER_REPO
 from .analysis_job_helpers import (
     _generate_key_tasks_bg,
     _generate_combined_ai_summary,
+    build_summary_project_data,
     save_repo_basic_results,
     save_llm_results,
     save_contributor_analysis,
 )
+from api.services.llm.llm_utils import create_llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,6 @@ async def run_multi_repo_background_analysis(
     If one repo fails, the others are still analyzed.
     The job only fails if ALL repos fail.
     """
-    from api.services.llm import LLMService, CLILLMService
     from api.services.github import GitHubService
     from .analysis_job_crud import AnalysisJobService
 
@@ -66,20 +67,11 @@ async def run_multi_repo_background_analysis(
     # Initialize LLM service
     llm_service = None
     try:
-        cli_mode = options.get("cli_mode")
-        cli_model = options.get("cli_model")
-        provider = options.get("provider")
-        api_key = options.get("api_key")
-        if cli_mode:
-            llm_service = CLILLMService(cli_mode, model=cli_model)
-        elif provider:
-            llm_service = LLMService(provider, api_key=api_key)
-        else:
-            llm_service = LLMService(api_key=api_key)
+        llm_service = create_llm_service(options)
         logger.info(
             "[MultiRepoAnalysis] LLM: provider=%s, has_api_key=%s",
-            provider,
-            bool(api_key),
+            options.get("provider"),
+            bool(options.get("api_key")),
         )
     except Exception as e:
         logger.warning("[MultiRepoAnalysis] LLM service not available: %s", e)
@@ -515,22 +507,9 @@ async def _analyze_single_repo_for_multi(
                 )
                 project = proj_result.scalar_one_or_none()
                 if project:
-                    summary_project_data = {
-                        "name": project.name,
-                        "description": project.description,
-                        "role": project.role,
-                        "team_size": project.team_size,
-                        "contribution_percent": project.contribution_percent,
-                        "technologies": detected_techs,
-                        "start_date": str(project.start_date)
-                        if project.start_date
-                        else None,
-                        "end_date": str(project.end_date) if project.end_date else None,
-                        "total_commits": analysis_result.get("total_commits", 0),
-                        "commit_summary": analysis_result.get(
-                            "commit_messages_summary", ""
-                        ),
-                    }
+                    summary_project_data = build_summary_project_data(
+                        project, analysis_result
+                    )
                     summary_result = await llm_service.generate_project_summary(
                         summary_project_data,
                         style=summary_style,
@@ -546,27 +525,17 @@ async def _analyze_single_repo_for_multi(
                 "[MultiRepoAnalysis] AI summary failed for %s: %s", label_prefix, e
             )
 
-    # Save LLM results
-    if llm_service:
-        await save_llm_results(
-            analysis_id=analysis_id,
-            project_id=project_id,
-            is_primary=is_primary,
-            language=language,
-            key_tasks=key_tasks,
-            detailed_content=detailed_content,
-            ai_summary=ai_summary,
-            ai_key_features=ai_key_features,
-        )
-    else:
-        await save_llm_results(
-            analysis_id=analysis_id,
-            project_id=project_id,
-            is_primary=is_primary,
-            language=language,
-            key_tasks=[],
-            detailed_content={},
-        )
+    # Save LLM results (always saves language; key_tasks/detailed_content may be empty)
+    await save_llm_results(
+        analysis_id=analysis_id,
+        project_id=project_id,
+        is_primary=is_primary,
+        language=language,
+        key_tasks=key_tasks,
+        detailed_content=detailed_content,
+        ai_summary=ai_summary,
+        ai_key_features=ai_key_features,
+    )
 
     if await service.check_cancelled(task_id):
         raise AnalysisCancelledException()

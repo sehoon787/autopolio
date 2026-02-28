@@ -52,6 +52,7 @@ function mapProviderToUsageKey(provider: string): keyof import('@/stores/usageSt
     const cliType = provider.replace('cli:', '')
     if (cliType === 'claude_code') return 'claude_code_cli'
     if (cliType === 'gemini_cli') return 'gemini_cli'
+    if (cliType === 'codex_cli') return 'codex_cli'
   }
   // Handle API providers
   if (provider === 'openai') return 'openai'
