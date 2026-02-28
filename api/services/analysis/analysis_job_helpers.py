@@ -5,6 +5,7 @@ Used by both single-repo (analysis_job_runner) and multi-repo (analysis_job_mult
 background analysis flows.
 """
 
+import json
 import logging
 from typing import Dict, Any, List, Tuple
 

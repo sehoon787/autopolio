@@ -549,7 +549,7 @@ def seed_all(client: httpx.Client, user_id: int) -> dict:
     Returns dict with all created resource IDs for reference.
     """
     profile = seed_profile(client, user_id)
-    gen_opts = seed_generation_options(client, user_id)
+    seed_generation_options(client, user_id)
     companies = seed_companies(client, user_id)
     company_ids = [c["id"] for c in companies]
     projects = seed_projects(client, user_id, company_ids)
