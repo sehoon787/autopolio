@@ -1,4 +1,4 @@
-# Autopolio v1.20
+# Autopolio v1.22
 
 GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플랫폼
 
@@ -15,6 +15,7 @@ GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플
 - **플랫폼 이력서 템플릿**: 사람인, 리멤버, 점핏 HTML 렌더링 및 내보내기
 - **Multi-Repo 지원**: 프로젝트당 여러 Git 레포지토리 연결
 - **CI/CD**: GitHub Actions 기반 테스트, 린트, 보안 스캔, AI 코드 리뷰, 릴리즈 자동화
+- **시드 데이터**: 테스트/데모용 종합 샘플 데이터 스크립트 (`tests/seed_sample_data.py`)
 
 ## 기술 스택
 
@@ -123,6 +124,23 @@ tests/scripts/run-api-tests.sh  # Linux/Mac
 tests/scripts/run-e2e-tests.bat # Windows
 tests/scripts/run-e2e-tests.sh  # Linux/Mac
 ```
+
+## 시드 데이터
+
+테스트/데모 환경을 위한 종합 샘플 데이터 스크립트:
+
+```bash
+# 기본 사용자에 시드 데이터 삽입
+python tests/seed_sample_data.py
+
+# 기존 데이터 정리 후 삽입
+python tests/seed_sample_data.py --clean
+
+# 새 사용자 생성 후 삽입
+python tests/seed_sample_data.py --create-user
+```
+
+회사 3, 프로젝트 6, 학력 2, 교육이력 4, 자격증 3, 수상 2, 논문 3, 특허 2, 활동 2건 삽입.
 
 ## 환경 변수
 

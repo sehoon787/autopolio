@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.21] - 2026-02-26
+## [1.22] - 2026-02-28
 
 ### Fixed
 - **파이프라인 문서 생성 FK 오류 수정** (`pipeline_template_step.py`)
@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AnalysisJobStatus schema 수정** (`schemas/github.py`)
   - `project_id`를 `Optional[int]`로 변경 (파이프라인 작업은 project_id가 None)
   - `GET /api/github/active-analyses` Pydantic validation 오류 해결
+- **Local 모드 키 관리 UI 표시** (`LLMProviderCard`, `CLIStatusCard`)
+  - `isElectronApp || isLocalMode` 조건으로 API 키 입력/CLI 설정 표시
+- **API/CLI 인증 에러 메시지 전파** (`authMessage` prop)
+  - LLMProviderCard에서 인증 상태 메시지를 부모로 전파
+- **시드 데이터 degree 값 소문자 수정** (`seed_sample_data.py`)
+  - `Bachelor` → `bachelor` 등 프론트엔드 필터와 일치하도록 수정
 
 ### Added
 - **CLI 멀티레포 통합 요약 지원** (`llm_generation.py`, `cli_llm_service.py`)
@@ -28,8 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 기존에는 `LLMService`에만 존재하여 CLI 모드에서 `AttributeError` 발생
 - **멀티레포 통합 요약 단위 테스트** (`test_multi_repo_summary.py`)
   - 9개 테스트 케이스 (공유 함수 직접 호출, LLMService/CLILLMService 위임 등)
+- **교육이력(Trainings) 시드 데이터 4건** (`seed_sample_data.py`)
+  - 부스트캠프, 삼성 멀티캠퍼스, FastCampus, GDG Workshop
+- **Credential E2E 테스트** (`frontend/e2e/credentials.spec.ts`)
+  - 학력/교육이력 데이터 렌더링 검증
+- **대시보드 커리어 히트맵 연도 스크롤** (`CareerHeatmap.tsx`)
+  - 연도 > 7개일 때 위/아래 버튼 + 스크롤 가능한 연도 사이드바
 
 ### Changed
+- **LLMProviderCard/CLIStatusCard UI 통일**
+  - Auth badge (인증 상태 표시), inline key input, 아이콘 버튼 패턴 적용
+  - 일관된 카드 레이아웃 및 상호작용 패턴
 - **프론트엔드 컴포넌트 개선**
   - EditableList/EditableStructuredList: 편집 UX 개선
   - ErrorBoundary: 에러 표시 로직 리팩터링
