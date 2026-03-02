@@ -29,7 +29,7 @@ from api.schemas.llm import (
 from api.services.llm import get_cli_service
 from api.services.core import EncryptionService
 from api.config import get_settings
-from api.constants import CLIType, LLMProvider as LLMProviderEnum, DEFAULT_MODELS, SummaryStyle
+from api.constants import CLIType, LLMProvider as LLMProviderEnum, DEFAULT_MODELS
 
 logger = logging.getLogger(__name__)
 
