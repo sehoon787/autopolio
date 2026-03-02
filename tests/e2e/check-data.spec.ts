@@ -15,14 +15,15 @@ test.describe('Check all credential tabs for user 46', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   // === Knowledge Pages ===
 
   test('companies page shows data', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/companies`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     const vibecraft = await page.locator('text=VibeCraft').count()
@@ -33,7 +34,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('projects page shows data', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/projects`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     const autopolio = await page.locator('text=Autopolio').count()
@@ -46,7 +47,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('education-publications-patents - Education (학력) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Default tab is Education (academic)
@@ -59,7 +60,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('education-publications-patents - Training (교육이력) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click Training sub-tab
@@ -81,7 +82,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('education-publications-patents - Publications (논문) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click Publications sub-tab
@@ -102,7 +103,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('education-publications-patents - Patents (특허) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click Patents sub-tab
@@ -125,7 +126,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('certifications-awards - Certifications (자격증) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     const cert = await page.locator('text=정보처리기사').count()
@@ -138,7 +139,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('certifications-awards - Awards (수상) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click Awards sub-tab
@@ -161,7 +162,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('activities - Volunteer (봉사활동) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/activities`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     await page.screenshot({ path: 'test-results/volunteer-tab.png', fullPage: true })
@@ -175,7 +176,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('activities - External (대외활동) tab', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/activities`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click External sub-tab
@@ -198,7 +199,7 @@ test.describe('Check all credential tabs for user 46', () => {
 
   test('settings - profile section shows data', async ({ page }) => {
     await page.goto(`${BASE_URL}/settings?section=profile`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1500)
 
     const inputs = page.locator('input')

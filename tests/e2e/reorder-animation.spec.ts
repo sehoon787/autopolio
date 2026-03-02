@@ -10,13 +10,14 @@ test.describe('Manual reorder with animation', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   // Helper: navigate to certifications page and switch to manual sort
   async function goToManualSort(page: import('@playwright/test').Page) {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Find and click the sort dropdown
@@ -254,7 +255,7 @@ test.describe('Manual reorder with animation', () => {
 
     // Reload the page
     await page.reload()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Re-enter manual sort mode

@@ -22,7 +22,7 @@ test.describe('Multi-repo re-analysis', () => {
 
     // Step 1: Navigate to the project detail page
     await page.goto(`${BASE_URL}/knowledge/projects/${PROJECT_ID}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Step 2: Clear existing AI summary to verify it gets regenerated
     const beforeResponse = await page.request.get(

@@ -10,14 +10,15 @@ test.describe('Sort feature across pages', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   // === Projects page sorting ===
 
   test('projects page has sort dropdown', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/projects`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // SortDropdown should be visible — default is "Recently Modified" (updated_at)
@@ -27,7 +28,7 @@ test.describe('Sort feature across pages', () => {
 
   test('projects page sort by name changes order', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/projects`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click the sort dropdown (default: Recently Modified)
@@ -49,7 +50,7 @@ test.describe('Sort feature across pages', () => {
 
   test('projects page sort direction toggle works', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/projects`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Find the sort direction toggle button (next to the sort dropdown)
@@ -69,7 +70,7 @@ test.describe('Sort feature across pages', () => {
 
   test('documents page has sort dropdown', async ({ page }) => {
     await page.goto(`${BASE_URL}/documents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // SortDropdown should show default "Recently Modified"
@@ -81,7 +82,7 @@ test.describe('Sort feature across pages', () => {
 
   test('documents page sort by document name', async ({ page }) => {
     await page.goto(`${BASE_URL}/documents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Click sort dropdown (default: Recently Modified)
@@ -104,7 +105,7 @@ test.describe('Sort feature across pages', () => {
 
   test('generate page has search input and sort dropdown', async ({ page }) => {
     await page.goto(`${BASE_URL}/generate`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Search input should be visible
@@ -123,7 +124,7 @@ test.describe('Sort feature across pages', () => {
 
   test('credentials page has add button in header and sort in subtab row', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Add button should be in the header area (top-right)
@@ -145,7 +146,7 @@ test.describe('Sort feature across pages', () => {
 
   test('education page has add button in header', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Add button should be in the header
@@ -160,7 +161,7 @@ test.describe('Sort feature across pages', () => {
 
   test('github repos page has sort dropdown when connected', async ({ page }) => {
     await page.goto(`${BASE_URL}/github/repos`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(2000)
 
     // Check if connected (repos loaded) — sort dropdown only appears when connected

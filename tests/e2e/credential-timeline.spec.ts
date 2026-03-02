@@ -10,12 +10,13 @@ test.describe('Credential Timeline View', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   test('CertificationsAwards page shows timeline toggle and switches views', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Check toggle buttons exist
     const listBtn = page.locator('button', { hasText: /목록|List/ })
@@ -38,7 +39,7 @@ test.describe('Credential Timeline View', () => {
 
   test('EducationPublicationsPatents page shows timeline toggle and switches views', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const listBtn = page.locator('button', { hasText: /목록|List/ })
     const timelineBtn = page.locator('button', { hasText: /타임라인|Timeline/ })
@@ -57,7 +58,7 @@ test.describe('Credential Timeline View', () => {
 
   test('Activities page shows timeline toggle and switches views', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/activities`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const listBtn = page.locator('button', { hasText: /목록|List/ })
     const timelineBtn = page.locator('button', { hasText: /타임라인|Timeline/ })
@@ -76,7 +77,7 @@ test.describe('Credential Timeline View', () => {
 
   test('Add button in timeline mode switches back to list mode', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Switch to timeline
     const timelineBtn = page.locator('button', { hasText: /타임라인|Timeline/ })
