@@ -323,7 +323,9 @@ async def upload_template(
         )
 
     # Determine output format
-    output_format = DocumentFormat.DOCX if file_ext in {".docx", ".doc"} else DocumentFormat.PDF
+    output_format = (
+        DocumentFormat.DOCX if file_ext in {".docx", ".doc"} else DocumentFormat.PDF
+    )
 
     template = Template(
         user_id=user_id,

@@ -451,7 +451,8 @@ async def test_llm():
 @router.get("/test-cli")
 async def test_cli(
     cli_mode: str = Query(
-        "claude_code", description="CLI mode: 'claude_code', 'gemini_cli', or 'codex_cli'"
+        "claude_code",
+        description="CLI mode: 'claude_code', 'gemini_cli', or 'codex_cli'",
     ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
 ):

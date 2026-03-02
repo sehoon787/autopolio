@@ -100,7 +100,9 @@ async def cleanup_stale_jobs():
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            text(f"SELECT COUNT(*) FROM jobs WHERE status IN ('{JobStatus.RUNNING}', '{JobStatus.PENDING}')")
+            text(
+                f"SELECT COUNT(*) FROM jobs WHERE status IN ('{JobStatus.RUNNING}', '{JobStatus.PENDING}')"
+            )
         )
         count = result.scalar()
         if count:

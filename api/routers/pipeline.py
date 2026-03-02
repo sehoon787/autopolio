@@ -118,7 +118,9 @@ async def get_pipeline_status(task_id: str, db: AsyncSession = Depends(get_db)):
         elif i < job.current_step:
             step_status = JobStatus.COMPLETED
         elif i == job.current_step:
-            step_status = JobStatus.RUNNING if job.status == JobStatus.RUNNING else job.status
+            step_status = (
+                JobStatus.RUNNING if job.status == JobStatus.RUNNING else job.status
+            )
         elif job.status == JobStatus.FAILED and i > job.current_step:
             step_status = "skipped"
 

@@ -135,7 +135,10 @@ async def run_multi_repo_background_analysis(
                     global_step = step_offset + remaining_step
                     try:
                         await service.update_step_progress(
-                            task_id, global_step, JobStatus.FAILED, {"error": str(e)[:200]}
+                            task_id,
+                            global_step,
+                            JobStatus.FAILED,
+                            {"error": str(e)[:200]},
                         )
                     except Exception as inner_e:
                         logger.warning(
@@ -192,7 +195,9 @@ async def run_multi_repo_background_analysis(
                     project_id=project_id,
                     llm_service=llm_service,
                     language=language,
-                    summary_style=options.get("summary_style", SummaryStyle.PROFESSIONAL),
+                    summary_style=options.get(
+                        "summary_style", SummaryStyle.PROFESSIONAL
+                    ),
                 )
                 total_tokens += combined_tokens
             except Exception as e:
@@ -276,7 +281,9 @@ async def _analyze_single_repo_for_multi(
         "languages": analysis_result.get("languages", {}),
         "primary_language": analysis_result.get("primary_language"),
     }
-    await service.update_step_progress(task_id, gs(1), JobStatus.COMPLETED, step1_result)
+    await service.update_step_progress(
+        task_id, gs(1), JobStatus.COMPLETED, step1_result
+    )
 
     # --- Step 2: Technology detection ---
     if await service.check_cancelled(task_id):

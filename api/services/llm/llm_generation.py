@@ -260,7 +260,10 @@ Respond only with a JSON array."""
 
     try:
         response, tokens = await provider.generate(
-            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.IMPLEMENTATION, temperature=0.3
+            prompt,
+            system_prompt,
+            max_tokens=LLM_MAX_TOKENS.IMPLEMENTATION,
+            temperature=0.3,
         )
 
         details = parse_json_from_llm(response)
@@ -437,7 +440,10 @@ Respond only with a JSON object."""
 
     try:
         response, tokens = await provider.generate(
-            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.ACHIEVEMENTS, temperature=0.3
+            prompt,
+            system_prompt,
+            max_tokens=LLM_MAX_TOKENS.ACHIEVEMENTS,
+            temperature=0.3,
         )
 
         achievements = parse_json_from_llm(response)

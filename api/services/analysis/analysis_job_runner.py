@@ -122,7 +122,9 @@ async def run_background_analysis(
             "languages": analysis_result.get("languages", {}),
             "primary_language": analysis_result.get("primary_language"),
         }
-        await service.update_step_progress(task_id, 1, JobStatus.COMPLETED, step1_result)
+        await service.update_step_progress(
+            task_id, 1, JobStatus.COMPLETED, step1_result
+        )
 
         # Step 2: Technology detection (already done in analyze_repository)
         if await service.check_cancelled(task_id):
@@ -134,7 +136,9 @@ async def run_background_analysis(
         step2_result = {
             "technologies": analysis_result.get("detected_technologies", []),
         }
-        await service.update_step_progress(task_id, 2, JobStatus.COMPLETED, step2_result)
+        await service.update_step_progress(
+            task_id, 2, JobStatus.COMPLETED, step2_result
+        )
 
         # Step 3: Commit analysis
         if await service.check_cancelled(task_id):
@@ -147,7 +151,9 @@ async def run_background_analysis(
             "summary": analysis_result.get("commit_messages_summary"),
             "categories": analysis_result.get("commit_categories", {}),
         }
-        await service.update_step_progress(task_id, 3, JobStatus.COMPLETED, step3_result)
+        await service.update_step_progress(
+            task_id, 3, JobStatus.COMPLETED, step3_result
+        )
 
         # Step 4: Role detection
         if await service.check_cancelled(task_id):
@@ -162,7 +168,9 @@ async def run_background_analysis(
         )
 
         step4_result = {"detected_role": detected_role}
-        await service.update_step_progress(task_id, 4, JobStatus.COMPLETED, step4_result)
+        await service.update_step_progress(
+            task_id, 4, JobStatus.COMPLETED, step4_result
+        )
 
         # Save basic results to DB
         async with AsyncSessionLocal() as db:
@@ -365,7 +373,9 @@ async def run_background_analysis(
         await service.update_step_progress(
             task_id, 5, JobStatus.COMPLETED, {"tasks": key_tasks}
         )
-        await service.update_step_progress(task_id, 6, JobStatus.COMPLETED, detailed_content)
+        await service.update_step_progress(
+            task_id, 6, JobStatus.COMPLETED, detailed_content
+        )
 
         # --- Post-processing ---
 

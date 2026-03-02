@@ -132,7 +132,10 @@ JSON 배열 형식으로만 응답하세요:
             # Both LLMService and CLILLMService have .provider attribute
             # CLILLMProvider.generate() delegates to generate_with_cli() internally
             response, tokens = await llm_service.provider.generate(
-                prompt, system_prompt=system_prompt, max_tokens=LLM_MAX_TOKENS.SUMMARY, temperature=0.3
+                prompt,
+                system_prompt=system_prompt,
+                max_tokens=LLM_MAX_TOKENS.SUMMARY,
+                temperature=0.3,
             )
 
             print(
@@ -168,9 +171,7 @@ JSON 배열 형식으로만 응답하세요:
             )
             return [], 0
         except Exception as e:
-            logger.error(
-                "[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e
-            )
+            logger.error("[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e)
             return [], 0
 
 

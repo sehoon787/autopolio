@@ -207,9 +207,15 @@ async def get_llm_config(
         if user
         else False,
         gemini_configured=user.gemini_api_key_encrypted is not None if user else False,
-        openai_model=user.openai_model if user else DEFAULT_MODELS[LLMProviderEnum.OPENAI],
-        anthropic_model=user.anthropic_model if user else DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC],
-        gemini_model=user.gemini_model if user else DEFAULT_MODELS[LLMProviderEnum.GEMINI],
+        openai_model=user.openai_model
+        if user
+        else DEFAULT_MODELS[LLMProviderEnum.OPENAI],
+        anthropic_model=user.anthropic_model
+        if user
+        else DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC],
+        gemini_model=user.gemini_model
+        if user
+        else DEFAULT_MODELS[LLMProviderEnum.GEMINI],
         claude_code_status=CLIStatus(**claude_status),
         gemini_cli_status=CLIStatus(**gemini_status),
         codex_cli_status=CLIStatus(**codex_status),
@@ -666,17 +672,25 @@ async def test_provider(
             if provider == LLMProviderEnum.OPENAI:
                 if user.openai_api_key_encrypted:
                     api_key = encryption_service.decrypt(user.openai_api_key_encrypted)
-                model = model or user.openai_model or DEFAULT_MODELS[LLMProviderEnum.OPENAI]
+                model = (
+                    model or user.openai_model or DEFAULT_MODELS[LLMProviderEnum.OPENAI]
+                )
             elif provider == LLMProviderEnum.ANTHROPIC:
                 if user.anthropic_api_key_encrypted:
                     api_key = encryption_service.decrypt(
                         user.anthropic_api_key_encrypted
                     )
-                model = model or user.anthropic_model or DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC]
+                model = (
+                    model
+                    or user.anthropic_model
+                    or DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC]
+                )
             elif provider == LLMProviderEnum.GEMINI:
                 if user.gemini_api_key_encrypted:
                     api_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
-                model = model or user.gemini_model or DEFAULT_MODELS[LLMProviderEnum.GEMINI]
+                model = (
+                    model or user.gemini_model or DEFAULT_MODELS[LLMProviderEnum.GEMINI]
+                )
 
     # Priority 3: Fall back to settings (environment variables) only if use_env is True (Web mode)
     if not api_key and use_env:
