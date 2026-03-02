@@ -4,6 +4,8 @@ from pathlib import Path
 import yaml
 import os
 
+from api.constants import LLMProvider, DEFAULT_MODELS
+
 
 def load_yaml_config(config_name: str) -> dict:
     """Load YAML configuration file."""
@@ -126,13 +128,13 @@ class Settings(BaseSettings):
     github_redirect_uri: str = _get_github_redirect_uri()
 
     # LLM Settings
-    llm_provider: str = "openai"  # "openai", "anthropic", or "gemini"
+    llm_provider: str = LLMProvider.OPENAI
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
-    openai_model: str = "gpt-4.1"
-    anthropic_model: str = "claude-sonnet-4-6-20260217"
-    gemini_model: str = "gemini-2.5-flash"
+    openai_model: str = DEFAULT_MODELS[LLMProvider.OPENAI]
+    anthropic_model: str = DEFAULT_MODELS[LLMProvider.ANTHROPIC]
+    gemini_model: str = DEFAULT_MODELS[LLMProvider.GEMINI]
 
     # CLI-specific API keys (separate from API provider keys)
     claude_code_api_key: str = ""

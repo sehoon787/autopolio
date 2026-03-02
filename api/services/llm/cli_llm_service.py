@@ -16,18 +16,16 @@ from typing import Tuple, Optional, List
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-logger = logging.getLogger(__name__)
+from api.constants import CLIType, SummaryStyle, CLI_TIMEOUT_SECONDS
 
-# Timeout for each CLI call (3 minutes per call)
-# Note: Analysis may make multiple LLM calls, so total time can be longer
-CLI_TIMEOUT_SECONDS = 180
+logger = logging.getLogger(__name__)
 
 # CLI type → (env var to read, env var to set in subprocess)
 # e.g. CLAUDE_CODE_API_KEY value → passed as ANTHROPIC_API_KEY to subprocess
 CLI_SUBPROCESS_ENV_MAP = {
-    "claude_code": ("CLAUDE_CODE_API_KEY", "ANTHROPIC_API_KEY"),
-    "codex_cli": ("CODEX_API_KEY", "OPENAI_API_KEY"),
-    "gemini_cli": ("GEMINI_CLI_API_KEY", "GEMINI_API_KEY"),
+    CLIType.CLAUDE_CODE: ("CLAUDE_CODE_API_KEY", "ANTHROPIC_API_KEY"),
+    CLIType.CODEX_CLI: ("CODEX_API_KEY", "OPENAI_API_KEY"),
+    CLIType.GEMINI_CLI: ("GEMINI_CLI_API_KEY", "GEMINI_API_KEY"),
 }
 
 
@@ -57,7 +55,7 @@ class CLILLMProvider:
 class CLILLMService:
     """Service for generating LLM output via CLI tools."""
 
-    def __init__(self, cli_type: str = "claude_code", model: str | None = None):
+    def __init__(self, cli_type: str = CLIType.CLAUDE_CODE, model: str | None = None):
         """
         Args:
             cli_type: 'claude_code', 'gemini_cli', or 'codex_cli'
@@ -80,9 +78,9 @@ class CLILLMService:
         cli_path = self._find_cli_path()
         if not cli_path:
             cli_names = {
-                "claude_code": "claude",
-                "gemini_cli": "gemini",
-                "codex_cli": "codex",
+                CLIType.CLAUDE_CODE: "claude",
+                CLIType.GEMINI_CLI: "gemini",
+                CLIType.CODEX_CLI: "codex",
             }
             cli_name = cli_names.get(self.cli_type, self.cli_type)
             logger.error(
@@ -94,7 +92,7 @@ class CLILLMService:
 
         # Codex CLI uses session-based auth (codex login), not env vars.
         # Auto-login with API key if CODEX_API_KEY or OPENAI_API_KEY is set.
-        if self.cli_type == "codex_cli":
+        if self.cli_type == CLIType.CODEX_CLI:
             await self._ensure_codex_login(cli_path)
 
         args = self._build_args(cli_path)
@@ -307,9 +305,9 @@ class CLILLMService:
     def _find_cli_path(self) -> Optional[str]:
         """Find CLI executable path with Windows npm global support."""
         exe_names = {
-            "claude_code": "claude",
-            "gemini_cli": "gemini",
-            "codex_cli": "codex",
+            CLIType.CLAUDE_CODE: "claude",
+            CLIType.GEMINI_CLI: "gemini",
+            CLIType.CODEX_CLI: "codex",
         }
         exe_name = exe_names.get(self.cli_type, "claude")
 
@@ -383,7 +381,7 @@ class CLILLMService:
 
     def _build_args(self, cli_path: str) -> list:
         """Build CLI command arguments (prompt passed via stdin)."""
-        if self.cli_type == "codex_cli":
+        if self.cli_type == CLIType.CODEX_CLI:
             # Codex CLI: codex exec --skip-git-repo-check - --json [--model MODEL]
             args = [cli_path, "exec", "--skip-git-repo-check", "-", "--json"]
             if self.model:
@@ -404,10 +402,16 @@ class CLILLMService:
 
         Claude JSON: { "result": "...", "usage": { "input_tokens": N, "output_tokens": N } }
         Gemini JSON: { "response": "...", "stats": { "models": { "model-name": { "tokens": { "total": N } } } } }
-        Codex JSON:  { "output": "...", "usage": { "total_tokens": N } }
+        Codex JSONL: Multiple lines, each a JSON object:
+            {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+            {"type":"turn.completed","usage":{"input_tokens":N,"output_tokens":N}}
 
         Falls back to (raw_output, 0) on parse failure.
         """
+        # Codex CLI outputs JSONL (one JSON object per line), not a single JSON object
+        if self.cli_type == CLIType.CODEX_CLI:
+            return self._parse_codex_jsonl(raw_output)
+
         try:
             data = json.loads(raw_output)
         except (json.JSONDecodeError, ValueError) as e:
@@ -425,7 +429,7 @@ class CLILLMService:
         content = ""
         token_count = 0
 
-        if self.cli_type == "claude_code" and "result" in data:
+        if self.cli_type == CLIType.CLAUDE_CODE and "result" in data:
             # Claude format (include cache tokens for accurate billing)
             content = (
                 data["result"]
@@ -445,20 +449,7 @@ class CLILLMService:
                     "usage" in data,
                     list(usage.keys()) if usage else "empty",
                 )
-        elif self.cli_type == "codex_cli" and "output" in data:
-            # Codex format
-            content = (
-                data["output"]
-                if isinstance(data["output"], str)
-                else str(data["output"])
-            )
-            usage = data.get("usage", {})
-            token_count = usage.get("total_tokens", 0)
-            if token_count == 0:
-                token_count = usage.get("input_tokens", 0) + usage.get(
-                    "output_tokens", 0
-                )
-        elif self.cli_type == "gemini_cli" and "response" in data:
+        elif self.cli_type == CLIType.GEMINI_CLI and "response" in data:
             # Gemini format
             content = (
                 data["response"]
@@ -487,6 +478,54 @@ class CLILLMService:
             content = raw_output
 
         return content or raw_output, token_count
+
+    def _parse_codex_jsonl(self, raw_output: str) -> Tuple[str, int]:
+        """Parse Codex CLI JSONL output.
+
+        Codex CLI outputs one JSON object per line:
+          {"type":"thread.started",...}
+          {"type":"turn.started"}
+          {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+          {"type":"turn.completed","usage":{"input_tokens":N,"output_tokens":N}}
+        """
+        messages: list[str] = []
+        token_count = 0
+
+        for line in raw_output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+
+            if not isinstance(obj, dict):
+                continue
+
+            msg_type = obj.get("type", "")
+
+            if msg_type == "item.completed":
+                item = obj.get("item", {})
+                if item.get("type") == "agent_message":
+                    text = item.get("text", "")
+                    if text:
+                        messages.append(text)
+            elif msg_type == "turn.completed":
+                usage = obj.get("usage", {})
+                token_count += usage.get("input_tokens", 0) + usage.get(
+                    "output_tokens", 0
+                )
+
+        content = "\n".join(messages)
+        if not content:
+            logger.warning(
+                "[CLI] Codex JSONL: no agent_message found (output_preview=%.300s)",
+                raw_output,
+            )
+            return raw_output, 0
+
+        return content, token_count
 
     def _build_summary_prompt(
         self, project_data: dict, style: Optional[str] = None, language: str = "ko"
@@ -561,9 +600,9 @@ class CLILLMService:
         else:
             # Korean (default)
             style_map = {
-                "professional": "전문적인",
-                "casual": "캐주얼한",
-                "technical": "기술적인",
+                SummaryStyle.PROFESSIONAL: "전문적인",
+                SummaryStyle.CASUAL: "캐주얼한",
+                SummaryStyle.TECHNICAL: "기술적인",
             }
             style_hint = f" 스타일: {style_map.get(style, style)}." if style else ""
             return (

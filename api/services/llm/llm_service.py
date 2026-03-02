@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 import json
 
 from api.config import get_settings
+from api.constants import LLMProvider, SummaryStyle
 from .llm_prompts import get_prompts
 from .llm_providers import (
     BaseLLMProvider,
@@ -48,19 +49,19 @@ class LLMService:
 
     def _create_provider(self) -> BaseLLMProvider:
         """Create the appropriate LLM provider."""
-        if self.provider_name == "openai":
+        if self.provider_name == LLMProvider.OPENAI:
             key = self.api_key_override or settings.openai_api_key
             if not key:
                 raise ValueError("OpenAI API key not configured")
             return OpenAIProvider(key, self.model_override or settings.openai_model)
-        elif self.provider_name == "anthropic":
+        elif self.provider_name == LLMProvider.ANTHROPIC:
             key = self.api_key_override or settings.anthropic_api_key
             if not key:
                 raise ValueError("Anthropic API key not configured")
             return AnthropicProvider(
                 key, self.model_override or settings.anthropic_model
             )
-        elif self.provider_name == "gemini":
+        elif self.provider_name == LLMProvider.GEMINI:
             key = self.api_key_override or settings.gemini_api_key
             if not key:
                 raise ValueError("Gemini API key not configured")
@@ -78,13 +79,13 @@ class LLMService:
         prompts = get_prompts(language)
 
         style_map = {
-            "professional": prompts["style_professional"],
-            "casual": prompts["style_casual"],
-            "technical": prompts["style_technical"],
+            SummaryStyle.PROFESSIONAL: prompts["style_professional"],
+            SummaryStyle.CASUAL: prompts["style_casual"],
+            SummaryStyle.TECHNICAL: prompts["style_technical"],
         }
 
         system_prompt = f"""{prompts["system_resume"]}
-{style_map.get(style, style_map["professional"])}
+{style_map.get(style, style_map[SummaryStyle.PROFESSIONAL])}
 {prompts["json_format"]}"""
 
         # Build commit categories description

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Zap, Hash } from 'lucide-react'
 import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import { useAppStore } from '@/stores/appStore'
+import { AI_MODES, CLI_TYPES } from '@/constants'
 
 interface UsageDisplayProps {
   compact?: boolean
@@ -34,11 +35,11 @@ export function UsageDisplay({ compact = true }: UsageDisplayProps) {
     resetDailyIfNeeded()
   }, [])
 
-  const isCliMode = aiMode === 'cli'
+  const isCliMode = aiMode === AI_MODES.CLI
 
   // Map CLI selection to its own usage category
-  const cliUsageKey = selectedCLI === 'claude_code' ? 'claude_code_cli'
-    : selectedCLI === 'codex_cli' ? 'codex_cli'
+  const cliUsageKey = selectedCLI === CLI_TYPES.CLAUDE_CODE ? 'claude_code_cli'
+    : selectedCLI === CLI_TYPES.CODEX_CLI ? 'codex_cli'
     : 'gemini_cli'
   const provider: keyof LLMUsage = isCliMode
     ? cliUsageKey

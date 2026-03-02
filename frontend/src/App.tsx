@@ -10,6 +10,7 @@ import { usersApi } from '@/api/users'
 import { githubApi } from '@/api/github'
 import { isElectron } from '@/lib/electron'
 import { externalBackendUrl } from '@/config/runtime'
+import { STORAGE_KEYS } from '@/constants'
 import Layout from '@/components/Layout'
 import Dashboard from '@/pages/Dashboard'
 import SetupPage from '@/pages/Setup'
@@ -87,18 +88,18 @@ function App() {
     const initUser = async () => {
       try {
         // Clear any stale persisted data first
-        const storedUserId = localStorage.getItem('user_id')
+        const storedUserId = localStorage.getItem(STORAGE_KEYS.USER_ID)
         const parsedUserId = storedUserId ? parseInt(storedUserId, 10) : NaN
 
         // If stored user_id is invalid, clear it
         if (storedUserId && (isNaN(parsedUserId) || parsedUserId <= 0)) {
           console.log('[App] Invalid stored user_id, clearing:', storedUserId)
-          localStorage.removeItem('user_id')
-          localStorage.removeItem('user-storage') // Clear Zustand persisted state
+          localStorage.removeItem(STORAGE_KEYS.USER_ID)
+          localStorage.removeItem(STORAGE_KEYS.USER_STORAGE) // Clear Zustand persisted state
         }
 
         // Re-read after potential cleanup
-        const validStoredUserId = localStorage.getItem('user_id')
+        const validStoredUserId = localStorage.getItem(STORAGE_KEYS.USER_ID)
 
         if (validStoredUserId) {
           try {
@@ -108,8 +109,8 @@ function App() {
               // Verify the returned ID matches what we requested
               if (response.data.id !== Number(validStoredUserId)) {
                 console.log('[App] User ID mismatch, clearing stale data')
-                localStorage.removeItem('user_id')
-                localStorage.removeItem('user-storage')
+                localStorage.removeItem(STORAGE_KEYS.USER_ID)
+                localStorage.removeItem(STORAGE_KEYS.USER_STORAGE)
                 setUser(null)
               } else {
                 console.log('[App] Found existing user:', response.data.id, response.data.name)
@@ -135,8 +136,8 @@ function App() {
           } catch (fetchError) {
             // User doesn't exist in backend, clear stale data
             console.log('[App] Stored user not found in backend, clearing stale data')
-            localStorage.removeItem('user_id')
-            localStorage.removeItem('user-storage') // Clear Zustand persisted state
+            localStorage.removeItem(STORAGE_KEYS.USER_ID)
+            localStorage.removeItem(STORAGE_KEYS.USER_STORAGE) // Clear Zustand persisted state
             setUser(null)
           }
         }
@@ -245,7 +246,7 @@ function App() {
             if (existingUser) {
               console.log('[App syncGitHubCLI] Found existing user:', existingUser.id, existingUser.name)
               useUserStore.getState().setUser(existingUser)
-              localStorage.setItem('user_id', String(existingUser.id))
+              localStorage.setItem(STORAGE_KEYS.USER_ID, String(existingUser.id))
               userId = existingUser.id
             } else {
               // Create new user (no existing user with this github_username)
@@ -255,7 +256,7 @@ function App() {
                 github_username: status.username,
               })
               useUserStore.getState().setUser(response.data)
-              localStorage.setItem('user_id', String(response.data.id))
+              localStorage.setItem(STORAGE_KEYS.USER_ID, String(response.data.id))
               userId = response.data.id
               console.log('[App syncGitHubCLI] Created new user with ID:', userId)
             }

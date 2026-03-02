@@ -2,12 +2,14 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+from api.constants import DocumentFormat
+
 
 class TemplateBase(BaseModel):
     name: str
     description: Optional[str] = None
     platform: Optional[str] = None
-    output_format: str = "docx"
+    output_format: str = DocumentFormat.DOCX
     template_content: Optional[str] = None
     field_mappings: Optional[Dict[str, str]] = None
     sections: Optional[List[str]] = None

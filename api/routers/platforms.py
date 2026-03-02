@@ -28,6 +28,7 @@ from api.schemas.platform import (
     PlatformListResponse,
 )
 from api.services.platform import PlatformTemplateService
+from api.constants import DocumentFormat
 from sqlalchemy import select
 
 router = APIRouter()
@@ -378,7 +379,7 @@ async def export_from_db_to_html(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="html",
+        format=DocumentFormat.HTML,
         size_bytes=file_size,
     )
 
@@ -410,7 +411,7 @@ async def export_from_db_to_markdown(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="md",
+        format=DocumentFormat.MD,
         size_bytes=file_size,
     )
 
@@ -440,7 +441,7 @@ async def export_from_db_to_docx(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="docx",
+        format=DocumentFormat.DOCX,
         size_bytes=file_size,
     )
 
@@ -466,7 +467,7 @@ async def export_to_html(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="html",
+        format=DocumentFormat.HTML,
         size_bytes=file_size,
     )
 
@@ -489,7 +490,7 @@ async def export_to_markdown(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="md",
+        format=DocumentFormat.MD,
         size_bytes=file_size,
     )
 
@@ -512,7 +513,7 @@ async def export_to_docx(
     return ExportResponse(
         filename=filename,
         download_url=f"/api/platforms/download/{filename}",
-        format="docx",
+        format=DocumentFormat.DOCX,
         size_bytes=file_size,
     )
 

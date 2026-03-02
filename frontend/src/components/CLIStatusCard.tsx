@@ -32,22 +32,23 @@ import { cn } from '@/lib/utils'
 import { getModelDisplayName } from '@/lib/model-display'
 import { ClaudeCodeIcon, GeminiIcon, OpenAIIcon } from './icons/LLMIcons'
 import type { CLIStatus } from '@/api/llm'
+import { CLI_TYPES, type CLIType } from '@/constants'
 
 // CLI display configuration
 const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: string; authUrl: string }> = {
-  claude_code: {
+  [CLI_TYPES.CLAUDE_CODE]: {
     name: 'Claude Code CLI',
     docsUrl: 'https://claude.ai/code',
     changelogUrl: 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md',
     authUrl: 'https://console.anthropic.com/settings/keys',
   },
-  gemini_cli: {
+  [CLI_TYPES.GEMINI_CLI]: {
     name: 'Gemini CLI',
     docsUrl: 'https://ai.google.dev/gemini-cli',
     changelogUrl: 'https://github.com/google-gemini/gemini-cli/releases',
     authUrl: 'https://aistudio.google.com/apikey',
   },
-  codex_cli: {
+  [CLI_TYPES.CODEX_CLI]: {
     name: 'Codex CLI',
     docsUrl: 'https://github.com/openai/codex',
     changelogUrl: 'https://github.com/openai/codex/releases',
@@ -56,7 +57,7 @@ const CLI_CONFIG: Record<string, { name: string; docsUrl: string; changelogUrl: 
 }
 
 interface CLIStatusCardProps {
-  cliType: 'claude_code' | 'gemini_cli' | 'codex_cli'
+  cliType: CLIType
   status: CLIStatus | null
   isLoading: boolean
   isSelected: boolean
@@ -85,10 +86,10 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
   const cliConfig = CLI_CONFIG[cliType]
 
   const getCliIcon = () => {
-    if (cliType === 'gemini_cli') {
+    if (cliType === CLI_TYPES.GEMINI_CLI) {
       return <GeminiIcon className="h-5 w-5" size={20} colored />
     }
-    if (cliType === 'codex_cli') {
+    if (cliType === CLI_TYPES.CODEX_CLI) {
       return <OpenAIIcon className="h-5 w-5" size={20} colored />
     }
     return <ClaudeCodeIcon className="h-5 w-5" size={20} colored />

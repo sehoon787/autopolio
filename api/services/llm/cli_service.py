@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 
 from api.config import get_settings
+from api.constants import CLIType
 
 settings = get_settings()
 
@@ -250,7 +251,7 @@ class CLIService:
         Returns dict with: installed, version, latest_version, is_outdated, path, install_command, update_command
         """
         result = {
-            "tool": "claude_code",
+            "tool": CLIType.CLAUDE_CODE,
             "installed": False,
             "version": None,
             "latest_version": None,
@@ -307,7 +308,7 @@ class CLIService:
         Returns dict with: installed, version, latest_version, is_outdated, path, install_command
         """
         result = {
-            "tool": "gemini_cli",
+            "tool": CLIType.GEMINI_CLI,
             "installed": False,
             "version": None,
             "latest_version": None,
@@ -365,7 +366,7 @@ class CLIService:
         Returns dict with: installed, version, latest_version, is_outdated, path, install_command
         """
         result = {
-            "tool": "codex_cli",
+            "tool": CLIType.CODEX_CLI,
             "installed": False,
             "version": None,
             "latest_version": None,
@@ -496,15 +497,15 @@ class CLIService:
         except (ValueError, AttributeError):
             return False
 
-    def get_installation_command(self, tool: str = "claude_code") -> str:
+    def get_installation_command(self, tool: str = CLIType.CLAUDE_CODE) -> str:
         """Get platform-specific installation command."""
-        if tool == "claude_code":
+        if tool == CLIType.CLAUDE_CODE:
             return self.INSTALL_COMMANDS.get(
                 self.platform, self.INSTALL_COMMANDS["linux"]
             )
-        elif tool == "gemini_cli":
+        elif tool == CLIType.GEMINI_CLI:
             return self.GEMINI_INSTALL_COMMAND
-        elif tool == "codex_cli":
+        elif tool == CLIType.CODEX_CLI:
             return self.CODEX_INSTALL_COMMAND
         return ""
 

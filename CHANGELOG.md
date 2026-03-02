@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.22.1] - 2026-02-28
+
+### Changed
+- **Constants/Enum 중앙화 리팩토링**
+  - 백엔드: `api/constants/` 모듈 신규 생성 (StrEnum 기반)
+    - `JobStatus`, `LLMProvider`, `CLIType`, `DocumentFormat`, `ProjectType`, `ProjectStatus`, `EmploymentType`, `GraduationStatus`, `ActivityType`, `PublicationType`, `SummaryStyle` 열거형
+    - `LLM_MAX_TOKENS`, `DEFAULT_MODELS`, `CLI_TIMEOUT_SECONDS` 설정 상수
+  - 프론트엔드: `frontend/src/constants/` 모듈 신규 생성 (`as const` 패턴)
+    - `LLM_PROVIDERS`, `CLI_TYPES`, `AI_MODES`, `JOB_STATUS`, `DOCUMENT_FORMATS` 상수 객체
+    - `STORAGE_KEYS` localStorage 키 중앙화
+    - 파생 타입: `LLMProviderType`, `CLIType`, `AIMode`, `JobStatusType`, `DocumentFormatType`
+  - 백엔드 25+ 파일, 프론트엔드 15+ 파일의 매직 스트링을 상수/열거형으로 교체
+  - StrEnum/`as const` 패턴으로 기존 문자열 비교와 하위 호환성 유지
+
+---
+
 ## [1.22] - 2026-02-28
 
 ### Fixed

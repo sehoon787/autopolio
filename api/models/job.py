@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
+from api.constants import JobStatus
 import uuid
 
 
@@ -28,7 +29,7 @@ class Job(Base):
 
     # Status tracking
     status = Column(
-        String(20), default="pending"
+        String(20), default=JobStatus.PENDING
     )  # pending, running, completed, failed, cancelled
     progress = Column(Integer, default=0)  # 0-100
 
@@ -71,19 +72,19 @@ class Job(Base):
 
     @property
     def is_running(self) -> bool:
-        return self.status == "running"
+        return self.status == JobStatus.RUNNING
 
     @property
     def is_completed(self) -> bool:
-        return self.status == "completed"
+        return self.status == JobStatus.COMPLETED
 
     @property
     def is_failed(self) -> bool:
-        return self.status == "failed"
+        return self.status == JobStatus.FAILED
 
     @property
     def is_cancelled(self) -> bool:
-        return self.status == "cancelled"
+        return self.status == JobStatus.CANCELLED
 
     def to_dict(self) -> dict:
         return {

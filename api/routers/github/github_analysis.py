@@ -27,6 +27,7 @@ from api.services.github.github_exceptions import (
     GitHubAuthError,
 )
 from api.services.core import EncryptionService
+from api.constants import SummaryStyle
 from api.services.analysis import (
     AnalysisWorkflowError,
     phase1_validate_user,
@@ -53,7 +54,7 @@ async def analyze_repository(
     user_id: int = Query(..., description="User ID"),
     provider: Optional[str] = Query(None, description="LLM provider to use"),
     cli_mode: Optional[str] = Query(
-        None, description="CLI mode: 'claude_code' or 'gemini_cli'"
+        None, description="CLI mode: 'claude_code', 'gemini_cli', or 'codex_cli'"
     ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
     language: Optional[str] = Query(
@@ -86,7 +87,7 @@ async def analyze_repository(
             await db.commit()
 
         # Get summary style from request or default
-        ctx.summary_style = request.summary_style or "professional"
+        ctx.summary_style = request.summary_style or SummaryStyle.PROFESSIONAL
         ctx.project_repository_id = project_repository_id
 
         # Initialize LLM service (prefer user's stored API key, then .env fallback)
@@ -450,7 +451,8 @@ async def test_llm():
 @router.get("/test-cli")
 async def test_cli(
     cli_mode: str = Query(
-        "claude_code", description="CLI mode: 'claude_code' or 'gemini_cli'"
+        "claude_code",
+        description="CLI mode: 'claude_code', 'gemini_cli', or 'codex_cli'",
     ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
 ):

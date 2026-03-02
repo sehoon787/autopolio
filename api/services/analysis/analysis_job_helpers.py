@@ -17,6 +17,7 @@ from api.models.achievement import ProjectAchievement
 from api.models.contributor_analysis import ContributorAnalysis
 from api.database import AsyncSessionLocal
 from api.services.llm.llm_utils import parse_json_from_llm
+from api.constants import LLM_MAX_TOKENS, SummaryStyle
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,10 @@ JSON 배열 형식으로만 응답하세요:
             # Both LLMService and CLILLMService have .provider attribute
             # CLILLMProvider.generate() delegates to generate_with_cli() internally
             response, tokens = await llm_service.provider.generate(
-                prompt, system_prompt=system_prompt, max_tokens=2000, temperature=0.3
+                prompt,
+                system_prompt=system_prompt,
+                max_tokens=LLM_MAX_TOKENS.SUMMARY,
+                temperature=0.3,
             )
 
             print(
@@ -167,9 +171,7 @@ JSON 배열 형식으로만 응답하세요:
             )
             return [], 0
         except Exception as e:
-            logger.error(
-                "[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e
-            )
+            logger.error("[_generate_key_tasks_bg] Failed: %s: %s", type(e).__name__, e)
             return [], 0
 
 
@@ -177,7 +179,7 @@ async def _generate_combined_ai_summary(
     project_id: int,
     llm_service,
     language: str = "ko",
-    summary_style: str = "professional",
+    summary_style: str = SummaryStyle.PROFESSIONAL,
 ) -> int:
     """Generate a holistic AI summary from all repo analyses of a project.
 

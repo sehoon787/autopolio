@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { CLIStatusCard } from '@/components/CLIStatusCard'
 import { CLAUDE_CODE_MODELS, GEMINI_CLI_MODELS, CODEX_CLI_MODELS } from '@/stores/appStore'
+import { CLI_TYPES } from '@/constants'
+import type { CLIType } from '@/constants'
 import type { CLIStatus as ElectronCLIStatus } from '@/lib/electron'
 import type { CLIStatus as APICLIStatus } from '@/api/llm'
 
 // Accept either electron or API CLI status type
 type CLIStatus = ElectronCLIStatus | APICLIStatus
-
-type CLITypeAll = 'claude_code' | 'gemini_cli' | 'codex_cli'
 
 interface CLITabProps {
   claudeCLIStatus: CLIStatus | null
@@ -24,7 +24,7 @@ interface CLITabProps {
   isRefreshingGeminiCLI: boolean
   isRefreshingCodexCLI: boolean
   isRefreshingAll: boolean
-  selectedCLI: CLITypeAll
+  selectedCLI: CLIType
   testingCLI: string | null
   claudeCodeModel: string
   geminiCLIModel: string
@@ -44,12 +44,12 @@ interface CLITabProps {
   onRefreshClaudeCLI: () => void
   onRefreshGeminiCLI: () => void
   onRefreshCodexCLI: () => void
-  onSelectCLI: (cliType: CLITypeAll) => void
-  onTestCLI: (cliType: CLITypeAll) => void
+  onSelectCLI: (cliType: CLIType) => void
+  onTestCLI: (cliType: CLIType) => void
   onClaudeCodeModelChange: (model: string) => void
   onGeminiCLIModelChange: (model: string) => void
   onCodexCLIModelChange: (model: string) => void
-  onSaveKey?: (cliType: CLITypeAll, apiKey: string) => void
+  onSaveKey?: (cliType: CLIType, apiKey: string) => void
 }
 
 export function CLITab({
@@ -129,14 +129,14 @@ export function CLITab({
         <div className="space-y-3">
           {/* Claude Code CLI */}
           <CLIStatusCard
-            cliType="claude_code"
+            cliType={CLI_TYPES.CLAUDE_CODE}
             status={claudeCLIStatus}
             isLoading={isLoadingClaudeCLI || isRefreshingClaudeCLI}
-            isSelected={selectedCLI === 'claude_code'}
+            isSelected={selectedCLI === CLI_TYPES.CLAUDE_CODE}
             onRefresh={onRefreshClaudeCLI}
-            onSelect={() => onSelectCLI('claude_code')}
-            onTest={() => onTestCLI('claude_code')}
-            isTesting={testingCLI === 'claude_code'}
+            onSelect={() => onSelectCLI(CLI_TYPES.CLAUDE_CODE)}
+            onTest={() => onTestCLI(CLI_TYPES.CLAUDE_CODE)}
+            isTesting={testingCLI === CLI_TYPES.CLAUDE_CODE}
             models={CLAUDE_CODE_MODELS}
             selectedModel={claudeCodeModel}
             onModelChange={onClaudeCodeModelChange}
@@ -144,18 +144,18 @@ export function CLITab({
             authMessage={claudeAuthMessage}
             isCheckingAuth={isCheckingClaudeAuth}
             isSavingKey={isSavingKey}
-            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey('claude_code', apiKey) : undefined}
+            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.CLAUDE_CODE, apiKey) : undefined}
           />
           {/* Gemini CLI */}
           <CLIStatusCard
-            cliType="gemini_cli"
+            cliType={CLI_TYPES.GEMINI_CLI}
             status={geminiCLIStatus}
             isLoading={isLoadingGeminiCLI || isRefreshingGeminiCLI}
-            isSelected={selectedCLI === 'gemini_cli'}
+            isSelected={selectedCLI === CLI_TYPES.GEMINI_CLI}
             onRefresh={onRefreshGeminiCLI}
-            onSelect={() => onSelectCLI('gemini_cli')}
-            onTest={() => onTestCLI('gemini_cli')}
-            isTesting={testingCLI === 'gemini_cli'}
+            onSelect={() => onSelectCLI(CLI_TYPES.GEMINI_CLI)}
+            onTest={() => onTestCLI(CLI_TYPES.GEMINI_CLI)}
+            isTesting={testingCLI === CLI_TYPES.GEMINI_CLI}
             models={GEMINI_CLI_MODELS}
             selectedModel={geminiCLIModel}
             onModelChange={onGeminiCLIModelChange}
@@ -163,18 +163,18 @@ export function CLITab({
             authMessage={geminiAuthMessage}
             isCheckingAuth={isCheckingGeminiAuth}
             isSavingKey={isSavingKey}
-            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey('gemini_cli', apiKey) : undefined}
+            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.GEMINI_CLI, apiKey) : undefined}
           />
           {/* Codex CLI */}
           <CLIStatusCard
-            cliType="codex_cli"
+            cliType={CLI_TYPES.CODEX_CLI}
             status={codexCLIStatus}
             isLoading={isLoadingCodexCLI || isRefreshingCodexCLI}
-            isSelected={selectedCLI === 'codex_cli'}
+            isSelected={selectedCLI === CLI_TYPES.CODEX_CLI}
             onRefresh={onRefreshCodexCLI}
-            onSelect={() => onSelectCLI('codex_cli')}
-            onTest={() => onTestCLI('codex_cli')}
-            isTesting={testingCLI === 'codex_cli'}
+            onSelect={() => onSelectCLI(CLI_TYPES.CODEX_CLI)}
+            onTest={() => onTestCLI(CLI_TYPES.CODEX_CLI)}
+            isTesting={testingCLI === CLI_TYPES.CODEX_CLI}
             models={CODEX_CLI_MODELS}
             selectedModel={codexCLIModel}
             onModelChange={onCodexCLIModelChange}
@@ -182,7 +182,7 @@ export function CLITab({
             authMessage={codexAuthMessage}
             isCheckingAuth={isCheckingCodexAuth}
             isSavingKey={isSavingKey}
-            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey('codex_cli', apiKey) : undefined}
+            onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.CODEX_CLI, apiKey) : undefined}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ Detects quantitative achievements from:
 
 from typing import Dict, List, Any, Optional, Tuple
 import re
+from api.constants import LLM_MAX_TOKENS
 from api.services.llm import LLMService
 from .achievement_patterns import (
     ACHIEVEMENT_PATTERNS,
@@ -359,7 +360,7 @@ Notes:
                 response = await llm_service.provider.generate(
                     prompt,
                     system_prompt=system_prompt,
-                    max_tokens=1500,
+                    max_tokens=LLM_MAX_TOKENS.ACHIEVEMENT_DETECTION,
                     temperature=0.3,
                 )
             else:

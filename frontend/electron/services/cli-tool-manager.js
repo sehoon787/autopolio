@@ -97,7 +97,15 @@ export class CLIToolManager {
         try {
             // Send a real prompt to test the CLI works end-to-end (like API provider test)
             const testPrompt = "Reply with only 'OK' and nothing else.";
-            const args = ['-p', testPrompt, '--output-format', 'json'];
+            let args;
+            if (tool === 'codex_cli') {
+                // Codex CLI: codex exec <prompt> --json [--model MODEL]
+                args = ['exec', '--skip-git-repo-check', testPrompt, '--json'];
+            }
+            else {
+                // Claude Code / Gemini CLI: cli -p <prompt> --output-format json
+                args = ['-p', testPrompt, '--output-format', 'json'];
+            }
             if (model) {
                 args.push('--model', model);
             }
@@ -135,6 +143,10 @@ export class CLIToolManager {
      * Parse JSON output from CLI test to extract content and token count.
      */
     parseTestOutput(raw, tool) {
+        // Codex CLI outputs JSONL (multiple JSON objects, one per line)
+        if (tool === 'codex_cli') {
+            return this.parseCodexJsonl(raw);
+        }
         try {
             const data = JSON.parse(raw);
             if (typeof data !== 'object' || data === null) {
@@ -145,12 +157,6 @@ export class CLIToolManager {
                 const usage = data.usage || {};
                 const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
                     + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
-                return { content, tokens };
-            }
-            if (tool === 'codex_cli' && 'output' in data) {
-                const content = typeof data.output === 'string' ? data.output : String(data.output);
-                const usage = data.usage || {};
-                const tokens = usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0);
                 return { content, tokens };
             }
             if (tool === 'gemini_cli' && 'response' in data) {
@@ -167,6 +173,37 @@ export class CLIToolManager {
         catch {
             return { content: raw, tokens: 0 };
         }
+    }
+    /**
+     * Parse Codex CLI JSONL output (one JSON object per line).
+     *
+     * Expected lines:
+     *   {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+     *   {"type":"turn.completed","usage":{"input_tokens":N,"output_tokens":N}}
+     */
+    parseCodexJsonl(raw) {
+        const messages = [];
+        let tokens = 0;
+        for (const line of raw.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed)
+                continue;
+            try {
+                const obj = JSON.parse(trimmed);
+                if (obj?.type === 'item.completed' && obj.item?.type === 'agent_message') {
+                    if (obj.item.text)
+                        messages.push(obj.item.text);
+                }
+                else if (obj?.type === 'turn.completed' && obj.usage) {
+                    tokens += (obj.usage.input_tokens || 0) + (obj.usage.output_tokens || 0);
+                }
+            }
+            catch {
+                // skip non-JSON lines
+            }
+        }
+        const content = messages.join('\n');
+        return { content: content || raw, tokens };
     }
     /**
      * Clear all caches

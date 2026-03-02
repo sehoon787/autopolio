@@ -26,6 +26,7 @@ import { projectsApi } from '@/api/knowledge'
 import { templatesApi } from '@/api/templates'
 import { pipelineApi, PipelineRunRequest } from '@/api/pipeline'
 import { usersApi } from '@/api/users'
+import { AI_MODES, CLI_TYPES } from '@/constants'
 import { Play, FolderKanban, AlertCircle, Search } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SortDropdown, SortOption } from '@/components/SortDropdown'
@@ -145,10 +146,10 @@ export default function GeneratePage() {
 
     // Build LLM/CLI settings based on appStore preferences
     const llmSettings: Pick<PipelineRunRequest, 'llm_provider' | 'cli_mode' | 'cli_model'> = {}
-    if (aiMode === 'cli') {
+    if (aiMode === AI_MODES.CLI) {
       // CLI mode
       llmSettings.cli_mode = selectedCLI
-      const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+      const cliModel = selectedCLI === CLI_TYPES.CLAUDE_CODE ? claudeCodeModel : selectedCLI === CLI_TYPES.CODEX_CLI ? codexCLIModel : geminiCLIModel
       llmSettings.cli_model = resolveModelForAPI(cliModel)
     } else {
       // API mode

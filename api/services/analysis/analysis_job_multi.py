@@ -19,6 +19,7 @@ from .analysis_job_helpers import (
     save_contributor_analysis,
 )
 from api.services.llm.llm_utils import create_llm_service
+from api.constants import JobStatus, SummaryStyle
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ async def run_multi_repo_background_analysis(
         if not job:
             logger.error("[MultiRepoAnalysis] Job not found: %s", task_id)
             return
-        job.status = "running"
+        job.status = JobStatus.RUNNING
         job.started_at = datetime.utcnow()
         await db.commit()
 
@@ -134,7 +135,10 @@ async def run_multi_repo_background_analysis(
                     global_step = step_offset + remaining_step
                     try:
                         await service.update_step_progress(
-                            task_id, global_step, "failed", {"error": str(e)[:200]}
+                            task_id,
+                            global_step,
+                            JobStatus.FAILED,
+                            {"error": str(e)[:200]},
                         )
                     except Exception as inner_e:
                         logger.warning(
@@ -191,7 +195,9 @@ async def run_multi_repo_background_analysis(
                     project_id=project_id,
                     llm_service=llm_service,
                     language=language,
-                    summary_style=options.get("summary_style", "professional"),
+                    summary_style=options.get(
+                        "summary_style", SummaryStyle.PROFESSIONAL
+                    ),
                 )
                 total_tokens += combined_tokens
             except Exception as e:
@@ -247,7 +253,7 @@ async def _analyze_single_repo_for_multi(
     """Analyze a single repo within a multi-repo job.
     Returns total tokens used for this repo.
     """
-    summary_style = options.get("summary_style", "professional")
+    summary_style = options.get("summary_style", SummaryStyle.PROFESSIONAL)
     repo_tokens = 0
 
     def gs(step: int) -> int:
@@ -261,7 +267,7 @@ async def _analyze_single_repo_for_multi(
     await service.update_step_progress(
         task_id,
         gs(1),
-        "running",
+        JobStatus.RUNNING,
         step_name_override=f"{label_prefix}repository_info",
     )
 
@@ -275,7 +281,9 @@ async def _analyze_single_repo_for_multi(
         "languages": analysis_result.get("languages", {}),
         "primary_language": analysis_result.get("primary_language"),
     }
-    await service.update_step_progress(task_id, gs(1), "completed", step1_result)
+    await service.update_step_progress(
+        task_id, gs(1), JobStatus.COMPLETED, step1_result
+    )
 
     # --- Step 2: Technology detection ---
     if await service.check_cancelled(task_id):
@@ -283,14 +291,14 @@ async def _analyze_single_repo_for_multi(
     await service.update_step_progress(
         task_id,
         gs(2),
-        "running",
+        JobStatus.RUNNING,
         step_name_override=f"{label_prefix}technology_detection",
     )
 
     detected_techs = analysis_result.get("detected_technologies", [])
     all_detected_techs.extend(detected_techs)
     await service.update_step_progress(
-        task_id, gs(2), "completed", {"technologies": detected_techs}
+        task_id, gs(2), JobStatus.COMPLETED, {"technologies": detected_techs}
     )
 
     # --- Step 3: Commit analysis ---
@@ -299,14 +307,14 @@ async def _analyze_single_repo_for_multi(
     await service.update_step_progress(
         task_id,
         gs(3),
-        "running",
+        JobStatus.RUNNING,
         step_name_override=f"{label_prefix}commit_analysis",
     )
 
     await service.update_step_progress(
         task_id,
         gs(3),
-        "completed",
+        JobStatus.COMPLETED,
         {
             "summary": analysis_result.get("commit_messages_summary"),
             "categories": analysis_result.get("commit_categories", {}),
@@ -319,7 +327,7 @@ async def _analyze_single_repo_for_multi(
     await service.update_step_progress(
         task_id,
         gs(4),
-        "running",
+        JobStatus.RUNNING,
         step_name_override=f"{label_prefix}role_detection",
     )
 
@@ -328,7 +336,7 @@ async def _analyze_single_repo_for_multi(
         commit_messages=analysis_result.get("commit_messages", [])[:100],
     )
     await service.update_step_progress(
-        task_id, gs(4), "completed", {"detected_role": detected_role}
+        task_id, gs(4), JobStatus.COMPLETED, {"detected_role": detected_role}
     )
 
     # --- Save basic results to DB ---
@@ -357,7 +365,7 @@ async def _analyze_single_repo_for_multi(
         await service.update_step_progress(
             task_id,
             gs(5),
-            "running",
+            JobStatus.RUNNING,
             step_name_override=f"{label_prefix}llm_key_tasks",
         )
 
@@ -411,12 +419,12 @@ async def _analyze_single_repo_for_multi(
                 )
 
             await service.update_step_progress(
-                task_id, gs(5), "completed", {"tasks": key_tasks}
+                task_id, gs(5), JobStatus.COMPLETED, {"tasks": key_tasks}
             )
             await service.update_step_progress(
                 task_id,
                 gs(6),
-                "running",
+                JobStatus.RUNNING,
                 step_name_override=f"{label_prefix}llm_detailed_content",
             )
 
@@ -446,7 +454,7 @@ async def _analyze_single_repo_for_multi(
                 )
         else:
             # API mode: parallel
-            await service.update_step_progress(task_id, gs(6), "running")
+            await service.update_step_progress(task_id, gs(6), JobStatus.RUNNING)
 
             results = await asyncio.gather(
                 _generate_key_tasks_bg(
@@ -482,12 +490,12 @@ async def _analyze_single_repo_for_multi(
                 )
 
     await service.update_step_progress(
-        task_id, gs(5), "completed", {"tasks": key_tasks}
+        task_id, gs(5), JobStatus.COMPLETED, {"tasks": key_tasks}
     )
     await service.update_step_progress(
         task_id,
         gs(6),
-        "completed",
+        JobStatus.COMPLETED,
         detailed_content,
         step_name_override=f"{label_prefix}llm_detailed_content",
     )

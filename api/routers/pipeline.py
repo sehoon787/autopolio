@@ -17,6 +17,7 @@ from api.schemas.pipeline import (
 from api.schemas.job import JobResponse, JobListResponse
 from api.services.pipeline import PipelineService
 from api.services.core import TaskService
+from api.constants import JobStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -110,15 +111,17 @@ async def get_pipeline_status(task_id: str, db: AsyncSession = Depends(get_db)):
         step_data = step_results.get(step_key, {})
 
         # Determine step status - prioritize explicit status from step_results
-        step_status = "pending"
+        step_status = JobStatus.PENDING
         if step_data.get("status") == "skipped":
             # Step was explicitly marked as skipped
             step_status = "skipped"
         elif i < job.current_step:
-            step_status = "completed"
+            step_status = JobStatus.COMPLETED
         elif i == job.current_step:
-            step_status = "running" if job.status == "running" else job.status
-        elif job.status == "failed" and i > job.current_step:
+            step_status = (
+                JobStatus.RUNNING if job.status == JobStatus.RUNNING else job.status
+            )
+        elif job.status == JobStatus.FAILED and i > job.current_step:
             step_status = "skipped"
 
         steps.append(
@@ -161,7 +164,7 @@ async def get_pipeline_result(task_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if job.status != "completed":
+    if job.status != JobStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
             detail=f"Pipeline not completed. Current status: {job.status}",
@@ -194,14 +197,14 @@ async def cancel_pipeline(task_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if job.status not in ["pending", "running"]:
+    if job.status not in [JobStatus.PENDING, JobStatus.RUNNING]:
         raise HTTPException(
             status_code=400, detail=f"Cannot cancel task with status: {job.status}"
         )
 
     task_service = TaskService(db)
     await task_service.update_job_status(
-        task_id, status="cancelled", error_message="Cancelled by user"
+        task_id, status=JobStatus.CANCELLED, error_message="Cancelled by user"
     )
 
     return {"message": "Pipeline cancelled", "task_id": task_id}

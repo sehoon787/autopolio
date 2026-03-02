@@ -1,5 +1,6 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { STORAGE_KEYS } from '@/constants'
 
 // Import translation files
 import koCommon from '@/locales/ko/common.json'
@@ -71,7 +72,7 @@ const resources = {
 // Get stored language or detect browser language
 function getInitialLanguage(): string {
   // Check localStorage
-  const storedLang = localStorage.getItem('language')
+  const storedLang = localStorage.getItem(STORAGE_KEYS.LANGUAGE)
   if (storedLang && ['ko', 'en'].includes(storedLang)) {
     return storedLang
   }
@@ -119,7 +120,7 @@ i18n.use(initReactI18next).init({
 // Change language and persist to localStorage
 export function changeLanguage(lang: string) {
   i18n.changeLanguage(lang)
-  localStorage.setItem('language', lang)
+  localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang)
 }
 
 // Get current language

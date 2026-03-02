@@ -2,12 +2,14 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+from api.constants import DocumentFormat
+
 
 class DocumentCreate(BaseModel):
     document_name: str
     description: Optional[str] = None
     template_id: Optional[int] = None
-    file_format: str = "docx"
+    file_format: str = DocumentFormat.DOCX
     included_projects: Optional[List[int]] = None
     included_companies: Optional[List[int]] = None
     generation_settings: Optional[Dict[str, Any]] = None

@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any
 import uuid
 
 from api.models.job import Job
+from api.constants import JobStatus
 
 
 class TaskService:
@@ -32,7 +33,7 @@ class TaskService:
             task_id=str(uuid.uuid4()),
             user_id=user_id,
             job_type=job_type,
-            status="pending",
+            status=JobStatus.PENDING,
             progress=0,
             current_step=0,
             total_steps=total_steps,
@@ -54,7 +55,7 @@ class TaskService:
         """Mark a job as started."""
         job = await self.get_job(task_id)
         if job:
-            job.status = "running"
+            job.status = JobStatus.RUNNING
             job.started_at = datetime.utcnow()
             job.current_step = 1
             await self.db.flush()
@@ -193,7 +194,7 @@ class TaskService:
         """Mark a job as completed."""
         job = await self.get_job(task_id)
         if job:
-            job.status = "completed"
+            job.status = JobStatus.COMPLETED
             job.progress = 100
             job.completed_at = datetime.utcnow()
             if output_data:
@@ -211,7 +212,7 @@ class TaskService:
         """Mark a job as failed."""
         job = await self.get_job(task_id)
         if job:
-            job.status = "failed"
+            job.status = JobStatus.FAILED
             job.completed_at = datetime.utcnow()
             job.error_message = error_message
             if error_details:
@@ -230,7 +231,7 @@ class TaskService:
             job.status = status
             if error_message:
                 job.error_message = error_message
-            if status in ["completed", "failed", "cancelled"]:
+            if status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
                 job.completed_at = datetime.utcnow()
             await self.db.flush()
             await self.db.refresh(job)

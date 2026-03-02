@@ -27,6 +27,7 @@ from api.services.analysis import (
     run_background_analysis,
     run_multi_repo_background_analysis,
 )
+from api.constants import JobStatus
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ def _extract_token_and_provider(job) -> tuple:
         options = job.input_data.get("options", {})
         llm_provider = options.get("provider") or options.get("cli_mode")
 
-    if job.status == "completed":
+    if job.status == JobStatus.COMPLETED:
         logger.debug(
             "[TokenExtract] task_id=%s, token_usage=%s, llm_provider=%s, output_data=%s",
             job.task_id,
@@ -87,7 +88,7 @@ async def start_background_analysis(
     user_id: int = Query(..., description="User ID"),
     provider: Optional[str] = Query(None, description="LLM provider to use"),
     cli_mode: Optional[str] = Query(
-        None, description="CLI mode: 'claude_code' or 'gemini_cli'"
+        None, description="CLI mode: 'claude_code', 'gemini_cli', or 'codex_cli'"
     ),
     cli_model: Optional[str] = Query(None, description="CLI model name"),
     language: Optional[str] = Query(
@@ -166,7 +167,7 @@ async def start_background_analysis(
 
     # Resolve user's LLM API key (user DB first, then .env fallback)
     llm_provider = provider or cli_mode
-    if llm_provider and llm_provider not in ("claude_code", "gemini_cli"):
+    if llm_provider and llm_provider not in ("claude_code", "gemini_cli", "codex_cli"):
         try:
             key_attr = f"{llm_provider}_api_key_encrypted"
             encrypted_key = getattr(user, key_attr, None)

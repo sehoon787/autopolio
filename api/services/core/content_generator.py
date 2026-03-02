@@ -13,6 +13,7 @@ import json
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 
+from api.constants import LLM_MAX_TOKENS
 from api.services.github.github_constants import call_llm_generate
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ JSON만 반환하세요."""
             llm,
             implementation_prompt,
             system_prompt=system_prompt,
-            max_tokens=4000,
+            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION,
             temperature=0.3,
         )
 
@@ -220,7 +221,7 @@ JSON만 반환하세요."""
             llm,
             timeline_prompt,
             system_prompt=system_prompt,
-            max_tokens=3000,
+            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION_MID,
             temperature=0.3,
         )
 
@@ -336,7 +337,7 @@ JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세�
             llm,
             achievements_prompt,
             system_prompt=system_prompt,
-            max_tokens=3000,
+            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION_MID,
             temperature=0.3,
         )
 

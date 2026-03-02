@@ -21,6 +21,7 @@ from api.models.project import Project, Technology, ProjectTechnology
 from api.models.repo_analysis import RepoAnalysis
 from api.models.repo_analysis_edits import RepoAnalysisEdits
 from api.services.core import EncryptionService
+from api.constants import ProjectType, SummaryStyle
 from .role_service import RoleService
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ class AnalysisContext:
 
     # Analysis settings
     language: str = "ko"
-    summary_style: str = "professional"
+    summary_style: str = SummaryStyle.PROFESSIONAL
 
     # Services (initialized lazily)
     github_service: Optional["GitHubService"] = None
@@ -207,7 +208,7 @@ async def phase2_create_project_if_needed(
         name=repo_info["name"],
         description=repo_info.get("description"),
         git_url=git_url,
-        project_type="personal",
+        project_type=ProjectType.PERSONAL,
     )
     db.add(project)
     await db.commit()

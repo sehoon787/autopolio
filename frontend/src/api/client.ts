@@ -4,6 +4,7 @@ import { useUsageStore } from '@/stores/usageStore'
 import { useRateLimitStore } from '@/stores/rateLimitStore'
 import { detectRateLimit } from '@/lib/rateLimitDetector'
 import i18n from '@/lib/i18n'
+import { CLI_TYPES, LLM_PROVIDERS, STORAGE_KEYS } from '@/constants'
 
 // Default timeout for most API calls (30 seconds)
 const DEFAULT_TIMEOUT = 30000
@@ -31,7 +32,7 @@ apiClient.interceptors.request.use(async (config) => {
   }
 
   // Add user_id to all requests (only if valid)
-  const userId = localStorage.getItem('user_id')
+  const userId = localStorage.getItem(STORAGE_KEYS.USER_ID)
   const parsedUserId = userId ? parseInt(userId, 10) : NaN
 
   if (!isNaN(parsedUserId) && parsedUserId > 0) {
@@ -50,14 +51,14 @@ function mapProviderToUsageKey(provider: string): keyof import('@/stores/usageSt
   // Handle CLI providers (e.g., "cli:claude_code", "cli:gemini_cli")
   if (provider.startsWith('cli:')) {
     const cliType = provider.replace('cli:', '')
-    if (cliType === 'claude_code') return 'claude_code_cli'
-    if (cliType === 'gemini_cli') return 'gemini_cli'
-    if (cliType === 'codex_cli') return 'codex_cli'
+    if (cliType === CLI_TYPES.CLAUDE_CODE) return 'claude_code_cli'
+    if (cliType === CLI_TYPES.GEMINI_CLI) return 'gemini_cli'
+    if (cliType === CLI_TYPES.CODEX_CLI) return 'codex_cli'
   }
   // Handle API providers
-  if (provider === 'openai') return 'openai'
-  if (provider === 'anthropic') return 'anthropic'
-  if (provider === 'gemini') return 'gemini'
+  if (provider === LLM_PROVIDERS.OPENAI) return 'openai'
+  if (provider === LLM_PROVIDERS.ANTHROPIC) return 'anthropic'
+  if (provider === LLM_PROVIDERS.GEMINI) return 'gemini'
   return null
 }
 
@@ -138,16 +139,16 @@ function detectProviderFromUrl(url?: string): string | null {
   if (!url) return null
 
   if (url.includes('openai') || url.includes('gpt')) {
-    return 'openai'
+    return LLM_PROVIDERS.OPENAI
   }
   if (url.includes('anthropic') || url.includes('claude')) {
-    return 'anthropic'
+    return LLM_PROVIDERS.ANTHROPIC
   }
   if (url.includes('gemini') || url.includes('google')) {
-    return 'gemini'
+    return LLM_PROVIDERS.GEMINI
   }
   if (url.includes('llm')) {
-    return 'openai' // Default for LLM endpoints
+    return LLM_PROVIDERS.OPENAI // Default for LLM endpoints
   }
 
   return null

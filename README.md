@@ -1,4 +1,4 @@
-# Autopolio v1.22
+# Autopolio v1.22.1
 
 GitHub 레포지토리 분석 기반 포트폴리오/이력서 자동 생성 플랫폼
 

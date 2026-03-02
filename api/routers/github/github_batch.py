@@ -30,6 +30,7 @@ from api.services.github.github_exceptions import (
 )
 from api.services.core import EncryptionService
 from api.services.analysis import RoleService
+from api.constants import JobStatus
 from api.services.core.key_tasks_generator import (
     generate_key_tasks as _generate_key_tasks,
 )
@@ -74,7 +75,7 @@ async def import_repos_as_projects(
                 short_description=repo_info.get("description"),
                 git_url=repo_url,
                 project_type="personal",
-                status="pending",  # Set initial status to pending
+                status=JobStatus.PENDING,  # Set initial status to pending
             )
 
             # Set dates if available
@@ -252,7 +253,7 @@ async def analyze_batch(
 
             # Mark as analyzed and update status
             project.is_analyzed = 1
-            project.status = "completed"
+            project.status = JobStatus.COMPLETED
 
             # Save detected technologies to project
             detected_techs = analysis_result.get("detected_technologies", [])

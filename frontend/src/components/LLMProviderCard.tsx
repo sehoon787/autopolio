@@ -29,12 +29,13 @@ import { cn } from '@/lib/utils'
 import { getModelDisplayName } from '@/lib/model-display'
 import { getProviderIcon } from './icons/LLMIcons'
 import type { LLMProvider } from '@/api/llm'
+import { LLM_PROVIDERS } from '@/constants'
 
 // API key management URLs per provider
 const PROVIDER_KEY_URLS: Record<string, string> = {
-  openai: 'https://platform.openai.com/api-keys',
-  anthropic: 'https://console.anthropic.com/settings/keys',
-  gemini: 'https://aistudio.google.com/apikey',
+  [LLM_PROVIDERS.OPENAI]: 'https://platform.openai.com/api-keys',
+  [LLM_PROVIDERS.ANTHROPIC]: 'https://console.anthropic.com/settings/keys',
+  [LLM_PROVIDERS.GEMINI]: 'https://aistudio.google.com/apikey',
 }
 
 interface LLMProviderCardProps {

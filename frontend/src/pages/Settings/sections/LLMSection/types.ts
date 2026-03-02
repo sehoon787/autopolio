@@ -1,4 +1,5 @@
 import { LLMProvider, CLIStatus } from '@/api/llm'
+import { LLM_PROVIDERS } from '@/constants'
 
 // Re-export types from API
 export type { CLIStatus, LLMProvider }
@@ -6,7 +7,7 @@ export type { CLIStatus, LLMProvider }
 // Default providers data (fallback when API fails)
 export const DEFAULT_PROVIDERS: LLMProvider[] = [
   {
-    id: 'openai',
+    id: LLM_PROVIDERS.OPENAI,
     name: 'OpenAI',
     description: 'GPT-4 and GPT-3.5 models for text generation',
     configured: false,
@@ -18,7 +19,7 @@ export const DEFAULT_PROVIDERS: LLMProvider[] = [
     selected_model: 'gpt-4.1',
   },
   {
-    id: 'anthropic',
+    id: LLM_PROVIDERS.ANTHROPIC,
     name: 'Anthropic',
     description: 'Claude models for text generation',
     configured: false,
@@ -30,7 +31,7 @@ export const DEFAULT_PROVIDERS: LLMProvider[] = [
     selected_model: 'claude-sonnet-4-20250514',
   },
   {
-    id: 'gemini',
+    id: LLM_PROVIDERS.GEMINI,
     name: 'Google Gemini',
     description: 'Gemini models for text generation',
     configured: false,
