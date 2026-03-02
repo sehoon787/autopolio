@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.22.1] - 2026-02-28
+## [1.22.1] - 2026-03-02
 
 ### Changed
 - **Constants/Enum 중앙화 리팩토링**
@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - 파생 타입: `LLMProviderType`, `CLIType`, `AIMode`, `JobStatusType`, `DocumentFormatType`
   - 백엔드 25+ 파일, 프론트엔드 15+ 파일의 매직 스트링을 상수/열거형으로 교체
   - StrEnum/`as const` 패턴으로 기존 문자열 비교와 하위 호환성 유지
+
+### Fixed
+- **Codex CLI JSONL 파싱 수정**
+  - 백엔드 `cli_llm_service.py`: `_parse_codex_jsonl()` 메서드 추가 (JSONL 출력 파싱)
+  - Electron `cli-tool-manager.ts`: Codex CLI 명령어 구문 수정 (`exec --json`) 및 JSONL 파서 추가
+  - Electron 설정에서 Codex CLI 연결 상태 정상 표시 (녹색 키 아이콘)
+- **Codex CLI API 키 조회 오류** (`github_jobs.py`)
+  - CLI 모드 제외 튜플에 `codex_cli` 누락 수정
+- **BundleDialog 모달 오버플로우** (`BundleDialog.tsx`)
+  - 긴 레포지토리 이름이 모달 너비를 벗어나지 않도록 CSS 수정
 
 ---
 
