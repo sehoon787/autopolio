@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+from api.constants import DocumentFormat
+
 
 class PipelineStep(BaseModel):
     """Individual pipeline step status."""
@@ -24,7 +26,7 @@ class PipelineRunRequest(BaseModel):
     project_ids: List[int]  # Projects to include
     company_ids: Optional[List[int]] = None  # Companies to include
     template_id: int  # Template to use
-    output_format: str = "docx"  # docx, pdf, md
+    output_format: str = DocumentFormat.DOCX  # docx, pdf, md
 
     # Pipeline options
     auto_analyze: bool = False  # Auto-analyze unanalyzed projects before generation

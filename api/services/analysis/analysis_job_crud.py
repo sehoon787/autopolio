@@ -15,6 +15,7 @@ from api.models.project import Project
 from api.models.repo_analysis import RepoAnalysis
 from api.services.core import TaskService
 from api.database import AsyncSessionLocal
+from api.constants import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class AnalysisJobService:
             user_id=user_id,
             job_type="github_analysis",
             target_project_id=project_id,
-            status="pending",
+            status=JobStatus.PENDING,
             progress=0,
             current_step=0,
             total_steps=6,
@@ -91,7 +92,7 @@ class AnalysisJobService:
             select(Job)
             .where(
                 Job.target_project_id == project_id,
-                Job.status.in_(["pending", "running"]),
+                Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
             )
             .order_by(Job.created_at.desc())
         )
@@ -115,10 +116,10 @@ class AnalysisJobService:
                 Job.job_type == "github_analysis",
                 or_(
                     # Active jobs
-                    Job.status.in_(["pending", "running"]),
+                    Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
                     # Recently completed/failed jobs (for token tracking)
                     and_(
-                        Job.status.in_(["completed", "failed"]),
+                        Job.status.in_([JobStatus.COMPLETED, JobStatus.FAILED]),
                         Job.completed_at >= recent_cutoff,
                     ),
                 ),
@@ -134,7 +135,7 @@ class AnalysisJobService:
                 select(Job.status).where(Job.task_id == task_id)
             )
             status = result.scalar_one_or_none()
-            return status == "cancelled"
+            return status == JobStatus.CANCELLED
 
     async def cancel_job(self, task_id: str) -> Optional[Job]:
         """Cancel a running job and save partial results."""
@@ -142,10 +143,10 @@ class AnalysisJobService:
         if not job:
             return None
 
-        if job.status in ["completed", "failed", "cancelled"]:
+        if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
             return job
 
-        job.status = "cancelled"
+        job.status = JobStatus.CANCELLED
         job.completed_at = datetime.utcnow()
         job.error_message = "Cancelled by user"
 
@@ -162,7 +163,7 @@ class AnalysisJobService:
         self,
         task_id: str,
         step_number: int,
-        status: str = "running",
+        status: str = JobStatus.RUNNING,
         result: Optional[Dict[str, Any]] = None,
         step_name_override: Optional[str] = None,
     ) -> None:
@@ -187,7 +188,7 @@ class AnalysisJobService:
             # Update progress based on step
             # Cap at 95% — reserve 100% for complete_job() so UI doesn't show
             # "stuck at 100%" while post-processing (AI summary, tech versions) runs.
-            if status == "completed":
+            if status == JobStatus.COMPLETED:
                 raw = int((step_number / job.total_steps) * 100)
                 job.progress = min(raw, 95)
             else:
@@ -208,7 +209,7 @@ class AnalysisJobService:
             flag_modified(job, "step_results")
 
             # Save partial results (copy dict to trigger change detection)
-            if result and status == "completed":
+            if result and status == JobStatus.COMPLETED:
                 partial_results = dict(job.partial_results or {})
                 partial_results[step_name] = result
                 job.partial_results = partial_results
@@ -231,10 +232,10 @@ class AnalysisJobService:
                 return
 
             # Don't overwrite cancelled/failed status set by user or error handler
-            if job.status in ("cancelled", "failed"):
+            if job.status in (JobStatus.CANCELLED, JobStatus.FAILED):
                 return
 
-            job.status = "completed"
+            job.status = JobStatus.COMPLETED
             job.progress = 100
             job.completed_at = datetime.utcnow()
             if output_data:
@@ -261,7 +262,7 @@ class AnalysisJobService:
             if not job:
                 return
 
-            job.status = "failed"
+            job.status = JobStatus.FAILED
             job.completed_at = datetime.utcnow()
             job.error_message = error_message
             if error_details:

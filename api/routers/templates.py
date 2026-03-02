@@ -10,6 +10,7 @@ from pathlib import Path
 
 from api.database import get_db
 from api.config import get_settings, PLATFORM_CONFIGS
+from api.constants import DocumentFormat
 from api.models.template import Template
 from api.models.user import User
 from api.schemas.template import (
@@ -322,7 +323,7 @@ async def upload_template(
         )
 
     # Determine output format
-    output_format = "docx" if file_ext in {".docx", ".doc"} else "pdf"
+    output_format = DocumentFormat.DOCX if file_ext in {".docx", ".doc"} else DocumentFormat.PDF
 
     template = Template(
         user_id=user_id,

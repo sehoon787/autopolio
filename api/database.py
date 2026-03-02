@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import event
 from api.config import get_settings
+from api.constants import JobStatus
 
 settings = get_settings()
 
@@ -99,17 +100,17 @@ async def cleanup_stale_jobs():
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            text("SELECT COUNT(*) FROM jobs WHERE status IN ('running', 'pending')")
+            text(f"SELECT COUNT(*) FROM jobs WHERE status IN ('{JobStatus.RUNNING}', '{JobStatus.PENDING}')")
         )
         count = result.scalar()
         if count:
             await db.execute(
-                text("""
+                text(f"""
                     UPDATE jobs
-                    SET status = 'failed',
+                    SET status = '{JobStatus.FAILED}',
                         error_message = 'Server restarted while job was in progress',
                         completed_at = CURRENT_TIMESTAMP
-                    WHERE status IN ('running', 'pending')
+                    WHERE status IN ('{JobStatus.RUNNING}', '{JobStatus.PENDING}')
                 """)
             )
             await db.commit()

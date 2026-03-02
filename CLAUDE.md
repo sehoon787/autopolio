@@ -1,7 +1,7 @@
 # Autopolio - 포트폴리오/이력서 자동화 플랫폼
 
 **생성일**: 2026-01-19
-**프로젝트 상태**: 완성 (v1.22)
+**프로젝트 상태**: 완성 (v1.22.1)
 **기반 프로젝트**: portfolio, aircok_backoffice
 
 ---
@@ -288,6 +288,9 @@ C:\Users\kimsehun\Desktop\proj\Autopolio\
 │   ├── main.py               # 엔트리포인트
 │   ├── config.py             # 설정 관리
 │   ├── database.py           # DB 연결
+│   ├── constants/            # v1.22.1 중앙화된 상수/열거형
+│   │   ├── enums.py          # StrEnum 정의 (JobStatus, LLMProvider 등)
+│   │   └── config.py         # LLM/CLI 설정 상수
 │   ├── models/               # SQLAlchemy 모델
 │   │   ├── user.py           # 사용자
 │   │   ├── company.py        # 회사/조직
@@ -948,8 +951,8 @@ portfolio/
 
 ## 버전 히스토리
 
-상세 변경 이력은 `CHANGELOG.md` 참조. 현재 버전: **v1.22** (2026-02-28)
+상세 변경 이력은 `CHANGELOG.md` 참조. 현재 버전: **v1.22.1** (2026-02-28)
 
 ---
 
-**문서 버전**: 1.22 | **최종 업데이트**: 2026-02-28 KST
+**문서 버전**: 1.22.1 | **최종 업데이트**: 2026-02-28 KST

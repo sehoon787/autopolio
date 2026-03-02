@@ -27,7 +27,7 @@ export function BundleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[520px] overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t('bundleDialog.title')}</DialogTitle>
           <DialogDescription>
@@ -53,7 +53,7 @@ export function BundleDialog({
               {repos.map((repo) => (
                 <div
                   key={repo.url}
-                  className="flex items-center gap-2 p-2 rounded-md border bg-muted/30"
+                  className="flex items-center gap-2 p-2 rounded-md border bg-muted/30 min-w-0"
                 >
                   <button
                     type="button"
@@ -67,14 +67,14 @@ export function BundleDialog({
                       <Star className="h-4 w-4 text-gray-300" />
                     )}
                   </button>
-                  <span className="text-sm font-medium truncate min-w-0 flex-1">
+                  <span className="text-sm font-medium truncate min-w-0 flex-1" title={repo.name}>
                     {repo.name}
                   </span>
                   <Input
                     value={repo.label}
                     onChange={(e) => onLabelChange(repo.url, e.target.value)}
                     placeholder={t('bundleDialog.labelPlaceholder')}
-                    className="w-[140px] h-8 text-xs"
+                    className="w-[120px] shrink-0 h-8 text-xs"
                   />
                 </div>
               ))}

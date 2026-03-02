@@ -25,6 +25,7 @@ from .analysis_job_helpers import (
 )
 from api.services.llm.llm_utils import create_llm_service
 from api.database import AsyncSessionLocal
+from api.constants import JobStatus, SummaryStyle
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ async def run_background_analysis(
             logger.error("[BackgroundAnalysis] Job not found: %s", task_id)
             return
 
-        job.status = "running"
+        job.status = JobStatus.RUNNING
         job.started_at = datetime.utcnow()
         await db.commit()
 
@@ -79,7 +80,7 @@ async def run_background_analysis(
     options = options or {}
     total_tokens = 0
     language = options.get("language", "ko")
-    summary_style = options.get("summary_style", "professional")
+    summary_style = options.get("summary_style", SummaryStyle.PROFESSIONAL)
 
     logger.info("[BackgroundAnalysis] language=%s, options=%s", language, options)
 
@@ -105,7 +106,7 @@ async def run_background_analysis(
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
 
-        await service.update_step_progress(task_id, 1, "running")
+        await service.update_step_progress(task_id, 1, JobStatus.RUNNING)
         logger.info("[BackgroundAnalysis] Step 1: Repository info")
 
         analysis_result = await github_service.analyze_repository(
@@ -121,38 +122,38 @@ async def run_background_analysis(
             "languages": analysis_result.get("languages", {}),
             "primary_language": analysis_result.get("primary_language"),
         }
-        await service.update_step_progress(task_id, 1, "completed", step1_result)
+        await service.update_step_progress(task_id, 1, JobStatus.COMPLETED, step1_result)
 
         # Step 2: Technology detection (already done in analyze_repository)
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
 
-        await service.update_step_progress(task_id, 2, "running")
+        await service.update_step_progress(task_id, 2, JobStatus.RUNNING)
         logger.info("[BackgroundAnalysis] Step 2: Technology detection")
 
         step2_result = {
             "technologies": analysis_result.get("detected_technologies", []),
         }
-        await service.update_step_progress(task_id, 2, "completed", step2_result)
+        await service.update_step_progress(task_id, 2, JobStatus.COMPLETED, step2_result)
 
         # Step 3: Commit analysis
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
 
-        await service.update_step_progress(task_id, 3, "running")
+        await service.update_step_progress(task_id, 3, JobStatus.RUNNING)
         logger.info("[BackgroundAnalysis] Step 3: Commit analysis")
 
         step3_result = {
             "summary": analysis_result.get("commit_messages_summary"),
             "categories": analysis_result.get("commit_categories", {}),
         }
-        await service.update_step_progress(task_id, 3, "completed", step3_result)
+        await service.update_step_progress(task_id, 3, JobStatus.COMPLETED, step3_result)
 
         # Step 4: Role detection
         if await service.check_cancelled(task_id):
             raise AnalysisCancelledException()
 
-        await service.update_step_progress(task_id, 4, "running")
+        await service.update_step_progress(task_id, 4, JobStatus.RUNNING)
         logger.info("[BackgroundAnalysis] Step 4: Role detection")
 
         detected_role, _ = role_service.detect_role(
@@ -161,7 +162,7 @@ async def run_background_analysis(
         )
 
         step4_result = {"detected_role": detected_role}
-        await service.update_step_progress(task_id, 4, "completed", step4_result)
+        await service.update_step_progress(task_id, 4, JobStatus.COMPLETED, step4_result)
 
         # Save basic results to DB
         async with AsyncSessionLocal() as db:
@@ -297,7 +298,7 @@ async def run_background_analysis(
 
             is_cli_mode = isinstance(llm_service, CLILLMService)
 
-            await service.update_step_progress(task_id, 5, "running")
+            await service.update_step_progress(task_id, 5, JobStatus.RUNNING)
             logger.info(
                 "[BackgroundAnalysis] Steps 5+6: LLM (cli=%s, language=%s)",
                 is_cli_mode,
@@ -362,9 +363,9 @@ async def run_background_analysis(
             )
 
         await service.update_step_progress(
-            task_id, 5, "completed", {"tasks": key_tasks}
+            task_id, 5, JobStatus.COMPLETED, {"tasks": key_tasks}
         )
-        await service.update_step_progress(task_id, 6, "completed", detailed_content)
+        await service.update_step_progress(task_id, 6, JobStatus.COMPLETED, detailed_content)
 
         # --- Post-processing ---
 
@@ -528,9 +529,9 @@ async def _run_llm_steps(
             )
 
         await service.update_step_progress(
-            task_id, 5, "completed", {"tasks": key_tasks}
+            task_id, 5, JobStatus.COMPLETED, {"tasks": key_tasks}
         )
-        await service.update_step_progress(task_id, 6, "running")
+        await service.update_step_progress(task_id, 6, JobStatus.RUNNING)
 
         try:
             content, ct = await github_service.generate_detailed_content(
@@ -555,7 +556,7 @@ async def _run_llm_steps(
                 e,
             )
     else:
-        await service.update_step_progress(task_id, 6, "running")
+        await service.update_step_progress(task_id, 6, JobStatus.RUNNING)
 
         results = await asyncio.gather(
             _generate_key_tasks_bg(project_id, analysis_result, llm_service, language),

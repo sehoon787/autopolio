@@ -5,6 +5,7 @@ LLM Generation Functions - Large generation methods extracted from LLMService.
 from typing import Dict, List, Any, Optional
 import json
 
+from api.constants import SummaryStyle, LLM_MAX_TOKENS
 from .llm_providers import BaseLLMProvider
 from .llm_prompts import get_prompts
 from .llm_utils import parse_json_from_llm
@@ -126,7 +127,7 @@ Based on the code above, identify specific technical implementations and feature
 
     try:
         response, tokens = await provider.generate(
-            prompt, system_prompt, max_tokens=1500, temperature=0.3
+            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.KEY_TASKS, temperature=0.3
         )
 
         tasks = parse_json_from_llm(response)
@@ -259,7 +260,7 @@ Respond only with a JSON array."""
 
     try:
         response, tokens = await provider.generate(
-            prompt, system_prompt, max_tokens=2000, temperature=0.3
+            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.IMPLEMENTATION, temperature=0.3
         )
 
         details = parse_json_from_llm(response)
@@ -436,7 +437,7 @@ Respond only with a JSON object."""
 
     try:
         response, tokens = await provider.generate(
-            prompt, system_prompt, max_tokens=2500, temperature=0.3
+            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.ACHIEVEMENTS, temperature=0.3
         )
 
         achievements = parse_json_from_llm(response)
@@ -489,12 +490,12 @@ async def generate_multi_repo_summary_llm(
     """
     prompts = get_prompts(language)
     style_map = {
-        "professional": prompts["style_professional"],
-        "casual": prompts["style_casual"],
-        "technical": prompts["style_technical"],
+        SummaryStyle.PROFESSIONAL: prompts["style_professional"],
+        SummaryStyle.CASUAL: prompts["style_casual"],
+        SummaryStyle.TECHNICAL: prompts["style_technical"],
     }
     system_prompt = f"""{prompts["system_resume"]}
-{style_map.get(style, style_map["professional"])}
+{style_map.get(style, style_map[SummaryStyle.PROFESSIONAL])}
 {prompts["json_format"]}"""
 
     # Build per-repo section

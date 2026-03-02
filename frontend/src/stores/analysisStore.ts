@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { githubApi, AnalysisJobStatus } from '@/api/github'
 import { useUsageStore, LLMUsage } from './usageStore'
+import { CLI_TYPES, LLM_PROVIDERS, JOB_STATUS, type CLIType } from '@/constants'
 
 // Map LLM provider string to usage store key
 function mapProviderToUsageKey(provider?: string): keyof LLMUsage | null {
@@ -8,13 +9,13 @@ function mapProviderToUsageKey(provider?: string): keyof LLMUsage | null {
 
   const providerLower = provider.toLowerCase()
   // CLI providers must be checked FIRST — 'claude_code'.includes('claude') is true
-  if (providerLower === 'claude_code') return 'claude_code_cli'
-  if (providerLower === 'gemini_cli') return 'gemini_cli'
-  if (providerLower === 'codex_cli') return 'codex_cli'
+  if (providerLower === CLI_TYPES.CLAUDE_CODE) return 'claude_code_cli'
+  if (providerLower === CLI_TYPES.GEMINI_CLI) return 'gemini_cli'
+  if (providerLower === CLI_TYPES.CODEX_CLI) return 'codex_cli'
   // API providers
-  if (providerLower === 'openai' || providerLower.includes('gpt')) return 'openai'
-  if (providerLower === 'anthropic' || providerLower.includes('claude')) return 'anthropic'
-  if (providerLower === 'gemini' || providerLower.includes('gemini')) return 'gemini'
+  if (providerLower === LLM_PROVIDERS.OPENAI || providerLower.includes('gpt')) return 'openai'
+  if (providerLower === LLM_PROVIDERS.ANTHROPIC || providerLower.includes('claude')) return 'anthropic'
+  if (providerLower === LLM_PROVIDERS.GEMINI || providerLower.includes('gemini')) return 'gemini'
 
   return null
 }
@@ -48,7 +49,7 @@ interface AnalysisState {
     projectId?: number,
     options?: {
       provider?: string
-      cli_mode?: 'claude_code' | 'gemini_cli' | 'codex_cli'
+      cli_mode?: CLIType
       cli_model?: string
       language?: 'ko' | 'en'  // Analysis language
       project_repository_id?: number  // Specific repo in multi-repo project
@@ -102,12 +103,12 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
 
       for (const job of jobs) {
         if (job.project_id) {
-          const isActive = ['pending', 'running'].includes(job.status)
-          const isFinished = ['completed', 'failed', 'cancelled'].includes(job.status)
+          const isActive = ([JOB_STATUS.PENDING, JOB_STATUS.RUNNING] as string[]).includes(job.status)
+          const isFinished = ([JOB_STATUS.COMPLETED, JOB_STATUS.FAILED, JOB_STATUS.CANCELLED] as string[]).includes(job.status)
           const alreadyProcessed = processedTaskIds.has(job.task_id)
 
           // Track completed jobs for token usage (only once per task_id)
-          if (job.status === 'completed' && !alreadyProcessed) {
+          if (job.status === JOB_STATUS.COMPLETED && !alreadyProcessed) {
             const provider = mapProviderToUsageKey(job.llm_provider)
             console.log(`[AnalysisStore] Completed job: task_id=${job.task_id}, llm_provider=${job.llm_provider}, provider_key=${provider}, token_usage=${job.token_usage}`)
             if (provider) {
@@ -157,7 +158,7 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
 
   isAnalyzing: (projectId: number) => {
     const job = get().activeJobs.get(projectId)
-    return job ? ['pending', 'running'].includes(job.status) : false
+    return job ? ([JOB_STATUS.PENDING, JOB_STATUS.RUNNING] as string[]).includes(job.status) : false
   },
 
   getJob: (projectId: number) => {
@@ -193,7 +194,7 @@ export const useAnalysisStore = create<AnalysisState>()((set, get) => ({
       newJobs.set(project_id, {
         task_id,
         project_id,
-        status: 'pending',
+        status: JOB_STATUS.PENDING,
         progress: 0,
         current_step: 0,
         total_steps: 6,

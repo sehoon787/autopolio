@@ -3,6 +3,8 @@
  * Detects rate limit errors from various LLM providers
  */
 
+import { LLM_PROVIDERS } from '@/constants'
+
 export interface RateLimitInfo {
   isRateLimited: boolean
   provider: string | null
@@ -13,19 +15,19 @@ export interface RateLimitInfo {
 // Known rate limit error patterns
 const RATE_LIMIT_PATTERNS = [
   // OpenAI patterns
-  { pattern: /rate_limit_exceeded/i, provider: 'openai' },
+  { pattern: /rate_limit_exceeded/i, provider: LLM_PROVIDERS.OPENAI },
   { pattern: /too many requests/i, provider: 'generic' },
   { pattern: /rate limit/i, provider: 'generic' },
   { pattern: /quota exceeded/i, provider: 'generic' },
   { pattern: /requests per minute/i, provider: 'generic' },
-  { pattern: /tokens per minute/i, provider: 'openai' },
+  { pattern: /tokens per minute/i, provider: LLM_PROVIDERS.OPENAI },
 
   // Anthropic patterns
-  { pattern: /overloaded/i, provider: 'anthropic' },
-  { pattern: /rate_limit/i, provider: 'anthropic' },
+  { pattern: /overloaded/i, provider: LLM_PROVIDERS.ANTHROPIC },
+  { pattern: /rate_limit/i, provider: LLM_PROVIDERS.ANTHROPIC },
 
   // Gemini patterns
-  { pattern: /RESOURCE_EXHAUSTED/i, provider: 'gemini' },
+  { pattern: /RESOURCE_EXHAUSTED/i, provider: LLM_PROVIDERS.GEMINI },
   { pattern: /quota/i, provider: 'generic' },
 ]
 

@@ -74,7 +74,9 @@ function getOrCreateSecretKey() {
     return newKey;
 }
 // Determine if we're in development mode
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+// ELECTRON_SERVE_STATIC=1 forces production-mode serving (from dist/) even when running from source.
+// Used by E2E tests to avoid needing a Vite dev server.
+const isDev = !process.env.ELECTRON_SERVE_STATIC && (process.env.NODE_ENV === 'development' || !app.isPackaged);
 // Main window reference
 let mainWindow = null;
 // Setup static file serving for production

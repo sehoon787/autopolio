@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { STORAGE_KEYS } from '@/constants'
 
 export interface LLMUsage {
   openai: number
@@ -32,11 +33,11 @@ function getTodayDateString(): string {
 const emptyLLM: LLMUsage = { openai: 0, anthropic: 0, gemini: 0, claude_code_cli: 0, codex_cli: 0, gemini_cli: 0 }
 
 // Storage key generator for per-user tracking
-const getStorageKey = (userId: number | null) => `usage-storage-${userId || 'guest'}`
+const getStorageKey = (userId: number | null) => `${STORAGE_KEYS.USAGE_STORAGE_PREFIX}${userId || 'guest'}`
 
 // Custom storage that uses dynamic key based on userId
 const createUserStorage = () => {
-  let currentKey = 'usage-storage-guest'
+  let currentKey = `${STORAGE_KEYS.USAGE_STORAGE_PREFIX}guest`
 
   return {
     getItem: (_name: string) => {
@@ -142,7 +143,7 @@ export const useUsageStore = create<UsageState>()(
       },
     }),
     {
-      name: 'usage-storage',
+      name: STORAGE_KEYS.USAGE_STORAGE,
       version: 5,
       storage: createJSONStorage(() => userStorage),
       migrate: (persisted: unknown, version: number) => {

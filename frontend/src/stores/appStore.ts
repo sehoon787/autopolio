@@ -3,10 +3,8 @@ import { persist } from 'zustand/middleware'
 import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus, getCodexCLIStatus } from '@/lib/electron'
 import { externalBackendUrl } from '@/config/runtime'
 import { llmApi } from '@/api/llm'
-
-type CLIType = 'claude_code' | 'gemini_cli' | 'codex_cli'
-type LLMProviderType = 'openai' | 'anthropic' | 'gemini'
-type AIMode = 'cli' | 'api'  // CLI tools or API providers
+import { CLI_TYPES, LLM_PROVIDERS, AI_MODES, STORAGE_KEYS } from '@/constants'
+import type { CLIType, LLMProviderType, AIMode } from '@/constants'
 
 export const CLAUDE_CODE_MODELS = [
   'claude-sonnet-4-6-20260217',
@@ -87,9 +85,9 @@ export const useAppStore = create<AppState>()(
       backendError: null,
 
       // User preferences (defaults)
-      aiMode: initialIsElectron ? 'cli' : 'api',  // CLI for Electron, API for web
-      selectedCLI: 'claude_code',
-      selectedLLMProvider: initialIsElectron ? 'openai' : 'gemini',
+      aiMode: initialIsElectron ? AI_MODES.CLI : AI_MODES.API,  // CLI for Electron, API for web
+      selectedCLI: CLI_TYPES.CLAUDE_CODE,
+      selectedLLMProvider: initialIsElectron ? LLM_PROVIDERS.OPENAI : LLM_PROVIDERS.GEMINI,
       claudeCodeModel: CLAUDE_CODE_MODELS[0],
       geminiCLIModel: GEMINI_CLI_MODELS[0],
       codexCLIModel: CODEX_CLI_MODELS[0],
@@ -132,17 +130,17 @@ export const useAppStore = create<AppState>()(
             const updates: Partial<AppState> = { _defaultsApplied: true }
 
             if (claudeInstalled) {
-              updates.selectedCLI = 'claude_code'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.CLAUDE_CODE
+              updates.aiMode = AI_MODES.CLI
             } else if (codexInstalled) {
-              updates.selectedCLI = 'codex_cli'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.CODEX_CLI
+              updates.aiMode = AI_MODES.CLI
             } else if (geminiInstalled) {
-              updates.selectedCLI = 'gemini_cli'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.GEMINI_CLI
+              updates.aiMode = AI_MODES.CLI
             } else {
               // No CLI installed, fall back to API mode
-              updates.aiMode = 'api'
+              updates.aiMode = AI_MODES.API
             }
 
             set(updates as AppState)
@@ -170,14 +168,14 @@ export const useAppStore = create<AppState>()(
 
             const updates: Partial<AppState> = { _defaultsApplied: true }
             if (claudeInstalled) {
-              updates.selectedCLI = 'claude_code'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.CLAUDE_CODE
+              updates.aiMode = AI_MODES.CLI
             } else if (codexInstalled) {
-              updates.selectedCLI = 'codex_cli'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.CODEX_CLI
+              updates.aiMode = AI_MODES.CLI
             } else if (geminiInstalled) {
-              updates.selectedCLI = 'gemini_cli'
-              updates.aiMode = 'cli'
+              updates.selectedCLI = CLI_TYPES.GEMINI_CLI
+              updates.aiMode = AI_MODES.CLI
             }
             set(updates as AppState)
             console.log('[AppStore] Web CLI auto-detected:', { claudeInstalled, geminiInstalled, codexInstalled })
@@ -202,12 +200,12 @@ export const useAppStore = create<AppState>()(
 
       // Set selected CLI tool (also switches to CLI mode)
       setSelectedCLI: (cli) => {
-        set({ selectedCLI: cli, aiMode: 'cli' })
+        set({ selectedCLI: cli, aiMode: AI_MODES.CLI })
       },
 
       // Set selected LLM provider (also switches to API mode)
       setSelectedLLMProvider: (provider) => {
-        set({ selectedLLMProvider: provider, aiMode: 'api' })
+        set({ selectedLLMProvider: provider, aiMode: AI_MODES.API })
       },
 
       setClaudeCodeModel: (model) => {
@@ -232,7 +230,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'autopolio-app-storage',
+      name: STORAGE_KEYS.APP_STORAGE,
       // Only persist user preferences, not environment state
       partialize: (state) => ({
         aiMode: state.aiMode,

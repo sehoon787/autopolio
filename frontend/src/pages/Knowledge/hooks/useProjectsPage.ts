@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useUsageStore } from '@/stores/usageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { AI_MODES, CLI_TYPES } from '@/constants'
 import { generateWithCLI } from '@/services/cliLLMService'
 import { isElectron } from '@/lib/electron'
 import { projectsApi, companiesApi, ProjectCreate, ProjectFilters as ProjectFiltersType, Project } from '@/api/knowledge'
@@ -190,7 +191,7 @@ export function useProjectsPage() {
     if (!user?.id || projectsToAnalyze.length === 0) return
 
     const { aiMode, selectedCLI, claudeCodeModel, geminiCLIModel, codexCLIModel, selectedLLMProvider } = useAppStore.getState()
-    const useCli = aiMode === 'cli'
+    const useCli = aiMode === AI_MODES.CLI
 
     setIsBatchAnalyzing(true)
     setBatchProgress({ current: 0, total: projectsToAnalyze.length })
@@ -211,7 +212,7 @@ export function useProjectsPage() {
         }
         if (useCli) {
           options.cli_mode = selectedCLI
-          const cliModel = selectedCLI === 'claude_code' ? claudeCodeModel : selectedCLI === 'codex_cli' ? codexCLIModel : geminiCLIModel
+          const cliModel = selectedCLI === CLI_TYPES.CLAUDE_CODE ? claudeCodeModel : selectedCLI === CLI_TYPES.CODEX_CLI ? codexCLIModel : geminiCLIModel
           options.cli_model = resolveModelForAPI(cliModel)
         } else if (selectedLLMProvider) {
           options.provider = selectedLLMProvider
@@ -285,15 +286,15 @@ export function useProjectsPage() {
   const handleGenerateAI = async () => {
     if (!user?.id || !createForm.formData.git_url) { toast({ title: t('gitUrlRequired'), variant: 'destructive' }); return }
     const { aiMode, selectedCLI } = useAppStore.getState()
-    const useDirectCli = aiMode === 'cli' && isElectron()
+    const useDirectCli = aiMode === AI_MODES.CLI && isElectron()
     setIsGeneratingAI(true)
     try {
       if (useDirectCli) {
-        const cli = selectedCLI as 'claude_code' | 'gemini_cli'
+        const cli = selectedCLI as typeof CLI_TYPES.CLAUDE_CODE | typeof CLI_TYPES.GEMINI_CLI
         const prompt = `Analyze this GitHub repository and generate a project description for a resume/portfolio.\nRepository URL: ${createForm.formData.git_url}\nProject name: ${createForm.formData.name || 'Unknown'}\n\nReturn JSON with: { "short_description": "...", "description": "...", "technologies": ["..."] }`
         const result = await generateWithCLI(prompt, cli)
         if (!result.success) { toast({ title: t('aiGenerateError'), description: `CLI failed: ${result.error}. Try switching to API mode.`, variant: 'destructive' }); return }
-        const providerKey = cli === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
+        const providerKey = cli === CLI_TYPES.CLAUDE_CODE ? 'claude_code_cli' : 'gemini_cli'
         useUsageStore.getState().incrementLLMCallCount(providerKey as 'claude_code_cli' | 'gemini_cli')
         if (result.tokens && result.tokens > 0) useUsageStore.getState().trackTokenUsage(providerKey as 'claude_code_cli' | 'gemini_cli', result.tokens)
         let parsed: Record<string, unknown> = {}

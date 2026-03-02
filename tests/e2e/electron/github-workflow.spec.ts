@@ -21,7 +21,7 @@ import { test, expect, _electron as electron, ElectronApplication, Page } from '
 import path from 'path'
 import fs from 'fs'
 
-import { API_BASE_URL, FRONTEND_URL } from '../runtimeConfig'
+import { API_BASE_URL } from '../runtimeConfig'
 
 // Skip entire file if Electron binary is not available (CI/Docker environment)
 function electronBinaryExists(): boolean {
@@ -85,9 +85,21 @@ async function apiDelete(path: string): Promise<void> {
 // Test Suite
 // ---------------------------------------------------------------------------
 
+/** Build a navigable URL for in-app route navigation.
+ *  electron-serve handles SPA fallback (serves index.html for unknown paths),
+ *  so BrowserRouter paths like /dashboard work directly with app:// protocol. */
+function electronRoute(baseUrl: string, routePath: string): string {
+  const url = new URL(baseUrl)
+  // new URL().origin returns 'null' for custom protocols like app://
+  const origin = url.origin !== 'null' ? url.origin : `${url.protocol}//${url.host}`
+  return `${origin}${routePath}`
+}
+
 test.describe('Electron GitHub Workflow', () => {
   let electronApp: ElectronApplication
   let page: Page
+  /** Base URL of the Electron window, detected after launch. */
+  let appBaseUrl: string
 
   test.beforeAll(async () => {
     // Launch Electron from project root
@@ -95,11 +107,15 @@ test.describe('Electron GitHub Workflow', () => {
     const frontendDir = path.join(projectRoot, 'frontend')
 
     electronApp = await electron.launch({
-      args: [path.join(frontendDir, 'electron', 'main.js')],
+      // Pass the frontend directory (with package.json) so app.getAppPath()
+      // resolves correctly for electron-serve's dist/ lookup.
+      args: [frontendDir],
       cwd: projectRoot,
       env: {
         ...process.env,
-        NODE_ENV: 'development',
+        NODE_ENV: 'production',
+        // Serve from dist/ via electron-serve instead of requiring a Vite dev server
+        ELECTRON_SERVE_STATIC: '1',
       },
       timeout: 30_000,
     })
@@ -109,6 +125,10 @@ test.describe('Electron GitHub Workflow', () => {
 
     // Wait for backend to start (Electron spawns it automatically)
     await waitForBackend()
+
+    // Detect the Electron window's base URL for in-app navigation
+    appBaseUrl = page.url()
+    console.log(`[Electron E2E] Detected app base URL: ${appBaseUrl}`)
   })
 
   test.afterAll(async () => {
@@ -144,14 +164,8 @@ test.describe('Electron GitHub Workflow', () => {
   // ========================================================================
 
   test('should detect GitHub CLI status via IPC', async () => {
-    // Invoke the IPC handler directly through evaluate
-    const status = await electronApp.evaluate(async ({ ipcMain }) => {
-      // We can't invoke ipcMain handlers directly; use ipcRenderer instead
-      return null
-    })
-
-    // Alternative: test via the backend API or page navigation
-    await page.goto(`${FRONTEND_URL}/setup/github`)
+    // Navigate within the Electron window (not external localhost)
+    await page.goto(electronRoute(appBaseUrl, '/setup/github'))
     await page.waitForLoadState('domcontentloaded')
 
     // Should show either "Connected" or "Connect" button
@@ -455,24 +469,12 @@ test.describe('Electron GitHub Workflow', () => {
   // ========================================================================
 
   test('should navigate between main pages', async () => {
-    // Dashboard
-    await page.goto(`${FRONTEND_URL}/dashboard`)
-    await page.waitForLoadState('domcontentloaded')
-    await expect(page.locator('body')).not.toBeEmpty()
-
-    // GitHub repos
-    await page.goto(`${FRONTEND_URL}/github/repos`)
-    await page.waitForLoadState('domcontentloaded')
-    await expect(page.locator('body')).not.toBeEmpty()
-
-    // Projects
-    await page.goto(`${FRONTEND_URL}/knowledge/projects`)
-    await page.waitForLoadState('domcontentloaded')
-    await expect(page.locator('body')).not.toBeEmpty()
-
-    // Settings
-    await page.goto(`${FRONTEND_URL}/settings`)
-    await page.waitForLoadState('domcontentloaded')
-    await expect(page.locator('body')).not.toBeEmpty()
+    // Navigate within the Electron window using detected base URL
+    const routes = ['/dashboard', '/github/repos', '/knowledge/projects', '/settings']
+    for (const route of routes) {
+      await page.goto(electronRoute(appBaseUrl, route))
+      await page.waitForLoadState('domcontentloaded')
+      await expect(page.locator('body')).not.toBeEmpty()
+    }
   })
 })

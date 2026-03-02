@@ -29,6 +29,7 @@ from api.schemas.llm import (
 from api.services.llm import get_cli_service
 from api.services.core import EncryptionService
 from api.config import get_settings
+from api.constants import CLIType, LLMProvider as LLMProviderEnum, DEFAULT_MODELS, SummaryStyle
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +38,16 @@ encryption_service = EncryptionService()
 
 # CLI type → .env variable mapping (separate from API provider keys)
 CLI_ENV_MAP = {
-    "claude_code": "CLAUDE_CODE_API_KEY",
-    "codex_cli": "CODEX_API_KEY",
-    "gemini_cli": "GEMINI_CLI_API_KEY",
+    CLIType.CLAUDE_CODE: "CLAUDE_CODE_API_KEY",
+    CLIType.CODEX_CLI: "CODEX_API_KEY",
+    CLIType.GEMINI_CLI: "GEMINI_CLI_API_KEY",
 }
 
 # CLI type → provider ID mapping
 CLI_PROVIDER_MAP = {
-    "claude_code": "anthropic",
-    "codex_cli": "openai",
-    "gemini_cli": "gemini",
+    CLIType.CLAUDE_CODE: LLMProviderEnum.ANTHROPIC,
+    CLIType.CODEX_CLI: LLMProviderEnum.OPENAI,
+    CLIType.GEMINI_CLI: LLMProviderEnum.GEMINI,
 }
 
 
@@ -97,7 +98,7 @@ def _unset_env_key(key: str) -> None:
 # Available LLM providers configuration (order: Anthropic → Gemini → OpenAI)
 LLM_PROVIDERS = [
     LLMProviderInfo(
-        id="anthropic",
+        id=LLMProviderEnum.ANTHROPIC,
         name="Anthropic",
         description="Claude models for text generation",
         models=[
@@ -112,7 +113,7 @@ LLM_PROVIDERS = [
         has_cli=True,  # Claude Code CLI exists
     ),
     LLMProviderInfo(
-        id="gemini",
+        id=LLMProviderEnum.GEMINI,
         name="Google Gemini",
         description="Gemini models for text generation",
         models=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
@@ -121,7 +122,7 @@ LLM_PROVIDERS = [
         has_cli=True,  # Gemini CLI supported
     ),
     LLMProviderInfo(
-        id="openai",
+        id=LLMProviderEnum.OPENAI,
         name="OpenAI",
         description="GPT-4.1 and GPT-4o models for text generation",
         models=["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini"],
@@ -156,25 +157,25 @@ async def get_llm_config(
         env_configured = False
         user_configured = False
         selected_model = provider_info.default_model
-        is_primary = provider_info.id == "openai"  # Default primary
+        is_primary = provider_info.id == LLMProviderEnum.OPENAI  # Default primary
 
         # Check environment variable configuration (.env)
-        if provider_info.id == "openai":
+        if provider_info.id == LLMProviderEnum.OPENAI:
             env_configured = bool(current_settings.openai_api_key)
-        elif provider_info.id == "anthropic":
+        elif provider_info.id == LLMProviderEnum.ANTHROPIC:
             env_configured = bool(current_settings.anthropic_api_key)
-        elif provider_info.id == "gemini":
+        elif provider_info.id == LLMProviderEnum.GEMINI:
             env_configured = bool(current_settings.gemini_api_key)
 
         # Check user database configuration
         if user:
-            if provider_info.id == "openai":
+            if provider_info.id == LLMProviderEnum.OPENAI:
                 user_configured = user.openai_api_key_encrypted is not None
                 selected_model = user.openai_model or provider_info.default_model
-            elif provider_info.id == "anthropic":
+            elif provider_info.id == LLMProviderEnum.ANTHROPIC:
                 user_configured = user.anthropic_api_key_encrypted is not None
                 selected_model = user.anthropic_model or provider_info.default_model
-            elif provider_info.id == "gemini":
+            elif provider_info.id == LLMProviderEnum.GEMINI:
                 user_configured = user.gemini_api_key_encrypted is not None
                 selected_model = user.gemini_model or provider_info.default_model
             is_primary = user.preferred_llm == provider_info.id
@@ -200,15 +201,15 @@ async def get_llm_config(
     runtime = os.environ.get("AUTOPOLIO_RUNTIME", "external")
 
     return LLMConfigResponse(
-        preferred_llm=user.preferred_llm if user else "openai",
+        preferred_llm=user.preferred_llm if user else LLMProviderEnum.OPENAI,
         openai_configured=user.openai_api_key_encrypted is not None if user else False,
         anthropic_configured=user.anthropic_api_key_encrypted is not None
         if user
         else False,
         gemini_configured=user.gemini_api_key_encrypted is not None if user else False,
-        openai_model=user.openai_model if user else "gpt-4.1",
-        anthropic_model=user.anthropic_model if user else "claude-sonnet-4-6-20260217",
-        gemini_model=user.gemini_model if user else "gemini-2.5-flash",
+        openai_model=user.openai_model if user else DEFAULT_MODELS[LLMProviderEnum.OPENAI],
+        anthropic_model=user.anthropic_model if user else DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC],
+        gemini_model=user.gemini_model if user else DEFAULT_MODELS[LLMProviderEnum.GEMINI],
         claude_code_status=CLIStatus(**claude_status),
         gemini_cli_status=CLIStatus(**gemini_status),
         codex_cli_status=CLIStatus(**codex_status),
@@ -231,7 +232,7 @@ async def update_llm_config(
 
     # Update preferred provider
     if config.provider:
-        if config.provider not in ["openai", "anthropic", "gemini"]:
+        if config.provider not in list(LLMProviderEnum):
             raise HTTPException(status_code=400, detail="Invalid provider")
         user.preferred_llm = config.provider
 
@@ -281,7 +282,7 @@ async def validate_api_key(
     request: APIKeyValidationRequest,
 ):
     """Validate an API key for a specific provider."""
-    if provider not in ["openai", "anthropic", "gemini"]:
+    if provider not in list(LLMProviderEnum):
         raise HTTPException(status_code=400, detail="Invalid provider")
 
     api_key = request.api_key.strip()
@@ -295,7 +296,7 @@ async def validate_api_key(
         )
 
     # Provider-specific format validation
-    if provider == "openai":
+    if provider == LLMProviderEnum.OPENAI:
         if not api_key.startswith("sk-"):
             return APIKeyValidationResponse(
                 valid=False,
@@ -303,7 +304,7 @@ async def validate_api_key(
                 provider=provider,
             )
 
-    elif provider == "anthropic":
+    elif provider == LLMProviderEnum.ANTHROPIC:
         if not api_key.startswith("sk-ant-"):
             return APIKeyValidationResponse(
                 valid=False,
@@ -313,14 +314,14 @@ async def validate_api_key(
 
     # Try to make a test API call
     try:
-        if provider == "openai":
+        if provider == LLMProviderEnum.OPENAI:
             from openai import AsyncOpenAI
 
             client = AsyncOpenAI(api_key=api_key)
             # Simple models list call to validate
             await client.models.list()
 
-        elif provider == "anthropic":
+        elif provider == LLMProviderEnum.ANTHROPIC:
             import anthropic
 
             client = anthropic.AsyncAnthropic(api_key=api_key)
@@ -331,7 +332,7 @@ async def validate_api_key(
                 messages=[{"role": "user", "content": "Hi"}],
             )
 
-        elif provider == "gemini":
+        elif provider == LLMProviderEnum.GEMINI:
             from google import genai
 
             client = genai.Client(api_key=api_key)
@@ -408,25 +409,25 @@ async def get_providers():
 @router.post("/cli/test/{cli_type}", response_model=CLITestResponse)
 async def test_cli(cli_type: str, model: str = Query(None)):
     """Test a CLI tool by sending a real prompt to verify authentication."""
-    if cli_type not in ["claude_code", "gemini_cli", "codex_cli"]:
+    if cli_type not in list(CLIType):
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
     mapped_provider = CLI_PROVIDER_MAP[cli_type]
     cli_service = get_cli_service()
 
     # 1. Check CLI installation
-    if cli_type == "claude_code":
+    if cli_type == CLIType.CLAUDE_CODE:
         status = await cli_service.detect_claude_code()
-    elif cli_type == "codex_cli":
+    elif cli_type == CLIType.CODEX_CLI:
         status = await cli_service.detect_codex_cli()
     else:
         status = await cli_service.detect_gemini_cli()
 
     if not status.get("installed"):
         cli_names = {
-            "claude_code": "Claude Code",
-            "gemini_cli": "Gemini",
-            "codex_cli": "Codex",
+            CLIType.CLAUDE_CODE: "Claude Code",
+            CLIType.GEMINI_CLI: "Gemini",
+            CLIType.CODEX_CLI: "Codex",
         }
         cli_name = cli_names.get(cli_type, cli_type)
         return CLITestResponse(
@@ -465,9 +466,9 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         if is_content_auth_fail and token_count == 0:
             # Classify CLI error for consistent messaging
             cli_names = {
-                "claude_code": "Anthropic",
-                "codex_cli": "OpenAI",
-                "gemini_cli": "Google",
+                CLIType.CLAUDE_CODE: "Anthropic",
+                CLIType.CODEX_CLI: "OpenAI",
+                CLIType.GEMINI_CLI: "Google",
             }
             account_name = cli_names.get(cli_type, cli_type)
             if "quota" in content_lower or "exceeded" in content_lower:
@@ -525,9 +526,9 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         logger.warning("CLI test failed for %s: %s", cli_type, error_str[:300])
 
         cli_names = {
-            "claude_code": "Anthropic",
-            "codex_cli": "OpenAI",
-            "gemini_cli": "Google",
+            CLIType.CLAUDE_CODE: "Anthropic",
+            CLIType.CODEX_CLI: "OpenAI",
+            CLIType.GEMINI_CLI: "Google",
         }
         account_name = cli_names.get(cli_type, cli_type)
         error_lower = error_str.lower()
@@ -645,15 +646,8 @@ async def test_provider(
     If api_key is provided in request body, it will be used directly.
     Otherwise, falls back to stored user key or environment variables.
     """
-    if provider not in ["openai", "anthropic", "gemini"]:
+    if provider not in list(LLMProviderEnum):
         raise HTTPException(status_code=400, detail="Invalid provider")
-
-    # Default model based on provider
-    default_models = {
-        "openai": "gpt-4.1",
-        "anthropic": "claude-sonnet-4-6-20260217",
-        "gemini": "gemini-2.5-flash",
-    }
 
     # Priority 1: Use API key from request body (for direct testing without saving)
     api_key = None
@@ -661,7 +655,7 @@ async def test_provider(
 
     if request and request.api_key:
         api_key = request.api_key.strip()
-        model = request.model or default_models.get(provider)
+        model = request.model or DEFAULT_MODELS.get(provider)
 
     # Priority 2: Get user's stored API key from database
     if not api_key and user_id:
@@ -669,36 +663,36 @@ async def test_provider(
         user = result.scalar_one_or_none()
 
         if user:
-            if provider == "openai":
+            if provider == LLMProviderEnum.OPENAI:
                 if user.openai_api_key_encrypted:
                     api_key = encryption_service.decrypt(user.openai_api_key_encrypted)
-                model = model or user.openai_model or default_models["openai"]
-            elif provider == "anthropic":
+                model = model or user.openai_model or DEFAULT_MODELS[LLMProviderEnum.OPENAI]
+            elif provider == LLMProviderEnum.ANTHROPIC:
                 if user.anthropic_api_key_encrypted:
                     api_key = encryption_service.decrypt(
                         user.anthropic_api_key_encrypted
                     )
-                model = model or user.anthropic_model or default_models["anthropic"]
-            elif provider == "gemini":
+                model = model or user.anthropic_model or DEFAULT_MODELS[LLMProviderEnum.ANTHROPIC]
+            elif provider == LLMProviderEnum.GEMINI:
                 if user.gemini_api_key_encrypted:
                     api_key = encryption_service.decrypt(user.gemini_api_key_encrypted)
-                model = model or user.gemini_model or default_models["gemini"]
+                model = model or user.gemini_model or DEFAULT_MODELS[LLMProviderEnum.GEMINI]
 
     # Priority 3: Fall back to settings (environment variables) only if use_env is True (Web mode)
     if not api_key and use_env:
         current_settings = get_settings()
-        if provider == "openai":
+        if provider == LLMProviderEnum.OPENAI:
             api_key = current_settings.openai_api_key or None
             model = model or current_settings.openai_model
-        elif provider == "anthropic":
+        elif provider == LLMProviderEnum.ANTHROPIC:
             api_key = current_settings.anthropic_api_key or None
             model = model or current_settings.anthropic_model
-        elif provider == "gemini":
+        elif provider == LLMProviderEnum.GEMINI:
             api_key = current_settings.gemini_api_key or None
             model = model or current_settings.gemini_model
 
     # Ensure model is set
-    model = model or default_models.get(provider, "unknown")
+    model = model or DEFAULT_MODELS.get(provider, "unknown")
 
     if not api_key:
         return LLMTestResponse(
@@ -712,7 +706,7 @@ async def test_provider(
         test_prompt = "Reply with only 'OK' and nothing else."
         logger.info("LLM test: provider=%s, model=%s", provider, model)
 
-        if provider == "openai":
+        if provider == LLMProviderEnum.OPENAI:
             from openai import AsyncOpenAI
 
             client = AsyncOpenAI(api_key=api_key)
@@ -732,7 +726,7 @@ async def test_provider(
                 token_usage=tokens,
             )
 
-        elif provider == "anthropic":
+        elif provider == LLMProviderEnum.ANTHROPIC:
             import anthropic
 
             client = anthropic.AsyncAnthropic(api_key=api_key)
@@ -763,7 +757,7 @@ async def test_provider(
                 token_usage=tokens,
             )
 
-        elif provider == "gemini":
+        elif provider == LLMProviderEnum.GEMINI:
             from google import genai
 
             client = genai.Client(api_key=api_key)
