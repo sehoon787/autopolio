@@ -1,31 +1,23 @@
 import { test, expect } from '@playwright/test'
 
+const API_URL = process.env.API_URL || 'http://localhost:8085/api'
+
 test.describe('LLM Provider Diagnosis', () => {
   test('check provider test results on Settings page', async ({ page }) => {
-    await page.goto('http://localhost:3035')
-    await page.waitForLoadState('networkidle')
-
-    // Navigate to Settings
-    const settingsLink = page.locator('a[href*="settings"], button:has-text("Settings"), [data-testid="settings"]')
-    if (await settingsLink.count() > 0) {
-      await settingsLink.first().click()
-    } else {
-      await page.goto('http://localhost:3035/settings')
-    }
-    await page.waitForLoadState('networkidle')
+    await page.goto('http://localhost:3035/settings')
+    await page.waitForLoadState('domcontentloaded')
 
     // Click API tab
     const apiTab = page.locator('button:has-text("API")')
-    if (await apiTab.count() > 0) {
-      await apiTab.first().click()
-      await page.waitForTimeout(500)
-    }
+    await expect(apiTab).toBeVisible()
+    await apiTab.first().click()
+    await page.waitForTimeout(500)
 
     // Check LLM config API response
-    const configResponse = await page.evaluate(async () => {
-      const res = await fetch('/api/llm/config')
-      return res.json()
-    })
+    const configResp = await page.request.get(`${API_URL}/llm/config`)
+    expect(configResp.ok()).toBeTruthy()
+    const configResponse = await configResp.json()
+
     console.log('=== LLM Config ===')
     for (const p of configResponse.providers) {
       console.log(`${p.id}: configured=${p.configured}, env_configured=${p.env_configured}`)
@@ -33,10 +25,8 @@ test.describe('LLM Provider Diagnosis', () => {
 
     // Test each provider via API
     for (const provider of ['openai', 'anthropic', 'gemini']) {
-      const testResponse = await page.evaluate(async (prov) => {
-        const res = await fetch(`/api/llm/test/${prov}?use_env=true`, { method: 'POST' })
-        return res.json()
-      }, provider)
+      const testResp = await page.request.post(`${API_URL}/llm/test/${provider}?use_env=true`)
+      const testResponse = await testResp.json()
       console.log(`=== ${provider} test: success=${testResponse.success}, response=${testResponse.response?.substring(0, 100)}`)
     }
 

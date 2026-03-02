@@ -10,7 +10,8 @@ test.describe('Dashboard career timeline', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   // === Tab navigation ===

@@ -8,6 +8,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3035'
  * should update immediately without needing to click the tab again.
  */
 test.describe('Tab count update after CRUD operations', () => {
+  test.describe.configure({ mode: 'serial' })
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL)
     await page.evaluate(() => {
@@ -15,7 +16,8 @@ test.describe('Tab count update after CRUD operations', () => {
       localStorage.setItem('user_name', 'sehoon787')
     })
     await page.goto(BASE_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
 
   // Helper: get count from tab text like "Certifications (3)" → 3
@@ -34,7 +36,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('certifications-awards: add certification updates Certifications tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Get initial count from "Certifications (N)" sub-tab
@@ -42,7 +44,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial certifications count: ${initialCount}`)
 
     // Click "Add Certification" button
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -77,7 +79,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('certifications-awards: add award updates Awards tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Switch to Awards sub-tab
@@ -89,7 +91,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial awards count: ${initialCount}`)
 
     // Add new award
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -118,7 +120,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('education-publications-patents: add training updates Training tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Switch to Training sub-tab
@@ -130,7 +132,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial training count: ${initialCount}`)
 
     // Add new training
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -172,7 +174,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('activities: add external activity updates External tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/activities`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Switch to External sub-tab
@@ -184,7 +186,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial external count: ${initialCount}`)
 
     // Add new external activity
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -213,7 +215,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('activities: add volunteer activity updates main Activities tab AND Volunteer sub-tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/activities`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Volunteer tab is default
@@ -221,7 +223,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial volunteer count: ${initialVolunteerCount}`)
 
     // Add new volunteer activity
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -250,7 +252,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('education-publications-patents: add publication updates Publications tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     // Switch to Publications sub-tab
@@ -262,7 +264,7 @@ test.describe('Tab count update after CRUD operations', () => {
     console.log(`Initial publications count: ${initialCount}`)
 
     // Add new publication
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
@@ -291,7 +293,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
   test('education-publications-patents: delete education updates Education tab count', async ({ page }) => {
     await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
     const initialCount = await getTabCount(page, /Education|학력/)
@@ -312,7 +314,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
     // Just use the API to create a temp one and then delete via UI
     // First add a temp education
-    const addBtn = page.getByRole('button', { name: /^Add$|^추가$|Add First|첫.*추가/ })
+    const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
     await page.waitForTimeout(500)
 

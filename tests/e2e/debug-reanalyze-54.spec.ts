@@ -16,7 +16,7 @@ test('project 54 re-analysis via UI button', async ({ page }) => {
   // Step 0: Set up user login state via localStorage
   console.log('=== Step 0: Set up user login ===');
   await page.goto(BASE_URL);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   // Fetch user data from API - skip if user doesn't exist
   const userResp = await page.request.get(`${API_URL}/users/${USER_ID}`);
@@ -40,7 +40,7 @@ test('project 54 re-analysis via UI button', async ({ page }) => {
   // Step 1: Navigate to project detail page
   console.log('=== Step 1: Navigate to project 54 ===');
   await page.goto(`${BASE_URL}/knowledge/projects/${PROJECT_ID}`);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(3000);
 
   // Take screenshot of the page
