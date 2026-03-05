@@ -31,6 +31,7 @@ export interface UseCLIAuthReturn {
   codexAuth: CLIAuthStatus | null
   isLoggingIn: CLIType | null
   loginUrl: string | null
+  deviceCode: string | null
   login: (tool: CLIType) => Promise<void>
   cancelLogin: () => Promise<void>
   logout: (tool: CLIType) => Promise<void>
@@ -43,6 +44,7 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   const [codexAuth, setCodexAuth] = useState<CLIAuthStatus | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState<CLIType | null>(null)
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
+  const [deviceCode, setDeviceCode] = useState<string | null>(null)
 
   const inElectron = isElectron()
   const isActive = inElectron || !!isLocalMode
@@ -208,6 +210,7 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
         if (!data.success) {
           loginWindow?.close()
           setIsLoggingIn(null)
+          setDeviceCode(null)
           return
         }
 
@@ -218,6 +221,11 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
           }
         } else {
           loginWindow?.close()
+        }
+
+        // Extract device code if present (Codex CLI)
+        if (data.device_code) {
+          setDeviceCode(data.device_code)
         }
 
         // Start polling for auth completion
@@ -251,6 +259,7 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     }
     setIsLoggingIn(null)
     setLoginUrl(null)
+    setDeviceCode(null)
   }, [isActive, inElectron])
 
   /**
@@ -277,9 +286,11 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     codexAuth,
     isLoggingIn,
     loginUrl,
+    deviceCode,
     login,
     cancelLogin,
     logout,
     refreshAuthStatus,
   }
+
 }

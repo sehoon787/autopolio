@@ -1,5 +1,5 @@
 // IPC Handlers - CLI Native Login (Claude Code, Gemini CLI)
-import { ipcMain, shell } from 'electron';
+import { ipcMain } from 'electron';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -348,7 +348,9 @@ function startLoginProcess(config) {
                     mainWindow.webContents.send('cli-auth:login-url', { tool, url });
                 }
                 // NOTE: Do NOT call shell.openExternal(url) here.
-                // The CLI already opens the browser natively — opening again causes duplicate tabs.
+                // The CLI (e.g. `claude auth login`) already opens the browser natively.
+                // Opening it again causes a duplicate browser tab.
+            }
         } : undefined;
         activeLoginProcess.stdout?.on('data', (data) => {
             output += data.toString();

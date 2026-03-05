@@ -110,6 +110,7 @@ export interface CLILoginResponse {
   success: boolean
   url?: string
   message?: string
+  device_code?: string
 }
 
 export interface CLILogoutResponse {

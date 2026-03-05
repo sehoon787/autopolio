@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 
 from api.config import get_settings
-from api.constants import CLIType, CODEX_AUTH_PATH
+from api.constants import CLIType, CODEX_AUTH_PATH, GEMINI_AUTH_OAUTH
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -628,9 +628,23 @@ class CLIService:
             if not account:
                 account = self._get_codex_account_from_file()
 
+            # Determine auth method: check CLI output first, then auth.json
+            method = "oauth"
+            if "api key" in combined.lower():
+                method = "api_key"
+            else:
+                # Check auth.json for definitive auth_mode
+                try:
+                    if CODEX_AUTH_PATH.exists():
+                        data = json.loads(CODEX_AUTH_PATH.read_text())
+                        if data.get("auth_mode") == "apikey":
+                            method = "api_key"
+                except (json.JSONDecodeError, OSError):
+                    pass
+
             return {
                 "authenticated": True,
-                "method": "oauth",
+                "method": method,
                 "account": account,
             }
 
@@ -809,6 +823,90 @@ class CLIService:
 
         return url
 
+    async def _spawn_login_and_extract_device_auth(
+        self, cmd: list[str], timeout_sec: int = 10
+    ) -> tuple[str | None, str | None]:
+        """Spawn a CLI login command, read stdout/stderr for up to
+        *timeout_sec* seconds, and return (url, device_code).
+
+        Similar to _spawn_login_and_extract_url but also extracts a
+        device code pattern like 'F263-62ZJL' from the output.
+        """
+        global _active_login_process
+        url_pattern = re.compile(r"https?://[^\s<>\x1b]+")
+        device_code_pattern = re.compile(r"\b([A-Z0-9]{4,}-[A-Z0-9]{4,})\b")
+
+        import select
+        import time
+        import threading
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+        )
+        _active_login_process = proc
+
+        # Phase 1: read output until both URL and device code found or timeout
+        output = b""
+        deadline = time.time() + timeout_sec
+        url = None
+        device_code = None
+        while time.time() < deadline:
+            try:
+                readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 2.0)
+                for stream in readable:
+                    chunk = os.read(stream.fileno(), 4096)
+                    if chunk:
+                        output += chunk
+            except (OSError, ValueError):
+                break
+
+            text = output.decode("utf-8", errors="replace")
+            if not url:
+                url_match = url_pattern.search(text)
+                if url_match:
+                    url = url_match.group(0)
+            if not device_code:
+                dc_match = device_code_pattern.search(text)
+                if dc_match:
+                    device_code = dc_match.group(1)
+
+            # Stop early if both found
+            if url and device_code:
+                break
+
+            if proc.poll() is not None:
+                break
+
+        if not url:
+            # No URL found — kill the process
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            _active_login_process = None
+            return None, None
+
+        # Phase 2: keep process alive for OAuth token exchange
+        def _wait_for_login_completion():
+            global _active_login_process
+            try:
+                proc.wait(timeout=180)
+            except subprocess.TimeoutExpired:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+            finally:
+                if _active_login_process is proc:
+                    _active_login_process = None
+
+        threading.Thread(target=_wait_for_login_completion, daemon=True).start()
+
+        return url, device_code
+
     async def _start_claude_login(self) -> dict:
         """Start Claude Code OAuth login via `claude auth login`."""
         path = await self._find_cli_in_path("claude")
@@ -826,15 +924,21 @@ class CLIService:
         }
 
     async def _start_codex_login(self) -> dict:
-        """Start Codex OAuth login via `codex login --device-auth`."""
+        """Start Codex OAuth login via `codex login --device-auth`.
+
+        Extracts both the URL and the one-time device code from output.
+        """
         path = await self._find_cli_in_path("codex")
         if not path:
             return {"success": False, "message": "Codex CLI not found"}
 
         cmd = self._shell_wrap(path, ["login", "--device-auth"])
-        url = await self._spawn_login_and_extract_url(cmd)
+        url, device_code = await self._spawn_login_and_extract_device_auth(cmd)
         if url:
-            return {"success": True, "url": url}
+            result: dict = {"success": True, "url": url}
+            if device_code:
+                result["device_code"] = device_code
+            return result
         return {
             "success": True,
             "url": "https://platform.openai.com/api-keys",
@@ -842,20 +946,68 @@ class CLIService:
         }
 
     async def _start_gemini_login(self) -> dict:
-        """Start Gemini CLI OAuth login via `gemini auth login`."""
+        """Start Gemini CLI OAuth login.
+
+        Gemini CLI has no `auth login` subcommand.  Instead we:
+        1. Switch settings.json to oauth-personal mode
+        2. Spawn `gemini -p 'Reply OK'` with API keys stripped from env
+        3. Gemini CLI opens browser for Google OAuth on first use
+        """
         path = await self._find_cli_in_path("gemini")
         if not path:
             return {"success": False, "message": "Gemini CLI not found"}
 
-        cmd = self._shell_wrap(path, ["auth", "login"])
-        url = await self._spawn_login_and_extract_url(cmd)
-        if url:
-            return {"success": True, "url": url}
-        return {
-            "success": True,
-            "url": "https://aistudio.google.com/apikey",
-            "message": "Could not extract login URL. Opening API key page.",
-        }
+        import time
+        import threading
+
+        global _active_login_process
+
+        try:
+            # Switch to oauth-personal mode
+            from api.services.llm.cli_llm_service import _switch_gemini_auth
+            _switch_gemini_auth(GEMINI_AUTH_OAUTH)
+
+            # Build clean env excluding API keys so CLI triggers OAuth
+            clean_env = {k: v for k, v in os.environ.items()
+                         if k not in ("GEMINI_API_KEY", "GEMINI_CLI_API_KEY")}
+
+            cmd = self._shell_wrap(path, ["-p", "Reply OK"])
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                env=clean_env,
+            )
+            _active_login_process = proc
+
+            # Background thread waits for process completion
+            def _wait_for_gemini_login():
+                global _active_login_process
+                try:
+                    proc.wait(timeout=180)
+                except subprocess.TimeoutExpired:
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+                finally:
+                    if _active_login_process is proc:
+                        _active_login_process = None
+
+            threading.Thread(target=_wait_for_gemini_login, daemon=True).start()
+
+            # Give CLI time to open browser
+            time.sleep(2)
+
+            return {
+                "success": True,
+                "url": None,
+                "message": "Gemini CLI opened browser for Google OAuth login",
+            }
+        except Exception as e:
+            logger.error("Gemini login failed: %s", e)
+            return {"success": False, "message": f"Failed to start Gemini login: {e}"}
 
     def _shell_wrap(self, path: str, args: list[str]) -> list[str]:
         """Wrap a CLI command for platform-specific shell execution."""
