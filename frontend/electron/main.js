@@ -19,6 +19,7 @@ import { initBackendManager, startPythonBackend, stopPythonBackend, } from './ba
 import { registerCLIDetectionIPC, setCachedCLIStatus, } from './ipc/cli-detection-ipc.js';
 import { registerCLIProcessIPC } from './ipc/cli-process-ipc.js';
 import { registerGitHubCLIIPC } from './ipc/github-cli-ipc.js';
+import { registerCLIAuthIPC } from './ipc/cli-auth-ipc.js';
 // Import CLI tool manager for prefetch
 import { getCLIToolManager } from './services/cli-tool-manager.js';
 // Custom protocol for OAuth callback
@@ -200,6 +201,9 @@ registerGitHubCLIIPC({
     getMainWindow: () => mainWindow,
     isDev,
     frontendPort: FRONTEND_PORT,
+});
+registerCLIAuthIPC({
+    getMainWindow: () => mainWindow,
 });
 // ============================================================================
 // Custom Protocol Handler

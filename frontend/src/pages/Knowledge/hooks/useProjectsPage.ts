@@ -67,6 +67,7 @@ export function useProjectsPage() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [isLoadingRepoInfo, setIsLoadingRepoInfo] = useState(false)
+  const [tierLimitError, setTierLimitError] = useState<{ code: string; current: number; max: number; tier: string } | null>(null)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
   // Filter state
@@ -145,7 +146,15 @@ export function useProjectsPage() {
       createForm.reset()
       toast({ title: t('projectAdded') })
     },
-    onError: (error: any) => toast({ title: tc('error'), description: error?.response?.data?.detail || t('addFailed'), variant: 'destructive' }),
+    onError: (error: any) => {
+      const detail = error?.response?.data?.detail
+      if (detail?.code === 'PROJECT_LIMIT_REACHED') {
+        setTierLimitError({ code: detail.code, current: detail.current, max: detail.max, tier: detail.tier })
+        setIsDialogOpen(false)
+      } else {
+        toast({ title: tc('error'), description: typeof detail === 'string' ? detail : t('addFailed'), variant: 'destructive' })
+      }
+    },
   })
 
   const deleteMutation = useMutation({
@@ -428,5 +437,9 @@ export function useProjectsPage() {
     kanbanItems,
     columns,
     handleMove,
+
+    // Tier limit
+    tierLimitError,
+    setTierLimitError,
   }
 }

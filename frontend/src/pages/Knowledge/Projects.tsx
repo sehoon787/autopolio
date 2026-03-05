@@ -38,6 +38,7 @@ import { ProjectFilters } from '@/components/ProjectFilters'
 import { SortDropdown, SortOption } from '@/components/SortDropdown'
 import { Plus, Pencil, Trash2, FolderKanban, Github, ExternalLink, Loader2, Sparkles, Kanban, List, Filter, X, Search, Play, RefreshCw, Calendar, Users, Briefcase, FileDown, StopCircle, Star } from 'lucide-react'
 import { useProjectsPage, ProjectKanbanItem } from './hooks/useProjectsPage'
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 
 // Kanban card component
 function ProjectKanbanCard({ project }: { project: Project }) {
@@ -158,6 +159,8 @@ export default function ProjectsPage() {
     handleSelectedBatchDelete,
     columns,
     handleMove,
+    tierLimitError,
+    setTierLimitError,
   } = useProjectsPage()
 
   const projectSortOptions: SortOption[] = [
@@ -200,6 +203,16 @@ export default function ProjectsPage() {
           <Button onClick={() => { createForm.reset(); setIsDialogOpen(true) }}><Plus className="h-4 w-4 mr-2" />{t('addProject')}</Button>
         </div>
       </div>
+
+      {/* Tier limit warning */}
+      {tierLimitError && (
+        <div className="relative">
+          <button className="absolute top-2 right-2 text-amber-600 hover:text-amber-800" onClick={() => setTierLimitError(null)}>
+            <X className="h-4 w-4" />
+          </button>
+          <UpgradePrompt type="project" />
+        </div>
+      )}
 
       {/* Search and Filter Bar */}
       <div className="flex items-center gap-4">

@@ -159,8 +159,11 @@ export function getAugmentedEnv(extraPaths = []) {
         return true;
     });
     const augmentedPath = [...uniqueNewPaths, existingPath].join(separator);
+    // Remove Claude Code session markers to avoid "nested session" error
+    // when Electron is launched from within a Claude Code session.
+    const { CLAUDECODE: _a, CLAUDE_CODE_ENTRYPOINT: _b, ...cleanEnv } = process.env;
     return {
-        ...process.env,
+        ...cleanEnv,
         PATH: augmentedPath,
     };
 }

@@ -11,6 +11,7 @@ import {
   Play,
   Loader2,
   KeyRound,
+  LogIn,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -73,15 +74,25 @@ interface CLIStatusCardProps {
   isCheckingAuth?: boolean
   isSavingKey?: boolean
   onSaveKey?: (apiKey: string) => void
+  // Native login props (Electron only, Claude Code & Gemini CLI)
+  supportsNativeLogin?: boolean
+  isNativeLoggingIn?: boolean
+  loginUrl?: string | null
+  nativeAuthEmail?: string | null
+  onNativeLogin?: () => void
+  onCancelNativeLogin?: () => void
+  onNativeLogout?: () => void
+  onSubmitAuthCode?: (code: string) => void
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange, authStatus, authMessage, isCheckingAuth, isSavingKey, onSaveKey }: CLIStatusCardProps) {
+export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange, authStatus, authMessage, isCheckingAuth, isSavingKey, onSaveKey, supportsNativeLogin, isNativeLoggingIn, loginUrl, nativeAuthEmail, onNativeLogin, onCancelNativeLogin, onSubmitAuthCode }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState('')
+  const [authCodeInput, setAuthCodeInput] = useState('')
 
   const cliConfig = CLI_CONFIG[cliType]
 
@@ -132,7 +143,11 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
 
   // Auth status badge: 연결됨 / 연결 안됨
   const getAuthBadge = () => {
-    if (!status?.installed) {
+    // Still loading CLI status — don't show badge yet
+    if (isLoading || !status) {
+      return null
+    }
+    if (!status.installed) {
       return (
         <Badge variant="destructive">
           {t('settings:cli.notInstalled')}
@@ -154,6 +169,16 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
         </Badge>
       )
     }
+    // unknown = not yet tested (autoTest will run) — show checking spinner
+    if (authStatus === 'unknown') {
+      return (
+        <Badge variant="secondary">
+          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          {t('settings:cli.checking')}
+        </Badge>
+      )
+    }
+    // auth_failed = tested and failed
     return (
       <Badge variant="outline" className="text-muted-foreground">
         {t('settings:llm.notConfigured')}
@@ -214,6 +239,62 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
             </Button>
           </TooltipTrigger>
           <TooltipContent>{keyTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  // Native login button (Claude Code, Gemini CLI only)
+  const getNativeLoginButton = () => {
+    if (!supportsNativeLogin || !status?.installed) return null
+
+    // Currently logging in
+    if (isNativeLoggingIn) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-blue-500"
+                onClick={onCancelNativeLogin}
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('settings:cli.loggingIn', 'Logging in...')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+
+    // Single login button — works as login or re-login depending on state
+    const isAuthenticated = !!(nativeAuthEmail || authStatus === 'authenticated')
+    const tooltip = isAuthenticated
+      ? t('settings:cli.reLogin', 'Re-login')
+      : t('settings:cli.login', 'Login')
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-8 w-8',
+                isAuthenticated
+                  ? 'text-green-600 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+              )}
+              onClick={onNativeLogin}
+              disabled={isLoading || isTesting}
+            >
+              <LogIn className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{tooltip}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )
@@ -282,6 +363,8 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
         </div>
         <div className="flex items-center gap-1">
           {getAuthBadge()}
+          {/* Native login button (Claude Code, Gemini CLI) */}
+          {getNativeLoginButton()}
           {/* API Key management */}
           {getKeyButton()}
           {/* Test button */}
@@ -388,6 +471,77 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
           >
             {t('settings:cli.cancel', 'Cancel')}
           </Button>
+        </div>
+      )}
+
+      {/* Native login in progress */}
+      {isNativeLoggingIn && loginUrl && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md space-y-2">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                {t('settings:cli.loggingIn', 'Logging in...')}
+              </p>
+              <a
+                href={loginUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 hover:underline truncate block"
+              >
+                {t('settings:cli.openLoginPage', 'Open login page')}
+                <ExternalLink className="inline-block ml-1 h-3 w-3" />
+              </a>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={onCancelNativeLogin}
+            >
+              {t('settings:cli.cancel', 'Cancel')}
+            </Button>
+          </div>
+          {/* Auth code input for CLI OAuth code-paste flow */}
+          {onSubmitAuthCode && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={authCodeInput}
+                onChange={(e) => setAuthCodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && authCodeInput.trim()) {
+                    onSubmitAuthCode(authCodeInput.trim())
+                    setAuthCodeInput('')
+                  }
+                }}
+                placeholder={t('settings:cli.pasteAuthCode', 'Paste auth code here')}
+                className="flex-1 h-7 px-2 text-xs border rounded bg-white dark:bg-gray-800"
+              />
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 text-xs shrink-0"
+                disabled={!authCodeInput.trim()}
+                onClick={() => {
+                  onSubmitAuthCode(authCodeInput.trim())
+                  setAuthCodeInput('')
+                }}
+              >
+                {t('settings:cli.submit', 'Submit')}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Native auth account info */}
+      {nativeAuthEmail && !isNativeLoggingIn && (
+        <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+          <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+          <span className="text-xs text-green-700 dark:text-green-300 truncate">
+            {t('settings:cli.loggedInAs', { account: nativeAuthEmail, defaultValue: `Logged in as ${nativeAuthEmail}` })}
+          </span>
         </div>
       )}
 

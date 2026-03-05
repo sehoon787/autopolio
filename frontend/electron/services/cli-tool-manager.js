@@ -113,29 +113,62 @@ export class CLIToolManager {
             const result = await executeCLI(status.path, args, CLI_TEST_TIMEOUT);
             const rawOutput = result.stdout.trim();
             // Parse JSON output for content and tokens
-            const { content, tokens } = this.parseTestOutput(rawOutput, tool);
-            console.log(`[CLI Test] ${tool} response: ${JSON.stringify(content).substring(0, 200)}, tokens=${tokens}`);
-            debugLog(`CLI test output: ${content.substring(0, 200)}`);
-            debugLog(`CLI test tokens: ${tokens}`);
+            const parsed = this.parseTestOutput(rawOutput, tool);
+            console.log(`[CLI Test] ${tool} response: ${JSON.stringify(parsed.content).substring(0, 200)}, tokens=${parsed.tokens}`);
+            debugLog(`CLI test output: ${parsed.content.substring(0, 200)}`);
+            debugLog(`CLI test tokens: ${parsed.tokens}`);
+            // Codex CLI may exit 0 but include error in JSONL output
+            if ('error' in parsed && parsed.error) {
+                const isBillingError = /quota|billing|credit|balance|insufficient|exceeded|overdue|payment/i.test(parsed.error);
+                return {
+                    success: false,
+                    tool,
+                    message: parsed.error,
+                    version: status.version || undefined,
+                    path: status.path,
+                    output: parsed.content,
+                    tokens: parsed.tokens,
+                    auth_status: isBillingError ? 'authenticated' : 'auth_failed',
+                    error: classifyError(parsed.error),
+                };
+            }
             return {
                 success: true,
                 tool,
-                message: content || `${getConfig(tool).name} is working correctly`,
+                message: parsed.content || `${getConfig(tool).name} is working correctly`,
                 version: status.version || undefined,
                 path: status.path,
-                output: content,
-                tokens,
+                output: parsed.content,
+                tokens: parsed.tokens,
+                auth_status: 'authenticated',
             };
         }
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            // Include stdout/stderr from failed command for better error classification
+            const stdout = error?.stdout || '';
+            const stderr = error?.stderr || '';
+            const fullContext = `${errorMessage}\n${stdout}\n${stderr}`;
             debugLog(`Test failed for ${tool}:`, errorMessage);
+            // Check stdout for JSONL errors (Codex CLI outputs errors as JSONL even on failure)
+            let jsonlError;
+            if (stdout && tool === 'codex_cli') {
+                const parsed = this.parseCodexJsonl(stdout);
+                if (parsed.error)
+                    jsonlError = parsed.error;
+            }
+            const userMessage = jsonlError || errorMessage;
+            // Distinguish billing/quota errors (authenticated but no credits) from auth failures
+            const isBillingError = /quota|billing|credit|balance|insufficient|exceeded|overdue|payment/i.test(fullContext);
+            const classified = classifyError(userMessage);
             return {
                 success: false,
                 tool,
-                message: `Failed to run ${getConfig(tool).name}`,
+                message: jsonlError || `Failed to run ${getConfig(tool).name}`,
                 path: status.path,
-                error: classifyError(errorMessage),
+                output: jsonlError || errorMessage,
+                auth_status: isBillingError ? 'authenticated' : (classified.type === 'auth_failure' ? 'auth_failed' : 'authenticated'),
+                error: classified,
             };
         }
     }
@@ -180,10 +213,12 @@ export class CLIToolManager {
      * Expected lines:
      *   {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
      *   {"type":"turn.completed","usage":{"input_tokens":N,"output_tokens":N}}
+     *   {"type":"error","message":"..."}
      */
     parseCodexJsonl(raw) {
         const messages = [];
         let tokens = 0;
+        let errorMessage;
         for (const line of raw.split('\n')) {
             const trimmed = line.trim();
             if (!trimmed)
@@ -197,13 +232,16 @@ export class CLIToolManager {
                 else if (obj?.type === 'turn.completed' && obj.usage) {
                     tokens += (obj.usage.input_tokens || 0) + (obj.usage.output_tokens || 0);
                 }
+                else if (obj?.type === 'error' && obj.message) {
+                    errorMessage = obj.message;
+                }
             }
             catch {
                 // skip non-JSON lines
             }
         }
         const content = messages.join('\n');
-        return { content: content || raw, tokens };
+        return { content: content || raw, tokens, error: errorMessage };
     }
     /**
      * Clear all caches

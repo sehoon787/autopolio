@@ -8,8 +8,26 @@ export interface User {
   github_avatar_url: string | null
   preferred_llm: string
   preferred_language: string  // "ko" or "en" (v1.12)
+  tier: string  // "free", "pro", "enterprise"
   created_at: string
   updated_at: string
+}
+
+export interface TierLimits {
+  max_projects: number | null
+  max_repos_per_project: number | null
+  max_llm_calls_per_month: number | null
+  allowed_export_formats: string[]
+}
+
+export interface UserUsage {
+  tier: string
+  limits: TierLimits
+  usage: {
+    projects: number
+    llm_calls_this_month: number
+    year_month: string
+  }
 }
 
 export interface UserStats {
@@ -92,6 +110,8 @@ export const usersApi = {
   delete: (id: number) => apiClient.delete(`/users/${id}`),
 
   getStats: (id: number) => apiClient.get<UserStats>(`/users/${id}/stats`),
+
+  getUsage: (id: number) => apiClient.get<UserUsage>(`/users/${id}/usage`),
 
   // Profile API
   getProfile: (id: number) => apiClient.get<UserProfile>(`/users/${id}/profile`),

@@ -181,6 +181,11 @@ export async function findInSystemPath(executable: string): Promise<string | nul
       } as any) as unknown as { stdout: string; stderr: string }
 
       const foundPath = stdout.trim()
+      // Skip local node_modules paths (project-local installs, often outdated)
+      if (foundPath && foundPath.includes('node_modules') && !foundPath.includes('npm/node_modules')) {
+        debugLog(`Skipping local node_modules path: ${foundPath}`)
+        return null
+      }
       if (foundPath && fs.existsSync(foundPath)) {
         debugLog(`Found via 'which': ${foundPath}`)
         return foundPath
@@ -450,10 +455,19 @@ export async function executeCLI(
     })
   }
 
-  return execFileAsync(cliPath, args, {
-    timeout,
-    env: augmentedEnv,
-  })
+  try {
+    return await execFileAsync(cliPath, args, {
+      timeout,
+      env: augmentedEnv,
+    })
+  } catch (error: any) {
+    // Rethrow with stderr included for better diagnostics
+    const stderr = error?.stderr || ''
+    if (stderr) {
+      debugLog(`CLI stderr: ${stderr.substring(0, 500)}`)
+    }
+    throw error
+  }
 }
 
 /**

@@ -1,21 +1,38 @@
+import { isElectron } from '@/lib/electron'
+import { usePlanStore } from '@/stores/planStore'
+import { USER_TIERS } from '@/constants/enums'
+
 /**
- * Feature flags for conditional rendering based on environment
+ * Feature flags for conditional rendering based on environment and tier
  */
 export function useFeatureFlags() {
+  const tier = usePlanStore((s) => s.tier)
+
+  // Electron desktop: all features unlocked
+  if (isElectron()) {
+    return {
+      showCLIStatus: true,
+      showAPIKeys: true,
+      showLLMProviders: true,
+      showModelSelection: true,
+      showDesktopDownloadNotice: false,
+      canExportDocx: true,
+      canExportPdf: true,
+      canExportHtml: true,
+    }
+  }
+
   return {
-    // CLI status — available in both web (via backend API) and Electron (via IPC)
+    // Existing flags
     showCLIStatus: true,
-
-    // API keys — available in both modes
     showAPIKeys: true,
-
-    // LLM provider selection is always visible
     showLLMProviders: true,
-
-    // Model selection is always visible
     showModelSelection: true,
-
-    // Desktop download notice — no longer needed since CLI works in web mode
     showDesktopDownloadNotice: false,
+
+    // Tier-based export flags
+    canExportDocx: tier !== USER_TIERS.FREE,
+    canExportPdf: tier === USER_TIERS.ENTERPRISE,
+    canExportHtml: tier !== USER_TIERS.FREE,
   }
 }

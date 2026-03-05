@@ -34,6 +34,7 @@ import DocumentsPage from '@/pages/Documents'
 import DocumentPreviewPage from '@/pages/Documents/Preview'
 import HistoryPage from '@/pages/History'
 import SettingsPage from '@/pages/Settings'
+import PricingPage from '@/pages/Pricing'
 import RepoSelectorPage from '@/pages/GitHub/RepoSelector'
 
 function App() {
@@ -342,6 +343,7 @@ function App() {
           <Route path="documents/:id" element={<DocumentPreviewPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="pricing" element={<PricingPage />} />
         </Route>
       </Routes>
       <Toaster />

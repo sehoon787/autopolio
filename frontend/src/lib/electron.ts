@@ -2,11 +2,13 @@
  * Electron environment detection utilities
  */
 
+import type { CLIType } from '@/constants'
+
 // ============================================================================
-// CLI Types (shared with Electron)
+// CLI Types (re-exported from constants for backward compatibility)
 // ============================================================================
 
-export type CLIType = 'claude_code' | 'gemini_cli' | 'codex_cli'
+export type { CLIType }
 
 export interface CLIStatus {
   tool: CLIType
@@ -80,6 +82,31 @@ export interface OutputData {
 export type OutputCallback = (data: OutputData) => void
 
 // ============================================================================
+// CLI Auth Types (Native Login)
+// ============================================================================
+
+export interface CLIAuthStatus {
+  authenticated: boolean
+  method?: 'oauth' | 'api_key'
+  email?: string        // Claude Code
+  account?: string      // Gemini CLI
+  error?: string
+}
+
+export interface CLILoginResult {
+  success: boolean
+  tool: string
+  email?: string
+  account?: string
+  error?: string
+}
+
+export interface CLILoginUrlEvent {
+  tool: string
+  url: string
+}
+
+// ============================================================================
 // Electron API Type Definition
 // ============================================================================
 
@@ -111,6 +138,14 @@ interface ElectronAPI {
   // CLI Output Streaming APIs (NEW)
   subscribeCLIOutput: (sessionId: string, callback: OutputCallback) => () => void
   onCLIOutput: (callback: OutputCallback) => () => void
+
+  // CLI Auth APIs (Native Login)
+  getCLIAuthStatus: (tool: CLIType) => Promise<CLIAuthStatus>
+  startCLILogin: (tool: CLIType) => Promise<CLILoginResult>
+  cancelCLILogin: () => Promise<{ success: boolean; message?: string }>
+  cliLogout: (tool: CLIType) => Promise<{ success: boolean; error?: string }>
+  onCLILoginUrl: (callback: (data: CLILoginUrlEvent) => void) => () => void
+  onCLILoginComplete: (callback: (data: CLILoginResult) => void) => () => void
 
   // GitHub CLI APIs (Device Code Flow)
   getGitHubCLIStatus: () => Promise<{
@@ -468,4 +503,71 @@ export function onCLIOutput(callback: OutputCallback): () => void {
     }
   }
   return () => {} // No-op unsubscribe
+}
+
+// ============================================================================
+// CLI Auth APIs (Native Login)
+// ============================================================================
+
+/**
+ * Get CLI native auth status (OAuth/credential check, no token consumed)
+ * In Electron: checks via IPC
+ * In Web: returns null
+ */
+export async function getCLIAuthStatus(tool: CLIType): Promise<CLIAuthStatus | null> {
+  if (isElectron() && window.electron) {
+    try {
+      return await window.electron.getCLIAuthStatus(tool)
+    } catch (error) {
+      console.error('[Electron] Failed to get CLI auth status:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Start CLI native login
+ * In Electron: starts login via IPC
+ * In Web: returns null
+ */
+export async function startCLILogin(tool: CLIType): Promise<CLILoginResult | null> {
+  if (isElectron() && window.electron) {
+    try {
+      return await window.electron.startCLILogin(tool)
+    } catch (error) {
+      console.error('[Electron] Failed to start CLI login:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Cancel ongoing CLI login
+ * In Electron: cancels via IPC
+ * In Web: no-op
+ */
+export async function cancelCLILogin(): Promise<void> {
+  if (isElectron() && window.electron) {
+    try {
+      await window.electron.cancelCLILogin()
+    } catch (error) {
+      console.error('[Electron] Failed to cancel CLI login:', error)
+    }
+  }
+}
+
+/**
+ * Logout from CLI
+ * In Electron: logs out via IPC
+ * In Web: no-op
+ */
+export async function cliLogout(tool: CLIType): Promise<{ success: boolean; error?: string } | null> {
+  if (isElectron() && window.electron) {
+    try {
+      return await window.electron.cliLogout(tool)
+    } catch (error) {
+      console.error('[Electron] Failed to logout CLI:', error)
+    }
+  }
+  return null
 }

@@ -108,6 +108,36 @@ contextBridge.exposeInMainWorld('electron', {
   },
 
   // ============================================================================
+  // CLI Auth APIs (Native Login)
+  // ============================================================================
+
+  // Get CLI auth status (OAuth/credential check, no token consumed)
+  getCLIAuthStatus: (tool) => ipcRenderer.invoke('cli-auth:status', tool),
+
+  // Start CLI native login (Claude Code: `claude login`, Gemini CLI: auto OAuth)
+  startCLILogin: (tool) => ipcRenderer.invoke('cli-auth:login', tool),
+
+  // Cancel ongoing CLI login
+  cancelCLILogin: () => ipcRenderer.invoke('cli-auth:cancel'),
+
+  // Logout from CLI
+  cliLogout: (tool) => ipcRenderer.invoke('cli-auth:logout', tool),
+
+  // Subscribe to CLI login URL event (Claude Code shows URL to open)
+  onCLILoginUrl: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('cli-auth:login-url', handler)
+    return () => ipcRenderer.removeListener('cli-auth:login-url', handler)
+  },
+
+  // Subscribe to CLI login completion event
+  onCLILoginComplete: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('cli-auth:login-complete', handler)
+    return () => ipcRenderer.removeListener('cli-auth:login-complete', handler)
+  },
+
+  // ============================================================================
   // GitHub CLI APIs (Device Code Flow)
   // ============================================================================
 

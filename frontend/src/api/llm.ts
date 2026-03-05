@@ -97,6 +97,26 @@ export interface LLMTestResponse {
   token_usage?: number
 }
 
+// CLI Native Auth (web-local mode)
+export interface CLIAuthStatusResponse {
+  authenticated: boolean
+  method?: 'oauth' | 'api_key'
+  email?: string
+  account?: string
+  error?: string
+}
+
+export interface CLILoginResponse {
+  success: boolean
+  url?: string
+  message?: string
+}
+
+export interface CLILogoutResponse {
+  success: boolean
+  message?: string
+}
+
 export const llmApi = {
   // Get LLM configuration and CLI status
   getConfig: (userId?: number) =>
@@ -147,6 +167,22 @@ export const llmApi = {
   // Disconnect CLI tool (remove API key from .env)
   disconnectCLI: (cliType: 'claude_code' | 'gemini_cli' | 'codex_cli') =>
     apiClient.post<CLIConnectResponse>(`/llm/cli/disconnect/${cliType}`),
+
+  // CLI Native Auth (web-local mode)
+  getCLIAuthStatus: (cliType: string) =>
+    apiClient.get<CLIAuthStatusResponse>(`/llm/cli/auth/${cliType}`),
+
+  startCLILogin: (cliType: string) =>
+    apiClient.post<CLILoginResponse>(`/llm/cli/auth/${cliType}/login`),
+
+  cancelCLILogin: () =>
+    apiClient.post(`/llm/cli/auth/cancel`),
+
+  submitAuthCode: (code: string) =>
+    apiClient.post<{ success: boolean; message?: string }>(`/llm/cli/auth/submit-code`, { code }),
+
+  cliLogout: (cliType: string) =>
+    apiClient.post<CLILogoutResponse>(`/llm/cli/auth/${cliType}/logout`),
 
   // Test LLM provider
   // api_key: directly test with this key (without saving)

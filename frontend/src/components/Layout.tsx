@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { UsageDisplay } from '@/components/UsageDisplay'
 import { RateLimitBanner } from '@/components/RateLimitBanner'
 import { Logo } from '@/components/Logo'
+import { isElectron } from '@/lib/electron'
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,6 +20,7 @@ import {
   Building2,
   FileText,
   Settings,
+  Crown,
   History,
   Github,
   FileOutput,
@@ -253,6 +255,24 @@ export default function Layout() {
               </Link>
               <ThemeToggle />
             </div>
+
+            {/* Pricing link (web only) */}
+            {!isElectron() && (
+              <div className="px-4 py-1">
+                <Link
+                  to="/pricing"
+                  className={cn(
+                    'flex items-center gap-2 text-xs font-medium transition-colors',
+                    location.pathname === '/pricing'
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  {t('navigation:pricing')}
+                </Link>
+              </div>
+            )}
 
             {/* User profile */}
             <div className="p-4 pt-2">

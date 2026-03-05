@@ -19,6 +19,7 @@ import {
   type CLIType,
 } from '@/lib/electron'
 
+import { useCLIAuth } from '@/hooks/useCLIAuth'
 import { CLITab } from './CLITab'
 import { APITab } from './APITab'
 import { CurrentSelectionCard } from './CurrentSelectionCard'
@@ -46,6 +47,34 @@ export default function LLMSection() {
   const queryClient = useQueryClient()
   const { showCLIStatus } = useFeatureFlags()
 
+  // Fetch LLM config from backend (must be before useCLIAuth to determine local mode)
+  const { data: llmConfig, isLoading: isLoadingConfig, isError: isConfigError } = useQuery({
+    queryKey: ['llmConfig', user?.id],
+    queryFn: async () => {
+      const response = await llmApi.getConfig(user?.id)
+      return response.data
+    },
+    retry: 1,
+  })
+
+  // Default to true while loading — show login/key buttons immediately.
+  // Only hide if runtime is explicitly 'external' (remote server without CLI access).
+  const isLocalMode = !llmConfig || llmConfig.runtime === 'local' || llmConfig.runtime === 'docker'
+  // CLI connection/key buttons in Electron + local mode
+  const showCLIManagement = isElectronApp || isLocalMode
+
+  // Native CLI auth (Electron + web local mode)
+  const {
+    claudeAuth,
+    geminiAuth,
+    codexAuth,
+    isLoggingIn,
+    loginUrl,
+    login: nativeLogin,
+    cancelLogin: nativeCancelLogin,
+    logout: nativeLogout,
+  } = useCLIAuth(isLocalMode)
+
   // Test states
   const [testingCLI, setTestingCLI] = useState<string | null>(null)
   const [testingProvider, setTestingProvider] = useState<string | null>(null)
@@ -69,20 +98,6 @@ export default function LLMSection() {
   // Error messages from auto-test (displayed in card tooltips)
   const [cliAuthMessages, setCliAuthMessages] = useState<Record<string, string>>({})
   const [apiAuthMessages, setApiAuthMessages] = useState<Record<string, string>>({})
-
-  // Fetch LLM config from backend (must be before CLI queries to determine local mode)
-  const { data: llmConfig, isLoading: isLoadingConfig, isError: isConfigError } = useQuery({
-    queryKey: ['llmConfig', user?.id],
-    queryFn: async () => {
-      const response = await llmApi.getConfig(user?.id)
-      return response.data
-    },
-    retry: 1,
-  })
-
-  const isLocalMode = llmConfig?.runtime === 'local'
-  // CLI connection/key buttons in Electron + local mode
-  const showCLIManagement = isElectronApp || isLocalMode
 
   // Fetch CLI status — always (CLI providers are available in web too)
   const { data: claudeCLIStatus, isLoading: isLoadingClaudeCLI } = useQuery({
@@ -152,6 +167,8 @@ export default function LLMSection() {
     }
   }
 
+  // Auto-test CLI connectivity (actual CLI call — definitive auth check)
+  // Native auth (useCLIAuth) only provides email/account info, NOT auth status.
   useEffect(() => {
     if (claudeCLIStatus?.installed && !autoTestedRef.current.has('claude_code')) {
       autoTestedRef.current.add('claude_code')
@@ -265,7 +282,9 @@ export default function LLMSection() {
       if (isElectronApp) {
         const result = await testCLIElectron(cliType as CLIType, model)
         if (!result) throw new Error('Electron API not available')
-        if (!result.success) throw new Error(result.error?.message || result.message || 'CLI test failed')
+        // Don't throw on !success — let onSuccess handle it so auth_status is preserved.
+        // Throwing here sends control to onError which hardcodes 'auth_failed',
+        // losing the distinction between billing errors (authenticated) and real auth failures.
         return result
       }
       const response = await llmApi.testCLI(cliType, model)
@@ -514,18 +533,42 @@ export default function LLMSection() {
   }
 
   // Get current selection info
+  // While a test is running, show the provider/CLI being tested (not the newly selected one)
   const getCurrentSelection = (): CurrentSelection => {
+    const cliStatuses: Record<string, typeof claudeCLIStatus> = {
+      claude_code: claudeCLIStatus,
+      codex_cli: codexCLIStatus,
+      gemini_cli: geminiCLIStatus,
+    }
+    const cliNames: Record<string, string> = {
+      claude_code: 'Claude Code',
+      codex_cli: 'Codex CLI',
+      gemini_cli: 'Gemini CLI',
+    }
+
+    // If CLI test is running, show the CLI being tested
+    if (testingCLI) {
+      const status = cliStatuses[testingCLI] ?? claudeCLIStatus
+      return {
+        type: 'CLI',
+        name: cliNames[testingCLI] || testingCLI,
+        installed: status?.installed ?? false,
+        version: status?.version ?? null,
+      }
+    }
+
+    // If API test is running, show the provider being tested
+    if (testingProvider) {
+      const provider = providers.find(p => p.id === testingProvider)
+      return {
+        type: 'API',
+        name: provider?.name ?? testingProvider,
+        configured: provider?.configured ?? false,
+        model: provider?.selected_model ?? provider?.default_model,
+      }
+    }
+
     if (aiMode === 'cli') {
-      const cliStatuses: Record<string, typeof claudeCLIStatus> = {
-        claude_code: claudeCLIStatus,
-        codex_cli: codexCLIStatus,
-        gemini_cli: geminiCLIStatus,
-      }
-      const cliNames: Record<string, string> = {
-        claude_code: 'Claude Code',
-        codex_cli: 'Codex CLI',
-        gemini_cli: 'Gemini CLI',
-      }
       const status = cliStatuses[selectedCLI] ?? claudeCLIStatus
       return {
         type: 'CLI',
@@ -543,6 +586,14 @@ export default function LLMSection() {
       }
     }
   }
+
+  // Effective checking: show "Checking..." while autoTest hasn't finished
+  const effectiveCheckingClaude = isCheckingClaudeAuth ||
+    (claudeAuthStatus === 'unknown' && !!claudeCLIStatus?.installed)
+  const effectiveCheckingGemini = isCheckingGeminiAuth ||
+    (geminiAuthStatus === 'unknown' && !!geminiCLIStatus?.installed)
+  const effectiveCheckingCodex = isCheckingCodexAuth ||
+    (codexAuthStatus === 'unknown' && !!codexCLIStatus?.installed)
 
   const currentSelection = getCurrentSelection()
 
@@ -601,9 +652,9 @@ export default function LLMSection() {
             claudeAuthMessage={cliAuthMessages.claude_code}
             geminiAuthMessage={cliAuthMessages.gemini_cli}
             codexAuthMessage={cliAuthMessages.codex_cli}
-            isCheckingClaudeAuth={isCheckingClaudeAuth}
-            isCheckingGeminiAuth={isCheckingGeminiAuth}
-            isCheckingCodexAuth={isCheckingCodexAuth}
+            isCheckingClaudeAuth={effectiveCheckingClaude}
+            isCheckingGeminiAuth={effectiveCheckingGemini}
+            isCheckingCodexAuth={effectiveCheckingCodex}
             isSavingKey={saveKeyCLIMutation.isPending}
             onRefreshAll={() => refreshAllCLIMutation.mutate()}
             onRefreshClaudeCLI={() => refreshClaudeCLIMutation.mutate()}
@@ -615,6 +666,51 @@ export default function LLMSection() {
             onGeminiCLIModelChange={setGeminiCLIModel}
             onCodexCLIModelChange={setCodexCLIModel}
             onSaveKey={(cliType, apiKey) => saveKeyCLIMutation.mutate({ cliType, apiKey })}
+            isNativeLoggingIn={isLoggingIn}
+            loginUrl={loginUrl}
+            claudeNativeAuthEmail={claudeAuth?.email || (claudeAuth?.authenticated && claudeAuth.method !== 'api_key' ? 'OAuth' : null)}
+            geminiNativeAuthAccount={geminiAuth?.account || (geminiAuth?.authenticated ? 'Google OAuth' : null)}
+            codexNativeAuthAccount={codexAuth?.account || (codexAuth?.authenticated && codexAuth.method !== 'api_key' ? 'OAuth' : null)}
+            onNativeLogin={(isElectronApp || isLocalMode) ? nativeLogin : undefined}
+            onCancelNativeLogin={(isElectronApp || isLocalMode) ? nativeCancelLogin : undefined}
+            onSubmitAuthCode={async (code) => {
+              try {
+                const response = await llmApi.submitAuthCode(code)
+                if (response.data.success) {
+                  toast({ title: t('llm.authCodeSubmitted', 'Auth code submitted. Verifying...') })
+                  // Cancel login UI immediately
+                  nativeCancelLogin?.()
+                  // Wait for CLI to exchange the code for tokens (takes a few seconds)
+                  await new Promise(r => setTimeout(r, 5000))
+                  // Re-test all CLIs to check if auth succeeded
+                  autoTestedRef.current.clear()
+                  setClaudeAuthStatus('unknown')
+                  setGeminiAuthStatus('unknown')
+                  setCodexAuthStatus('unknown')
+                  queryClient.invalidateQueries({ queryKey: ['claudeCLIStatus'] })
+                  queryClient.invalidateQueries({ queryKey: ['geminiCLIStatus'] })
+                  queryClient.invalidateQueries({ queryKey: ['codexCLIStatus'] })
+                } else {
+                  toast({ title: t('llm.authCodeFailed', 'Auth code failed'), description: response.data.message, variant: 'destructive' })
+                }
+              } catch (e) {
+                toast({ title: t('llm.authCodeFailed', 'Auth code failed'), description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' })
+              }
+            }}
+            onNativeLogout={(isElectronApp || isLocalMode) ? async (tool) => {
+              await nativeLogout(tool)
+              // Reset auth status to allow re-test
+              if (tool === 'claude_code') {
+                autoTestedRef.current.delete('claude_code')
+                setClaudeAuthStatus('unknown')
+              } else if (tool === 'gemini_cli') {
+                autoTestedRef.current.delete('gemini_cli')
+                setGeminiAuthStatus('unknown')
+              } else if (tool === 'codex_cli') {
+                autoTestedRef.current.delete('codex_cli')
+                setCodexAuthStatus('unknown')
+              }
+            } : undefined}
           />
         </TabsContent>
 

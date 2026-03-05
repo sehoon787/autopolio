@@ -40,6 +40,15 @@ interface CLITabProps {
   isCheckingCodexAuth?: boolean
   isSavingKey?: boolean
   showAll?: boolean  // true: show connect/key buttons (Electron/Local), false: hide management UI
+  // Native login props (Electron only)
+  isNativeLoggingIn?: string | null
+  loginUrl?: string | null
+  claudeNativeAuthEmail?: string | null
+  geminiNativeAuthAccount?: string | null
+  codexNativeAuthAccount?: string | null
+  onNativeLogin?: (tool: CLIType) => void
+  onCancelNativeLogin?: () => void
+  onNativeLogout?: (tool: CLIType) => void
   onRefreshAll: () => void
   onRefreshClaudeCLI: () => void
   onRefreshGeminiCLI: () => void
@@ -50,6 +59,7 @@ interface CLITabProps {
   onGeminiCLIModelChange: (model: string) => void
   onCodexCLIModelChange: (model: string) => void
   onSaveKey?: (cliType: CLIType, apiKey: string) => void
+  onSubmitAuthCode?: (code: string) => void
 }
 
 export function CLITab({
@@ -89,6 +99,15 @@ export function CLITab({
   onCodexCLIModelChange,
   onSaveKey,
   showAll = true,
+  isNativeLoggingIn,
+  loginUrl,
+  claudeNativeAuthEmail,
+  geminiNativeAuthAccount,
+  codexNativeAuthAccount,
+  onNativeLogin,
+  onCancelNativeLogin,
+  onNativeLogout,
+  onSubmitAuthCode,
 }: CLITabProps) {
   const { t } = useTranslation('settings')
 
@@ -145,6 +164,14 @@ export function CLITab({
             isCheckingAuth={isCheckingClaudeAuth}
             isSavingKey={isSavingKey}
             onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.CLAUDE_CODE, apiKey) : undefined}
+            supportsNativeLogin={showAll && !!onNativeLogin}
+            isNativeLoggingIn={isNativeLoggingIn === CLI_TYPES.CLAUDE_CODE}
+            loginUrl={isNativeLoggingIn === CLI_TYPES.CLAUDE_CODE ? loginUrl : null}
+            nativeAuthEmail={claudeNativeAuthEmail}
+            onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.CLAUDE_CODE) : undefined}
+            onCancelNativeLogin={onCancelNativeLogin}
+            onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.CLAUDE_CODE) : undefined}
+            onSubmitAuthCode={onSubmitAuthCode}
           />
           {/* Gemini CLI */}
           <CLIStatusCard
@@ -164,6 +191,14 @@ export function CLITab({
             isCheckingAuth={isCheckingGeminiAuth}
             isSavingKey={isSavingKey}
             onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.GEMINI_CLI, apiKey) : undefined}
+            supportsNativeLogin={showAll && !!onNativeLogin}
+            isNativeLoggingIn={isNativeLoggingIn === CLI_TYPES.GEMINI_CLI}
+            loginUrl={isNativeLoggingIn === CLI_TYPES.GEMINI_CLI ? loginUrl : null}
+            nativeAuthEmail={geminiNativeAuthAccount}
+            onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.GEMINI_CLI) : undefined}
+            onCancelNativeLogin={onCancelNativeLogin}
+            onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.GEMINI_CLI) : undefined}
+            onSubmitAuthCode={onSubmitAuthCode}
           />
           {/* Codex CLI */}
           <CLIStatusCard
@@ -183,6 +218,14 @@ export function CLITab({
             isCheckingAuth={isCheckingCodexAuth}
             isSavingKey={isSavingKey}
             onSaveKey={showAll && onSaveKey ? (apiKey) => onSaveKey(CLI_TYPES.CODEX_CLI, apiKey) : undefined}
+            supportsNativeLogin={showAll && !!onNativeLogin}
+            isNativeLoggingIn={isNativeLoggingIn === CLI_TYPES.CODEX_CLI}
+            loginUrl={isNativeLoggingIn === CLI_TYPES.CODEX_CLI ? loginUrl : null}
+            nativeAuthEmail={codexNativeAuthAccount}
+            onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.CODEX_CLI) : undefined}
+            onCancelNativeLogin={onCancelNativeLogin}
+            onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.CODEX_CLI) : undefined}
+            onSubmitAuthCode={onSubmitAuthCode}
           />
         </div>
       )}

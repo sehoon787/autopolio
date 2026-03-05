@@ -36,6 +36,7 @@ export interface CLITestResult {
   path?: string
   output?: string
   tokens?: number
+  auth_status?: 'authenticated' | 'auth_failed' | 'unknown'
   error?: CLIError
 }
 

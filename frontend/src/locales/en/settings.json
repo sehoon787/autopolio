@@ -12,7 +12,8 @@
     "github": "GitHub",
     "account": "Account",
     "profile": "Personal Info",
-    "aiAnalysis": "AI Settings"
+    "aiAnalysis": "AI Settings",
+    "plan": "Plan & Usage"
   },
   "appearance": {
     "title": "Appearance",
@@ -95,7 +96,15 @@
     "authUnknown": "Not tested",
     "enterApiKey": "Enter API key",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "login": "Login",
+    "logout": "Logout",
+    "loggingIn": "Logging in...",
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed",
+    "loggedInAs": "Logged in as {{account}}",
+    "nativeAuth": "Signed in",
+    "openLoginPage": "Open login page"
   },
   "llm": {
     "title": "AI & CLI Configuration",
