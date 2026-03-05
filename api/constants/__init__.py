@@ -12,12 +12,28 @@ from api.constants.enums import (
     ActivityType,
     PublicationType,
     SummaryStyle,
+    UserTier,
+    RuntimeProfile,
 )
 from api.constants.config import (
     LLM_MAX_TOKENS,
     DEFAULT_MODELS,
     CLI_TIMEOUT_SECONDS,
+    CLI_EXECUTABLE_NAMES,
+    CLI_DISPLAY_NAMES,
+    CLI_PROVIDER_ACCOUNT_NAMES,
+    CLI_PROVIDER_MAP,
+    CLI_SUBPROCESS_ENV_MAP,
+    GEMINI_AUTH_OAUTH,
+    GEMINI_AUTH_API_KEY,
+    CODEX_AUTH_MODE_API_KEY,
+    CLI_OAUTH_ATTEMPT_TIMEOUT,
+    GEMINI_SETTINGS_PATH,
+    CODEX_AUTH_PATH,
+    CAPACITY_ERROR_PATTERNS,
+    CLI_STDERR_NOISE_PATTERNS,
 )
+from api.constants.tiers import TIER_LIMITS
 
 __all__ = [
     # Enums
@@ -32,8 +48,25 @@ __all__ = [
     "ActivityType",
     "PublicationType",
     "SummaryStyle",
+    "UserTier",
+    "RuntimeProfile",
     # Config
     "LLM_MAX_TOKENS",
     "DEFAULT_MODELS",
     "CLI_TIMEOUT_SECONDS",
+    "TIER_LIMITS",
+    # CLI constants
+    "CLI_EXECUTABLE_NAMES",
+    "CLI_DISPLAY_NAMES",
+    "CLI_PROVIDER_ACCOUNT_NAMES",
+    "CLI_PROVIDER_MAP",
+    "CLI_SUBPROCESS_ENV_MAP",
+    "GEMINI_AUTH_OAUTH",
+    "GEMINI_AUTH_API_KEY",
+    "CODEX_AUTH_MODE_API_KEY",
+    "CLI_OAUTH_ATTEMPT_TIMEOUT",
+    "GEMINI_SETTINGS_PATH",
+    "CODEX_AUTH_PATH",
+    "CAPACITY_ERROR_PATTERNS",
+    "CLI_STDERR_NOISE_PATTERNS",
 ]

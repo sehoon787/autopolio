@@ -18,6 +18,7 @@ from api.models.credentials import (
     VolunteerActivity,
 )
 from api.models.oauth_identity import OAuthIdentity
+from api.models.usage_record import UsageRecord
 
 __all__ = [
     "User",
@@ -40,4 +41,5 @@ __all__ = [
     "Publication",
     "VolunteerActivity",
     "OAuthIdentity",
+    "UsageRecord",
 ]

@@ -245,7 +245,7 @@ async def phase5_save_llm_results(db: AsyncSession, ctx: AnalysisContext) -> Non
 
     if ctx.ai_summary:
         repo_analysis.ai_summary = ctx.ai_summary
-    if ctx.ai_key_features:
+    if ctx.ai_key_features is not None:
         repo_analysis.ai_key_features = ctx.ai_key_features
 
     if ctx.user_code_contributions:
@@ -260,7 +260,7 @@ async def phase5_save_llm_results(db: AsyncSession, ctx: AnalysisContext) -> Non
     await db.commit()
 
     # Also copy ai_summary to Project for report_service compatibility
-    if ctx.ai_summary or ctx.ai_key_features:
+    if ctx.ai_summary or ctx.ai_key_features is not None:
         proj_result = await db.execute(
             select(Project).where(Project.id == ctx.project_id)
         )
@@ -268,7 +268,7 @@ async def phase5_save_llm_results(db: AsyncSession, ctx: AnalysisContext) -> Non
         if project:
             if ctx.ai_summary:
                 project.ai_summary = ctx.ai_summary
-            if ctx.ai_key_features:
+            if ctx.ai_key_features is not None:
                 project.ai_key_features = ctx.ai_key_features
             await db.commit()
             logger.info("[Phase5.5] Copied ai_summary to Project %d", ctx.project_id)

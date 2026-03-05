@@ -77,3 +77,16 @@ class SummaryStyle(StrEnum):
     PROFESSIONAL = "professional"
     CASUAL = "casual"
     TECHNICAL = "technical"
+
+
+class UserTier(StrEnum):
+    FREE = "free"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+
+
+class RuntimeProfile(StrEnum):
+    ELECTRON = "electron"
+    LOCAL = "local"
+    DOCKER = "docker"
+    EXTERNAL = "external"

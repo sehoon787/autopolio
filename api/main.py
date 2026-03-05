@@ -9,6 +9,7 @@ import os
 
 from api import __version__
 from api.config import get_settings
+from api.constants import RuntimeProfile
 from api.database import init_db, close_db, cleanup_stale_jobs
 from api.routers import (
     users,
@@ -100,7 +101,7 @@ app.include_router(documents.router, prefix="/api/documents", tags=["Documents"]
 app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
 
 # Electron-only: register decrypted API keys endpoint
-if os.environ.get("AUTOPOLIO_RUNTIME") == "electron":
+if os.environ.get("AUTOPOLIO_RUNTIME") == RuntimeProfile.ELECTRON:
     from api.routers import llm_keys
 
     app.include_router(llm_keys.router, prefix="/api/llm", tags=["LLM"])

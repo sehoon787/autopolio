@@ -97,6 +97,7 @@ def _ensure_test_env():
         "OPENAI_API_KEY": "sk-test-dummy",
         "GITHUB_CLIENT_ID": "test-client-id",
         "GITHUB_CLIENT_SECRET": "test-client-secret",
+        "AUTOPOLIO_RUNTIME": "local",  # Bypass tier restrictions in general tests
     }
     for key, default in env_defaults.items():
         if not os.getenv(key):
@@ -187,6 +188,12 @@ def test_user(api_client) -> Generator[dict, None, None]:
     )
     response.raise_for_status()
     user = response.json()
+
+    # Set ENTERPRISE tier for general tests (handles live mode where Docker
+    # has AUTOPOLIO_RUNTIME=docker, meaning tier checks are active)
+    tier_resp = api_client.put(f"/users/{user['id']}", json={"tier": "enterprise"})
+    if tier_resp.status_code == 200:
+        user = tier_resp.json()
 
     yield user
 
@@ -416,6 +423,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_postgresql: mark test as requiring PostgreSQL"
     )
+    config.addinivalue_line("markers", "tier: tier-specific pricing tests")
 
 
 def pytest_collection_modifyitems(config, items):

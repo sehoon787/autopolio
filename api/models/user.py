@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
+from api.constants import LLMProvider, DEFAULT_MODELS
 
 
 class User(Base):
@@ -13,6 +14,9 @@ class User(Base):
     github_username = Column(String(100), unique=True, index=True)
     github_token_encrypted = Column(Text)  # Encrypted OAuth token
     github_avatar_url = Column(String(500))
+
+    # Pricing tier
+    tier = Column(String(20), default="free")  # free, pro, enterprise
 
     # Personal info fields (NULL = use OAuth default, "" = intentionally empty)
     display_name = Column(String(100))  # Name for resume (overrides OAuth name)
@@ -45,9 +49,9 @@ class User(Base):
     )  # "true" or "false"
 
     # Model preferences per provider
-    openai_model = Column(String(100), default="gpt-4.1")
-    anthropic_model = Column(String(100), default="claude-sonnet-4-6-20260217")
-    gemini_model = Column(String(100), default="gemini-2.5-flash")
+    openai_model = Column(String(100), default=DEFAULT_MODELS[LLMProvider.OPENAI])
+    anthropic_model = Column(String(100), default=DEFAULT_MODELS[LLMProvider.ANTHROPIC])
+    gemini_model = Column(String(100), default=DEFAULT_MODELS[LLMProvider.GEMINI])
 
     # Encrypted API keys for LLM providers
     openai_api_key_encrypted = Column(Text)

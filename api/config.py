@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 import os
 
-from api.constants import LLMProvider, DEFAULT_MODELS
+from api.constants import LLMProvider, DEFAULT_MODELS, RuntimeProfile
 
 
 def load_yaml_config(config_name: str) -> dict:
@@ -45,7 +45,7 @@ def _get_templates_dir() -> Path:
 
 
 def _get_runtime_profile() -> str:
-    return os.environ.get("AUTOPOLIO_RUNTIME", "external")
+    return os.environ.get("AUTOPOLIO_RUNTIME", RuntimeProfile.EXTERNAL)
 
 
 def _get_runtime_ports() -> dict:
@@ -91,7 +91,7 @@ def _get_cors_origins() -> list[str]:
     runtime = load_yaml_config("runtime")
     ports = runtime.get("ports", {}) if isinstance(runtime, dict) else {}
     origins: list[str] = []
-    for profile in ("external", "docker"):
+    for profile in (RuntimeProfile.EXTERNAL, RuntimeProfile.DOCKER):
         profile_ports = ports.get(profile, {}) if isinstance(ports, dict) else {}
         frontend_port = profile_ports.get("frontend")
         if frontend_port:

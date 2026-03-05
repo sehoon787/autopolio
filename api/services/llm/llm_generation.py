@@ -2,6 +2,7 @@
 LLM Generation Functions - Large generation methods extracted from LLMService.
 """
 
+import logging
 from typing import Dict, List, Any, Optional
 import json
 
@@ -9,6 +10,8 @@ from api.constants import SummaryStyle, LLM_MAX_TOKENS
 from .llm_providers import BaseLLMProvider
 from .llm_prompts import get_prompts
 from .llm_utils import parse_json_from_llm
+
+logger = logging.getLogger(__name__)
 
 
 def _project_info_section(project_data: Dict[str, Any], language: str) -> str:
@@ -137,7 +140,8 @@ Based on the code above, identify specific technical implementations and feature
             return [str(t).strip() for t in tasks if t and str(t).strip()], tokens
         return [], tokens
 
-    except Exception:
+    except Exception as e:
+        logger.error("[KeyTasks] Failed: %s: %s", type(e).__name__, e)
         return [], 0
 
 
@@ -282,7 +286,8 @@ Respond only with a JSON array."""
             return validated, tokens
         return [], tokens
 
-    except Exception:
+    except Exception as e:
+        logger.error("[ImplementationDetails] Failed: %s: %s", type(e).__name__, e)
         return [], 0
 
 
@@ -469,7 +474,8 @@ Respond only with a JSON object."""
             return validated, tokens
         return {}, tokens
 
-    except Exception:
+    except Exception as e:
+        logger.error("[Achievements] Failed: %s: %s", type(e).__name__, e)
         return {}, 0
 
 

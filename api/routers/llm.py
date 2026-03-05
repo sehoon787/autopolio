@@ -25,30 +25,28 @@ from api.schemas.llm import (
     CLIConnectResponse,
     LLMTestRequest,
     LLMTestResponse,
+    CLIAuthStatusResponse,
+    CLILoginResponse,
+    CLILogoutResponse,
 )
 from api.services.llm import get_cli_service
 from api.services.core import EncryptionService
 from api.config import get_settings
-from api.constants import CLIType, LLMProvider as LLMProviderEnum, DEFAULT_MODELS
+from api.constants import (
+    CLIType,
+    LLMProvider as LLMProviderEnum,
+    RuntimeProfile,
+    DEFAULT_MODELS,
+    CLI_SUBPROCESS_ENV_MAP,
+    CLI_PROVIDER_MAP,
+    CLI_DISPLAY_NAMES,
+    CLI_PROVIDER_ACCOUNT_NAMES,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 encryption_service = EncryptionService()
-
-# CLI type → .env variable mapping (separate from API provider keys)
-CLI_ENV_MAP = {
-    CLIType.CLAUDE_CODE: "CLAUDE_CODE_API_KEY",
-    CLIType.CODEX_CLI: "CODEX_API_KEY",
-    CLIType.GEMINI_CLI: "GEMINI_CLI_API_KEY",
-}
-
-# CLI type → provider ID mapping
-CLI_PROVIDER_MAP = {
-    CLIType.CLAUDE_CODE: LLMProviderEnum.ANTHROPIC,
-    CLIType.CODEX_CLI: LLMProviderEnum.OPENAI,
-    CLIType.GEMINI_CLI: LLMProviderEnum.GEMINI,
-}
 
 
 def _get_env_path() -> str:
@@ -116,7 +114,13 @@ LLM_PROVIDERS = [
         id=LLMProviderEnum.GEMINI,
         name="Google Gemini",
         description="Gemini models for text generation",
-        models=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+        models=[
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-3-flash-preview",
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-flash-lite",
+        ],
         default_model="gemini-2.5-flash",
         docs_url="https://ai.google.dev/docs",
         has_cli=True,  # Gemini CLI supported
@@ -198,7 +202,7 @@ async def get_llm_config(
             )
         )
 
-    runtime = os.environ.get("AUTOPOLIO_RUNTIME", "external")
+    runtime = os.environ.get("AUTOPOLIO_RUNTIME", RuntimeProfile.EXTERNAL)
 
     return LLMConfigResponse(
         preferred_llm=user.preferred_llm if user else LLMProviderEnum.OPENAI,
@@ -406,6 +410,78 @@ async def refresh_cli_status():
     return CLIStatus(**status)
 
 
+def _require_local_runtime():
+    """Raise 403 if not running in local or docker mode."""
+    runtime = os.environ.get("AUTOPOLIO_RUNTIME", RuntimeProfile.EXTERNAL)
+    if runtime not in (RuntimeProfile.LOCAL, RuntimeProfile.DOCKER):
+        raise HTTPException(
+            status_code=403,
+            detail="CLI native auth is only available in local/docker mode",
+        )
+
+
+@router.get("/cli/auth/{cli_type}", response_model=CLIAuthStatusResponse)
+async def get_cli_auth_status(cli_type: str):
+    """Check CLI native authentication status (no token consumed)."""
+    _require_local_runtime()
+    if cli_type not in list(CLIType):
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    cli_service = get_cli_service()
+    result = await cli_service.check_auth_status(cli_type)
+    return CLIAuthStatusResponse(**result)
+
+
+@router.post("/cli/auth/{cli_type}/login", response_model=CLILoginResponse)
+async def cli_login(cli_type: str):
+    """Start CLI native login process."""
+    _require_local_runtime()
+    if cli_type not in list(CLIType):
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    cli_service = get_cli_service()
+    result = await cli_service.start_login(cli_type)
+    return CLILoginResponse(**result)
+
+
+@router.post("/cli/auth/{cli_type}/logout", response_model=CLILogoutResponse)
+async def cli_logout(cli_type: str):
+    """Logout from a CLI tool."""
+    _require_local_runtime()
+    if cli_type not in list(CLIType):
+        raise HTTPException(status_code=400, detail="Invalid CLI type")
+
+    cli_service = get_cli_service()
+    result = await cli_service.logout(cli_type)
+    return CLILogoutResponse(**result)
+
+
+@router.post("/cli/auth/cancel")
+async def cancel_cli_login():
+    """Cancel any active CLI login process."""
+    _require_local_runtime()
+    cli_service = get_cli_service()
+    result = await cli_service.cancel_login()
+    return result
+
+
+@router.post("/cli/auth/submit-code")
+async def submit_auth_code(request: dict):
+    """Submit OAuth authorization code to the active CLI login process.
+
+    After the user authorizes in the browser, they receive an auth code
+    that must be pasted back into the CLI.  This endpoint writes the code
+    to the running CLI process's stdin.
+    """
+    _require_local_runtime()
+    code = (request.get("code") or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Auth code is required")
+    cli_service = get_cli_service()
+    result = await cli_service.submit_auth_code(code)
+    return result
+
+
 @router.get("/providers", response_model=List[LLMProviderInfo])
 async def get_providers():
     """List available LLM providers."""
@@ -430,12 +506,7 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         status = await cli_service.detect_gemini_cli()
 
     if not status.get("installed"):
-        cli_names = {
-            CLIType.CLAUDE_CODE: "Claude Code",
-            CLIType.GEMINI_CLI: "Gemini",
-            CLIType.CODEX_CLI: "Codex",
-        }
-        cli_name = cli_names.get(cli_type, cli_type)
+        cli_name = CLI_DISPLAY_NAMES.get(cli_type, cli_type)
         return CLITestResponse(
             success=False,
             tool=cli_type,
@@ -471,18 +542,21 @@ async def test_cli(cli_type: str, model: str = Query(None)):
 
         if is_content_auth_fail and token_count == 0:
             # Classify CLI error for consistent messaging
-            cli_names = {
-                CLIType.CLAUDE_CODE: "Anthropic",
-                CLIType.CODEX_CLI: "OpenAI",
-                CLIType.GEMINI_CLI: "Google",
-            }
-            account_name = cli_names.get(cli_type, cli_type)
+            account_name = CLI_PROVIDER_ACCOUNT_NAMES.get(cli_type, cli_type)
+            # Billing/model errors mean CLI IS authenticated but can't execute
+            is_billing_error = False
             if "quota" in content_lower or "exceeded" in content_lower:
                 fail_msg = f"Quota exceeded — check your {account_name} billing plan."
-            elif "credit" in content_lower or "balance" in content_lower:
+                is_billing_error = True
+            elif (
+                "credit" in content_lower
+                or "balance" in content_lower
+                or "insufficient" in content_lower
+            ):
                 fail_msg = (
                     f"Insufficient credit balance — top up your {account_name} account."
                 )
+                is_billing_error = True
             elif "model" in content_lower and (
                 "not found" in content_lower
                 or "not exist" in content_lower
@@ -491,6 +565,7 @@ async def test_cli(cli_type: str, model: str = Query(None)):
                 fail_msg = (
                     f"Model not found — {used_model or 'default'} is not available."
                 )
+                is_billing_error = True
             else:
                 fail_msg = content[:200] if content else "Unknown error"
             return CLITestResponse(
@@ -501,7 +576,7 @@ async def test_cli(cli_type: str, model: str = Query(None)):
                 model=used_model,
                 provider=mapped_provider,
                 token_usage=0,
-                auth_status="auth_failed",
+                auth_status="authenticated" if is_billing_error else "auth_failed",
             )
 
         # No meaningful response = failure
@@ -531,23 +606,22 @@ async def test_cli(cli_type: str, model: str = Query(None)):
         error_str = str(e)
         logger.warning("CLI test failed for %s: %s", cli_type, error_str[:300])
 
-        cli_names = {
-            CLIType.CLAUDE_CODE: "Anthropic",
-            CLIType.CODEX_CLI: "OpenAI",
-            CLIType.GEMINI_CLI: "Google",
-        }
-        account_name = cli_names.get(cli_type, cli_type)
+        account_name = CLI_PROVIDER_ACCOUNT_NAMES.get(cli_type, cli_type)
         error_lower = error_str.lower()
+        is_billing = False
         if "quota" in error_lower or "exceeded" in error_lower or "429" in error_str:
             msg = f"Quota exceeded — check your {account_name} billing plan."
+            is_billing = True
         elif "credit" in error_lower or "balance" in error_lower:
             msg = f"Insufficient credit balance — top up your {account_name} account."
+            is_billing = True
         elif (
             "not found" in error_lower
             or "does not exist" in error_lower
             or "metadata" in error_lower
         ):
             msg = f"Model not found — {used_model or 'default'} is not available."
+            is_billing = True
         else:
             msg = f"CLI test failed: {error_str[:200]}"
 
@@ -557,17 +631,17 @@ async def test_cli(cli_type: str, model: str = Query(None)):
             message=msg,
             model=used_model,
             provider=mapped_provider,
-            auth_status="auth_failed",
+            auth_status="authenticated" if is_billing else "auth_failed",
         )
 
 
 @router.post("/cli/connect/{cli_type}", response_model=CLIConnectResponse)
 async def connect_cli(cli_type: str, request: CLIConnectRequest):
     """Connect a CLI tool by saving its API key to .env."""
-    if cli_type not in CLI_ENV_MAP:
+    if cli_type not in CLI_SUBPROCESS_ENV_MAP:
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
-    env_var = CLI_ENV_MAP[cli_type]
+    env_var = CLI_SUBPROCESS_ENV_MAP[cli_type][0]
     provider = CLI_PROVIDER_MAP[cli_type]
 
     try:
@@ -599,10 +673,10 @@ async def connect_cli(cli_type: str, request: CLIConnectRequest):
 @router.post("/cli/disconnect/{cli_type}", response_model=CLIConnectResponse)
 async def disconnect_cli(cli_type: str):
     """Disconnect a CLI tool by removing its API key from .env."""
-    if cli_type not in CLI_ENV_MAP:
+    if cli_type not in CLI_SUBPROCESS_ENV_MAP:
         raise HTTPException(status_code=400, detail="Invalid CLI type")
 
-    env_var = CLI_ENV_MAP[cli_type]
+    env_var = CLI_SUBPROCESS_ENV_MAP[cli_type][0]
     provider = CLI_PROVIDER_MAP[cli_type]
 
     try:

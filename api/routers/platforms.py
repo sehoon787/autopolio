@@ -29,6 +29,7 @@ from api.schemas.platform import (
 )
 from api.services.platform import PlatformTemplateService
 from api.constants import DocumentFormat
+from api.dependencies.tier_guards import check_export_format_dep
 from sqlalchemy import select
 
 router = APIRouter()
@@ -361,6 +362,9 @@ async def export_from_db_to_html(
     db: AsyncSession = Depends(get_db),
 ):
     """Export rendered template to HTML file using data from the database."""
+    # Tier guard: check html export permission
+    await check_export_format_dep("html", user_id, db)
+
     # Verify user exists
     result = await db.execute(select(User).where(User.id == user_id))
     if not result.scalar_one_or_none():
@@ -423,6 +427,9 @@ async def export_from_db_to_docx(
     db: AsyncSession = Depends(get_db),
 ):
     """Export to Word document using data from the database."""
+    # Tier guard: check docx export permission
+    await check_export_format_dep("docx", user_id, db)
+
     # Verify user exists
     result = await db.execute(select(User).where(User.id == user_id))
     if not result.scalar_one_or_none():

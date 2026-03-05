@@ -20,6 +20,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     preferred_llm: Optional[str] = None
     preferred_language: Optional[str] = None  # "ko" or "en"
+    tier: Optional[str] = None  # free, pro, enterprise
 
 
 class GenerationOptionsUpdate(BaseModel):
@@ -53,6 +54,7 @@ class GenerationOptionsResponse(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    tier: str = "free"
     github_avatar_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

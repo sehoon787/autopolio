@@ -9,6 +9,7 @@ import os
 from api.database import get_db
 from api.config import get_settings
 from api.services.export import ExportService
+from api.dependencies.tier_guards import check_export_format_dep
 
 router = APIRouter()
 settings = get_settings()
@@ -123,6 +124,9 @@ async def export_to_docx(
 
     Returns file path and download URL.
     """
+    # Tier guard: check docx export permission
+    await check_export_format_dep("docx", user_id, db)
+
     export_service = ExportService(db, language=language)
     try:
         file_path = await export_service.export_to_docx(

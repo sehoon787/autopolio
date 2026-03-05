@@ -183,3 +183,30 @@ class LLMTestResponse(BaseModel):
     model: str = Field(..., description="Model that was used")
     response: str = Field(..., description="LLM response")
     token_usage: int = Field(default=0, description="Total tokens used")
+
+
+class CLIAuthStatusResponse(BaseModel):
+    """Response for CLI native auth status check."""
+
+    authenticated: bool = Field(..., description="Whether the CLI is authenticated")
+    method: Optional[str] = Field(None, description="Auth method: 'oauth' or 'api_key'")
+    email: Optional[str] = Field(None, description="Authenticated email (Claude Code)")
+    account: Optional[str] = Field(
+        None, description="Authenticated account (Gemini/Codex)"
+    )
+    error: Optional[str] = Field(None, description="Error message if check failed")
+
+
+class CLILoginResponse(BaseModel):
+    """Response from CLI login start."""
+
+    success: bool = Field(..., description="Whether login started successfully")
+    url: Optional[str] = Field(None, description="URL to open in browser for login")
+    message: Optional[str] = Field(None, description="Status message")
+
+
+class CLILogoutResponse(BaseModel):
+    """Response from CLI logout."""
+
+    success: bool = Field(..., description="Whether logout was successful")
+    message: Optional[str] = Field(None, description="Status message")

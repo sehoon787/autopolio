@@ -77,6 +77,9 @@ async def init_db():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+    # Manual column migration: add 'tier' to users table if missing
+    await _migrate_add_tier_column()
+
 
 def _run_alembic_upgrade():
     """Run alembic upgrade head (synchronous — called once at startup)."""
@@ -85,6 +88,39 @@ def _run_alembic_upgrade():
 
     cfg = Config("alembic.ini")
     command.upgrade(cfg, "head")
+
+
+async def _migrate_add_tier_column():
+    """Add 'tier' column to users table if it doesn't exist."""
+    from sqlalchemy import text
+
+    logger = logging.getLogger("api.database")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            if settings.is_sqlite:
+                result = await db.execute(text("PRAGMA table_info(users)"))
+                columns = [row[1] for row in result.fetchall()]
+                has_tier = "tier" in columns
+            else:
+                # PostgreSQL
+                result = await db.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'users' AND column_name = 'tier'"
+                    )
+                )
+                has_tier = result.scalar_one_or_none() is not None
+
+            if not has_tier:
+                await db.execute(
+                    text("ALTER TABLE users ADD COLUMN tier VARCHAR(20) DEFAULT 'free'")
+                )
+                await db.commit()
+                logger.info("Migration: added 'tier' column to users table")
+        except Exception as e:
+            await db.rollback()
+            logger.warning("Tier column migration skipped: %s", e)
 
 
 async def cleanup_stale_jobs():

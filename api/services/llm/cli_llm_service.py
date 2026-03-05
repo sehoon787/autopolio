@@ -16,17 +16,39 @@ from typing import Tuple, Optional, List
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from api.constants import CLIType, SummaryStyle, CLI_TIMEOUT_SECONDS
+from api.constants import (
+    CLIType,
+    SummaryStyle,
+    CLI_TIMEOUT_SECONDS,
+    CLI_EXECUTABLE_NAMES,
+    CLI_SUBPROCESS_ENV_MAP,
+    CLI_STDERR_NOISE_PATTERNS,
+    GEMINI_SETTINGS_PATH,
+    GEMINI_AUTH_API_KEY,
+    GEMINI_AUTH_OAUTH,
+    CLI_OAUTH_ATTEMPT_TIMEOUT,
+    CAPACITY_ERROR_PATTERNS,
+    CODEX_AUTH_PATH,
+)
 
 logger = logging.getLogger(__name__)
 
-# CLI type → (env var to read, env var to set in subprocess)
-# e.g. CLAUDE_CODE_API_KEY value → passed as ANTHROPIC_API_KEY to subprocess
-CLI_SUBPROCESS_ENV_MAP = {
-    CLIType.CLAUDE_CODE: ("CLAUDE_CODE_API_KEY", "ANTHROPIC_API_KEY"),
-    CLIType.CODEX_CLI: ("CODEX_API_KEY", "OPENAI_API_KEY"),
-    CLIType.GEMINI_CLI: ("GEMINI_CLI_API_KEY", "GEMINI_API_KEY"),
-}
+
+def _switch_gemini_auth(auth_type: str) -> bool:
+    """Switch Gemini CLI auth type in settings.json. Returns True on success."""
+    try:
+        data = {}
+        if GEMINI_SETTINGS_PATH.exists():
+            data = json.loads(GEMINI_SETTINGS_PATH.read_text())
+        data.setdefault("security", {}).setdefault("auth", {})["selectedType"] = (
+            auth_type
+        )
+        GEMINI_SETTINGS_PATH.write_text(json.dumps(data))
+        logger.info("[CLI] Gemini auth switched to %s", auth_type)
+        return True
+    except Exception as e:
+        logger.warning("[CLI] Failed to switch Gemini auth: %s", e)
+        return False
 
 
 class CLILLMProvider:
@@ -62,7 +84,8 @@ class CLILLMService:
             model: Optional model name to pass via --model flag
         """
         self.cli_type = cli_type
-        self.model = model
+        # 'default' is a frontend sentinel meaning "let CLI pick best model"
+        self.model = model if model and model != "default" else None
         self.total_tokens_used = 0
         # Provide a provider attribute to match LLMService interface
         self.provider = CLILLMProvider(self)
@@ -77,12 +100,7 @@ class CLILLMService:
         """
         cli_path = self._find_cli_path()
         if not cli_path:
-            cli_names = {
-                CLIType.CLAUDE_CODE: "claude",
-                CLIType.GEMINI_CLI: "gemini",
-                CLIType.CODEX_CLI: "codex",
-            }
-            cli_name = cli_names.get(self.cli_type, self.cli_type)
+            cli_name = CLI_EXECUTABLE_NAMES.get(self.cli_type, self.cli_type)
             logger.error(
                 "[CLI] %s CLI not found! Searched: shutil.which, npm global paths",
                 cli_name,
@@ -91,8 +109,8 @@ class CLILLMService:
         logger.info("[CLI] Found CLI at: %s (type=%s)", cli_path, self.cli_type)
 
         # Codex CLI uses session-based auth (codex login), not env vars.
-        # Auto-login with API key if CODEX_API_KEY or OPENAI_API_KEY is set.
-        if self.cli_type == CLIType.CODEX_CLI:
+        # Only auto-login with API key if CLI has no bound auth at all.
+        if self.cli_type == CLIType.CODEX_CLI and not self._has_cli_auth():
             await self._ensure_codex_login(cli_path)
 
         args = self._build_args(cli_path)
@@ -103,6 +121,13 @@ class CLILLMService:
 
         # Encode prompt as UTF-8 bytes for stdin
         prompt_bytes = prompt.encode("utf-8")
+
+        # OAuth capacity fallback: shorter first attempt if .env key available
+        force_api_key = False
+        has_fallback = bool(self._get_fallback_api_key()) and self._has_cli_auth()
+        attempt_timeout = (
+            CLI_OAUTH_ATTEMPT_TIMEOUT if has_fallback else CLI_TIMEOUT_SECONDS
+        )
 
         logger.info("Executing CLI: %s", cli_path)
         logger.debug(
@@ -132,7 +157,7 @@ class CLILLMService:
                     f" --model {self.model}" if self.model else "",
                 )
 
-            logger.debug("Running with stdin pipe (timeout: %ds)", CLI_TIMEOUT_SECONDS)
+            logger.debug("Running with stdin pipe (timeout: %ds)", attempt_timeout)
 
             # Use Popen instead of subprocess.run to handle Windows process tree kill on timeout.
             # subprocess.run's timeout kills only the parent (cmd.exe) but orphans child node.exe,
@@ -141,17 +166,57 @@ class CLILLMService:
                 subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
             )
 
-            # Clean env: remove CLAUDECODE to avoid "nested session" error when backend
-            # itself runs inside a Claude Code session (e.g., local dev testing).
-            clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+            # Clean env: remove Claude Code session markers to avoid "nested session"
+            # error when backend runs inside a Claude Code session (e.g., local dev).
+            clean_env = {
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")
+            }
 
             # Inject CLI-specific API key into subprocess environment
+            # BUT: if CLI has bound auth (OAuth or local API key), skip injection
+            # so CLI uses its own credentials (unless force_api_key is set for fallback)
+            # Priority: bound credentials > OAuth > .env API keys
+            settings_modified = False
             cli_env_mapping = CLI_SUBPROCESS_ENV_MAP.get(self.cli_type)
             if cli_env_mapping:
                 src_var, dst_var = cli_env_mapping
                 cli_key = os.environ.get(src_var, "")
                 if cli_key:
-                    clean_env[dst_var] = cli_key
+                    if force_api_key:
+                        # Bound auth failed (capacity exhausted), force .env API key
+                        clean_env[dst_var] = cli_key
+                        # Gemini CLI requires settings.json change to switch auth
+                        if self.cli_type == CLIType.GEMINI_CLI:
+                            settings_modified = _switch_gemini_auth(GEMINI_AUTH_API_KEY)
+                    else:
+                        has_bound_auth = self._has_cli_auth()
+                        if has_bound_auth:
+                            logger.info(
+                                "[CLI] %s has bound auth, skipping .env key injection",
+                                self.cli_type,
+                            )
+                            clean_env.pop(dst_var, None)
+                        else:
+                            clean_env[dst_var] = cli_key
+                            # Gemini CLI: settings.json must match auth type
+                            # or CLI ignores the API key and prompts OAuth
+                            if self.cli_type == CLIType.GEMINI_CLI:
+                                settings_modified = _switch_gemini_auth(
+                                    GEMINI_AUTH_API_KEY
+                                )
+                elif not force_api_key and dst_var in clean_env:
+                    # No explicit CLI key set, but the target env var is inherited
+                    # from the parent process. Strip it if CLI has bound auth
+                    # to prevent overriding bound credentials with inherited key.
+                    if self._has_cli_auth():
+                        logger.info(
+                            "[CLI] %s has bound auth, stripping inherited %s from env",
+                            self.cli_type,
+                            dst_var,
+                        )
+                        clean_env.pop(dst_var, None)
 
             process = subprocess.Popen(
                 exec_args,
@@ -163,7 +228,7 @@ class CLILLMService:
             )
             try:
                 stdout, stderr = process.communicate(
-                    input=prompt_bytes, timeout=CLI_TIMEOUT_SECONDS
+                    input=prompt_bytes, timeout=attempt_timeout
                 )
                 return subprocess.CompletedProcess(
                     exec_args, process.returncode, stdout, stderr
@@ -171,7 +236,7 @@ class CLILLMService:
             except subprocess.TimeoutExpired:
                 logger.warning(
                     "[CLI] Timeout after %ds, killing process tree (pid=%d)",
-                    CLI_TIMEOUT_SECONDS,
+                    attempt_timeout,
                     process.pid,
                 )
                 if sys.platform == "win32":
@@ -189,21 +254,53 @@ class CLILLMService:
                 except (subprocess.TimeoutExpired, OSError):
                     pass
                 raise
+            finally:
+                # Restore Gemini settings only if bound auth credentials exist
+                # (no point restoring oauth-personal if there are no OAuth creds)
+                if settings_modified and self._has_cli_auth():
+                    _switch_gemini_auth(GEMINI_AUTH_OAUTH)
 
         try:
             # Run subprocess in thread pool to avoid blocking event loop
             # and to work around Windows asyncio subprocess limitations
             # Use get_running_loop() for compatibility with uvicorn's event loop
             loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                result = await loop.run_in_executor(executor, run_subprocess)
 
-            output = result.stdout.decode("utf-8", errors="replace").strip()
-            stderr_text = (
-                result.stderr.decode("utf-8", errors="replace").strip()
-                if result.stderr
-                else ""
-            )
+            need_fallback = False
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    result = await loop.run_in_executor(executor, run_subprocess)
+                output = result.stdout.decode("utf-8", errors="replace").strip()
+                stderr_text = (
+                    result.stderr.decode("utf-8", errors="replace").strip()
+                    if result.stderr
+                    else ""
+                )
+                need_fallback = self._is_capacity_error(output, stderr_text)
+            except subprocess.TimeoutExpired:
+                if not has_fallback:
+                    raise  # No fallback — let outer except handle it
+                need_fallback = True
+
+            # OAuth capacity fallback: retry with .env API key
+            if need_fallback and has_fallback:
+                logger.info(
+                    "[CLI] OAuth capacity exhausted for %s, retrying with .env API key",
+                    self.cli_type,
+                )
+                force_api_key = True
+                attempt_timeout = CLI_TIMEOUT_SECONDS  # Full timeout for retry
+                # Codex: re-login with API key to override OAuth session
+                if self.cli_type == CLIType.CODEX_CLI:
+                    await self._ensure_codex_login(cli_path)
+                with ThreadPoolExecutor(max_workers=1) as executor2:
+                    result = await loop.run_in_executor(executor2, run_subprocess)
+                output = result.stdout.decode("utf-8", errors="replace").strip()
+                stderr_text = (
+                    result.stderr.decode("utf-8", errors="replace").strip()
+                    if result.stderr
+                    else ""
+                )
 
             logger.debug("Return code: %d", result.returncode)
             logger.debug(
@@ -211,19 +308,10 @@ class CLILLMService:
             )
 
             # Filter out harmless CLI noise from stderr
-            _STDERR_NOISE = (
-                "(node:",  # Node.js process warnings
-                "DeprecationWarning",  # Node.js deprecation warnings
-                "Use `node --trace-deprecation",  # Node.js trace hint
-                "Loaded cached credentials",  # Gemini CLI auth message
-                "ExperimentalWarning",  # Node.js experimental feature
-                "Hook registry initialized",  # Gemini CLI hook registry info
-                "hook entries",  # Gemini CLI hook registry info
-            )
             stderr_significant = "\n".join(
                 line
                 for line in stderr_text.splitlines()
-                if not any(noise in line for noise in _STDERR_NOISE)
+                if not any(noise in line for noise in CLI_STDERR_NOISE_PATTERNS)
             ).strip()
 
             if not output and stderr_significant:
@@ -286,30 +374,114 @@ class CLILLMService:
 
         # Try to parse key_features from structured CLI response
         key_features = []
+        technical_highlights = []
+        role_description = ""
         try:
-            parsed = json.loads(content)
+            json_str = content
+            if "```json" in json_str:
+                json_str = json_str.split("```json")[1].split("```")[0]
+            elif "```" in json_str:
+                json_str = json_str.split("```")[1].split("```")[0]
+            parsed = json.loads(json_str.strip())
             if isinstance(parsed, dict):
                 kf = parsed.get("key_features", [])
                 if isinstance(kf, list):
                     key_features = kf
+                th = parsed.get("technical_highlights", [])
+                if isinstance(th, list):
+                    technical_highlights = th
+                role_description = parsed.get("role_description", "")
                 content = parsed.get("summary", content)
-        except (json.JSONDecodeError, ValueError):
-            pass  # Plain text summary, no key_features
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(
+                "[CLI Summary] JSON parse failed: %s (preview=%.200s)",
+                e,
+                content[:200] if content else "",
+            )
 
         return {
             "summary": content,
             "key_features": key_features,
+            "technical_highlights": technical_highlights,
+            "role_description": role_description,
             "token_usage": token_count,
         }
 
+    def _is_capacity_error(self, output: str, stderr: str) -> bool:
+        """Detect OAuth capacity/quota exhaustion (Gemini cloudcode-pa 429, Codex quota)."""
+        combined = (output + stderr).lower()
+        return any(pattern in combined for pattern in CAPACITY_ERROR_PATTERNS)
+
+    def _get_fallback_api_key(self) -> Optional[str]:
+        """Return .env API key for this CLI type, or None if not set."""
+        cli_env_mapping = CLI_SUBPROCESS_ENV_MAP.get(self.cli_type)
+        if not cli_env_mapping:
+            return None
+        src_var, dst_var = cli_env_mapping
+        key = os.environ.get(src_var, "").strip()
+        # Fallback to the target env var (e.g., OPENAI_API_KEY for Codex)
+        if not key:
+            key = os.environ.get(dst_var, "").strip()
+        return key or None
+
+    def _has_cli_auth(self) -> bool:
+        """Check if CLI has any bound/local authentication (OAuth OR local API key).
+
+        Returns True when the CLI has its own credentials stored locally.
+        Returns False when the CLI has no local auth and needs .env key injection.
+
+        Priority: bound credentials (local auth files) > OAuth > .env API keys
+        """
+        from api.services.llm.cli_service import CLIService
+
+        svc = CLIService()
+        if self.cli_type == CLIType.GEMINI_CLI:
+            # Gemini: only OAuth creds file counts as bound auth
+            return svc._check_gemini_auth().get("authenticated", False)
+        elif self.cli_type == CLIType.CODEX_CLI:
+            # Codex: ANY auth in auth.json is bound (both "login" OAuth and "apikey")
+            if CODEX_AUTH_PATH.exists():
+                try:
+                    data = json.loads(CODEX_AUTH_PATH.read_text())
+                    return data.get("auth_mode") is not None
+                except (json.JSONDecodeError, OSError):
+                    pass
+            return False
+        elif self.cli_type == CLIType.CLAUDE_CODE:
+            # Claude: any loggedIn state = bound auth (OAuth or stored API key)
+            # Strip ANTHROPIC_API_KEY from env so CLI reports only its own stored creds
+            try:
+                cli_path = self._find_cli_path()
+                if cli_path:
+                    clean = {
+                        k: v
+                        for k, v in os.environ.items()
+                        if k
+                        not in (
+                            "CLAUDECODE",
+                            "CLAUDE_CODE_ENTRYPOINT",
+                            "ANTHROPIC_API_KEY",
+                        )
+                    }
+                    result = subprocess.run(
+                        [cli_path, "auth", "status"],
+                        capture_output=True,
+                        timeout=5,
+                        env=clean,
+                    )
+                    if result.returncode == 0:
+                        data = json.loads(
+                            result.stdout.decode("utf-8", errors="replace")
+                        )
+                        return data.get("loggedIn", False)
+            except (json.JSONDecodeError, subprocess.TimeoutExpired, OSError):
+                pass
+            return False
+        return False
+
     def _find_cli_path(self) -> Optional[str]:
         """Find CLI executable path with Windows npm global support."""
-        exe_names = {
-            CLIType.CLAUDE_CODE: "claude",
-            CLIType.GEMINI_CLI: "gemini",
-            CLIType.CODEX_CLI: "codex",
-        }
-        exe_name = exe_names.get(self.cli_type, "claude")
+        exe_name = CLI_EXECUTABLE_NAMES.get(self.cli_type, "claude")
 
         # Windows: Prefer .cmd files for proper execution
         if sys.platform == "win32":
@@ -355,9 +527,7 @@ class CLILLMService:
 
     async def _ensure_codex_login(self, cli_path: str) -> None:
         """Ensure Codex CLI is authenticated. Auto-login with API key if available."""
-        api_key = os.environ.get("CODEX_API_KEY") or os.environ.get(
-            "OPENAI_API_KEY", ""
-        )
+        api_key = self._get_fallback_api_key()
         if not api_key:
             logger.debug("[Codex] No API key found for auto-login")
             return
@@ -588,14 +758,14 @@ class CLILLMService:
                 f"- Commit types: {categories_desc or 'N/A'}\n"
                 f"- Commit summary: {commit_summary[:500] if commit_summary else 'N/A'}\n\n"
                 f"Key Tasks:\n{key_tasks_desc or '(Not available)'}\n\n"
-                "Instructions:\n"
-                "1. Write a comprehensive summary (4-6 sentences) covering:\n"
-                "   - Project purpose and your specific role\n"
-                "   - Key technical contributions and decisions\n"
-                "   - Challenges overcome and measurable impact\n"
-                "2. List 4-5 specific features you implemented\n"
-                "3. Highlight 3-4 technical achievements\n\n"
-                "IMPORTANT: Respond ONLY in English. The input data (commit messages, descriptions) may be in Korean — translate and summarize them in English. Do NOT refuse; just write the summary in English."
+                "Respond in the following JSON format ONLY (no markdown, no explanation):\n"
+                "{\n"
+                '  "summary": "4-6 sentence comprehensive summary covering project purpose, your role, key contributions, and measurable impact",\n'
+                '  "key_features": ["Feature 1 with impact", "Feature 2", "Feature 3", "Feature 4"],\n'
+                '  "technical_highlights": ["Achievement 1", "Achievement 2", "Achievement 3"],\n'
+                '  "role_description": "Detailed description of responsibilities"\n'
+                "}\n\n"
+                "IMPORTANT: Respond ONLY in English. Return ONLY valid JSON."
             )
         else:
             # Korean (default)
@@ -620,14 +790,14 @@ class CLILLMService:
                 f"- 커밋 유형: {categories_desc or 'N/A'}\n"
                 f"- 커밋 요약: {commit_summary[:500] if commit_summary else 'N/A'}\n\n"
                 f"주요 수행 업무:\n{key_tasks_desc or '(정보 없음)'}\n\n"
-                "작성 지침:\n"
-                "1. 포괄적인 요약(4-6문장) 작성:\n"
-                "   - 프로젝트 목적과 본인의 역할\n"
-                "   - 핵심 기술적 기여와 결정\n"
-                "   - 해결한 과제와 측정 가능한 성과\n"
-                "2. 구현한 구체적인 기능 4-5개 나열\n"
-                "3. 기술적 성과 3-4개 강조\n\n"
-                "중요: 반드시 한국어로 응답하세요."
+                "다음 JSON 형식으로만 응답하세요 (마크다운 없이, 설명 없이):\n"
+                "{\n"
+                '  "summary": "4-6문장의 포괄적 요약 (프로젝트 목적, 역할, 핵심 기여, 측정 가능한 성과 포함)",\n'
+                '  "key_features": ["구체적 기능 1 (영향 포함)", "기능 2", "기능 3", "기능 4"],\n'
+                '  "technical_highlights": ["기술적 성과 1", "성과 2", "성과 3"],\n'
+                '  "role_description": "책임과 역할에 대한 상세 설명"\n'
+                "}\n\n"
+                "중요: 반드시 한국어로 응답하세요. 유효한 JSON만 반환하세요."
             )
 
     async def generate_key_tasks(

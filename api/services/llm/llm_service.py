@@ -3,12 +3,13 @@ LLM Service - Supports both OpenAI and Anthropic for text generation.
 Facade that delegates to providers and generation functions.
 """
 
+import logging
 from typing import Dict, List, Any, Optional
 
 import json
 
 from api.config import get_settings
-from api.constants import LLMProvider, SummaryStyle
+from api.constants import LLMProvider, SummaryStyle, LLM_MAX_TOKENS
 from .llm_prompts import get_prompts
 from .llm_providers import (
     BaseLLMProvider,
@@ -22,6 +23,8 @@ from .llm_generation import (
     generate_detailed_achievements_llm,
     generate_multi_repo_summary_llm,
 )
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -208,22 +211,31 @@ Respond in the following JSON format:
     "role_description": "책임과 리더십에 대한 상세 설명"
 }}"""
 
-        response, tokens = await self.provider.generate(prompt, system_prompt)
+        response, tokens = await self.provider.generate(
+            prompt, system_prompt, max_tokens=LLM_MAX_TOKENS.SUMMARY
+        )
         self.total_tokens_used += tokens
 
         # Parse JSON response
         try:
-            # Extract JSON from response (handle markdown code blocks)
             json_str = response or ""
-            if "```json" in json_str:
-                json_str = json_str.split("```json")[1].split("```")[0]
-            elif "```" in json_str:
-                json_str = json_str.split("```")[1].split("```")[0]
+            # Extract JSON object from response (handle markdown code blocks)
+            import re
+
+            # Try regex: find first { ... last } (greedy)
+            m = re.search(r"\{.*\}", json_str, re.DOTALL)
+            if m:
+                json_str = m.group(0)
 
             result = json.loads(json_str.strip())
             result["token_usage"] = tokens
             return result
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.warning(
+                "[Summary] JSON parse failed: %s (preview=%.200s)",
+                e,
+                (response or "")[:200],
+            )
             # Return raw response if JSON parsing fails
             return {
                 "summary": response or "",
