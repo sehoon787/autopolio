@@ -462,6 +462,9 @@ C:\Users\kimsehun\Desktop\proj\Autopolio\
 │       ├── run-e2e-tests.{sh,bat}   # E2E 테스트
 │       ├── setup-test-db.sh         # DB 초기화
 │       └── generate-report.sh       # 리포트 생성
+├── docs/                     # 프로젝트 문서
+│   ├── PIPELINE.md                # 6단계 파이프라인 상세
+│   └── RUNTIME_TIER_AUTH.md       # 런타임 모드 / 티어 정책 / CLI 인증 체계
 ├── config/                   # YAML 설정
 │   ├── settings.yaml
 │   ├── platforms.yaml
@@ -837,34 +840,33 @@ portfolio/
 - `generate_company_integrated_report()`: 회사별 통합 리포트
 
 ### CLIService (v1.3, v1.4 개선)
-- **Claude Code CLI 감지**
-  - `where`/`which` 명령으로 PATH 탐색
-  - PowerShell `Get-Command` 폴백 (Windows)
-  - `npm root -g`로 npm 전역 패키지 경로 탐색
-  - 알려진 설치 경로 직접 확인 (npm, homebrew 등)
-  - npm registry에서 최신 버전 조회
-- **Gemini CLI 감지** (v1.4)
-  - 동일한 다중 경로 탐색 로직 적용
-  - `@google/gemini-cli` npm 패키지 버전 조회
+- **CLI 감지**: `where`/`which`, npm 전역 경로, 알려진 설치 경로 탐색
+- **인증 상태 확인** (`check_auth_status`)
+  - Claude Code: `claude auth status` JSON → `authMethod` 구분 (`api_key` vs `oauth`)
+  - Gemini CLI: `~/.gemini/oauth_creds.json` 파일 존재 확인
+  - Codex CLI: `~/.codex/auth.json` → `auth_mode` 구분 (`login` vs `apikey`)
+- **네이티브 OAuth 로그인** (`start_login`)
+  - CLI 프로세스 스폰 → stdout에서 OAuth URL 추출 → 프론트엔드로 전달
+  - 프로세스 수명 관리 (`_active_login_process` 전역)
 - 플랫폼별 설치 명령어 제공
 
 ### CLILLMService (v1.8 개선)
+- **CLI 인증 우선순위 정책** ⚠️ 필수
+  - **1순위: OAuth/로컬 인증** — CLI 자체 OAuth 세션 (로컬 크레덴셜)
+  - **2순위: .env API 키** — 환경변수 API 키 (OAuth 없을 때만 주입)
+  - **Capacity fallback**: OAuth 용량 초과(429) 시 .env API 키로 자동 전환
+  - `_check_oauth_sync()`: OAuth 인증 여부 판별 (API 키 인증은 OAuth가 아님)
+  - `CLI_SUBPROCESS_ENV_MAP`: CLI별 환경변수 매핑 (중앙 관리, `constants/config.py`)
+  - OAuth 활성 시 `.env` API 키 주입 **차단** → CLI 자체 OAuth 세션 사용
+  - OAuth 비활성 시 `.env` API 키를 subprocess env에 주입
 - **stdin 기반 프롬프트 전달**
   - 커맨드라인 인수 대신 stdin으로 프롬프트 전달
   - Windows 커맨드라인 길이 제한(~8191자) 우회
-  - 긴 프롬프트(2000~5000자) 안정적 처리
 - **CLILLMProvider 래퍼 클래스**
   - LLMService 인터페이스와 호환
   - `provider.generate()` 메서드 지원
-  - 시스템 프롬프트 프리펜드 처리
 - **Windows npm 전역 경로 탐색**
-  - `.cmd` 파일 우선 탐색
-  - `%APPDATA%\npm` 경로 직접 확인
-  - `shutil.which` 폴백
-- **향상된 로깅 및 에러 핸들링**
-  - 프롬프트 길이(문자/바이트) 로깅
-  - JSON 파싱 실패 시 상세 진단
-  - stderr 출력 포함한 에러 메시지
+  - `.cmd` 파일 우선 탐색, `shutil.which` 폴백
 
 ---
 

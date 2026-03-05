@@ -27,6 +27,10 @@ services:
       - ./result:/app/result
       - ./config:/app/config
       - ./.env:/app/.env.init:ro
+      # Mount host CLI auth dirs (rw so CLI login/logout can save credentials)
+      - ~/.claude:/root/.claude
+      - ~/.gemini:/root/.gemini
+      - ~/.codex:/root/.codex
     env_file:
       - .env
     environment:

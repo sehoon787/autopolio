@@ -26,6 +26,12 @@ trap cleanup SIGINT SIGTERM
 echo "Installing dependencies with uv..."
 uv sync
 
+# Load .env into shell environment (so CLI subprocess keys like GEMINI_CLI_API_KEY are available)
+set -a && source .env && set +a
+
+# Set runtime to local (enables CLI native login in web mode)
+export AUTOPOLIO_RUNTIME=local
+
 # Start backend
 echo "Starting FastAPI backend..."
 uv run uvicorn api.main:app --reload --host 0.0.0.0 --port 8085 &

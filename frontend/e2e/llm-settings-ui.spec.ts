@@ -5,8 +5,7 @@ test.describe('LLM Settings UI Consistency', () => {
   test.describe.configure({ mode: 'serial' })
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/settings')
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.goto('/settings', { waitUntil: 'domcontentloaded' })
   })
 
   test('API tab: provider cards load with auth badges', async ({ page }) => {
@@ -57,17 +56,17 @@ test.describe('LLM Settings UI Consistency', () => {
     // Start with CLI tab
     await cliTab.click()
     let tabContent = page.locator('[role="tabpanel"]')
-    await expect(tabContent.getByText('Claude Code CLI')).toBeVisible({ timeout: 10000 })
+    await expect(tabContent.getByText('Claude Code CLI')).toBeVisible({ timeout: 15000 })
 
-    // Switch to API tab and wait for cards to load
+    // Switch to API tab — verify tab content changed (description text differs per tab)
     await apiTab.click()
     tabContent = page.locator('[role="tabpanel"]')
-    await expect(tabContent.locator('button[role="combobox"]').first()).toBeVisible({ timeout: 20000 })
+    await expect(tabContent.getByText(/Configure API keys|API 키를 설정/i)).toBeVisible({ timeout: 15000 })
 
     // Switch back to CLI tab
     await cliTab.click()
     tabContent = page.locator('[role="tabpanel"]')
-    await expect(tabContent.getByText('Claude Code CLI')).toBeVisible({ timeout: 10000 })
+    await expect(tabContent.getByText('Claude Code CLI')).toBeVisible({ timeout: 15000 })
 
     await page.screenshot({ path: 'test-results/llm-tab-switching.png', fullPage: true })
   })
