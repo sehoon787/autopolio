@@ -456,16 +456,41 @@ export async function executeCLI(
   }
 
   try {
-    return await execFileAsync(cliPath, args, {
-      timeout,
-      env: augmentedEnv,
+    // Use spawn instead of execFile to control stdio properly.
+    // execFile leaves stdin open as pipe, causing Claude Code to hang
+    // waiting for input instead of processing the -p prompt.
+    return await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(cliPath, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout,
+        env: augmentedEnv,
+      })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (data: Buffer) => { stdout += data.toString() })
+      child.stderr.on('data', (data: Buffer) => { stderr += data.toString() })
+      child.on('close', (code: number | null) => {
+        if (code === 0) resolve({ stdout, stderr })
+        else {
+          const err: any = new Error(`Command failed (exit ${code}): ${cliPath} ${args.join(' ')}\n${stderr}`)
+          err.code = code
+          err.stdout = stdout
+          err.stderr = stderr
+          err.killed = false
+          reject(err)
+        }
+      })
+      child.on('error', reject)
     })
   } catch (error: any) {
     // Rethrow with stderr included for better diagnostics
+    const stdout = error?.stdout || ''
     const stderr = error?.stderr || ''
-    if (stderr) {
-      debugLog(`CLI stderr: ${stderr.substring(0, 500)}`)
-    }
+    console.error(`[executeCLI] FAILED: ${cliPath} ${args.join(' ')}`)
+    console.error(`[executeCLI] exit code: ${error?.code}, signal: ${error?.signal}, killed: ${error?.killed}`)
+    if (stdout) console.error(`[executeCLI] stdout: ${stdout.substring(0, 500)}`)
+    if (stderr) console.error(`[executeCLI] stderr: ${stderr.substring(0, 500)}`)
+    if (!stdout && !stderr) console.error(`[executeCLI] error message: ${error?.message?.substring(0, 500)}`)
     throw error
   }
 }

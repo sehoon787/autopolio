@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { usePipelineStore } from '@/stores/pipelineStore'
 import { useUsageStore, LLMUsage } from '@/stores/usageStore'
+import { CLI_TYPES } from '@/constants'
 import { pipelineApi } from '@/api/pipeline'
 import { getFullApiUrl } from '@/lib/apiUrl'
 import {
@@ -123,7 +124,7 @@ export default function PipelinePage() {
       // Determine which provider to track
       let provider: keyof LLMUsage | null = null
       if (executionMode === 'cli' && cliType) {
-        provider = cliType === 'claude_code' ? 'claude_code_cli' : 'gemini_cli'
+        provider = cliType === CLI_TYPES.CLAUDE_CODE ? 'claude_code_cli' : 'gemini_cli'
       } else if (llmProvider) {
         if (llmProvider === 'openai' || llmProvider === 'anthropic' || llmProvider === 'gemini') {
           provider = llmProvider

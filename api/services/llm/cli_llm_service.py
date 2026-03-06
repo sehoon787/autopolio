@@ -675,6 +675,19 @@ class CLILLMService:
 
             msg_type = obj.get("type", "")
 
+            if msg_type == "error":
+                error_msg = obj.get("message", "Unknown Codex error")
+                raise RuntimeError(f"Codex CLI error: {error_msg}")
+
+            if msg_type == "turn.failed":
+                error_info = obj.get("error", {})
+                error_msg = (
+                    error_info.get("message", "Unknown failure")
+                    if isinstance(error_info, dict)
+                    else str(error_info)
+                )
+                raise RuntimeError(f"Codex CLI turn failed: {error_msg}")
+
             if msg_type == "item.completed":
                 item = obj.get("item", {})
                 if item.get("type") == "agent_message":
@@ -693,7 +706,7 @@ class CLILLMService:
                 "[CLI] Codex JSONL: no agent_message found (output_preview=%.300s)",
                 raw_output,
             )
-            return raw_output, 0
+            return "", token_count
 
         return content, token_count
 

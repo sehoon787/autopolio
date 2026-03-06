@@ -12,6 +12,12 @@ export interface CLIStatus {
   platform: string | null
 }
 
+export interface AllCLIStatus {
+  claude_code: CLIStatus
+  gemini_cli: CLIStatus
+  codex_cli: CLIStatus
+}
+
 export interface LLMProvider {
   id: string
   name: string
@@ -110,7 +116,6 @@ export interface CLILoginResponse {
   success: boolean
   url?: string
   message?: string
-  device_code?: string
 }
 
 export interface CLILogoutResponse {
@@ -134,6 +139,10 @@ export const llmApi = {
   // Validate an API key for a provider
   validateKey: (provider: string, apiKey: string) =>
     apiClient.post<APIKeyValidationResponse>(`/llm/validate/${provider}`, { api_key: apiKey }),
+
+  // Get all CLI statuses in parallel (single request)
+  getAllCLIStatus: () =>
+    apiClient.get<AllCLIStatus>('/llm/cli/status/all'),
 
   // Get Claude Code CLI status
   getCLIStatus: () =>
@@ -178,9 +187,6 @@ export const llmApi = {
 
   cancelCLILogin: () =>
     apiClient.post(`/llm/cli/auth/cancel`),
-
-  submitAuthCode: (code: string) =>
-    apiClient.post<{ success: boolean; message?: string }>(`/llm/cli/auth/submit-code`, { code }),
 
   cliLogout: (cliType: string) =>
     apiClient.post<CLILogoutResponse>(`/llm/cli/auth/${cliType}/logout`),

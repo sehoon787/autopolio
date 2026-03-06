@@ -24,6 +24,7 @@ import {
   type CLILoginUrlEvent,
 } from '@/lib/electron'
 import { llmApi } from '@/api/llm'
+import { CLI_TYPES } from '@/constants'
 
 export interface UseCLIAuthReturn {
   claudeAuth: CLIAuthStatus | null
@@ -31,7 +32,6 @@ export interface UseCLIAuthReturn {
   codexAuth: CLIAuthStatus | null
   isLoggingIn: CLIType | null
   loginUrl: string | null
-  deviceCode: string | null
   login: (tool: CLIType) => Promise<void>
   cancelLogin: () => Promise<void>
   logout: (tool: CLIType) => Promise<void>
@@ -44,7 +44,6 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   const [codexAuth, setCodexAuth] = useState<CLIAuthStatus | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState<CLIType | null>(null)
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
-  const [deviceCode, setDeviceCode] = useState<string | null>(null)
 
   const inElectron = isElectron()
   const isActive = inElectron || !!isLocalMode
@@ -60,9 +59,9 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
 
     if (inElectron) {
       const [claude, gemini, codex] = await Promise.all([
-        getCLIAuthStatusElectron('claude_code'),
-        getCLIAuthStatusElectron('gemini_cli'),
-        getCLIAuthStatusElectron('codex_cli'),
+        getCLIAuthStatusElectron(CLI_TYPES.CLAUDE_CODE),
+        getCLIAuthStatusElectron(CLI_TYPES.GEMINI_CLI),
+        getCLIAuthStatusElectron(CLI_TYPES.CODEX_CLI),
       ])
       setClaudeAuth(claude)
       setGeminiAuth(gemini)
@@ -70,9 +69,9 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     } else {
       // Web local mode: use HTTP API
       const results = await Promise.allSettled([
-        llmApi.getCLIAuthStatus('claude_code'),
-        llmApi.getCLIAuthStatus('gemini_cli'),
-        llmApi.getCLIAuthStatus('codex_cli'),
+        llmApi.getCLIAuthStatus(CLI_TYPES.CLAUDE_CODE),
+        llmApi.getCLIAuthStatus(CLI_TYPES.GEMINI_CLI),
+        llmApi.getCLIAuthStatus(CLI_TYPES.CODEX_CLI),
       ])
       setClaudeAuth(results[0].status === 'fulfilled' ? results[0].value.data : null)
       setGeminiAuth(results[1].status === 'fulfilled' ? results[1].value.data : null)
@@ -179,8 +178,8 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     if (!isActive) return
 
     // Record current auth state to detect actual changes during polling
-    const currentAuth = tool === 'claude_code' ? claudeAuth
-      : tool === 'gemini_cli' ? geminiAuth : codexAuth
+    const currentAuth = tool === CLI_TYPES.CLAUDE_CODE ? claudeAuth
+      : tool === CLI_TYPES.GEMINI_CLI ? geminiAuth : codexAuth
     preLoginAuthRef.current = currentAuth ? {
       method: currentAuth.method,
       email: currentAuth.email,
@@ -210,7 +209,6 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
         if (!data.success) {
           loginWindow?.close()
           setIsLoggingIn(null)
-          setDeviceCode(null)
           return
         }
 
@@ -221,11 +219,6 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
           }
         } else {
           loginWindow?.close()
-        }
-
-        // Extract device code if present (Codex CLI)
-        if (data.device_code) {
-          setDeviceCode(data.device_code)
         }
 
         // Start polling for auth completion
@@ -259,7 +252,6 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     }
     setIsLoggingIn(null)
     setLoginUrl(null)
-    setDeviceCode(null)
   }, [isActive, inElectron])
 
   /**
@@ -286,7 +278,6 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     codexAuth,
     isLoggingIn,
     loginUrl,
-    deviceCode,
     login,
     cancelLogin,
     logout,

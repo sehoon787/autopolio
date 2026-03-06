@@ -2,6 +2,7 @@
 LLM Configuration Router - Manage API keys and CLI status.
 """
 
+import asyncio
 import logging
 import os
 from typing import List
@@ -14,6 +15,7 @@ from api.database import get_db
 from api.models.user import User
 from api.schemas.llm import (
     CLIStatus,
+    AllCLIStatus,
     LLMConfigResponse,
     LLMConfigUpdate,
     APIKeyValidationRequest,
@@ -397,6 +399,22 @@ async def get_codex_cli_status():
     return CLIStatus(**status)
 
 
+@router.get("/cli/status/all", response_model=AllCLIStatus)
+async def get_all_cli_status():
+    """Get all CLI statuses in parallel (single request)."""
+    cli_service = get_cli_service()
+    claude, gemini, codex = await asyncio.gather(
+        cli_service.detect_claude_code(),
+        cli_service.detect_gemini_cli(),
+        cli_service.detect_codex_cli(),
+    )
+    return AllCLIStatus(
+        claude_code=CLIStatus(**claude),
+        gemini_cli=CLIStatus(**gemini),
+        codex_cli=CLIStatus(**codex),
+    )
+
+
 @router.post("/cli/refresh", response_model=CLIStatus)
 async def refresh_cli_status():
     """Force refresh CLI detection (clears cache)."""
@@ -413,7 +431,7 @@ async def refresh_cli_status():
 def _require_local_runtime():
     """Raise 403 if not running in local or docker mode."""
     runtime = os.environ.get("AUTOPOLIO_RUNTIME", RuntimeProfile.EXTERNAL)
-    if runtime not in (RuntimeProfile.LOCAL, RuntimeProfile.DOCKER):
+    if runtime not in (RuntimeProfile.LOCAL, RuntimeProfile.DOCKER, RuntimeProfile.ELECTRON):
         raise HTTPException(
             status_code=403,
             detail="CLI native auth is only available in local/docker mode",
@@ -462,23 +480,6 @@ async def cancel_cli_login():
     _require_local_runtime()
     cli_service = get_cli_service()
     result = await cli_service.cancel_login()
-    return result
-
-
-@router.post("/cli/auth/submit-code")
-async def submit_auth_code(request: dict):
-    """Submit OAuth authorization code to the active CLI login process.
-
-    After the user authorizes in the browser, they receive an auth code
-    that must be pasted back into the CLI.  This endpoint writes the code
-    to the running CLI process's stdin.
-    """
-    _require_local_runtime()
-    code = (request.get("code") or "").strip()
-    if not code:
-        raise HTTPException(status_code=400, detail="Auth code is required")
-    cli_service = get_cli_service()
-    result = await cli_service.submit_auth_code(code)
     return result
 
 

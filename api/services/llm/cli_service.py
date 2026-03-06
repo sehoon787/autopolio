@@ -125,7 +125,9 @@ class CLIService:
         result = result.replace("{HOME}", os.environ.get("HOME", str(Path.home())))
         return result
 
-    async def _run_command(self, cmd: list[str], timeout: int = 5) -> tuple[bool, str]:
+    async def _run_command(
+        self, cmd: list[str], timeout: int = 5, env: dict = None
+    ) -> tuple[bool, str]:
         """Run a command and return (success, output).
 
         Uses subprocess.run with ThreadPoolExecutor for Windows asyncio compatibility.
@@ -149,6 +151,7 @@ class CLIService:
                 capture_output=True,
                 timeout=timeout,
                 text=True,
+                env=env,
             )
             return result.returncode, result.stdout.strip(), result.stderr.strip()
 
@@ -169,14 +172,25 @@ class CLIService:
         except Exception as e:
             return False, str(e)
 
+    @staticmethod
+    def _is_local_node_modules(p: str) -> bool:
+        """Return True if path is inside a local node_modules/.bin directory."""
+        return "node_modules" in p
+
     async def _find_cli_in_path(self, cli_name: str) -> Optional[str]:
-        """Find CLI in system PATH using which/where command."""
+        """Find CLI in system PATH using which/where command.
+
+        Skips local node_modules/.bin paths to avoid picking up
+        project-local npm packages instead of globally installed CLIs.
+        """
         if self.platform == "win32":
             # On Windows, prefer .cmd files for proper execution
             # Try with .cmd extension FIRST
             success, output = await self._run_command(["where", f"{cli_name}.cmd"])
             if success and output:
-                return output.split("\n")[0].strip()
+                found = output.split("\n")[0].strip()
+                if not self._is_local_node_modules(found):
+                    return found
 
             # Then try without extension (may return shell script)
             success, output = await self._run_command(["where", cli_name])
@@ -209,14 +223,17 @@ class CLIService:
             )
             if success and output:
                 path = output.strip()
-                cmd_path = path + ".cmd"
-                if os.path.exists(cmd_path):
-                    return cmd_path
-                return path
+                if not self._is_local_node_modules(path):
+                    cmd_path = path + ".cmd"
+                    if os.path.exists(cmd_path):
+                        return cmd_path
+                    return path
         else:
             success, output = await self._run_command(["which", cli_name])
             if success and output:
-                return output.split("\n")[0].strip()
+                found = output.split("\n")[0].strip()
+                if not self._is_local_node_modules(found):
+                    return found
 
         return None
 
@@ -251,6 +268,31 @@ class CLIService:
             return output.split("\n")[0].strip()
         return None
 
+    async def _resolve_cli_path(self, cli_name: str, known_paths: dict) -> Optional[str]:
+        """Resolve CLI binary path using 3-step fallback: PATH → npm global → known paths."""
+        # 1. System PATH
+        path = await self._find_cli_in_path(cli_name)
+
+        # 2. npm global path
+        if not path:
+            npm_global = await self._find_npm_global_path()
+            if npm_global:
+                suffix = ".cmd" if self.platform == "win32" else ""
+                candidate = os.path.join(npm_global, f"{cli_name}{suffix}")
+                if os.path.exists(candidate):
+                    path = candidate
+
+        # 3. Known platform-specific locations
+        if not path:
+            paths = known_paths.get(self.platform, known_paths.get("linux", []))
+            for path_template in paths:
+                expanded_path = self._expand_path(path_template)
+                if os.path.exists(expanded_path):
+                    path = expanded_path
+                    break
+
+        return path
+
     async def detect_claude_code(self) -> dict:
         """
         Detect Claude Code CLI installation status.
@@ -270,30 +312,7 @@ class CLIService:
             "platform": self.platform,
         }
 
-        # First, try to find in system PATH
-        path = await self._find_cli_in_path("claude")
-
-        # If not found in PATH, check npm global path
-        if not path:
-            npm_global = await self._find_npm_global_path()
-            if npm_global:
-                if self.platform == "win32":
-                    claude_cmd = os.path.join(npm_global, "claude.cmd")
-                    if os.path.exists(claude_cmd):
-                        path = claude_cmd
-                else:
-                    claude_bin = os.path.join(npm_global, "claude")
-                    if os.path.exists(claude_bin):
-                        path = claude_bin
-
-        # If still not found, check known locations
-        if not path:
-            paths = self.CLAUDE_PATHS.get(self.platform, self.CLAUDE_PATHS["linux"])
-            for path_template in paths:
-                expanded_path = self._expand_path(path_template)
-                if os.path.exists(expanded_path):
-                    path = expanded_path
-                    break
+        path = await self._resolve_cli_path("claude", self.CLAUDE_PATHS)
 
         if path:
             result["installed"] = True
@@ -324,30 +343,7 @@ class CLIService:
             "platform": self.platform,
         }
 
-        # First, try to find in system PATH
-        path = await self._find_cli_in_path("gemini")
-
-        # If not found in PATH, check npm global path
-        if not path:
-            npm_global = await self._find_npm_global_path()
-            if npm_global:
-                if self.platform == "win32":
-                    gemini_cmd = os.path.join(npm_global, "gemini.cmd")
-                    if os.path.exists(gemini_cmd):
-                        path = gemini_cmd
-                else:
-                    gemini_bin = os.path.join(npm_global, "gemini")
-                    if os.path.exists(gemini_bin):
-                        path = gemini_bin
-
-        # If still not found, check known locations
-        if not path:
-            paths = self.GEMINI_PATHS.get(self.platform, self.GEMINI_PATHS["linux"])
-            for path_template in paths:
-                expanded_path = self._expand_path(path_template)
-                if os.path.exists(expanded_path):
-                    path = expanded_path
-                    break
+        path = await self._resolve_cli_path("gemini", self.GEMINI_PATHS)
 
         if path:
             result["installed"] = True
@@ -401,30 +397,7 @@ class CLIService:
             "platform": self.platform,
         }
 
-        # First, try to find in system PATH
-        path = await self._find_cli_in_path("codex")
-
-        # If not found in PATH, check npm global path
-        if not path:
-            npm_global = await self._find_npm_global_path()
-            if npm_global:
-                if self.platform == "win32":
-                    codex_cmd = os.path.join(npm_global, "codex.cmd")
-                    if os.path.exists(codex_cmd):
-                        path = codex_cmd
-                else:
-                    codex_bin = os.path.join(npm_global, "codex")
-                    if os.path.exists(codex_bin):
-                        path = codex_bin
-
-        # If still not found, check known locations
-        if not path:
-            paths = self.CODEX_PATHS.get(self.platform, self.CODEX_PATHS["linux"])
-            for path_template in paths:
-                expanded_path = self._expand_path(path_template)
-                if os.path.exists(expanded_path):
-                    path = expanded_path
-                    break
+        path = await self._resolve_cli_path("codex", self.CODEX_PATHS)
 
         if path:
             result["installed"] = True
@@ -537,12 +510,25 @@ class CLIService:
         return {"authenticated": False, "error": f"Unknown CLI type: {cli_type}"}
 
     async def _check_claude_auth(self) -> dict:
-        """Check Claude Code auth via `claude auth status`."""
-        path = await self._find_cli_in_path("claude")
+        """Check Claude Code auth via `claude auth status`.
+
+        Strips ANTHROPIC_API_KEY from subprocess env so that we only
+        detect *bound* credentials (OAuth or locally stored API key),
+        not the .env key inherited from the parent process.
+        """
+        path = await self._resolve_cli_path("claude", self.CLAUDE_PATHS)
         if not path:
             return {"authenticated": False, "error": "Claude Code CLI not found"}
 
-        success, output = await self._run_command([path, "auth", "status"], timeout=10)
+        # Strip ANTHROPIC_API_KEY so CLI only reports its own stored creds
+        clean_env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("ANTHROPIC_API_KEY", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")
+        }
+        success, output = await self._run_command(
+            [path, "auth", "status"], timeout=10, env=clean_env
+        )
         if not success and not output:
             return {"authenticated": False}
 
@@ -607,12 +593,22 @@ class CLIService:
         return {"authenticated": False}
 
     async def _check_codex_auth(self) -> dict:
-        """Check Codex CLI auth via `codex login status`, fallback to auth file."""
-        path = await self._find_cli_in_path("codex")
+        """Check Codex CLI auth via `codex login status`, fallback to auth file.
+
+        Strips OPENAI_API_KEY from subprocess env so that we only
+        detect *bound* credentials (OAuth or locally stored API key).
+        """
+        path = await self._resolve_cli_path("codex", self.CODEX_PATHS)
         if not path:
             return {"authenticated": False, "error": "Codex CLI not found"}
 
-        success, output = await self._run_command([path, "login", "status"], timeout=10)
+        # Strip OPENAI_API_KEY so CLI only reports bound creds
+        clean_env = {
+            k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"
+        }
+        success, output = await self._run_command(
+            [path, "login", "status"], timeout=10, env=clean_env
+        )
         combined = output.strip()
         logger.info("codex login status output: %s", combined[:200])
 
@@ -823,89 +819,6 @@ class CLIService:
 
         return url
 
-    async def _spawn_login_and_extract_device_auth(
-        self, cmd: list[str], timeout_sec: int = 10
-    ) -> tuple[str | None, str | None]:
-        """Spawn a CLI login command, read stdout/stderr for up to
-        *timeout_sec* seconds, and return (url, device_code).
-
-        Similar to _spawn_login_and_extract_url but also extracts a
-        device code pattern like 'F263-62ZJL' from the output.
-        """
-        global _active_login_process
-        url_pattern = re.compile(r"https?://[^\s<>\x1b]+")
-        device_code_pattern = re.compile(r"\b([A-Z0-9]{4,}-[A-Z0-9]{4,})\b")
-
-        import select
-        import time
-        import threading
-
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-        )
-        _active_login_process = proc
-
-        # Phase 1: read output until both URL and device code found or timeout
-        output = b""
-        deadline = time.time() + timeout_sec
-        url = None
-        device_code = None
-        while time.time() < deadline:
-            try:
-                readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 2.0)
-                for stream in readable:
-                    chunk = os.read(stream.fileno(), 4096)
-                    if chunk:
-                        output += chunk
-            except (OSError, ValueError):
-                break
-
-            text = output.decode("utf-8", errors="replace")
-            if not url:
-                url_match = url_pattern.search(text)
-                if url_match:
-                    url = url_match.group(0)
-            if not device_code:
-                dc_match = device_code_pattern.search(text)
-                if dc_match:
-                    device_code = dc_match.group(1)
-
-            # Stop early if both found
-            if url and device_code:
-                break
-
-            if proc.poll() is not None:
-                break
-
-        if not url:
-            # No URL found — kill the process
-            try:
-                proc.kill()
-            except OSError:
-                pass
-            _active_login_process = None
-            return None, None
-
-        # Phase 2: keep process alive for OAuth token exchange
-        def _wait_for_login_completion():
-            global _active_login_process
-            try:
-                proc.wait(timeout=180)
-            except subprocess.TimeoutExpired:
-                try:
-                    proc.kill()
-                except OSError:
-                    pass
-            finally:
-                if _active_login_process is proc:
-                    _active_login_process = None
-
-        threading.Thread(target=_wait_for_login_completion, daemon=True).start()
-
-        return url, device_code
 
     async def _start_claude_login(self) -> dict:
         """Start Claude Code OAuth login via `claude auth login`."""
@@ -924,21 +837,18 @@ class CLIService:
         }
 
     async def _start_codex_login(self) -> dict:
-        """Start Codex OAuth login via `codex login --device-auth`.
+        """Start Codex OAuth login via `codex login`.
 
-        Extracts both the URL and the one-time device code from output.
+        Uses standard browser OAuth flow (same as Claude Code).
         """
         path = await self._find_cli_in_path("codex")
         if not path:
             return {"success": False, "message": "Codex CLI not found"}
 
-        cmd = self._shell_wrap(path, ["login", "--device-auth"])
-        url, device_code = await self._spawn_login_and_extract_device_auth(cmd)
+        cmd = self._shell_wrap(path, ["login"])
+        url = await self._spawn_login_and_extract_url(cmd)
         if url:
-            result: dict = {"success": True, "url": url}
-            if device_code:
-                result["device_code"] = device_code
-            return result
+            return {"success": True, "url": url}
         return {
             "success": True,
             "url": "https://platform.openai.com/api-keys",
@@ -950,14 +860,17 @@ class CLIService:
 
         Gemini CLI has no `auth login` subcommand.  Instead we:
         1. Switch settings.json to oauth-personal mode
-        2. Spawn `gemini -p 'Reply OK'` with API keys stripped from env
-        3. Gemini CLI opens browser for Google OAuth on first use
+        2. Delete existing oauth_creds.json to force re-auth
+        3. Intercept `open`/`xdg-open` to capture the OAuth URL
+        4. Spawn `gemini -p 'Reply OK'` with Y piped to stdin
+        5. Return the captured URL to frontend
         """
         path = await self._find_cli_in_path("gemini")
         if not path:
             return {"success": False, "message": "Gemini CLI not found"}
 
         import time
+        import tempfile
         import threading
 
         global _active_login_process
@@ -967,9 +880,28 @@ class CLIService:
             from api.services.llm.cli_llm_service import _switch_gemini_auth
             _switch_gemini_auth(GEMINI_AUTH_OAUTH)
 
-            # Build clean env excluding API keys so CLI triggers OAuth
+            # Delete existing oauth creds to force re-auth
+            home = os.environ.get("HOME", str(Path.home()))
+            oauth_creds = os.path.join(home, ".gemini", "oauth_creds.json")
+            if os.path.exists(oauth_creds):
+                os.remove(oauth_creds)
+                logger.info("Deleted existing Gemini oauth_creds.json for re-auth")
+
+            # Create interceptor for open/xdg-open to capture OAuth URL
+            intercept_dir = tempfile.mkdtemp(prefix="gemini_intercept_")
+            url_file = os.path.join(intercept_dir, "captured_url")
+
+            # Create interceptor scripts for all possible browser-open commands
+            for cmd_name in ("open", "xdg-open", "sensible-browser", "x-www-browser"):
+                script_path = os.path.join(intercept_dir, cmd_name)
+                with open(script_path, "w") as f:
+                    f.write(f'#!/bin/sh\necho "$1" > "{url_file}"\n')
+                os.chmod(script_path, 0o755)
+
+            # Build clean env: strip API keys, prepend interceptor to PATH
             clean_env = {k: v for k, v in os.environ.items()
                          if k not in ("GEMINI_API_KEY", "GEMINI_CLI_API_KEY")}
+            clean_env["PATH"] = intercept_dir + ":" + clean_env.get("PATH", "")
 
             cmd = self._shell_wrap(path, ["-p", "Reply OK"])
             proc = subprocess.Popen(
@@ -981,7 +913,14 @@ class CLIService:
             )
             _active_login_process = proc
 
-            # Background thread waits for process completion
+            # Answer "Y" to the "Do you want to continue? [Y/n]:" prompt
+            try:
+                proc.stdin.write(b"Y\n")
+                proc.stdin.flush()
+            except OSError:
+                pass
+
+            # Background thread waits for process completion and cleans up
             def _wait_for_gemini_login():
                 global _active_login_process
                 try:
@@ -994,16 +933,34 @@ class CLIService:
                 finally:
                     if _active_login_process is proc:
                         _active_login_process = None
+                    # Cleanup interceptor dir
+                    import shutil
+                    shutil.rmtree(intercept_dir, ignore_errors=True)
 
             threading.Thread(target=_wait_for_gemini_login, daemon=True).start()
 
-            # Give CLI time to open browser
-            time.sleep(2)
+            # Wait for URL to be captured (up to 5 seconds)
+            captured_url = None
+            for _ in range(25):
+                time.sleep(0.2)
+                if os.path.exists(url_file):
+                    with open(url_file) as f:
+                        captured_url = f.read().strip()
+                    if captured_url:
+                        break
+
+            if captured_url:
+                logger.info("Captured Gemini OAuth URL: %s", captured_url[:80])
+                return {
+                    "success": True,
+                    "url": captured_url,
+                    "message": "Gemini CLI OAuth URL captured",
+                }
 
             return {
                 "success": True,
                 "url": None,
-                "message": "Gemini CLI opened browser for Google OAuth login",
+                "message": "Gemini CLI started but could not capture OAuth URL",
             }
         except Exception as e:
             logger.error("Gemini login failed: %s", e)
@@ -1014,28 +971,6 @@ class CLIService:
         if self.platform == "win32" and path.lower().endswith((".cmd", ".bat")):
             return ["cmd.exe", "/c", path, *args]
         return [path, *args]
-
-    async def submit_auth_code(self, code: str) -> dict:
-        """Submit OAuth authorization code to the active CLI login process.
-
-        Claude Code's `auth login` prints a URL, then waits for the user to
-        paste the authorization code into stdin.  This method writes the code
-        to the running process's stdin so the CLI can exchange it for tokens.
-        """
-        global _active_login_process
-        if not _active_login_process:
-            return {"success": False, "message": "No active login process"}
-
-        if _active_login_process.poll() is not None:
-            _active_login_process = None
-            return {"success": False, "message": "Login process already exited"}
-
-        try:
-            _active_login_process.stdin.write((code.strip() + "\n").encode("utf-8"))
-            _active_login_process.stdin.flush()
-            return {"success": True, "message": "Auth code submitted"}
-        except (OSError, BrokenPipeError) as e:
-            return {"success": False, "message": f"Failed to write code: {e}"}
 
     async def cancel_login(self) -> dict:
         """Cancel any active login process."""

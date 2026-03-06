@@ -5,6 +5,7 @@
 import { startCLI, subscribeCLIOutput, stopCLI } from '@/lib/electron'
 import { isElectron } from '@/lib/electron'
 import type { CLIType, OutputData } from '@/lib/electron'
+import { CLI_TYPES } from '@/constants'
 
 const CLI_TIMEOUT_MS = 120_000
 
@@ -21,7 +22,7 @@ interface CLIGenerateResult {
  */
 export async function generateWithCLI(
   prompt: string,
-  cli: CLIType = 'claude_code',
+  cli: CLIType = CLI_TYPES.CLAUDE_CODE,
   model?: string
 ): Promise<CLIGenerateResult> {
   if (!isElectron()) {
@@ -32,7 +33,7 @@ export async function generateWithCLI(
     }
   }
 
-  const cliCommand = cli === 'claude_code' ? 'claude' : 'gemini'
+  const cliCommand = cli === CLI_TYPES.CLAUDE_CODE ? 'claude' : 'gemini'
 
   try {
     // Start CLI process with the prompt as an argument
@@ -141,7 +142,7 @@ function extractContentAndTokens(
       return { content: raw, tokens: 0 }
     }
 
-    if (cli === 'claude_code' && 'result' in data) {
+    if (cli === CLI_TYPES.CLAUDE_CODE && 'result' in data) {
       const content = typeof data.result === 'string' ? data.result : String(data.result)
       const usage = data.usage || {}
       const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
@@ -149,7 +150,7 @@ function extractContentAndTokens(
       return { content, tokens }
     }
 
-    if (cli === 'gemini_cli' && 'response' in data) {
+    if (cli === CLI_TYPES.GEMINI_CLI && 'response' in data) {
       const content = typeof data.response === 'string' ? data.response : String(data.response)
       const models = data.stats?.models || {}
       let tokens = 0

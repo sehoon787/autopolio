@@ -26,6 +26,14 @@ class CLIStatus(BaseModel):
     platform: Optional[str] = Field(None, description="Detected platform")
 
 
+class AllCLIStatus(BaseModel):
+    """Combined status of all CLI tools (parallel detection)."""
+
+    claude_code: CLIStatus
+    gemini_cli: CLIStatus
+    codex_cli: CLIStatus
+
+
 class LLMProvider(BaseModel):
     """Information about an LLM provider."""
 

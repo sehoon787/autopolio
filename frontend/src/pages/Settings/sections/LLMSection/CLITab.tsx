@@ -59,7 +59,6 @@ interface CLITabProps {
   onGeminiCLIModelChange: (model: string) => void
   onCodexCLIModelChange: (model: string) => void
   onSaveKey?: (cliType: CLIType, apiKey: string) => void
-  onSubmitAuthCode?: (code: string) => void
 }
 
 export function CLITab({
@@ -107,7 +106,6 @@ export function CLITab({
   onNativeLogin,
   onCancelNativeLogin,
   onNativeLogout,
-  onSubmitAuthCode,
 }: CLITabProps) {
   const { t } = useTranslation('settings')
 
@@ -171,7 +169,6 @@ export function CLITab({
             onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.CLAUDE_CODE) : undefined}
             onCancelNativeLogin={onCancelNativeLogin}
             onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.CLAUDE_CODE) : undefined}
-            onSubmitAuthCode={onSubmitAuthCode}
           />
           {/* Gemini CLI */}
           <CLIStatusCard
@@ -198,7 +195,6 @@ export function CLITab({
             onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.GEMINI_CLI) : undefined}
             onCancelNativeLogin={onCancelNativeLogin}
             onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.GEMINI_CLI) : undefined}
-            onSubmitAuthCode={onSubmitAuthCode}
           />
           {/* Codex CLI */}
           <CLIStatusCard
@@ -225,7 +221,6 @@ export function CLITab({
             onNativeLogin={onNativeLogin ? () => onNativeLogin(CLI_TYPES.CODEX_CLI) : undefined}
             onCancelNativeLogin={onCancelNativeLogin}
             onNativeLogout={onNativeLogout ? () => onNativeLogout(CLI_TYPES.CODEX_CLI) : undefined}
-            onSubmitAuthCode={onSubmitAuthCode}
           />
         </div>
       )}

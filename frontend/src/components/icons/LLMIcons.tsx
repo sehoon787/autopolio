@@ -15,6 +15,8 @@
  * - Gemini: Gradient #4285F4 → #9B72CB → #D96570
  */
 
+import { CLI_TYPES } from '@/constants'
+
 interface IconProps {
   className?: string
   size?: number
@@ -138,11 +140,11 @@ export function getCLIIcon(cliType: string, props?: IconProps) {
   const iconProps = { ...props, colored: true }
 
   switch (cliType) {
-    case 'claude_code':
+    case CLI_TYPES.CLAUDE_CODE:
       return <ClaudeCodeIcon {...iconProps} />
-    case 'codex_cli':
+    case CLI_TYPES.CODEX_CLI:
       return <OpenAIIcon {...iconProps} />
-    case 'gemini_cli':
+    case CLI_TYPES.GEMINI_CLI:
       return <GeminiIcon {...iconProps} />
     default:
       return null

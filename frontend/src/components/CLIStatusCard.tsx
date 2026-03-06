@@ -82,17 +82,15 @@ interface CLIStatusCardProps {
   onNativeLogin?: () => void
   onCancelNativeLogin?: () => void
   onNativeLogout?: () => void
-  onSubmitAuthCode?: (code: string) => void
 }
 
 type StatusType = 'installed' | 'outdated' | 'not-found' | 'loading'
 
-export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange, authStatus, authMessage, isCheckingAuth, isSavingKey, onSaveKey, supportsNativeLogin, isNativeLoggingIn, loginUrl, nativeAuthEmail, onNativeLogin, onCancelNativeLogin, onSubmitAuthCode }: CLIStatusCardProps) {
+export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefresh, onSelect, onTest, isTesting, models, selectedModel, onModelChange, authStatus, authMessage, isCheckingAuth, isSavingKey, onSaveKey, supportsNativeLogin, isNativeLoggingIn, loginUrl, nativeAuthEmail, onNativeLogin, onCancelNativeLogin }: CLIStatusCardProps) {
   const { t } = useTranslation(['settings'])
   const [copied, setCopied] = useState(false)
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState('')
-  const [authCodeInput, setAuthCodeInput] = useState('')
 
   const cliConfig = CLI_CONFIG[cliType]
 
@@ -475,7 +473,7 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
       )}
 
       {/* Native login in progress */}
-      {isNativeLoggingIn && loginUrl && (
+      {isNativeLoggingIn && (
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md space-y-2">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-500 shrink-0" />
@@ -483,15 +481,17 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 {t('settings:cli.loggingIn', 'Logging in...')}
               </p>
-              <a
-                href={loginUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-500 hover:underline truncate block"
-              >
-                {t('settings:cli.openLoginPage', 'Open login page')}
-                <ExternalLink className="inline-block ml-1 h-3 w-3" />
-              </a>
+              {loginUrl && (
+                <a
+                  href={loginUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-500 hover:underline truncate block"
+                >
+                  {t('settings:cli.openLoginPage', 'Open login page')}
+                  <ExternalLink className="inline-block ml-1 h-3 w-3" />
+                </a>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -502,36 +502,6 @@ export function CLIStatusCard({ cliType, status, isLoading, isSelected, onRefres
               {t('settings:cli.cancel', 'Cancel')}
             </Button>
           </div>
-          {/* Auth code input for CLI OAuth code-paste flow */}
-          {onSubmitAuthCode && (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={authCodeInput}
-                onChange={(e) => setAuthCodeInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && authCodeInput.trim()) {
-                    onSubmitAuthCode(authCodeInput.trim())
-                    setAuthCodeInput('')
-                  }
-                }}
-                placeholder={t('settings:cli.pasteAuthCode', 'Paste auth code here')}
-                className="flex-1 h-7 px-2 text-xs border rounded bg-white dark:bg-gray-800"
-              />
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs shrink-0"
-                disabled={!authCodeInput.trim()}
-                onClick={() => {
-                  onSubmitAuthCode(authCodeInput.trim())
-                  setAuthCodeInput('')
-                }}
-              >
-                {t('settings:cli.submit', 'Submit')}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 

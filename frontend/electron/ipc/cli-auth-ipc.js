@@ -1,5 +1,5 @@
 // IPC Handlers - CLI Native Login (Claude Code, Gemini CLI)
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -318,7 +318,7 @@ async function checkCodexAuthStatus(cliPath) {
     });
 }
 function startLoginProcess(config) {
-    const { tool, cliPath, args, deps, watchForUrl, verifyAuth } = config;
+    const { tool, cliPath, args, deps, watchForUrl, openUrlInBrowser, verifyAuth, env, stdinData, cleanup } = config;
     return new Promise((resolve) => {
         let output = '';
         let browserOpened = false;
@@ -327,13 +327,19 @@ function startLoginProcess(config) {
         activeLoginProcess = spawn(cliPath, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             shell: false,
+            ...(env ? { env } : {}),
         });
+        // Write initial data to stdin if provided (e.g., "Y\n" for Gemini confirmation)
+        if (stdinData && activeLoginProcess.stdin) {
+            activeLoginProcess.stdin.write(stdinData);
+        }
         const timeout = setTimeout(() => {
             if (!resolved) {
                 resolved = true;
                 activeLoginProcess?.kill();
                 activeLoginProcess = null;
                 activeLoginTool = null;
+                cleanup?.();
                 resolve({ success: false, tool, error: 'Login timed out' });
             }
         }, LOGIN_TIMEOUT_MS);
@@ -344,12 +350,12 @@ function startLoginProcess(config) {
                 browserOpened = true;
                 const url = urlMatch[0];
                 console.log(`[CLI Auth] ${tool} login URL detected:`, url);
+                if (openUrlInBrowser) {
+                    shell.openExternal(url);
+                }
                 if (mainWindow) {
                     mainWindow.webContents.send('cli-auth:login-url', { tool, url });
                 }
-                // NOTE: Do NOT call shell.openExternal(url) here.
-                // The CLI (e.g. `claude auth login`) already opens the browser natively.
-                // Opening it again causes a duplicate browser tab.
             }
         } : undefined;
         activeLoginProcess.stdout?.on('data', (data) => {
@@ -366,6 +372,7 @@ function startLoginProcess(config) {
             clearTimeout(timeout);
             activeLoginProcess = null;
             activeLoginTool = null;
+            cleanup?.();
             if (resolved)
                 return;
             resolved = true;
@@ -388,6 +395,7 @@ function startLoginProcess(config) {
             clearTimeout(timeout);
             activeLoginProcess = null;
             activeLoginTool = null;
+            cleanup?.();
             if (resolved)
                 return;
             resolved = true;
@@ -403,14 +411,77 @@ function startClaudeLogin(cliPath, deps) {
     });
 }
 function startGeminiLogin(cliPath, deps) {
+    // Delete existing oauth creds to force re-auth
+    const oauthCreds = path.join(os.homedir(), '.gemini', 'oauth_creds.json');
+    try {
+        if (fs.existsSync(oauthCreds)) {
+            fs.unlinkSync(oauthCreds);
+            console.log('[CLI Auth] Deleted existing Gemini oauth_creds.json for re-auth');
+        }
+    }
+    catch { /* ignore */ }
+    // Create interceptor dir to capture OAuth URL from `open`/`xdg-open`
+    const interceptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gemini_intercept_'));
+    const urlFile = path.join(interceptDir, 'captured_url');
+    // Create interceptor scripts
+    const browserCmds = process.platform === 'win32'
+        ? ['start']
+        : ['open', 'xdg-open', 'sensible-browser', 'x-www-browser'];
+    for (const cmd of browserCmds) {
+        const scriptPath = path.join(interceptDir, cmd);
+        fs.writeFileSync(scriptPath, `#!/bin/sh\necho "$1" > "${urlFile}"\n`, { mode: 0o755 });
+    }
+    // Build env with interceptor prepended to PATH and API keys stripped
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.GEMINI_API_KEY;
+    delete cleanEnv.GEMINI_CLI_API_KEY;
+    cleanEnv.PATH = interceptDir + path.delimiter + (cleanEnv.PATH || '');
+    // Poll for captured URL and send to frontend
+    const pollForUrl = () => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attempts++;
+            if (attempts > 25) { // 5 seconds max
+                clearInterval(interval);
+                return;
+            }
+            try {
+                if (fs.existsSync(urlFile)) {
+                    const url = fs.readFileSync(urlFile, 'utf-8').trim();
+                    if (url) {
+                        clearInterval(interval);
+                        console.log('[CLI Auth] Gemini OAuth URL captured:', url.substring(0, 80));
+                        // Open browser immediately
+                        shell.openExternal(url);
+                        const mainWindow = deps.getMainWindow();
+                        if (mainWindow) {
+                            mainWindow.webContents.send('cli-auth:login-url', { tool: 'gemini_cli', url });
+                        }
+                    }
+                }
+            }
+            catch { /* ignore */ }
+        }, 200);
+    };
+    pollForUrl();
     return startLoginProcess({
         tool: 'gemini_cli', cliPath, args: ['-p', 'Reply OK'], deps,
-        watchForUrl: false, verifyAuth: () => checkGeminiAuthStatus(),
+        watchForUrl: false, // URL is captured via interceptor, not stdout
+        verifyAuth: () => checkGeminiAuthStatus(),
+        env: cleanEnv,
+        stdinData: 'Y\n',
+        cleanup: () => {
+            try {
+                fs.rmSync(interceptDir, { recursive: true, force: true });
+            }
+            catch { /* ignore */ }
+        },
     });
 }
 function startCodexLogin(cliPath, deps) {
     return startLoginProcess({
         tool: 'codex_cli', cliPath, args: ['login'], deps,
-        watchForUrl: true, verifyAuth: checkCodexAuthStatus,
+        watchForUrl: true, openUrlInBrowser: true,
+        verifyAuth: checkCodexAuthStatus,
     });
 }
