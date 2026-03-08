@@ -222,7 +222,7 @@ Artifacts are stored in `tests/e2e/test-results/`.
 
 ## Test Coverage
 
-### API Tests (~50 test cases)
+### API Tests (~73 test cases)
 
 | Module | Tests |
 |--------|-------|
@@ -234,6 +234,10 @@ Artifacts are stored in `tests/e2e/test-results/`.
 | Platforms | 8 |
 | Documents | 8 |
 | Integration | 6 |
+| Bugfix Verification | 23 |
+| Multi-Repo Summary | 9 |
+| Tiers | 12 |
+| Auth | 5 |
 
 ### E2E Tests (~40 test cases)
 
@@ -493,6 +497,65 @@ Tests under `frontend/e2e/` run against the local dev server or Docker:
 cd frontend
 npx playwright test e2e/credentials.spec.ts
 ```
+
+## Analysis Field Verification
+
+`verify_analysis_results()` in `api/test_github_e2e_workflow.py` validates all 28 analysis response fields:
+
+### Required fields (fail if missing)
+| # | Field | Source |
+|---|-------|--------|
+| 1 | `id` | DB primary key |
+| 2 | `project_id` | FK to projects |
+| 3 | `git_url` | Input |
+| 4 | `total_commits` | Phase 3: Git analysis |
+| 5 | `detected_technologies` | Phase 3: Tech detection |
+| 6 | `analyzed_at` | Metadata |
+
+### Git analysis fields (fail if missing)
+| # | Field | Source |
+|---|-------|--------|
+| 7 | `user_commits` | Phase 3 |
+| 8 | `lines_added` | Phase 3 |
+| 9 | `lines_deleted` | Phase 3 |
+| 10 | `files_changed` | Phase 3 |
+| 11 | `languages` | Phase 3 |
+| 12 | `primary_language` | Phase 3 |
+| 13 | `commit_messages_summary` | Phase 3 |
+| 14 | `commit_categories` | Phase 3 |
+
+### LLM fields (warn if empty, don't fail)
+| # | Field | Source |
+|---|-------|--------|
+| 15 | `key_tasks` | Phase 5.2 |
+| 16 | `implementation_details` | Phase 5.3 |
+| 17 | `development_timeline` | Phase 5.3 |
+| 18 | `detailed_achievements` | Phase 5.3 |
+| 19 | `architecture_patterns` | Phase 5.3 |
+| 20 | `ai_summary` | Phase 5.4 |
+| 21 | `ai_key_features` | Phase 5.4 |
+| 22 | `user_code_contributions` | Phase 5.1 |
+
+### Optional fields (warn only, legitimately null)
+| # | Field | Reason |
+|---|-------|--------|
+| 23 | `ai_tools_detected` | Only set when AI tools found |
+| 24 | `tech_stack_versions` | Phase 6, may fail for private repos |
+| 25 | `token_usage` | Not tracked for CLI providers |
+
+### Metadata fields (always present)
+`project_name`, `branch`, `llm_provider`, `llm_model`
+
+## Bugfix Verification Tests
+
+`test_bugfix_verification.py` covers three critical bug fixes (23 test cases):
+
+| Category | Tests | What it verifies |
+|----------|-------|-----------------|
+| Bug A: Code Contributions | 8 | `save_llm_results()` stores `user_code_contributions`, both runners call `get_user_code_contributions()` and pass data through |
+| Bug B: Codex JSONL Parsing | 7 | `error`/`turn.failed` events raise `RuntimeError`, empty content returns `""` not raw JSONL, normal parsing works |
+| Bug C: OAuth stdin | 3 | `_spawn_login_and_extract_url` uses `DEVNULL`, `submit_auth_code` is no-op, Gemini login also uses `DEVNULL` |
+| Schema/Endpoint Exposure | 5 | `EffectiveAnalysisResponse`, `RepoAnalysisSummary`, `RepoAnalysisResponse` all have `user_code_contributions`, endpoints pass the field |
 
 ## Contributing
 

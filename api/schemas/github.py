@@ -236,6 +236,8 @@ class EffectiveAnalysisResponse(BaseModel):
     # AI-generated summary (v1.12)
     ai_summary: Optional[str] = None
     ai_key_features: Optional[List[str]] = None
+    # User's code contributions context (v1.12)
+    user_code_contributions: Optional[Dict[str, Any]] = None
     analyzed_at: datetime
     # Edit status
     edit_status: EditStatus
@@ -269,6 +271,7 @@ class RepoAnalysisSummary(BaseModel):
     detailed_achievements: Optional[Dict[str, List[Dict[str, str]]]] = None
     ai_summary: Optional[str] = None
     ai_key_features: Optional[List[str]] = None
+    user_code_contributions: Optional[Dict[str, Any]] = None
     languages: Optional[Dict[str, float]] = None
     commit_categories: Optional[Dict[str, int]] = None
     development_timeline: Optional[List[Dict[str, Any]]] = None

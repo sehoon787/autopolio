@@ -127,9 +127,15 @@ def verify_analysis_results(analysis: dict) -> dict:
     Returns:
         dict: Verification results with 'passed' flag and details
     """
-    results = {"passed": True, "checks": {}, "missing_fields": [], "empty_fields": []}
+    results = {
+        "passed": True,
+        "checks": {},
+        "missing_fields": [],
+        "empty_fields": [],
+        "warnings": [],
+    }
 
-    # Required fields that should exist
+    # Required fields that must exist (fail if missing)
     required_fields = [
         "id",
         "project_id",
@@ -139,17 +145,45 @@ def verify_analysis_results(analysis: dict) -> dict:
         "analyzed_at",
     ]
 
-    # LLM-generated fields that should be populated after full analysis
+    # Phase 3: Git analysis fields (should be populated by repo_analyzer)
+    git_fields = [
+        "user_commits",
+        "lines_added",
+        "lines_deleted",
+        "files_changed",
+        "languages",
+        "primary_language",
+        "commit_messages_summary",
+        "commit_categories",
+    ]
+
+    # Phase 5: LLM-generated fields (warn if empty but don't fail)
     llm_fields = [
         "key_tasks",
         "implementation_details",
         "detailed_achievements",
         "ai_summary",
+        "ai_key_features",
+        "user_code_contributions",
+        "development_timeline",
+        "architecture_patterns",
     ]
+
+    # Legitimately nullable fields (warn only)
+    optional_fields = ["ai_tools_detected", "tech_stack_versions", "token_usage"]
 
     # Check required fields
     for field in required_fields:
         exists = field in analysis and analysis[field] is not None
+        results["checks"][field] = exists
+        if not exists:
+            results["missing_fields"].append(field)
+            results["passed"] = False
+
+    # Check git analysis fields (fail if missing — these come from git, not LLM)
+    for field in git_fields:
+        value = analysis.get(field)
+        exists = value is not None
         results["checks"][field] = exists
         if not exists:
             results["missing_fields"].append(field)
@@ -167,6 +201,14 @@ def verify_analysis_results(analysis: dict) -> dict:
         results["checks"][field] = {"exists": exists, "has_content": has_content}
         if not has_content:
             results["empty_fields"].append(field)
+
+    # Check optional fields (warn only, never fail)
+    for field in optional_fields:
+        value = analysis.get(field)
+        exists = value is not None
+        results["checks"][field] = {"exists": exists, "optional": True}
+        if not exists:
+            results["warnings"].append(f"{field} is null (expected for some providers)")
 
     return results
 

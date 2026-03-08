@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { isElectron, getBackendUrl, getPlatform, getAppVersion, getClaudeCLIStatus, getGeminiCLIStatus, getCodexCLIStatus } from '@/lib/electron'
+import { isElectron, getBackendUrl, getPlatform, getAppVersion } from '@/lib/electron'
 import { externalBackendUrl } from '@/config/runtime'
 import { llmApi } from '@/api/llm'
 import { CLI_TYPES, LLM_PROVIDERS, AI_MODES, STORAGE_KEYS } from '@/constants'
@@ -117,50 +117,8 @@ export const useAppStore = create<AppState>()(
           isInitialized: true,
         })
 
-        // Auto-detect installed CLI and set defaults (Electron only, first run)
-        if (isElectronApp && !get()._defaultsApplied) {
-          try {
-            const [claudeStatus, geminiStatus, codexStatus] = await Promise.all([
-              getClaudeCLIStatus(),
-              getGeminiCLIStatus(),
-              getCodexCLIStatus(),
-            ])
-            const claudeInstalled = claudeStatus?.installed ?? false
-            const geminiInstalled = geminiStatus?.installed ?? false
-            const codexInstalled = codexStatus?.installed ?? false
-
-            const updates: Partial<AppState> = { _defaultsApplied: true }
-
-            if (claudeInstalled) {
-              updates.selectedCLI = CLI_TYPES.CLAUDE_CODE
-              updates.aiMode = AI_MODES.CLI
-            } else if (codexInstalled) {
-              updates.selectedCLI = CLI_TYPES.CODEX_CLI
-              updates.aiMode = AI_MODES.CLI
-            } else if (geminiInstalled) {
-              updates.selectedCLI = CLI_TYPES.GEMINI_CLI
-              updates.aiMode = AI_MODES.CLI
-            } else {
-              // No CLI installed, fall back to API mode
-              updates.aiMode = AI_MODES.API
-            }
-
-            set(updates as AppState)
-            console.log('[AppStore] Auto-detected CLI defaults:', {
-              claudeInstalled,
-              geminiInstalled,
-              codexInstalled,
-              selectedCLI: updates.selectedCLI,
-              aiMode: updates.aiMode,
-            })
-          } catch (error) {
-            console.error('[AppStore] CLI auto-detection failed:', error)
-            set({ _defaultsApplied: true })
-          }
-        }
-
-        // Web mode: auto-detect CLI via backend API (first run only)
-        if (!isElectronApp && !get()._defaultsApplied) {
+        // Auto-detect installed CLI via backend API (first run only)
+        if (!get()._defaultsApplied) {
           try {
             const response = await llmApi.getConfig()
             const config = response.data
@@ -180,9 +138,9 @@ export const useAppStore = create<AppState>()(
               updates.aiMode = AI_MODES.CLI
             }
             set(updates as AppState)
-            console.log('[AppStore] Web CLI auto-detected:', { claudeInstalled, geminiInstalled, codexInstalled })
+            console.log('[AppStore] CLI auto-detected:', { claudeInstalled, geminiInstalled, codexInstalled })
           } catch (error) {
-            console.error('[AppStore] Web CLI auto-detection failed:', error)
+            console.error('[AppStore] CLI auto-detection failed:', error)
             set({ _defaultsApplied: true })
           }
         }

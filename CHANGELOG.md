@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.23] - 2026-03-06
+
+### Fixed
+- **백그라운드 분석 `user_code_contributions` 누락 (Bug A)**
+  - `analysis_job_runner.py` (단일 레포), `analysis_job_multi.py` (멀티 레포): `get_user_code_contributions()` 호출 추가
+  - `analysis_job_helpers.py`: `save_llm_results()`에 `user_code_contributions` 저장 로직 추가
+  - `generate_detailed_content()`에 `code_contributions=` 인자 전달
+  - 동기(sync) 경로에서만 수집되던 코드 기여도가 이제 백그라운드 경로에서도 정상 수집/저장
+- **Codex CLI `_parse_codex_jsonl()` 에러 이벤트 미처리 (Bug B)**
+  - `error`, `turn.failed` JSONL 이벤트에 `RuntimeError` 발생 추가
+  - 에러 시 raw JSONL이 `ai_summary`에 저장되는 버그 수정
+  - 빈 content 반환 시 `return "", token_count` (기존: `return raw_output, 0`)
+- **Claude Code OAuth 로그인 stdin 유지 (Bug C — 진단 정정)**
+  - Docker/headless 환경에서 CLI는 항상 code-exchange 플로우 사용 (stdin 타입 무관)
+  - `_spawn_login_and_extract_url()`: `stdin=subprocess.PIPE` 유지 (auth code stdin 입력 필요)
+  - `submit_auth_code()`: stdin.write 로직 유지 (code-exchange 완료에 필수)
+- **Gemini CLI OAuth 로그인 stdin 수정**
+  - `_start_gemini_login()`: `stdin=subprocess.PIPE` → `subprocess.DEVNULL` (stdin 입력 불필요)
+- **`EffectiveAnalysisResponse`, `RepoAnalysisSummary` 스키마 갭**
+  - `user_code_contributions` 필드 누락 수정
+  - `github_edits.py`: `/analysis/{id}/effective`, `/analysis/{id}/per-repo` 엔드포인트에서 필드 반환 추가
+
+### Added
+- **버그 수정 검증 테스트** (`test_bugfix_verification.py`, 23 test cases)
+  - Bug A: `save_llm_results` contributions 저장/미저장 검증, 소스 코드 호출 확인
+  - Bug B: error/turn.failed 이벤트 RuntimeError, 빈 content 반환, 정상 파싱
+  - Bug C: Claude Code stdin=PIPE 확인, submit_auth_code stdin.write 검증, Gemini login DEVNULL
+  - 스키마: EffectiveAnalysisResponse, RepoAnalysisSummary, RepoAnalysisResponse 필드 검증
+  - 엔드포인트: effective/per-repo 라우터 코드에서 필드 전달 확인
+
+---
+
 ## [1.22.1] - 2026-03-02
 
 ### Changed

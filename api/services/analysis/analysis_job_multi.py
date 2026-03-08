@@ -357,6 +357,7 @@ async def _analyze_single_repo_for_multi(
 
     key_tasks: List[str] = []
     detailed_content: Dict[str, Any] = {}
+    code_contributions = None
     if llm_service:
         from api.services.llm.cli_llm_service import CLILLMService
 
@@ -391,6 +392,25 @@ async def _analyze_single_repo_for_multi(
             "lines_deleted": analysis_result.get("lines_deleted", 0),
             "files_changed": analysis_result.get("files_changed", 0),
         }
+
+        # Collect user code contributions for LLM context
+        code_contributions = None
+        if github_username:
+            try:
+                code_contributions = await github_service.get_user_code_contributions(
+                    git_url, github_username,
+                    max_commits=30, max_total_patch_size=50000,
+                )
+                logger.info(
+                    "[MultiRepoAnalysis] %sCollected code contributions: %d commits",
+                    label_prefix,
+                    code_contributions.get("summary", {}).get("analyzed_commits", 0),
+                )
+            except Exception as e:
+                logger.warning(
+                    "[MultiRepoAnalysis] %sCode contributions collection failed: %s",
+                    label_prefix, e,
+                )
 
         if is_cli_mode:
             # CLI mode: sequential to avoid concurrent subprocess conflicts
@@ -437,6 +457,7 @@ async def _analyze_single_repo_for_multi(
                     analysis_data=analysis_data_for_step6,
                     llm_service=llm_service,
                     language=language,
+                    code_contributions=code_contributions,
                 )
                 repo_tokens += tokens
                 logger.info(
@@ -465,6 +486,7 @@ async def _analyze_single_repo_for_multi(
                     analysis_data=analysis_data_for_step6,
                     llm_service=llm_service,
                     language=language,
+                    code_contributions=code_contributions,
                 ),
                 return_exceptions=True,
             )
@@ -543,6 +565,7 @@ async def _analyze_single_repo_for_multi(
         detailed_content=detailed_content,
         ai_summary=ai_summary,
         ai_key_features=ai_key_features,
+        user_code_contributions=code_contributions,
     )
 
     if await service.check_cancelled(task_id):

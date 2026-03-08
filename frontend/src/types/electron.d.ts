@@ -74,15 +74,6 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>
   getUserDataPath: () => Promise<string>
 
-  // CLI Detection APIs
-  getClaudeCLIStatus: () => Promise<CLIStatus>
-  getGeminiCLIStatus: () => Promise<CLIStatus>
-  refreshCLIStatus: () => Promise<Record<string, CLIStatus>>
-  refreshSingleCLIStatus: (tool: 'claude_code' | 'gemini_cli') => Promise<CLIStatus>
-
-  // CLI Test API
-  testCLI: (tool: string, model?: string) => Promise<unknown>
-
   // CLI Process Management APIs
   startCLI: (config: unknown) => Promise<unknown>
   stopCLI: (sessionId: string) => Promise<unknown>

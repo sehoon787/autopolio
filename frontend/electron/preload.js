@@ -29,33 +29,7 @@ contextBridge.exposeInMainWorld('electron', {
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
 
   // ============================================================================
-  // CLI Detection APIs (existing)
-  // ============================================================================
-
-  // Get Claude CLI status
-  getClaudeCLIStatus: () => ipcRenderer.invoke('get-claude-cli-status'),
-
-  // Get Gemini CLI status
-  getGeminiCLIStatus: () => ipcRenderer.invoke('get-gemini-cli-status'),
-
-  // Get Codex CLI status
-  getCodexCLIStatus: () => ipcRenderer.invoke('get-codex-cli-status'),
-
-  // Refresh all CLI statuses
-  refreshCLIStatus: () => ipcRenderer.invoke('refresh-cli-status'),
-
-  // Refresh a single CLI status (individual refresh)
-  refreshSingleCLIStatus: (tool) => ipcRenderer.invoke('refresh-single-cli-status', tool),
-
-  // ============================================================================
-  // CLI Test API (NEW)
-  // ============================================================================
-
-  // Test a CLI by running --version
-  testCLI: (tool, model) => ipcRenderer.invoke('cli:test', tool, model),
-
-  // ============================================================================
-  // CLI Process Management APIs (NEW)
+  // CLI Process Management APIs
   // ============================================================================
 
   // Start a CLI process
@@ -105,36 +79,6 @@ contextBridge.exposeInMainWorld('electron', {
     const handler = (_event, data) => callback(data)
     ipcRenderer.on('cli:output', handler)
     return () => ipcRenderer.removeListener('cli:output', handler)
-  },
-
-  // ============================================================================
-  // CLI Auth APIs (Native Login)
-  // ============================================================================
-
-  // Get CLI auth status (OAuth/credential check, no token consumed)
-  getCLIAuthStatus: (tool) => ipcRenderer.invoke('cli-auth:status', tool),
-
-  // Start CLI native login (Claude Code: `claude login`, Gemini CLI: auto OAuth)
-  startCLILogin: (tool) => ipcRenderer.invoke('cli-auth:login', tool),
-
-  // Cancel ongoing CLI login
-  cancelCLILogin: () => ipcRenderer.invoke('cli-auth:cancel'),
-
-  // Logout from CLI
-  cliLogout: (tool) => ipcRenderer.invoke('cli-auth:logout', tool),
-
-  // Subscribe to CLI login URL event (Claude Code shows URL to open)
-  onCLILoginUrl: (callback) => {
-    const handler = (_event, data) => callback(data)
-    ipcRenderer.on('cli-auth:login-url', handler)
-    return () => ipcRenderer.removeListener('cli-auth:login-url', handler)
-  },
-
-  // Subscribe to CLI login completion event
-  onCLILoginComplete: (callback) => {
-    const handler = (_event, data) => callback(data)
-    ipcRenderer.on('cli-auth:login-complete', handler)
-    return () => ipcRenderer.removeListener('cli-auth:login-complete', handler)
   },
 
   // ============================================================================

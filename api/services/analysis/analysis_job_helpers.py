@@ -21,6 +21,28 @@ from api.constants import LLM_MAX_TOKENS, SummaryStyle
 
 logger = logging.getLogger(__name__)
 
+# Fields from detailed_content dict that map 1:1 to RepoAnalysis columns
+_DETAILED_CONTENT_FIELDS = [
+    "implementation_details",
+    "development_timeline",
+    "detailed_achievements",
+    "architecture_patterns",
+]
+
+
+def apply_detailed_content(
+    repo_analysis: "RepoAnalysis", detailed_content: Dict[str, Any]
+) -> None:
+    """Apply detailed_content dict fields to a RepoAnalysis model.
+
+    Shared by both sync (phase5_save_llm_results) and background (save_llm_results)
+    save paths to avoid field-list duplication.
+    """
+    for field in _DETAILED_CONTENT_FIELDS:
+        value = detailed_content.get(field)
+        if value:
+            setattr(repo_analysis, field, value)
+
 
 def build_summary_project_data(
     project, analysis_result: Dict[str, Any] = None
@@ -372,6 +394,7 @@ async def save_llm_results(
     detailed_content: Dict[str, Any],
     ai_summary: str = None,
     ai_key_features: List[str] = None,
+    user_code_contributions: Dict[str, Any] = None,
 ) -> None:
     """Save LLM-generated results to RepoAnalysis and optionally to Project."""
     logger.info(
@@ -392,22 +415,17 @@ async def save_llm_results(
         repo_analysis.analysis_language = language
         if key_tasks is not None:
             repo_analysis.key_tasks = key_tasks
-        if detailed_content.get("implementation_details"):
-            repo_analysis.implementation_details = detailed_content[
-                "implementation_details"
-            ]
-        if detailed_content.get("development_timeline"):
-            repo_analysis.development_timeline = detailed_content[
-                "development_timeline"
-            ]
-        if detailed_content.get("detailed_achievements"):
-            repo_analysis.detailed_achievements = detailed_content[
-                "detailed_achievements"
-            ]
+        apply_detailed_content(repo_analysis, detailed_content)
         if ai_summary:
             repo_analysis.ai_summary = ai_summary
         if ai_key_features:
             repo_analysis.ai_key_features = ai_key_features
+        if user_code_contributions:
+            repo_analysis.user_code_contributions = {
+                "summary": user_code_contributions.get("summary", {}),
+                "technologies": user_code_contributions.get("technologies", []),
+                "work_areas": user_code_contributions.get("work_areas", []),
+            }
         await db.commit()
 
         if is_primary and (ai_summary or ai_key_features):

@@ -1,9 +1,8 @@
 /**
  * useCLIAuth - CLI native authentication hook
  *
- * Supports two paths:
- * - Electron: IPC-based (getCLIAuthStatusElectron, startCLILoginElectron, etc.)
- * - Web local mode: HTTP API-based (llmApi.getCLIAuthStatus, etc.) + polling
+ * Uses HTTP API for all operations (auth status, login, cancel, logout).
+ * Login completion is detected via polling (2s interval).
  *
  * Provides native OAuth login for CLI tools:
  * - Claude Code: auth status only (no native login)
@@ -12,17 +11,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import {
-  isElectron,
-  getCLIAuthStatus as getCLIAuthStatusElectron,
-  startCLILogin as startCLILoginElectron,
-  cancelCLILogin as cancelCLILoginElectron,
-  cliLogout as cliLogoutElectron,
-  type CLIType,
-  type CLIAuthStatus,
-  type CLILoginResult,
-  type CLILoginUrlEvent,
-} from '@/lib/electron'
+import { useAppStore } from '@/stores/appStore'
+import type { CLIType, CLIAuthStatus } from '@/lib/electron'
 import { llmApi } from '@/api/llm'
 import { CLI_TYPES } from '@/constants'
 
@@ -45,8 +35,8 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   const [isLoggingIn, setIsLoggingIn] = useState<CLIType | null>(null)
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
 
-  const inElectron = isElectron()
-  const isActive = inElectron || !!isLocalMode
+  const { isElectronApp } = useAppStore()
+  const isActive = !!isLocalMode
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Track auth state before login to detect actual changes (not pre-existing API key auth)
   const preLoginAuthRef = useRef<{ method?: string; email?: string; account?: string } | null>(null)
@@ -57,59 +47,20 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   const refreshAuthStatus = useCallback(async () => {
     if (!isActive) return
 
-    if (inElectron) {
-      const [claude, gemini, codex] = await Promise.all([
-        getCLIAuthStatusElectron(CLI_TYPES.CLAUDE_CODE),
-        getCLIAuthStatusElectron(CLI_TYPES.GEMINI_CLI),
-        getCLIAuthStatusElectron(CLI_TYPES.CODEX_CLI),
-      ])
-      setClaudeAuth(claude)
-      setGeminiAuth(gemini)
-      setCodexAuth(codex)
-    } else {
-      // Web local mode: use HTTP API
-      const results = await Promise.allSettled([
-        llmApi.getCLIAuthStatus(CLI_TYPES.CLAUDE_CODE),
-        llmApi.getCLIAuthStatus(CLI_TYPES.GEMINI_CLI),
-        llmApi.getCLIAuthStatus(CLI_TYPES.CODEX_CLI),
-      ])
-      setClaudeAuth(results[0].status === 'fulfilled' ? results[0].value.data : null)
-      setGeminiAuth(results[1].status === 'fulfilled' ? results[1].value.data : null)
-      setCodexAuth(results[2].status === 'fulfilled' ? results[2].value.data : null)
-    }
-  }, [isActive, inElectron])
+    const results = await Promise.allSettled([
+      llmApi.getCLIAuthStatus(CLI_TYPES.CLAUDE_CODE),
+      llmApi.getCLIAuthStatus(CLI_TYPES.GEMINI_CLI),
+      llmApi.getCLIAuthStatus(CLI_TYPES.CODEX_CLI),
+    ])
+    setClaudeAuth(results[0].status === 'fulfilled' ? results[0].value.data : null)
+    setGeminiAuth(results[1].status === 'fulfilled' ? results[1].value.data : null)
+    setCodexAuth(results[2].status === 'fulfilled' ? results[2].value.data : null)
+  }, [isActive])
 
   // Check auth status on mount
   useEffect(() => {
     refreshAuthStatus()
   }, [refreshAuthStatus])
-
-  // Listen for login events from Electron main process
-  useEffect(() => {
-    if (!inElectron || !window.electron) return
-
-    const unsubscribeUrl = window.electron.onCLILoginUrl(
-      (data: CLILoginUrlEvent) => {
-        setLoginUrl(data.url)
-      }
-    )
-
-    const unsubscribeComplete = window.electron.onCLILoginComplete(
-      (data: CLILoginResult) => {
-        setIsLoggingIn(null)
-        setLoginUrl(null)
-
-        if (data.success) {
-          refreshAuthStatus()
-        }
-      }
-    )
-
-    return () => {
-      unsubscribeUrl()
-      unsubscribeComplete()
-    }
-  }, [inElectron, refreshAuthStatus])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -122,7 +73,7 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   }, [])
 
   /**
-   * Start polling auth status (for web local mode after login start)
+   * Start polling auth status (for login completion detection)
    */
   const startPolling = useCallback((tool: CLIType) => {
     if (pollingRef.current) {
@@ -173,6 +124,9 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
 
   /**
    * Start native login for a CLI tool
+   * Always uses HTTP API. window.open behavior differs:
+   * - Web: pre-open blank window to avoid popup blocker, then navigate
+   * - Electron: open URL directly (setWindowOpenHandler opens system browser)
    */
   const login = useCallback(async (tool: CLIType) => {
     if (!isActive) return
@@ -189,46 +143,38 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
     setIsLoggingIn(tool)
     setLoginUrl(null)
 
-    if (inElectron) {
-      try {
-        const result = await startCLILoginElectron(tool)
-        if (result && !result.success) {
-          setIsLoggingIn(null)
-        }
-      } catch {
-        setIsLoggingIn(null)
-      }
-    } else {
-      // Web local mode: HTTP API
-      // Open blank window NOW (in click context) to avoid popup blocker
-      const loginWindow = window.open('about:blank', '_blank')
-      try {
-        const response = await llmApi.startCLILogin(tool)
-        const data = response.data
+    // Web: pre-open blank window to avoid popup blocker
+    // Electron: not needed (no popup blocker, setWindowOpenHandler opens system browser)
+    const loginWindow = !isElectronApp ? window.open('about:blank', '_blank') : null
 
-        if (!data.success) {
-          loginWindow?.close()
-          setIsLoggingIn(null)
-          return
-        }
+    try {
+      const response = await llmApi.startCLILogin(tool)
+      const data = response.data
 
-        if (data.url) {
-          setLoginUrl(data.url)
-          if (loginWindow) {
-            loginWindow.location.href = data.url
-          }
-        } else {
-          loginWindow?.close()
-        }
-
-        // Start polling for auth completion
-        startPolling(tool)
-      } catch {
+      if (!data.success) {
         loginWindow?.close()
         setIsLoggingIn(null)
+        return
       }
+
+      if (data.url) {
+        setLoginUrl(data.url)
+        if (loginWindow) {
+          loginWindow.location.href = data.url  // Web: navigate pre-opened window
+        } else {
+          window.open(data.url, '_blank')  // Electron: system browser via setWindowOpenHandler
+        }
+      } else {
+        loginWindow?.close()
+      }
+
+      // Start polling for auth completion
+      startPolling(tool)
+    } catch {
+      loginWindow?.close()
+      setIsLoggingIn(null)
     }
-  }, [isActive, inElectron, startPolling, claudeAuth, geminiAuth, codexAuth])
+  }, [isActive, isElectronApp, startPolling, claudeAuth, geminiAuth, codexAuth])
 
   /**
    * Cancel ongoing login
@@ -241,18 +187,14 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
       pollingRef.current = null
     }
 
-    if (inElectron) {
-      await cancelCLILoginElectron()
-    } else {
-      try {
-        await llmApi.cancelCLILogin()
-      } catch {
-        // Ignore
-      }
+    try {
+      await llmApi.cancelCLILogin()
+    } catch {
+      // Ignore
     }
     setIsLoggingIn(null)
     setLoginUrl(null)
-  }, [isActive, inElectron])
+  }, [isActive])
 
   /**
    * Logout from a CLI tool
@@ -260,17 +202,13 @@ export function useCLIAuth(isLocalMode?: boolean): UseCLIAuthReturn {
   const logout = useCallback(async (tool: CLIType) => {
     if (!isActive) return
 
-    if (inElectron) {
-      await cliLogoutElectron(tool)
-    } else {
-      try {
-        await llmApi.cliLogout(tool)
-      } catch {
-        // Ignore
-      }
+    try {
+      await llmApi.cliLogout(tool)
+    } catch {
+      // Ignore
     }
     await refreshAuthStatus()
-  }, [isActive, inElectron, refreshAuthStatus])
+  }, [isActive, refreshAuthStatus])
 
   return {
     claudeAuth,

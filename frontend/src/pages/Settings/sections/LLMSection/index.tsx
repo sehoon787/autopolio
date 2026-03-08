@@ -10,15 +10,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import { CLI_TYPES } from '@/constants'
-import {
-  getClaudeCLIStatus,
-  getGeminiCLIStatus,
-  getCodexCLIStatus,
-  refreshCLIStatus as refreshCLIStatusElectron,
-  refreshSingleCLIStatus as refreshSingleCLIStatusElectron,
-  testCLI as testCLIElectron,
-  type CLIType,
-} from '@/lib/electron'
+import type { CLIType } from '@/lib/electron'
 
 import { useCLIAuth } from '@/hooks/useCLIAuth'
 import { CLITab } from './CLITab'
@@ -60,7 +52,7 @@ export default function LLMSection() {
 
   // Default to true while loading — show login/key buttons immediately.
   // Only hide if runtime is explicitly 'external' (remote server without CLI access).
-  const isLocalMode = !llmConfig || llmConfig.runtime === 'local' || llmConfig.runtime === 'docker'
+  const isLocalMode = !llmConfig || llmConfig.runtime !== 'external'
   // CLI connection/key buttons in Electron + local mode
   const showCLIManagement = isElectronApp || isLocalMode
 
@@ -104,14 +96,6 @@ export default function LLMSection() {
   const { data: allCLIStatus, isLoading: isLoadingAllCLI } = useQuery({
     queryKey: ['allCLIStatus'],
     queryFn: async () => {
-      if (isElectronApp) {
-        const [claude, gemini, codex] = await Promise.all([
-          getClaudeCLIStatus(),
-          getGeminiCLIStatus(),
-          getCodexCLIStatus(),
-        ])
-        return { claude_code: claude, gemini_cli: gemini, codex_cli: codex }
-      }
       const response = await llmApi.getAllCLIStatus()
       return response.data
     },
@@ -135,19 +119,10 @@ export default function LLMSection() {
   ) => {
     setIsChecking(true)
     try {
-      if (isElectronApp) {
-        const result = await testCLIElectron(cliType as CLIType, model)
-        const status = result?.auth_status as 'authenticated' | 'auth_failed' | 'unknown' | undefined
-        setAuthStatus(status || (result?.success ? 'authenticated' : 'auth_failed'))
-        if (!result?.success && result?.message) {
-          setCliAuthMessages(prev => ({ ...prev, [cliType]: result.message }))
-        }
-      } else {
-        const response = await llmApi.testCLI(cliType, model)
-        setAuthStatus(response.data.auth_status || (response.data.success ? 'authenticated' : 'auth_failed'))
-        if (!response.data.success && response.data.message) {
-          setCliAuthMessages(prev => ({ ...prev, [cliType]: response.data.message }))
-        }
+      const response = await llmApi.testCLI(cliType, model)
+      setAuthStatus(response.data.auth_status || (response.data.success ? 'authenticated' : 'auth_failed'))
+      if (!response.data.success && response.data.message) {
+        setCliAuthMessages(prev => ({ ...prev, [cliType]: response.data.message }))
       }
     } catch (e) {
       setAuthStatus('auth_failed')
@@ -176,7 +151,7 @@ export default function LLMSection() {
     }
     // Fire all tests in parallel — no await needed, each updates state independently
     if (tests.length > 0) Promise.all(tests)
-  }, [allCLIStatus, claudeCodeModel, geminiCLIModel, codexCLIModel, isElectronApp])
+  }, [allCLIStatus, claudeCodeModel, geminiCLIModel, codexCLIModel])
 
   // Auto-test API provider auth status when configured
   useEffect(() => {
@@ -214,48 +189,28 @@ export default function LLMSection() {
   })
 
   const refreshClaudeCLIMutation = useMutation({
-    mutationFn: async () => {
-      if (isElectronApp) {
-        return refreshSingleCLIStatusElectron('claude_code')
-      }
-      return llmApi.refreshCLI()
-    },
+    mutationFn: () => llmApi.refreshCLI(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allCLIStatus'] })
     },
   })
 
   const refreshGeminiCLIMutation = useMutation({
-    mutationFn: async () => {
-      if (isElectronApp) {
-        return refreshSingleCLIStatusElectron('gemini_cli')
-      }
-      return llmApi.refreshCLI()
-    },
+    mutationFn: () => llmApi.refreshCLI(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allCLIStatus'] })
     },
   })
 
   const refreshCodexCLIMutation = useMutation({
-    mutationFn: async () => {
-      if (isElectronApp) {
-        return refreshSingleCLIStatusElectron('codex_cli' as CLIType)
-      }
-      return llmApi.refreshCLI()
-    },
+    mutationFn: () => llmApi.refreshCLI(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allCLIStatus'] })
     },
   })
 
   const refreshAllCLIMutation = useMutation({
-    mutationFn: async () => {
-      if (isElectronApp) {
-        return refreshCLIStatusElectron()
-      }
-      return llmApi.refreshCLI()
-    },
+    mutationFn: () => llmApi.refreshCLI(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allCLIStatus'] })
     },
@@ -265,14 +220,6 @@ export default function LLMSection() {
     mutationFn: async (cliType: CLIType) => {
       const rawModel = cliType === CLI_TYPES.CLAUDE_CODE ? claudeCodeModel : cliType === CLI_TYPES.CODEX_CLI ? codexCLIModel : geminiCLIModel
       const model = resolveModelForAPI(rawModel)
-      if (isElectronApp) {
-        const result = await testCLIElectron(cliType as CLIType, model)
-        if (!result) throw new Error('Electron API not available')
-        // Don't throw on !success — let onSuccess handle it so auth_status is preserved.
-        // Throwing here sends control to onError which hardcodes 'auth_failed',
-        // losing the distinction between billing errors (authenticated) and real auth failures.
-        return result
-      }
       const response = await llmApi.testCLI(cliType, model)
       return response.data
     },
@@ -657,9 +604,9 @@ export default function LLMSection() {
             claudeNativeAuthEmail={claudeAuth?.email || (claudeAuth?.authenticated && claudeAuth.method !== 'api_key' ? 'OAuth' : null)}
             geminiNativeAuthAccount={geminiAuth?.account || (geminiAuth?.authenticated ? 'Google OAuth' : null)}
             codexNativeAuthAccount={codexAuth?.account || (codexAuth?.authenticated && codexAuth.method !== 'api_key' ? 'OAuth' : null)}
-            onNativeLogin={(isElectronApp || isLocalMode) ? nativeLogin : undefined}
-            onCancelNativeLogin={(isElectronApp || isLocalMode) ? nativeCancelLogin : undefined}
-            onNativeLogout={(isElectronApp || isLocalMode) ? async (tool) => {
+            onNativeLogin={isElectronApp ? nativeLogin : undefined}
+            onCancelNativeLogin={isElectronApp ? nativeCancelLogin : undefined}
+            onNativeLogout={isElectronApp ? async (tool) => {
               await nativeLogout(tool)
               // Reset auth status to allow re-test
               if (tool === CLI_TYPES.CLAUDE_CODE) {

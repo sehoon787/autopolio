@@ -822,7 +822,7 @@ class CLIService:
 
     async def _start_claude_login(self) -> dict:
         """Start Claude Code OAuth login via `claude auth login`."""
-        path = await self._find_cli_in_path("claude")
+        path = await self._resolve_cli_path("claude", self.CLAUDE_PATHS)
         if not path:
             return {"success": False, "message": "Claude Code CLI not found"}
 
@@ -841,7 +841,7 @@ class CLIService:
 
         Uses standard browser OAuth flow (same as Claude Code).
         """
-        path = await self._find_cli_in_path("codex")
+        path = await self._resolve_cli_path("codex", self.CODEX_PATHS)
         if not path:
             return {"success": False, "message": "Codex CLI not found"}
 
@@ -865,7 +865,7 @@ class CLIService:
         4. Spawn `gemini -p 'Reply OK'` with Y piped to stdin
         5. Return the captured URL to frontend
         """
-        path = await self._find_cli_in_path("gemini")
+        path = await self._resolve_cli_path("gemini", self.GEMINI_PATHS)
         if not path:
             return {"success": False, "message": "Gemini CLI not found"}
 
@@ -891,11 +891,17 @@ class CLIService:
             intercept_dir = tempfile.mkdtemp(prefix="gemini_intercept_")
             url_file = os.path.join(intercept_dir, "captured_url")
 
-            # Create interceptor scripts for all possible browser-open commands
+            # Find real browser-open command before overriding PATH
+            import shutil as _shutil
+            real_open = _shutil.which("open") or _shutil.which("xdg-open")
+
+            # Create interceptor scripts: capture URL, then forward to real open
             for cmd_name in ("open", "xdg-open", "sensible-browser", "x-www-browser"):
                 script_path = os.path.join(intercept_dir, cmd_name)
                 with open(script_path, "w") as f:
                     f.write(f'#!/bin/sh\necho "$1" > "{url_file}"\n')
+                    if real_open:
+                        f.write(f'exec "{real_open}" "$@"\n')
                 os.chmod(script_path, 0o755)
 
             # Build clean env: strip API keys, prepend interceptor to PATH

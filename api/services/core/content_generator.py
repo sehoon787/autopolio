@@ -6,6 +6,7 @@ Handles:
 - Implementation details generation
 - Development timeline generation
 - Achievement generation
+- Architecture patterns generation
 """
 
 import asyncio
@@ -19,6 +20,59 @@ from api.services.github.github_constants import call_llm_generate
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_json(response: str) -> str:
+    """Strip markdown code fences from an LLM response."""
+    if "```json" in response:
+        return response.split("```json")[1].split("```")[0]
+    if "```" in response:
+        return response.split("```")[1].split("```")[0]
+    return response
+
+
+async def _call_and_parse_json(
+    label: str,
+    llm,
+    prompt: str,
+    system_prompt: str,
+    max_tokens: int,
+    fallback: Any,
+) -> Tuple[Any, int]:
+    """Call LLM, parse JSON response, return (parsed, tokens).
+
+    On failure returns (fallback, 0).
+    """
+    response = None
+    try:
+        response, tokens = await call_llm_generate(
+            llm, prompt, system_prompt=system_prompt,
+            max_tokens=max_tokens, temperature=0.3,
+        )
+        logger.info(
+            "[%s] Response len=%d, tokens=%d",
+            label, len(response) if response else 0, tokens,
+        )
+        return json.loads(_extract_json(response).strip()), tokens
+    except json.JSONDecodeError as e:
+        logger.error(
+            "[%s] JSON parse failed: %s (preview=%.200s)",
+            label, e, (response or "")[:200],
+        )
+        return fallback, 0
+    except Exception as e:
+        logger.error("[%s] Failed: %s: %s", label, type(e).__name__, e)
+        return fallback, 0
+
+
+# ---------------------------------------------------------------------------
+# Individual generators (prompt-only — shared calling handled by helper)
+# ---------------------------------------------------------------------------
+
+
 async def generate_implementation_details(
     project_data: Dict[str, Any],
     analysis_data: Dict[str, Any],
@@ -26,38 +80,16 @@ async def generate_implementation_details(
     language: str = "ko",
     code_context: Optional[str] = None,
 ) -> Tuple[List[Dict], int]:
-    """Generate implementation details using LLM.
-
-    Args:
-        project_data: Project information (name, description, role)
-        analysis_data: Analysis data (commits, tech stack, etc.)
-        llm: LLM service instance
-        language: Output language ("ko" or "en")
-        code_context: Optional code snippets for context
-
-    Returns:
-        Tuple of (implementation details list, tokens used)
-    """
-    # Build code context section
+    """Generate implementation details using LLM."""
     code_section = ""
     if code_context:
         if language == "en":
-            code_section = f"""
-
-Actual Code Changes (analyze to understand specific implementations):
-{code_context}
-
-"""
+            code_section = f"\n\nActual Code Changes (analyze to understand specific implementations):\n{code_context}\n"
         else:
-            code_section = f"""
-
-실제 코드 변경 내용 (구체적인 구현 내용 파악용):
-{code_context}
-
-"""
+            code_section = f"\n\n실제 코드 변경 내용 (구체적인 구현 내용 파악용):\n{code_context}\n"
 
     if language == "en":
-        implementation_prompt = f"""Analyze the following project information and identify the main implementation features.
+        prompt = f"""Analyze the following project information and identify the main implementation features.
 
 Project: {project_data.get("name", "N/A")}
 Description: {project_data.get("description", "N/A")}
@@ -85,7 +117,7 @@ Write 3-5 main implementation features in JSON format. Each feature should be sp
 Return only JSON."""
         system_prompt = "You are a technical expert analyzing software projects. Structure the actual implemented features based on commit messages, tech stack, and code changes. ALWAYS respond in English regardless of input language."
     else:
-        implementation_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 분석해주세요.
+        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 구현 기능을 분석해주세요.
 
 프로젝트: {project_data.get("name", "N/A")}
 설명: {project_data.get("description", "N/A")}
@@ -111,38 +143,10 @@ JSON 형식으로 3-5개의 주요 구현 기능을 작성해주세요. 각 기�
 JSON만 반환하세요."""
         system_prompt = "당신은 소프트웨어 프로젝트를 분석하는 기술 전문가입니다. 커밋 메시지, 기술 스택, 그리고 코드 변경 내용을 바탕으로 실제 구현된 기능을 구조화합니다."
 
-    try:
-        impl_response, impl_tokens = await call_llm_generate(
-            llm,
-            implementation_prompt,
-            system_prompt=system_prompt,
-            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION,
-            temperature=0.3,
-        )
-
-        logger.info(
-            "[implementation_details] Response len=%d, tokens=%d",
-            len(impl_response) if impl_response else 0,
-            impl_tokens,
-        )
-
-        json_str = impl_response
-        if "```json" in impl_response:
-            json_str = impl_response.split("```json")[1].split("```")[0]
-        elif "```" in impl_response:
-            json_str = impl_response.split("```")[1].split("```")[0]
-
-        return json.loads(json_str.strip()), impl_tokens
-    except json.JSONDecodeError as e:
-        logger.error(
-            "[implementation_details] JSON parse failed: %s (preview=%.200s)",
-            e,
-            (impl_response or "")[:200],
-        )
-        return [], 0
-    except Exception as e:
-        logger.error("[implementation_details] Failed: %s: %s", type(e).__name__, e)
-        return [], 0
+    return await _call_and_parse_json(
+        "implementation_details", llm, prompt, system_prompt,
+        LLM_MAX_TOKENS.CONTENT_GENERATION, fallback=[],
+    )
 
 
 async def generate_development_timeline(
@@ -152,23 +156,12 @@ async def generate_development_timeline(
     language: str = "ko",
     code_context: Optional[str] = None,
 ) -> Tuple[List[Dict], int]:
-    """Generate development timeline using LLM.
-
-    Args:
-        project_data: Project information (name, start_date, end_date)
-        analysis_data: Analysis data (commits, categories, etc.)
-        llm: LLM service instance
-        language: Output language ("ko" or "en")
-        code_context: Optional code snippets for context (unused but kept for interface consistency)
-
-    Returns:
-        Tuple of (timeline phases list, tokens used)
-    """
+    """Generate development timeline using LLM."""
     start_date = project_data.get("start_date", "")
     end_date = project_data.get("end_date", "")
 
     if language == "en":
-        timeline_prompt = f"""Create a development timeline based on the following project information.
+        prompt = f"""Create a development timeline based on the following project information.
 
 Project: {project_data.get("name", "N/A")}
 Period: {start_date} ~ {end_date or "In Progress"}
@@ -192,7 +185,7 @@ Write a chronological development timeline in 2-4 phases in JSON format:
 Return only JSON."""
         system_prompt = "You are an expert in analyzing software development project timelines. ALWAYS respond in English regardless of input language."
     else:
-        timeline_prompt = f"""다음 프로젝트 정보를 바탕으로 개발 타임라인을 작성해주세요.
+        prompt = f"""다음 프로젝트 정보를 바탕으로 개발 타임라인을 작성해주세요.
 
 프로젝트: {project_data.get("name", "N/A")}
 기간: {start_date} ~ {end_date or "진행중"}
@@ -216,38 +209,10 @@ JSON만 반환하세요."""
             "당신은 소프트웨어 개발 프로젝트의 타임라인을 분석하는 전문가입니다."
         )
 
-    try:
-        timeline_response, timeline_tokens = await call_llm_generate(
-            llm,
-            timeline_prompt,
-            system_prompt=system_prompt,
-            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION_MID,
-            temperature=0.3,
-        )
-
-        logger.info(
-            "[development_timeline] Response len=%d, tokens=%d",
-            len(timeline_response) if timeline_response else 0,
-            timeline_tokens,
-        )
-
-        json_str = timeline_response
-        if "```json" in timeline_response:
-            json_str = timeline_response.split("```json")[1].split("```")[0]
-        elif "```" in timeline_response:
-            json_str = timeline_response.split("```")[1].split("```")[0]
-
-        return json.loads(json_str.strip()), timeline_tokens
-    except json.JSONDecodeError as e:
-        logger.error(
-            "[development_timeline] JSON parse failed: %s (preview=%.200s)",
-            e,
-            (timeline_response or "")[:200],
-        )
-        return [], 0
-    except Exception as e:
-        logger.error("[development_timeline] Failed: %s: %s", type(e).__name__, e)
-        return [], 0
+    return await _call_and_parse_json(
+        "development_timeline", llm, prompt, system_prompt,
+        LLM_MAX_TOKENS.CONTENT_GENERATION_MID, fallback=[],
+    )
 
 
 async def generate_detailed_achievements(
@@ -257,20 +222,9 @@ async def generate_detailed_achievements(
     language: str = "ko",
     code_context: Optional[str] = None,
 ) -> Tuple[Dict, int]:
-    """Generate detailed achievements using LLM.
-
-    Args:
-        project_data: Project information (name, description)
-        analysis_data: Analysis data (commits, code statistics, etc.)
-        llm: LLM service instance
-        language: Output language ("ko" or "en")
-        code_context: Optional code snippets for context (unused but kept for interface consistency)
-
-    Returns:
-        Tuple of (achievements dict by category, tokens used)
-    """
+    """Generate detailed achievements using LLM."""
     if language == "en":
-        achievements_prompt = f"""Analyze the following project information and organize achievements by category.
+        prompt = f"""Analyze the following project information and organize achievements by category.
 
 Project: {project_data.get("name", "N/A")}
 Description: {project_data.get("description", "N/A")}
@@ -302,7 +256,7 @@ Write achievements by category in JSON format. Each achievement should include s
 Return only JSON. Use empty arrays for categories that don't apply."""
         system_prompt = "You are an expert in analyzing software project achievements. Extract quantitative achievements based on commit history and code statistics. ALWAYS respond in English regardless of input language."
     else:
-        achievements_prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 분석해주세요.
+        prompt = f"""다음 프로젝트 정보를 바탕으로 주요 성과를 카테고리별로 분석해주세요.
 
 프로젝트: {project_data.get("name", "N/A")}
 설명: {project_data.get("description", "N/A")}
@@ -332,38 +286,68 @@ JSON 형식으로 성과를 카테고리별로 작성해주세요. 각 성과는
 JSON만 반환하세요. 해당 카테고리가 없으면 빈 배열로 두세요."""
         system_prompt = "당신은 소프트웨어 프로젝트의 성과를 분석하는 전문가입니다. 커밋 히스토리와 코드 통계를 바탕으로 정량적인 성과를 추출합니다."
 
-    try:
-        achievements_response, achievements_tokens = await call_llm_generate(
-            llm,
-            achievements_prompt,
-            system_prompt=system_prompt,
-            max_tokens=LLM_MAX_TOKENS.CONTENT_GENERATION_MID,
-            temperature=0.3,
-        )
+    return await _call_and_parse_json(
+        "detailed_achievements", llm, prompt, system_prompt,
+        LLM_MAX_TOKENS.CONTENT_GENERATION_MID, fallback={},
+    )
 
-        logger.info(
-            "[detailed_achievements] Response len=%d, tokens=%d",
-            len(achievements_response) if achievements_response else 0,
-            achievements_tokens,
-        )
 
-        json_str = achievements_response
-        if "```json" in achievements_response:
-            json_str = achievements_response.split("```json")[1].split("```")[0]
-        elif "```" in achievements_response:
-            json_str = achievements_response.split("```")[1].split("```")[0]
+async def generate_architecture_patterns(
+    project_data: Dict[str, Any],
+    analysis_data: Dict[str, Any],
+    llm,
+    language: str = "ko",
+    code_context: Optional[str] = None,
+) -> Tuple[List[str], int]:
+    """Generate architecture patterns using LLM."""
+    code_section = ""
+    if code_context:
+        if language == "en":
+            code_section = f"\n\nCode structure hints:\n{code_context[:1000]}\n"
+        else:
+            code_section = f"\n\n코드 구조 힌트:\n{code_context[:1000]}\n"
 
-        return json.loads(json_str.strip()), achievements_tokens
-    except json.JSONDecodeError as e:
-        logger.error(
-            "[detailed_achievements] JSON parse failed: %s (preview=%.200s)",
-            e,
-            (achievements_response or "")[:200],
-        )
-        return {}, 0
-    except Exception as e:
-        logger.error("[detailed_achievements] Failed: %s: %s", type(e).__name__, e)
-        return {}, 0
+    if language == "en":
+        prompt = f"""Analyze the following project and identify the architecture patterns used.
+
+Project: {project_data.get("name", "N/A")}
+Description: {project_data.get("description", "N/A")}
+
+Tech stack: {", ".join(analysis_data.get("detected_technologies", [])[:15])}
+Commit categories: {analysis_data.get("commit_categories", {})}
+Commit summary:
+{analysis_data.get("commit_messages_summary", "N/A")[:800]}
+{code_section}
+Return a JSON array of 3-8 architecture pattern names detected in this project.
+Examples: "REST API", "MVC", "Layered Architecture", "Microservices", "Event-Driven", "Repository Pattern", "SPA", "SSR", "Monolithic", "CQRS", "Pub/Sub", "Serverless", "CI/CD Pipeline", "OAuth 2.0", "WebSocket", "GraphQL"
+
+Return only the JSON array, e.g. ["REST API", "MVC", "Layered Architecture"]"""
+        system_prompt = "You are a software architect identifying architecture patterns from project data. Return only a JSON array of pattern names in English."
+    else:
+        prompt = f"""다음 프로젝트를 분석하고 사용된 아키텍처 패턴을 식별해주세요.
+
+프로젝트: {project_data.get("name", "N/A")}
+설명: {project_data.get("description", "N/A")}
+
+기술 스택: {", ".join(analysis_data.get("detected_technologies", [])[:15])}
+커밋 카테고리: {analysis_data.get("commit_categories", {})}
+커밋 요약:
+{analysis_data.get("commit_messages_summary", "N/A")[:800]}
+{code_section}
+이 프로젝트에서 감지된 아키텍처 패턴 3-8개를 JSON 배열로 반환해주세요.
+예시: "REST API", "MVC", "Layered Architecture", "Microservices", "Event-Driven", "Repository Pattern", "SPA", "SSR"
+
+JSON 배열만 반환하세요. 예: ["REST API", "MVC", "Layered Architecture"]"""
+        system_prompt = "당신은 프로젝트 데이터에서 아키텍처 패턴을 식별하는 소프트웨어 아키텍트입니다. 영문 패턴 이름의 JSON 배열만 반환하세요."
+
+    parsed, tokens = await _call_and_parse_json(
+        "architecture_patterns", llm, prompt, system_prompt,
+        LLM_MAX_TOKENS.CONTENT_GENERATION_MID, fallback=[],
+    )
+    # Ensure list of strings
+    if isinstance(parsed, list):
+        return [str(p) for p in parsed], tokens
+    return [], tokens
 
 
 async def generate_detailed_content(
@@ -437,112 +421,43 @@ async def generate_detailed_content(
 
     is_cli_mode = isinstance(llm, CLILLMService)
 
+    # Define generation tasks with their keys and fallback values
+    gen_tasks = [
+        ("implementation_details", generate_implementation_details, []),
+        ("development_timeline", generate_development_timeline, []),
+        ("detailed_achievements", generate_detailed_achievements, {}),
+        ("architecture_patterns", generate_architecture_patterns, []),
+    ]
+
+    common_args = (project_data, analysis_data, llm, language, code_context)
+
     if is_cli_mode:
+        # CLI mode: sequential to avoid concurrent subprocess conflicts
         logger.info(
             "[DetailedContent] CLI mode detected — running LLM calls sequentially"
         )
-
-        # Implementation details
-        try:
-            impl_details, impl_tokens = await generate_implementation_details(
-                project_data, analysis_data, llm, language, code_context
-            )
-            result["implementation_details"] = impl_details
-            total_tokens += impl_tokens
-            logger.info(
-                "[DetailedContent] implementation_details: %d items, %d tokens",
-                len(impl_details) if isinstance(impl_details, list) else 0,
-                impl_tokens,
-            )
-        except Exception as e:
-            logger.error(
-                "[DetailedContent] implementation_details failed: %s: %s",
-                type(e).__name__,
-                e,
-            )
-            result["implementation_details"] = []
-
-        # Development timeline
-        try:
-            timeline, timeline_tokens = await generate_development_timeline(
-                project_data, analysis_data, llm, language, code_context
-            )
-            result["development_timeline"] = timeline
-            total_tokens += timeline_tokens
-            logger.info(
-                "[DetailedContent] development_timeline: %d items, %d tokens",
-                len(timeline) if isinstance(timeline, list) else 0,
-                timeline_tokens,
-            )
-        except Exception as e:
-            logger.error(
-                "[DetailedContent] development_timeline failed: %s: %s",
-                type(e).__name__,
-                e,
-            )
-            result["development_timeline"] = []
-
-        # Detailed achievements
-        try:
-            achievements, achievements_tokens = await generate_detailed_achievements(
-                project_data, analysis_data, llm, language, code_context
-            )
-            result["detailed_achievements"] = achievements
-            total_tokens += achievements_tokens
-            logger.info(
-                "[DetailedContent] detailed_achievements: %d categories, %d tokens",
-                len(achievements) if isinstance(achievements, dict) else 0,
-                achievements_tokens,
-            )
-        except Exception as e:
-            logger.error(
-                "[DetailedContent] detailed_achievements failed: %s: %s",
-                type(e).__name__,
-                e,
-            )
-            result["detailed_achievements"] = {}
+        for key, gen_fn, fallback in gen_tasks:
+            try:
+                value, tokens = await gen_fn(*common_args)
+                result[key] = value
+                total_tokens += tokens
+                count = len(value) if isinstance(value, (list, dict)) else 0
+                logger.info("[DetailedContent] %s: %d items, %d tokens", key, count, tokens)
+            except Exception as e:
+                logger.error("[DetailedContent] %s failed: %s: %s", key, type(e).__name__, e)
+                result[key] = fallback
     else:
-        # API mode: Execute all LLM calls in parallel for better performance
-        tasks = [
-            generate_implementation_details(
-                project_data, analysis_data, llm, language, code_context
-            ),
-            generate_development_timeline(
-                project_data, analysis_data, llm, language, code_context
-            ),
-            generate_detailed_achievements(
-                project_data, analysis_data, llm, language, code_context
-            ),
-        ]
-
+        # API mode: parallel for speed
+        tasks = [gen_fn(*common_args) for _, gen_fn, _ in gen_tasks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Process results
-        # Implementation details
-        if not isinstance(results[0], Exception):
-            impl_details, impl_tokens = results[0]
-            result["implementation_details"] = impl_details
-            total_tokens += impl_tokens
-        else:
-            logger.error("implementation_details failed: %s", results[0])
-            result["implementation_details"] = []
-
-        # Development timeline
-        if not isinstance(results[1], Exception):
-            timeline, timeline_tokens = results[1]
-            result["development_timeline"] = timeline
-            total_tokens += timeline_tokens
-        else:
-            logger.error("development_timeline failed: %s", results[1])
-            result["development_timeline"] = []
-
-        # Detailed achievements
-        if not isinstance(results[2], Exception):
-            achievements, achievements_tokens = results[2]
-            result["detailed_achievements"] = achievements
-            total_tokens += achievements_tokens
-        else:
-            logger.error("detailed_achievements failed: %s", results[2])
-            result["detailed_achievements"] = {}
+        for (key, _, fallback), res in zip(gen_tasks, results):
+            if isinstance(res, Exception):
+                logger.error("%s failed: %s", key, res)
+                result[key] = fallback
+            else:
+                value, tokens = res
+                result[key] = value
+                total_tokens += tokens
 
     return result, total_tokens

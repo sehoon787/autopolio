@@ -27,7 +27,7 @@ from api.services.analysis import (
     run_background_analysis,
     run_multi_repo_background_analysis,
 )
-from api.constants import JobStatus
+from api.constants import JobStatus, CLIType
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ async def start_background_analysis(
 
     # Resolve user's LLM API key (user DB first, then .env fallback)
     llm_provider = provider or cli_mode
-    if llm_provider and llm_provider not in ("claude_code", "gemini_cli", "codex_cli"):
+    if llm_provider and llm_provider not in list(CLIType):
         try:
             key_attr = f"{llm_provider}_api_key_encrypted"
             encrypted_key = getattr(user, key_attr, None)

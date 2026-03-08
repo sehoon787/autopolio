@@ -26,17 +26,8 @@ import {
 } from './backend-manager.js'
 
 // Import IPC registration functions
-import {
-  registerCLIDetectionIPC,
-  getCachedCLIStatus,
-  setCachedCLIStatus,
-} from './ipc/cli-detection-ipc.js'
 import { registerCLIProcessIPC } from './ipc/cli-process-ipc.js'
 import { registerGitHubCLIIPC } from './ipc/github-cli-ipc.js'
-import { registerCLIAuthIPC } from './ipc/cli-auth-ipc.js'
-
-// Import CLI tool manager for prefetch
-import { getCLIToolManager } from './services/cli-tool-manager.js'
 
 // Custom protocol for OAuth callback
 const PROTOCOL_NAME = 'autopolio'
@@ -124,29 +115,6 @@ initBackendManager({
   getOrCreateSecretKey,
   getPidFilePath,
 })
-
-// ============================================================================
-// CLI Status Prefetch
-// ============================================================================
-
-async function prefetchCLIStatus(): Promise<void> {
-  try {
-    const manager = getCLIToolManager()
-    const [claude, gemini, codex] = await Promise.all([
-      manager.detectCLI('claude_code').catch(() => null),
-      manager.detectCLI('gemini_cli').catch(() => null),
-      manager.detectCLI('codex_cli').catch(() => null),
-    ])
-    setCachedCLIStatus({ claude, gemini, codex })
-    console.log('[Main] CLI status prefetched:', {
-      claude: claude?.installed ?? 'error',
-      gemini: gemini?.installed ?? 'error',
-      codex: codex?.installed ?? 'error',
-    })
-  } catch (error) {
-    console.error('[Main] CLI status prefetch failed:', error)
-  }
-}
 
 // ============================================================================
 // Window Creation
@@ -238,17 +206,12 @@ ipcMain.handle('get-user-data-path', () => getConsistentUserDataPath())
 // Register IPC Modules
 // ============================================================================
 
-registerCLIDetectionIPC()
 registerCLIProcessIPC()
 registerGitHubCLIIPC({
   getMainWindow: () => mainWindow,
   isDev,
   frontendPort: FRONTEND_PORT,
 })
-registerCLIAuthIPC({
-  getMainWindow: () => mainWindow,
-})
-
 // ============================================================================
 // Custom Protocol Handler
 // ============================================================================
@@ -341,9 +304,6 @@ app.whenReady().then(async () => {
     console.log('[Main] Backend initialization complete')
     createWindow()
     console.log('[Main] Window created')
-
-    // Fire-and-forget: prefetch CLI status in background
-    prefetchCLIStatus()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

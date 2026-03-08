@@ -301,6 +301,7 @@ async def run_background_analysis(
 
         key_tasks = []
         detailed_content = {}
+        code_contributions = None
         if llm_service:
             from api.services.llm.cli_llm_service import CLILLMService
 
@@ -343,6 +344,21 @@ async def run_background_analysis(
                 "files_changed": analysis_result.get("files_changed", 0),
             }
 
+            # Collect user code contributions for LLM context
+            code_contributions = None
+            if github_username:
+                try:
+                    code_contributions = await github_service.get_user_code_contributions(
+                        git_url, github_username,
+                        max_commits=30, max_total_patch_size=50000,
+                    )
+                    logger.info(
+                        "[BackgroundAnalysis] Collected code contributions: %d commits",
+                        code_contributions.get("summary", {}).get("analyzed_commits", 0),
+                    )
+                except Exception as e:
+                    logger.warning("[BackgroundAnalysis] Code contributions collection failed: %s", e)
+
             _steps_start = time.time()
             total_tokens += await _run_llm_steps(
                 service,
@@ -357,6 +373,7 @@ async def run_background_analysis(
                 is_cli_mode,
                 key_tasks,
                 detailed_content,
+                code_contributions=code_contributions,
             )
 
             _steps_elapsed = time.time() - _steps_start
@@ -425,6 +442,7 @@ async def run_background_analysis(
             detailed_content=detailed_content,
             ai_summary=ai_summary,
             ai_key_features=ai_key_features,
+            user_code_contributions=code_contributions,
         )
 
         if await service.check_cancelled(task_id):
@@ -506,6 +524,7 @@ async def _run_llm_steps(
     is_cli_mode,
     key_tasks,
     detailed_content,
+    code_contributions=None,
 ) -> int:
     """Run Steps 5+6 (key tasks + detailed content). Returns tokens used.
 
@@ -549,6 +568,7 @@ async def _run_llm_steps(
                 analysis_data=analysis_data_for_step6,
                 llm_service=llm_service,
                 language=language,
+                code_contributions=code_contributions,
             )
             detailed_content.update(content)
             tokens += ct
@@ -575,6 +595,7 @@ async def _run_llm_steps(
                 analysis_data=analysis_data_for_step6,
                 llm_service=llm_service,
                 language=language,
+                code_contributions=code_contributions,
             ),
             return_exceptions=True,
         )

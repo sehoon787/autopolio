@@ -16,6 +16,7 @@ from api.services.core.key_tasks_generator import (
     generate_key_tasks as _generate_key_tasks,
 )
 from .analysis_workflow import AnalysisContext, _get_github_service
+from .analysis_job_helpers import apply_detailed_content
 
 logger = logging.getLogger(__name__)
 
@@ -230,18 +231,7 @@ async def phase5_save_llm_results(db: AsyncSession, ctx: AnalysisContext) -> Non
         repo_analysis.key_tasks = ctx.key_tasks
 
     if ctx.detailed_content:
-        if ctx.detailed_content.get("implementation_details"):
-            repo_analysis.implementation_details = ctx.detailed_content[
-                "implementation_details"
-            ]
-        if ctx.detailed_content.get("development_timeline"):
-            repo_analysis.development_timeline = ctx.detailed_content[
-                "development_timeline"
-            ]
-        if ctx.detailed_content.get("detailed_achievements"):
-            repo_analysis.detailed_achievements = ctx.detailed_content[
-                "detailed_achievements"
-            ]
+        apply_detailed_content(repo_analysis, ctx.detailed_content)
 
     if ctx.ai_summary:
         repo_analysis.ai_summary = ctx.ai_summary

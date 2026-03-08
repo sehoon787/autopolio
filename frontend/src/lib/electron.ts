@@ -93,19 +93,6 @@ export interface CLIAuthStatus {
   error?: string
 }
 
-export interface CLILoginResult {
-  success: boolean
-  tool: string
-  email?: string
-  account?: string
-  error?: string
-}
-
-export interface CLILoginUrlEvent {
-  tool: string
-  url: string
-}
-
 // ============================================================================
 // Electron API Type Definition
 // ============================================================================
@@ -118,17 +105,7 @@ interface ElectronAPI {
   getAppVersion: () => Promise<string>
   getUserDataPath: () => Promise<string>
 
-  // CLI Detection APIs
-  getClaudeCLIStatus: () => Promise<CLIStatus>
-  getGeminiCLIStatus: () => Promise<CLIStatus>
-  getCodexCLIStatus: () => Promise<CLIStatus>
-  refreshCLIStatus: () => Promise<{ claude_code: CLIStatus; gemini_cli: CLIStatus }>
-  refreshSingleCLIStatus: (tool: CLIType) => Promise<CLIStatus>
-
-  // CLI Test API (NEW)
-  testCLI: (tool: CLIType, model?: string) => Promise<CLITestResult>
-
-  // CLI Process Management APIs (NEW)
+  // CLI Process Management APIs
   startCLI: (config: CLIStartConfig) => Promise<string>
   stopCLI: (sessionId: string) => Promise<void>
   getCLIProcessStatus: (sessionId: string) => Promise<ProcessInfo | null>
@@ -138,14 +115,6 @@ interface ElectronAPI {
   // CLI Output Streaming APIs (NEW)
   subscribeCLIOutput: (sessionId: string, callback: OutputCallback) => () => void
   onCLIOutput: (callback: OutputCallback) => () => void
-
-  // CLI Auth APIs (Native Login)
-  getCLIAuthStatus: (tool: CLIType) => Promise<CLIAuthStatus>
-  startCLILogin: (tool: CLIType) => Promise<CLILoginResult>
-  cancelCLILogin: () => Promise<{ success: boolean; message?: string }>
-  cliLogout: (tool: CLIType) => Promise<{ success: boolean; error?: string }>
-  onCLILoginUrl: (callback: (data: CLILoginUrlEvent) => void) => () => void
-  onCLILoginComplete: (callback: (data: CLILoginResult) => void) => () => void
 
   // GitHub CLI APIs (Device Code Flow)
   getGitHubCLIStatus: () => Promise<{
@@ -267,125 +236,7 @@ export async function getAppVersion(): Promise<string> {
 }
 
 // ============================================================================
-// CLI Detection APIs
-// ============================================================================
-
-/**
- * Get Claude CLI status
- * In Electron: detects CLI directly via IPC (Auto-Claude style)
- * In Web: returns null
- */
-export async function getClaudeCLIStatus(): Promise<CLIStatus | null> {
-  console.log('[getClaudeCLIStatus] Called, isElectron:', isElectron())
-  if (isElectron() && window.electron) {
-    try {
-      console.log('[getClaudeCLIStatus] Calling window.electron.getClaudeCLIStatus()...')
-      const result = await window.electron.getClaudeCLIStatus()
-      console.log('[getClaudeCLIStatus] Result:', result)
-      return result
-    } catch (error) {
-      console.error('[Electron] Failed to get Claude CLI status:', error)
-    }
-  }
-  console.log('[getClaudeCLIStatus] Not in Electron or window.electron not available')
-  return null
-}
-
-/**
- * Get Gemini CLI status
- * In Electron: detects CLI directly via IPC
- * In Web: returns null
- */
-export async function getGeminiCLIStatus(): Promise<CLIStatus | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.getGeminiCLIStatus()
-    } catch (error) {
-      console.error('[Electron] Failed to get Gemini CLI status:', error)
-    }
-  }
-  return null
-}
-
-/**
- * Get Codex CLI status
- * In Electron: detects CLI directly via IPC
- * In Web: returns null
- */
-export async function getCodexCLIStatus(): Promise<CLIStatus | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.getCodexCLIStatus()
-    } catch (error) {
-      console.error('[Electron] Failed to get Codex CLI status:', error)
-    }
-  }
-  return null
-}
-
-/**
- * Refresh CLI status (force re-detection)
- * In Electron: refreshes via IPC
- * In Web: returns null
- */
-export async function refreshCLIStatus(): Promise<{ claude_code: CLIStatus | null; gemini_cli: CLIStatus | null } | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.refreshCLIStatus()
-    } catch (error) {
-      console.error('[Electron] Failed to refresh CLI status:', error)
-    }
-  }
-  return null
-}
-
-/**
- * Refresh a single CLI status (individual refresh)
- * In Electron: refreshes only the specified CLI via IPC
- * In Web: returns null
- */
-export async function refreshSingleCLIStatus(tool: CLIType): Promise<CLIStatus | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.refreshSingleCLIStatus(tool)
-    } catch (error) {
-      console.error(`[Electron] Failed to refresh ${tool} CLI status:`, error)
-    }
-  }
-  return null
-}
-
-// ============================================================================
-// CLI Test API (NEW)
-// ============================================================================
-
-/**
- * Test a CLI by running a simple command
- * In Electron: runs the CLI via IPC
- * In Web: returns null
- */
-export async function testCLI(tool: CLIType, model?: string): Promise<CLITestResult | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.testCLI(tool, model)
-    } catch (error) {
-      console.error('[Electron] Failed to test CLI:', error)
-      return {
-        success: false,
-        tool,
-        message: error instanceof Error ? error.message : 'Failed to test CLI',
-        error: {
-          type: 'execution_failed',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        },
-      }
-    }
-  }
-  return null
-}
-
-// ============================================================================
-// CLI Process Management APIs (NEW)
+// CLI Process Management APIs
 // ============================================================================
 
 /**
@@ -505,69 +356,4 @@ export function onCLIOutput(callback: OutputCallback): () => void {
   return () => {} // No-op unsubscribe
 }
 
-// ============================================================================
-// CLI Auth APIs (Native Login)
-// ============================================================================
 
-/**
- * Get CLI native auth status (OAuth/credential check, no token consumed)
- * In Electron: checks via IPC
- * In Web: returns null
- */
-export async function getCLIAuthStatus(tool: CLIType): Promise<CLIAuthStatus | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.getCLIAuthStatus(tool)
-    } catch (error) {
-      console.error('[Electron] Failed to get CLI auth status:', error)
-    }
-  }
-  return null
-}
-
-/**
- * Start CLI native login
- * In Electron: starts login via IPC
- * In Web: returns null
- */
-export async function startCLILogin(tool: CLIType): Promise<CLILoginResult | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.startCLILogin(tool)
-    } catch (error) {
-      console.error('[Electron] Failed to start CLI login:', error)
-    }
-  }
-  return null
-}
-
-/**
- * Cancel ongoing CLI login
- * In Electron: cancels via IPC
- * In Web: no-op
- */
-export async function cancelCLILogin(): Promise<void> {
-  if (isElectron() && window.electron) {
-    try {
-      await window.electron.cancelCLILogin()
-    } catch (error) {
-      console.error('[Electron] Failed to cancel CLI login:', error)
-    }
-  }
-}
-
-/**
- * Logout from CLI
- * In Electron: logs out via IPC
- * In Web: no-op
- */
-export async function cliLogout(tool: CLIType): Promise<{ success: boolean; error?: string } | null> {
-  if (isElectron() && window.electron) {
-    try {
-      return await window.electron.cliLogout(tool)
-    } catch (error) {
-      console.error('[Electron] Failed to logout CLI:', error)
-    }
-  }
-  return null
-}
