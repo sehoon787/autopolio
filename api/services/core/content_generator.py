@@ -436,16 +436,21 @@ async def generate_detailed_content(
         logger.info(
             "[DetailedContent] CLI mode detected — running LLM calls sequentially"
         )
-        for key, gen_fn, fallback in gen_tasks:
-            try:
-                value, tokens = await gen_fn(*common_args)
-                result[key] = value
-                total_tokens += tokens
-                count = len(value) if isinstance(value, (list, dict)) else 0
-                logger.info("[DetailedContent] %s: %d items, %d tokens", key, count, tokens)
-            except Exception as e:
-                logger.error("[DetailedContent] %s failed: %s: %s", key, type(e).__name__, e)
-                result[key] = fallback
+        # Batch mode: switch Gemini settings.json once for all calls
+        llm.enter_batch_mode()
+        try:
+            for key, gen_fn, fallback in gen_tasks:
+                try:
+                    value, tokens = await gen_fn(*common_args)
+                    result[key] = value
+                    total_tokens += tokens
+                    count = len(value) if isinstance(value, (list, dict)) else 0
+                    logger.info("[DetailedContent] %s: %d items, %d tokens", key, count, tokens)
+                except Exception as e:
+                    logger.error("[DetailedContent] %s failed: %s: %s", key, type(e).__name__, e)
+                    result[key] = fallback
+        finally:
+            llm.exit_batch_mode()
     else:
         # API mode: parallel for speed
         tasks = [gen_fn(*common_args) for _, gen_fn, _ in gen_tasks]

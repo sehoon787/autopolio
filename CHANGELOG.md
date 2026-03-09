@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.23.1] - 2026-03-09
+
+### Fixed
+- **Gemini CLI 분석 시 settings.json 경합으로 인한 프로세스 행(hang) 방지**
+  - `CLILLMService`에 배치 모드(`enter_batch_mode`/`exit_batch_mode`) 추가
+  - `content_generator.py`: CLI 순차 4회 호출 시 settings.json을 한 번만 전환/복원
+  - `run_subprocess()` finally 블록: 배치 모드 중 settings.json 복원 스킵
+
+### Changed
+- **Electron 빌드 macOS 호환성**
+  - `package.json`: `python` → `python3` (macOS에서 `python` 명령어 없음)
+  - `prepare-electron-api.py`: 번들 Python 런타임 버전 체크 3.11 → 3.14
+
+---
+
 ## [1.23] - 2026-03-06
 
 ### Fixed

@@ -90,6 +90,28 @@ class CLILLMService:
         # Provide a provider attribute to match LLMService interface
         self.provider = CLILLMProvider(self)
         self.provider_name = f"cli:{cli_type}"
+        # Batch mode: keep Gemini settings.json switched for multiple calls
+        self._batch_settings_active = False
+
+    def enter_batch_mode(self):
+        """Switch Gemini settings.json once before a batch of calls."""
+        if self.cli_type != CLIType.GEMINI_CLI or self._batch_settings_active:
+            return
+        if not self._has_cli_auth():
+            cli_env_mapping = CLI_SUBPROCESS_ENV_MAP.get(self.cli_type)
+            if cli_env_mapping and os.environ.get(cli_env_mapping[0], ""):
+                _switch_gemini_auth(GEMINI_AUTH_API_KEY)
+                self._batch_settings_active = True
+                logger.info("[CLI] Gemini batch mode: settings.json switched to API key")
+
+    def exit_batch_mode(self):
+        """Restore Gemini settings.json after a batch of calls."""
+        if not self._batch_settings_active:
+            return
+        self._batch_settings_active = False
+        if self._has_cli_auth():
+            _switch_gemini_auth(GEMINI_AUTH_OAUTH)
+        logger.info("[CLI] Gemini batch mode: exited")
 
     async def generate_with_cli(self, prompt: str) -> Tuple[str, int]:
         """
@@ -257,7 +279,8 @@ class CLILLMService:
             finally:
                 # Restore Gemini settings only if bound auth credentials exist
                 # (no point restoring oauth-personal if there are no OAuth creds)
-                if settings_modified and self._has_cli_auth():
+                # Skip restore in batch mode — will be restored by exit_batch_mode()
+                if settings_modified and not self._batch_settings_active and self._has_cli_auth():
                     _switch_gemini_auth(GEMINI_AUTH_OAUTH)
 
         try:

@@ -32,7 +32,7 @@ COPY_TARGETS = [
 EXCLUDE_DIRS = {"__pycache__", "tests", ".pytest_cache", "migrations", ".git"}
 
 # Required Python major.minor for bundled runtime compatibility
-REQUIRED_PYTHON_MINOR = (3, 11)
+REQUIRED_PYTHON_MINOR = (3, 14)
 
 
 # ---------- Helpers ----------
