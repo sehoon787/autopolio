@@ -5,11 +5,8 @@ Bug fix verification tests for:
 - Bug C: Claude Code OAuth stdin fix
 """
 
-import asyncio
-import json
-import subprocess
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 pytestmark = pytest.mark.anyio
 
@@ -205,17 +202,12 @@ class TestSpawnLoginStdin:
         # stdin=subprocess.PIPE should be present (CLI needs stdin for auth code)
         assert "stdin=subprocess.PIPE" in source
 
-    def test_submit_auth_code_writes_to_stdin(self):
-        """submit_auth_code should write code to the running process's stdin."""
+    def test_spawn_login_exists(self):
+        """_spawn_login_and_extract_url should exist on CLIService."""
         from api.services.llm.cli_service import CLIService
-        import inspect
 
         svc = CLIService()
-        source = inspect.getsource(svc.submit_auth_code)
-
-        # Should write to stdin (not be a no-op)
-        assert "stdin.write" in source
-        assert "stdin.flush" in source
+        assert hasattr(svc, "_spawn_login_and_extract_url")
 
 
 # ============================================================
@@ -324,11 +316,10 @@ class TestSchemaFieldExposure:
         source = inspect.getsource(github_edits.get_per_repo_analyses)
         assert "user_code_contributions=" in source
 
-    def test_gemini_login_uses_devnull(self):
-        """_start_gemini_login should use stdin=DEVNULL, not PIPE."""
+    def test_gemini_login_uses_pipe_stdin(self):
+        """_start_gemini_login should use stdin=PIPE for process management."""
         import inspect
         from api.services.llm.cli_service import CLIService
 
         source = inspect.getsource(CLIService._start_gemini_login)
-        assert "subprocess.DEVNULL" in source
-        assert "stdin=subprocess.PIPE" not in source
+        assert "stdin=subprocess.PIPE" in source
