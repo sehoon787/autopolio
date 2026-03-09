@@ -431,7 +431,11 @@ async def refresh_cli_status():
 def _require_local_runtime():
     """Raise 403 if not running in local or docker mode."""
     runtime = os.environ.get("AUTOPOLIO_RUNTIME", RuntimeProfile.EXTERNAL)
-    if runtime not in (RuntimeProfile.LOCAL, RuntimeProfile.DOCKER, RuntimeProfile.ELECTRON):
+    if runtime not in (
+        RuntimeProfile.LOCAL,
+        RuntimeProfile.DOCKER,
+        RuntimeProfile.ELECTRON,
+    ):
         raise HTTPException(
             status_code=403,
             detail="CLI native auth is only available in local/docker mode",

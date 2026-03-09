@@ -204,7 +204,7 @@ class TestProjectLimitRestrictions:
             # Create 3 projects (should succeed)
             for i in range(3):
                 resp = _create_project(api_client, free_user["id"], f"-{i}")
-                assert resp.status_code == 201, f"Project {i+1} should succeed"
+                assert resp.status_code == 201, f"Project {i + 1} should succeed"
                 created.append(resp.json())
 
             # 4th project should be blocked
@@ -222,7 +222,7 @@ class TestProjectLimitRestrictions:
         try:
             for i in range(4):
                 resp = _create_project(api_client, pro_user["id"], f"-{i}")
-                assert resp.status_code == 201, f"PRO project {i+1} should succeed"
+                assert resp.status_code == 201, f"PRO project {i + 1} should succeed"
                 created.append(resp.json())
         finally:
             for p in created:
@@ -234,7 +234,9 @@ class TestProjectLimitRestrictions:
         try:
             for i in range(5):
                 resp = _create_project(api_client, enterprise_user["id"], f"-{i}")
-                assert resp.status_code == 201, f"Enterprise project {i+1} should succeed"
+                assert resp.status_code == 201, (
+                    f"Enterprise project {i + 1} should succeed"
+                )
                 created.append(resp.json())
         finally:
             for p in created:
@@ -247,7 +249,10 @@ class TestProjectLimitRestrictions:
 
 
 @pytest.mark.tier
-@pytest.mark.skipif(USE_LIVE_SERVER, reason="TestClient mode only — monkeypatch affects server env directly")
+@pytest.mark.skipif(
+    USE_LIVE_SERVER,
+    reason="TestClient mode only — monkeypatch affects server env directly",
+)
 class TestLocalRuntimeBypass:
     def test_local_bypasses_export(self, api_client, monkeypatch):
         """AUTOPOLIO_RUNTIME=local lets FREE users export docx."""
@@ -269,7 +274,9 @@ class TestLocalRuntimeBypass:
         try:
             for i in range(4):
                 resp = _create_project(api_client, user["id"], f"-{i}")
-                assert resp.status_code == 201, f"Electron project {i+1} should succeed"
+                assert resp.status_code == 201, (
+                    f"Electron project {i + 1} should succeed"
+                )
                 created.append(resp.json())
         finally:
             for p in created:

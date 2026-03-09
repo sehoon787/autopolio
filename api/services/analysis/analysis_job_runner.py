@@ -348,16 +348,25 @@ async def run_background_analysis(
             code_contributions = None
             if github_username:
                 try:
-                    code_contributions = await github_service.get_user_code_contributions(
-                        git_url, github_username,
-                        max_commits=30, max_total_patch_size=50000,
+                    code_contributions = (
+                        await github_service.get_user_code_contributions(
+                            git_url,
+                            github_username,
+                            max_commits=30,
+                            max_total_patch_size=50000,
+                        )
                     )
                     logger.info(
                         "[BackgroundAnalysis] Collected code contributions: %d commits",
-                        code_contributions.get("summary", {}).get("analyzed_commits", 0),
+                        code_contributions.get("summary", {}).get(
+                            "analyzed_commits", 0
+                        ),
                     )
                 except Exception as e:
-                    logger.warning("[BackgroundAnalysis] Code contributions collection failed: %s", e)
+                    logger.warning(
+                        "[BackgroundAnalysis] Code contributions collection failed: %s",
+                        e,
+                    )
 
             _steps_start = time.time()
             total_tokens += await _run_llm_steps(

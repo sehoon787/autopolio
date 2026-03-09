@@ -15,6 +15,7 @@ pytestmark = pytest.mark.anyio
 # Bug A: save_llm_results with user_code_contributions
 # ============================================================
 
+
 class TestSaveLLMResultsCodeContributions:
     """Verify save_llm_results stores user_code_contributions to DB."""
 
@@ -32,9 +33,13 @@ class TestSaveLLMResultsCodeContributions:
             "commits": [{"sha": "abc123"}],  # extra field should NOT be saved
         }
 
-        with patch("api.services.analysis.analysis_job_helpers.AsyncSessionLocal") as mock_session_cls:
+        with patch(
+            "api.services.analysis.analysis_job_helpers.AsyncSessionLocal"
+        ) as mock_session_cls:
             mock_session = AsyncMock()
-            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session
+            )
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Mock db.execute to return our mock_repo_analysis
@@ -72,9 +77,13 @@ class TestSaveLLMResultsCodeContributions:
         # Do NOT set user_code_contributions initially
         mock_repo_analysis.user_code_contributions = "ORIGINAL"
 
-        with patch("api.services.analysis.analysis_job_helpers.AsyncSessionLocal") as mock_session_cls:
+        with patch(
+            "api.services.analysis.analysis_job_helpers.AsyncSessionLocal"
+        ) as mock_session_cls:
             mock_session = AsyncMock()
-            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session
+            )
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
             mock_result = MagicMock()
@@ -100,11 +109,13 @@ class TestSaveLLMResultsCodeContributions:
 # Bug B: Codex CLI _parse_codex_jsonl error handling
 # ============================================================
 
+
 class TestCodexJSONLParsing:
     """Verify _parse_codex_jsonl handles error and turn.failed events."""
 
     def _make_service(self):
         from api.services.llm.cli_llm_service import CLILLMService
+
         return CLILLMService(cli_type="codex_cli")
 
     def test_parse_error_event_raises(self):
@@ -120,7 +131,9 @@ class TestCodexJSONLParsing:
         svc = self._make_service()
         jsonl = '{"type":"turn.failed","error":{"message":"model overloaded"}}\n'
 
-        with pytest.raises(RuntimeError, match="Codex CLI turn failed: model overloaded"):
+        with pytest.raises(
+            RuntimeError, match="Codex CLI turn failed: model overloaded"
+        ):
             svc._parse_codex_jsonl(jsonl)
 
     def test_parse_turn_failed_string_error(self):
@@ -128,7 +141,9 @@ class TestCodexJSONLParsing:
         svc = self._make_service()
         jsonl = '{"type":"turn.failed","error":"something broke"}\n'
 
-        with pytest.raises(RuntimeError, match="Codex CLI turn failed: something broke"):
+        with pytest.raises(
+            RuntimeError, match="Codex CLI turn failed: something broke"
+        ):
             svc._parse_codex_jsonl(jsonl)
 
     def test_parse_normal_output(self):
@@ -188,6 +203,7 @@ class TestCodexJSONLParsing:
 # Bug C: Claude Code OAuth stdin handling
 # ============================================================
 
+
 class TestSpawnLoginStdin:
     """Verify _spawn_login_and_extract_url uses PIPE for stdin (code-exchange flow)."""
 
@@ -213,6 +229,7 @@ class TestSpawnLoginStdin:
 # ============================================================
 # Bug A: Integration - code_contributions flows through runner
 # ============================================================
+
 
 class TestRunnerCodeContributionsFlow:
     """Verify code_contributions collection is wired into the background runners."""
@@ -275,6 +292,7 @@ class TestRunnerCodeContributionsFlow:
 # ============================================================
 # Schema / Endpoint verification
 # ============================================================
+
 
 class TestSchemaFieldExposure:
     """Verify user_code_contributions field is exposed in all response schemas."""

@@ -268,7 +268,9 @@ class CLIService:
             return output.split("\n")[0].strip()
         return None
 
-    async def _resolve_cli_path(self, cli_name: str, known_paths: dict) -> Optional[str]:
+    async def _resolve_cli_path(
+        self, cli_name: str, known_paths: dict
+    ) -> Optional[str]:
         """Resolve CLI binary path using 3-step fallback: PATH → npm global → known paths."""
         # 1. System PATH
         path = await self._find_cli_in_path(cli_name)
@@ -603,9 +605,7 @@ class CLIService:
             return {"authenticated": False, "error": "Codex CLI not found"}
 
         # Strip OPENAI_API_KEY so CLI only reports bound creds
-        clean_env = {
-            k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"
-        }
+        clean_env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
         success, output = await self._run_command(
             [path, "login", "status"], timeout=10, env=clean_env
         )
@@ -819,7 +819,6 @@ class CLIService:
 
         return url
 
-
     async def _start_claude_login(self) -> dict:
         """Start Claude Code OAuth login via `claude auth login`."""
         path = await self._resolve_cli_path("claude", self.CLAUDE_PATHS)
@@ -878,6 +877,7 @@ class CLIService:
         try:
             # Switch to oauth-personal mode
             from api.services.llm.cli_llm_service import _switch_gemini_auth
+
             _switch_gemini_auth(GEMINI_AUTH_OAUTH)
 
             # Delete existing oauth creds to force re-auth
@@ -893,6 +893,7 @@ class CLIService:
 
             # Find real browser-open command before overriding PATH
             import shutil as _shutil
+
             real_open = _shutil.which("open") or _shutil.which("xdg-open")
 
             # Create interceptor scripts: capture URL, then forward to real open
@@ -905,8 +906,11 @@ class CLIService:
                 os.chmod(script_path, 0o755)
 
             # Build clean env: strip API keys, prepend interceptor to PATH
-            clean_env = {k: v for k, v in os.environ.items()
-                         if k not in ("GEMINI_API_KEY", "GEMINI_CLI_API_KEY")}
+            clean_env = {
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("GEMINI_API_KEY", "GEMINI_CLI_API_KEY")
+            }
             clean_env["PATH"] = intercept_dir + ":" + clean_env.get("PATH", "")
 
             cmd = self._shell_wrap(path, ["-p", "Reply OK"])
@@ -941,6 +945,7 @@ class CLIService:
                         _active_login_process = None
                     # Cleanup interceptor dir
                     import shutil
+
                     shutil.rmtree(intercept_dir, ignore_errors=True)
 
             threading.Thread(target=_wait_for_gemini_login, daemon=True).start()

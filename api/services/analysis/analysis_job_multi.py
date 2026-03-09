@@ -398,8 +398,10 @@ async def _analyze_single_repo_for_multi(
         if github_username:
             try:
                 code_contributions = await github_service.get_user_code_contributions(
-                    git_url, github_username,
-                    max_commits=30, max_total_patch_size=50000,
+                    git_url,
+                    github_username,
+                    max_commits=30,
+                    max_total_patch_size=50000,
                 )
                 logger.info(
                     "[MultiRepoAnalysis] %sCollected code contributions: %d commits",
@@ -409,7 +411,8 @@ async def _analyze_single_repo_for_multi(
             except Exception as e:
                 logger.warning(
                     "[MultiRepoAnalysis] %sCode contributions collection failed: %s",
-                    label_prefix, e,
+                    label_prefix,
+                    e,
                 )
 
         if is_cli_mode:
