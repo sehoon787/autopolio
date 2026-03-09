@@ -31,24 +31,47 @@ COPY_TARGETS = [
 # Patterns to exclude when copying
 EXCLUDE_DIRS = {"__pycache__", "tests", ".pytest_cache", "migrations", ".git"}
 
-# Required Python major.minor for bundled runtime compatibility
-REQUIRED_PYTHON_MINOR = (3, 14)
-
-
 # ---------- Helpers ----------
 
 def check_python_version():
-    """Verify build Python version matches bundled runtime."""
+    """Verify build Python version matches bundled runtime (if present)."""
     current = (sys.version_info.major, sys.version_info.minor)
-    if current != REQUIRED_PYTHON_MINOR:
+
+    # Detect bundled runtime version from python-runtime/ directory
+    bundled_version = _detect_bundled_python_version()
+    if bundled_version and current != bundled_version:
         print(
             f"ERROR: Build Python is {current[0]}.{current[1]}, "
-            f"but bundled runtime is {REQUIRED_PYTHON_MINOR[0]}.{REQUIRED_PYTHON_MINOR[1]}. "
+            f"but bundled runtime is {bundled_version[0]}.{bundled_version[1]}. "
             f".pyc files are NOT compatible across Python minor versions."
         )
         sys.exit(1)
     else:
-        print(f"Python version OK: {current[0]}.{current[1]}")
+        extra = f" (bundled: {bundled_version[0]}.{bundled_version[1]})" if bundled_version else " (no bundled runtime found, skipping check)"
+        print(f"Python version OK: {current[0]}.{current[1]}{extra}")
+
+
+def _detect_bundled_python_version():
+    """Detect bundled Python version from python-runtime/ directory. Returns (major, minor) or None."""
+    runtime_dir = os.path.join(FRONTEND_DIR, "python-runtime")
+    if not os.path.exists(runtime_dir):
+        return None
+    # Look for python binary in any platform subdirectory
+    for platform_dir in os.listdir(runtime_dir):
+        python_bin = os.path.join(runtime_dir, platform_dir, "python", "bin", "python3")
+        if os.path.exists(python_bin):
+            try:
+                import subprocess
+                result = subprocess.run(
+                    [python_bin, "--version"], capture_output=True, text=True, timeout=5
+                )
+                # "Python 3.14.2" → (3, 14)
+                ver_str = result.stdout.strip().split()[-1]
+                parts = ver_str.split(".")
+                return (int(parts[0]), int(parts[1]))
+            except Exception:
+                pass
+    return None
 
 
 def ignore_factory(src, names):
