@@ -1,7 +1,7 @@
 {
   "name": "autopolio-frontend",
   "private": true,
-  "version": "1.23.1",
+  "version": "2.0.0",
   "description": "Portfolio and Resume Automation Platform",
   "license": "Apache-2.0",
   "author": "Sehoon Kim",

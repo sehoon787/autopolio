@@ -67,6 +67,8 @@ frontend/test-results/
 test-results/
 tests/e2e/test-results/
 tests/e2e/electron/test-results-electron/
+tests/e2e/test-results-electron/
+.omc/
 tests/e2e/electron/playwright-report-electron/
 playwright-report/
 frontend/e2e/screenshots/
