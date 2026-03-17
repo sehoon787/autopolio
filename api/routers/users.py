@@ -106,57 +106,6 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(user)
 
 
-@router.get("/{user_id}/usage")
-async def get_user_usage(user_id: int, db: AsyncSession = Depends(get_db)):
-    """Get user's current tier, usage, and limits."""
-    from datetime import datetime
-    from api.models.usage_record import UsageRecord
-    from api.models.project import Project
-    from api.constants import UserTier, TIER_LIMITS
-    from sqlalchemy import func as sqlfunc
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    from api.constants import RuntimeProfile
-
-    runtime = os.environ.get("AUTOPOLIO_RUNTIME")
-    if runtime in (RuntimeProfile.ELECTRON, RuntimeProfile.LOCAL):
-        tier = UserTier.ENTERPRISE
-    else:
-        tier = user.tier or UserTier.FREE
-    limits = TIER_LIMITS.get(tier, TIER_LIMITS[UserTier.FREE])
-
-    # Project count
-    proj_result = await db.execute(
-        select(sqlfunc.count(Project.id)).where(Project.user_id == user_id)
-    )
-    project_count = proj_result.scalar() or 0
-
-    # Monthly LLM usage
-    year_month = datetime.utcnow().strftime("%Y-%m")
-    usage_result = await db.execute(
-        select(UsageRecord).where(
-            UsageRecord.user_id == user_id,
-            UsageRecord.year_month == year_month,
-        )
-    )
-    usage_record = usage_result.scalar_one_or_none()
-    llm_calls_this_month = usage_record.llm_call_count if usage_record else 0
-
-    return {
-        "tier": tier,
-        "limits": limits,
-        "usage": {
-            "projects": project_count,
-            "llm_calls_this_month": llm_calls_this_month,
-            "year_month": year_month,
-        },
-    }
-
-
 @router.get("/{user_id}/stats")
 async def get_user_stats(user_id: int, db: AsyncSession = Depends(get_db)):
     """Get statistics for a user."""

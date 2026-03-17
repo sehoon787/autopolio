@@ -22,13 +22,7 @@ import {
   Github,
   ArrowRight,
   Plus,
-  Crown,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { usePlanStore } from '@/stores/planStore'
-import { USER_TIERS } from '@/constants/enums'
-import { isElectron } from '@/lib/electron'
 import CareerTimeline from './CareerTimeline'
 import GitHubRepoTimeline from './GitHubRepoTimeline'
 
@@ -91,20 +85,11 @@ export default function Dashboard() {
     volunteerActivities: volData?.data || [],
   }
 
-  const { tier, limits, usage: planUsage, fetchPlan } = usePlanStore()
-
   useEffect(() => {
     if (stats?.data) {
       setStats(stats.data)
     }
   }, [stats, setStats])
-
-  // Fetch plan/usage data
-  useEffect(() => {
-    if (user?.id && !isElectron()) {
-      fetchPlan(user.id)
-    }
-  }, [user?.id, fetchPlan])
 
   if (!user) {
     return (
@@ -188,41 +173,6 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
-
-      {/* Plan Usage Widget (web only) */}
-      {!isElectron() && limits && planUsage && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Crown className="h-4 w-4 text-amber-500" />
-                <span className="font-medium">{t('common:plan.currentPlan')}</span>
-                <Badge variant={tier === USER_TIERS.FREE ? 'secondary' : 'default'}>
-                  {t(`common:plan.${tier}`)}
-                </Badge>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {limits.max_projects !== null && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{t('common:plan.projectLimit', { current: planUsage.projects, max: limits.max_projects })}</span>
-                  </div>
-                  <Progress value={(planUsage.projects / limits.max_projects) * 100} className="h-2" />
-                </div>
-              )}
-              {limits.max_llm_calls_per_month !== null && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{t('common:plan.llmLimit', { current: planUsage.llm_calls_this_month, max: limits.max_llm_calls_per_month })}</span>
-                  </div>
-                  <Progress value={(planUsage.llm_calls_this_month / limits.max_llm_calls_per_month) * 100} className="h-2" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Career Timeline (includes projects) */}
       <CareerTimeline data={groupedData?.data} credentials={credentialData} isLoading={groupedLoading} />

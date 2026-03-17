@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { Paintbrush, Monitor, Globe, Bell, Bot, User, UserCircle, Sparkles, Crown } from 'lucide-react'
+import { Paintbrush, Monitor, Globe, Bell, Bot, User, UserCircle, Sparkles } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUserStore } from '@/stores/userStore'
@@ -15,10 +15,9 @@ import LLMSection from './sections/LLMSection'
 import AccountSection from './sections/AccountSection'
 import ProfileSection from './sections/ProfileSection'
 import GenerationOptionsSection from './sections/GenerationOptionsSection'
-import PlanSection from './sections/PlanSection'
 import { isElectron } from '@/lib/electron'
 
-type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account' | 'profile' | 'generation' | 'plan'
+type SectionId = 'appearance' | 'display' | 'language' | 'notifications' | 'llm' | 'account' | 'profile' | 'generation'
 
 interface SidebarItem {
   id: SectionId
@@ -34,7 +33,6 @@ const integrationItems: SidebarItem[] = [
   { id: 'profile', labelKey: 'sidebar.profile', icon: UserCircle, requiresAuth: true },
   { id: 'generation', labelKey: 'sidebar.aiAnalysis', icon: Sparkles, requiresAuth: true },
   { id: 'llm', labelKey: 'sidebar.aiProviders', icon: Bot },
-  { id: 'plan', labelKey: 'sidebar.plan', icon: Crown, requiresAuth: true, webOnly: true },
 ]
 
 // General settings below
@@ -94,8 +92,6 @@ export default function SettingsLayout() {
         return <ProfileSection />
       case 'generation':
         return <GenerationOptionsSection />
-      case 'plan':
-        return <PlanSection />
       default:
         return <AppearanceSection />
     }

@@ -40,15 +40,6 @@ export const JOB_STATUS = {
 
 export type JobStatusType = (typeof JOB_STATUS)[keyof typeof JOB_STATUS]
 
-// --- User Tiers ---
-export const USER_TIERS = {
-  FREE: 'free',
-  PRO: 'pro',
-  ENTERPRISE: 'enterprise',
-} as const
-
-export type UserTierType = (typeof USER_TIERS)[keyof typeof USER_TIERS]
-
 // --- Document Formats ---
 export const DOCUMENT_FORMATS = {
   DOCX: 'docx',

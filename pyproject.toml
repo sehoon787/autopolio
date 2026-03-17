@@ -2,7 +2,7 @@
 name = "autopolio"
 version = "1.20.0"
 description = "Portfolio/Resume automation platform with GitHub analysis and LLM-powered summaries"
-license = {text = "Proprietary"}
+license = {text = "Apache-2.0"}
 authors = [{name = "Sehoon Kim", email = "sehoon787@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.11"

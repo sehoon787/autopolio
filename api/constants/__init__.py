@@ -12,7 +12,6 @@ from api.constants.enums import (
     ActivityType,
     PublicationType,
     SummaryStyle,
-    UserTier,
     RuntimeProfile,
 )
 from api.constants.config import (
@@ -33,7 +32,7 @@ from api.constants.config import (
     CAPACITY_ERROR_PATTERNS,
     CLI_STDERR_NOISE_PATTERNS,
 )
-from api.constants.tiers import TIER_LIMITS
+
 
 __all__ = [
     # Enums
@@ -48,13 +47,11 @@ __all__ = [
     "ActivityType",
     "PublicationType",
     "SummaryStyle",
-    "UserTier",
     "RuntimeProfile",
     # Config
     "LLM_MAX_TOKENS",
     "DEFAULT_MODELS",
     "CLI_TIMEOUT_SECONDS",
-    "TIER_LIMITS",
     # CLI constants
     "CLI_EXECUTABLE_NAMES",
     "CLI_DISPLAY_NAMES",

@@ -20,7 +20,6 @@ from api.schemas.project import (
     TechnologyResponse,
     ProjectRepositoryCreate,
 )
-from api.dependencies.tier_guards import check_project_limit
 
 router = APIRouter()
 
@@ -360,9 +359,6 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new project."""
-    # Tier guard: check project limit
-    await check_project_limit(user_id, db)
-
     result = await db.execute(select(User).where(User.id == user_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")

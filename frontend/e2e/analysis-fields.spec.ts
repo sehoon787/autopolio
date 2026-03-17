@@ -61,17 +61,6 @@ test.describe('Analysis Fields Verification', () => {
     expect(hasAnalysisContent).toBeTruthy()
   })
 
-  test('usage endpoint returns correct tier and limits', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/users/46/usage`)
-    expect(response.ok()).toBeTruthy()
-
-    const data = await response.json()
-    expect(data.tier).toBeTruthy()
-    expect(data.limits).toBeTruthy()
-    expect(data.usage).toBeTruthy()
-    expect(data.usage.projects).toBeGreaterThanOrEqual(0)
-  })
-
   test('LLM settings page loads', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('user_id', '46')

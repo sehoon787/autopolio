@@ -6,7 +6,7 @@ import { Terminal, Key } from 'lucide-react'
 import { useUserStore } from '@/stores/userStore'
 import { useToast } from '@/components/ui/use-toast'
 import { llmApi } from '@/api/llm'
-import { useFeatureFlags } from '@/hooks/useFeatureFlags'
+
 import { useAppStore, resolveModelForAPI } from '@/stores/appStore'
 import { useUsageStore, type LLMUsage } from '@/stores/usageStore'
 import { CLI_TYPES } from '@/constants'
@@ -38,7 +38,7 @@ export default function LLMSection() {
     setCodexCLIModel,
   } = useAppStore()
   const queryClient = useQueryClient()
-  const { showCLIStatus } = useFeatureFlags()
+  const showCLIStatus = true
 
   // Fetch LLM config from backend (must be before useCLIAuth to determine local mode)
   const { data: llmConfig, isLoading: isLoadingConfig, isError: isConfigError } = useQuery({

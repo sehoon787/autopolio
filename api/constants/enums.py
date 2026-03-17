@@ -79,12 +79,6 @@ class SummaryStyle(StrEnum):
     TECHNICAL = "technical"
 
 
-class UserTier(StrEnum):
-    FREE = "free"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
-
-
 class RuntimeProfile(StrEnum):
     ELECTRON = "electron"
     LOCAL = "local"

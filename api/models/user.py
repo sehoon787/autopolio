@@ -15,9 +15,6 @@ class User(Base):
     github_token_encrypted = Column(Text)  # Encrypted OAuth token
     github_avatar_url = Column(String(500))
 
-    # Pricing tier
-    tier = Column(String(20), default="free")  # free, pro, enterprise
-
     # Personal info fields (NULL = use OAuth default, "" = intentionally empty)
     display_name = Column(String(100))  # Name for resume (overrides OAuth name)
     profile_email = Column(String(255))  # Contact email (separate from login email)

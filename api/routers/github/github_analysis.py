@@ -28,7 +28,7 @@ from api.services.github.github_exceptions import (
 )
 from api.services.core import EncryptionService
 from api.constants import SummaryStyle
-from api.dependencies.tier_guards import check_llm_call_limit
+
 from api.services.analysis import (
     AnalysisWorkflowError,
     phase1_validate_user,
@@ -80,10 +80,6 @@ async def analyze_repository(
     """
     from api.services.llm import LLMService
     from api.services.llm import CLILLMService
-
-    # Tier guard: check monthly LLM call limit
-    async with AsyncSessionLocal() as guard_db:
-        await check_llm_call_limit(user_id, guard_db)
 
     try:
         # ===== PHASE 1: Validate user and get context =====
@@ -199,13 +195,9 @@ async def analyze_repository(
             }
             await phase5_generate_ai_summary(ctx, summary_project_data)
 
-            # 5.5: Save LLM results + track usage
+            # 5.5: Save LLM results
             async with AsyncSessionLocal() as db:
                 await phase5_save_llm_results(db, ctx)
-                # Tier usage: count this LLM call
-                from api.services.usage_service import increment_llm_usage
-
-                await increment_llm_usage(db, user_id)
                 await db.commit()
 
         # ===== PHASE 6: Extract tech versions =====
@@ -337,9 +329,6 @@ async def generate_description(
     from api.services.llm import LLMService
     import base64
 
-    # Tier guard: check monthly LLM call limit
-    await check_llm_call_limit(user_id, db)
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -423,11 +412,6 @@ README 내용 (일부):
             else:
                 short_desc = response[:100].strip()
                 long_desc = response.strip()
-
-        # Tier usage: count this LLM call
-        from api.services.usage_service import increment_llm_usage
-
-        await increment_llm_usage(db, user_id)
 
         return {
             "short_description": short_desc,

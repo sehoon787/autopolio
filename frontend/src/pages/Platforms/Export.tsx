@@ -12,7 +12,6 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Lock,
 } from 'lucide-react'
 import { platformsApi } from '@/api/platforms'
 import { getFullApiUrl } from '@/lib/apiUrl'
@@ -32,7 +31,6 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 type ExportFormat = 'html' | 'md' | 'docx'
 
@@ -67,13 +65,6 @@ export default function PlatformExportPage() {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('md')
   const [previewHtml, setPreviewHtml] = useState<string>('')
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
-  const { canExportDocx, canExportHtml } = useFeatureFlags()
-
-  const isFormatLocked = (format: ExportFormat) => {
-    if (format === 'docx') return !canExportDocx
-    if (format === 'html') return !canExportHtml
-    return false
-  }
 
   // Fetch template details
   const {
@@ -227,32 +218,27 @@ export default function PlatformExportPage() {
             >
               {formatOptions.map((option) => {
                 const Icon = option.icon
-                const locked = isFormatLocked(option.value)
                 return (
                   <div
                     key={option.value}
                     className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${
-                      locked
-                        ? 'opacity-50 cursor-not-allowed border-border'
-                        : selectedFormat === option.value
-                          ? 'border-primary bg-primary/5 cursor-pointer'
-                          : 'border-border hover:bg-muted/50 cursor-pointer'
+                      selectedFormat === option.value
+                        ? 'border-primary bg-primary/5 cursor-pointer'
+                        : 'border-border hover:bg-muted/50 cursor-pointer'
                     }`}
-                    onClick={() => !locked && setSelectedFormat(option.value)}
+                    onClick={() => setSelectedFormat(option.value)}
                   >
-                    <RadioGroupItem value={option.value} id={option.value} disabled={locked} />
+                    <RadioGroupItem value={option.value} id={option.value} />
                     <Icon className="h-5 w-5 text-muted-foreground" />
                     <div className="flex-1">
-                      <Label htmlFor={option.value} className={`font-medium ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <Label htmlFor={option.value} className="font-medium cursor-pointer">
                         {option.label}
                       </Label>
                       <p className="text-sm text-muted-foreground">
                         {t(option.description)}
                       </p>
                     </div>
-                    {locked ? (
-                      <Lock className="h-5 w-5 text-amber-500" />
-                    ) : selectedFormat === option.value ? (
+                    {selectedFormat === option.value ? (
                       <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : null}
                   </div>

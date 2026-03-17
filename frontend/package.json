@@ -3,8 +3,20 @@
   "private": true,
   "version": "1.23.1",
   "description": "Portfolio and Resume Automation Platform",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "author": "Sehoon Kim",
+  "keywords": [
+    "portfolio",
+    "resume",
+    "automation",
+    "github-analysis",
+    "llm",
+    "electron",
+    "fastapi",
+    "react",
+    "typescript",
+    "career"
+  ],
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
