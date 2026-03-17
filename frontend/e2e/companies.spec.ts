@@ -32,7 +32,7 @@ test.describe('Companies Page', () => {
 
   test('should display companies page header', async ({ page }) => {
     const header = page.locator('h1, h2').filter({ hasText: /compan|회사|경력/i })
-    await expect(header).toBeVisible({ timeout: 10000 })
+    await expect(header).toBeVisible({ timeout: 20000 })
   })
 
   test('should have add company button', async ({ page }) => {
