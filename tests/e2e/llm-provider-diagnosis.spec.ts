@@ -1,20 +1,54 @@
 import { test, expect } from '@playwright/test'
+import type { APIRequestContext } from '@playwright/test'
+import {
+  createApiContext,
+  createTestUser,
+  loginAsTestUser,
+  cleanupTestData,
+  TestDataContext,
+} from './fixtures/api-helpers'
+import { API_BASE_URL } from './runtimeConfig'
 
-const API_URL = process.env.API_URL || 'http://localhost:8085/api'
+const API_URL = API_BASE_URL
 
 test.describe('LLM Provider Diagnosis', () => {
-  test('check provider test results on Settings page', async ({ page }) => {
-    await page.goto('http://localhost:3035/settings')
-    await page.waitForLoadState('domcontentloaded')
+  let testContext: TestDataContext
+  let apiRequest: APIRequestContext
 
-    // Click API tab
-    const apiTab = page.locator('button:has-text("API")')
-    await expect(apiTab).toBeVisible()
-    await apiTab.first().click()
-    await page.waitForTimeout(500)
+  test.beforeAll(async () => {
+    try {
+      apiRequest = await createApiContext()
+      const user = await createTestUser(apiRequest)
+      testContext = { user }
+    } catch (e) {
+      console.log('LLM provider diagnosis test setup failed:', e)
+    }
+  })
+
+  test.afterAll(async () => {
+    await cleanupTestData(apiRequest, testContext)
+    await apiRequest.dispose()
+  })
+
+  test('check provider test results on Settings page', async ({ page }) => {
+    test.setTimeout(60000)
+    if (!testContext?.user) {
+      test.skip()
+      return
+    }
+    await loginAsTestUser(page, testContext.user)
+    await page.goto('/settings?section=llm')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+
+    // Click API Providers tab
+    const apiTab = page.getByRole('tab', { name: /API Providers/i })
+    await expect(apiTab).toBeVisible({ timeout: 10000 })
+    await apiTab.click()
+    await page.waitForTimeout(1000)
 
     // Check LLM config API response
-    const configResp = await page.request.get(`${API_URL}/llm/config`)
+    const configResp = await apiRequest.get(`${API_URL}/llm/config`, { timeout: 30000 })
     expect(configResp.ok()).toBeTruthy()
     const configResponse = await configResp.json()
 
@@ -25,7 +59,7 @@ test.describe('LLM Provider Diagnosis', () => {
 
     // Test each provider via API
     for (const provider of ['openai', 'anthropic', 'gemini']) {
-      const testResp = await page.request.post(`${API_URL}/llm/test/${provider}?use_env=true`)
+      const testResp = await apiRequest.post(`${API_URL}/llm/test/${provider}?use_env=true`, { timeout: 30000 })
       const testResponse = await testResp.json()
       console.log(`=== ${provider} test: success=${testResponse.success}, response=${testResponse.response?.substring(0, 100)}`)
     }

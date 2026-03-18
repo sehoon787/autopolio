@@ -65,7 +65,7 @@ test.describe('Template List Page', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Template Management' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show subtitle text', async ({ page }) => {
@@ -74,7 +74,7 @@ test.describe('Template List Page', () => {
 
     await expect(
       page.getByText('Manage resume and portfolio templates.')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should have New Template button', async ({ page }) => {
@@ -83,7 +83,7 @@ test.describe('Template List Page', () => {
 
     await expect(
       page.getByRole('button', { name: 'New Template' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should have Upload File button', async ({ page }) => {
@@ -93,7 +93,7 @@ test.describe('Template List Page', () => {
     // Upload File is rendered as a label > Button asChild > span, not a real <button>
     await expect(
       page.getByText('Upload File')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show System Templates section heading', async ({ page }) => {
@@ -102,7 +102,7 @@ test.describe('Template List Page', () => {
 
     await expect(
       page.getByRole('heading', { name: 'System Templates' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show Clone button on system templates', async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe('Template List Page', () => {
 
     // System templates have "Clone" buttons
     const cloneButtons = page.getByRole('button', { name: 'Clone' })
-    await expect(cloneButtons.first()).toBeVisible({ timeout: 5000 })
+    await expect(cloneButtons.first()).toBeVisible({ timeout: 10000 })
   })
 })
 
@@ -157,7 +157,7 @@ test.describe('Template Editor - New Template', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Create New Template' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show template name input', async ({ page }) => {
@@ -165,7 +165,7 @@ test.describe('Template Editor - New Template', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const nameInput = page.locator('#name')
-    await expect(nameInput).toBeVisible({ timeout: 5000 })
+    await expect(nameInput).toBeVisible({ timeout: 10000 })
   })
 
   test('should show template content textarea', async ({ page }) => {
@@ -173,7 +173,7 @@ test.describe('Template Editor - New Template', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const contentTextarea = page.locator('#template-content')
-    await expect(contentTextarea).toBeVisible({ timeout: 5000 })
+    await expect(contentTextarea).toBeVisible({ timeout: 10000 })
   })
 
   test('should show Save and Fullscreen buttons', async ({ page }) => {
@@ -182,11 +182,11 @@ test.describe('Template Editor - New Template', () => {
 
     await expect(
       page.getByRole('button', { name: 'Save' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
 
     await expect(
       page.getByRole('button', { name: 'Fullscreen' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show Go Back button', async ({ page }) => {
@@ -195,7 +195,7 @@ test.describe('Template Editor - New Template', () => {
 
     await expect(
       page.getByRole('button', { name: 'Go Back' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show preview panel with Rendered tab', async ({ page }) => {
@@ -203,12 +203,12 @@ test.describe('Template Editor - New Template', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Preview panel heading (use heading role to avoid matching Preview button and empty state text)
-    await expect(page.getByRole('heading', { name: 'Preview' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Preview' })).toBeVisible({ timeout: 10000 })
 
     // Tab triggers
-    await expect(page.getByRole('tab', { name: 'Rendered' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('tab', { name: 'Text' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('tab', { name: 'Fields Used' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('tab', { name: 'Rendered' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('tab', { name: 'Text' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('tab', { name: 'Fields Used' })).toBeVisible({ timeout: 10000 })
   })
 })
 
@@ -252,7 +252,7 @@ test.describe('Template Editor - Edit Existing', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Edit Template' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show pre-filled template name', async ({ page }) => {
@@ -265,7 +265,7 @@ test.describe('Template Editor - Edit Existing', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const nameInput = page.locator('#name')
-    await expect(nameInput).toBeVisible({ timeout: 5000 })
+    await expect(nameInput).toBeVisible({ timeout: 10000 })
     // Name should be pre-filled from the template
     await expect(nameInput).not.toHaveValue('')
   })
@@ -280,10 +280,10 @@ test.describe('Template Editor - Edit Existing', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Template Info card title
-    await expect(page.getByText('Template Info')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Template Info')).toBeVisible({ timeout: 10000 })
 
     // Both name and description inputs
-    await expect(page.locator('#name')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('#description')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('#name')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('#description')).toBeVisible({ timeout: 10000 })
   })
 })

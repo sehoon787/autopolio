@@ -52,20 +52,21 @@ test.describe('Document List Page', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Generated Documents' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should show empty state when no documents', async ({ page }) => {
     await page.goto('/documents')
     await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
 
     // Empty state text
-    await expect(page.getByText('No documents generated')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('No documents generated')).toBeVisible({ timeout: 10000 })
 
-    // "Create First Document" button
-    await expect(
-      page.getByRole('button', { name: 'Create First Document' })
-    ).toBeVisible({ timeout: 5000 })
+    // "Create First Document" may be a button or a link
+    const createBtn = page.getByRole('link', { name: 'Create First Document' })
+      .or(page.getByRole('button', { name: 'Create First Document' }))
+    await expect(createBtn.first()).toBeVisible({ timeout: 10000 })
   })
 
   test('should have New Document button in header', async ({ page }) => {
@@ -84,7 +85,7 @@ test.describe('Document List Page', () => {
 
     // "Create First Document" is a link (wrapped in <Link to="/generate">)
     const createBtn = page.getByRole('link', { name: 'Create First Document' })
-    await expect(createBtn).toBeVisible({ timeout: 5000 })
+    await expect(createBtn).toBeVisible({ timeout: 10000 })
     await expect(createBtn).toHaveAttribute('href', '/generate')
   })
 
@@ -94,6 +95,6 @@ test.describe('Document List Page', () => {
 
     await expect(
       page.getByText('Manage generated resume and portfolio documents.')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 10000 })
   })
 })

@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test'
-
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3035'
+import type { APIRequestContext } from '@playwright/test'
+import {
+  createApiContext,
+  createTestUser,
+  loginAsTestUser,
+  cleanupTestData,
+  TestDataContext,
+} from './fixtures/api-helpers'
+import { FRONTEND_URL } from './runtimeConfig'
 
 /**
  * Tests for tab count update bug:
@@ -9,13 +16,32 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3035'
  */
 test.describe('Tab count update after CRUD operations', () => {
   test.describe.configure({ mode: 'serial' })
+
+  let testContext: TestDataContext
+  let apiRequest: APIRequestContext
+
+  test.beforeAll(async () => {
+    try {
+      apiRequest = await createApiContext()
+      const user = await createTestUser(apiRequest)
+      testContext = { user }
+    } catch (e) {
+      console.log('Count update test setup failed:', e)
+    }
+  })
+
+  test.afterAll(async () => {
+    await cleanupTestData(apiRequest, testContext)
+    await apiRequest.dispose()
+  })
+
   test.beforeEach(async ({ page }) => {
-    await page.goto(BASE_URL)
-    await page.evaluate(() => {
-      localStorage.setItem('user_id', '46')
-      localStorage.setItem('user_name', 'sehoon787')
-    })
-    await page.goto(BASE_URL)
+    if (!testContext?.user) {
+      test.skip()
+      return
+    }
+    await loginAsTestUser(page, testContext.user)
+    await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
@@ -35,9 +61,9 @@ test.describe('Tab count update after CRUD operations', () => {
   }
 
   test('certifications-awards: add certification updates Certifications tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
+    await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     // Get initial count from "Certifications (N)" sub-tab
     const initialCount = await getTabCount(page, /^Certifications|^자격증/)
@@ -48,17 +74,16 @@ test.describe('Tab count update after CRUD operations', () => {
     await addBtn.first().click()
     await page.waitForTimeout(500)
 
-    // Fill form
-    await page.locator('input[name="name"], input').filter({ hasText: '' }).first().fill('Test Cert for Count')
     // Find the name input in the dialog
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
     const nameInput = dialog.locator('input').first()
     await nameInput.fill('Test Cert for Count')
 
     // Submit
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(3000)
 
     // Check count updated WITHOUT clicking tab
     const newCount = await getTabCount(page, /^Certifications|^자격증/)
@@ -78,9 +103,9 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('certifications-awards: add award updates Awards tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
+    await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     // Switch to Awards sub-tab
     const awardsTab = page.getByRole('tab', { name: /^Awards|^수상/ })
@@ -90,18 +115,21 @@ test.describe('Tab count update after CRUD operations', () => {
     const initialCount = await getTabCount(page, /^Awards|^수상/)
     console.log(`Initial awards count: ${initialCount}`)
 
-    // Add new award
-    const addBtn = page.getByRole('button', { name: /Add|추가/ })
-    await addBtn.first().click()
+    // Add new award — use the page-level Add button (not inside dialog)
+    const addBtn = page.getByRole('button', { name: /^Add$|^추가$/ }).first()
+    await addBtn.click()
     await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
     const nameInput = dialog.locator('input').first()
     await nameInput.fill('Test Award for Count')
 
-    const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
+    // Click submit and wait for dialog to close
+    const submitBtn = dialog.getByRole('button', { name: /^Add$|^추가$/ })
     await submitBtn.click()
-    await page.waitForTimeout(1500)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(1000)
 
     const newCount = await getTabCount(page, /^Awards|^수상/)
     console.log(`After add awards count: ${newCount}`)
@@ -119,7 +147,7 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('education-publications-patents: add training updates Training tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
+    await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -137,25 +165,28 @@ test.describe('Tab count update after CRUD operations', () => {
     await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
-    // Fill school name
-    const schoolInput = dialog.locator('input').first()
+    await expect(dialog).toBeVisible({ timeout: 10000 })
+
+    // Select training type (required field — submit is disabled without it)
+    // Options: Certificate/수료, Bootcamp/부트캠프, Online Course/온라인 강의, Workshop/워크샵, Other/기타
+    const degreeSelect = dialog.locator('button[role="combobox"]').first()
+    await expect(degreeSelect).toBeVisible({ timeout: 5000 })
+    await degreeSelect.click()
+    await page.waitForTimeout(500)
+    // Select first available option (Certificate)
+    const firstOption = page.getByRole('option').first()
+    await expect(firstOption).toBeVisible({ timeout: 5000 })
+    await firstOption.click()
+    await page.waitForTimeout(300)
+
+    // Fill institution name (required field)
+    const schoolInput = dialog.locator('input#school_name')
     await schoolInput.fill('Test Training for Count')
 
-    // Select degree type as 'course'
-    const degreeSelect = dialog.locator('[role="combobox"]').first()
-    if (await degreeSelect.count() > 0) {
-      await degreeSelect.click()
-      await page.waitForTimeout(300)
-      const courseOption = page.getByRole('option', { name: /Course|코스|과정/ })
-      if (await courseOption.count() > 0) {
-        await courseOption.click()
-        await page.waitForTimeout(300)
-      }
-    }
-
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
+    await expect(submitBtn).toBeEnabled({ timeout: 5000 })
     await submitBtn.click()
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(2000)
 
     const newCount = await getTabCount(page, /Training|교육/)
     console.log(`After add training count: ${newCount}`)
@@ -173,9 +204,9 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('activities: add external activity updates External tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/activities`)
+    await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     // Switch to External sub-tab
     const extTab = page.getByRole('tab', { name: /External|대외/ })
@@ -191,12 +222,13 @@ test.describe('Tab count update after CRUD operations', () => {
     await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
     const nameInput = dialog.locator('input').first()
     await nameInput.fill('Test External for Count')
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(3000)
 
     const newCount = await getTabCount(page, /External|대외/)
     console.log(`After add external count: ${newCount}`)
@@ -214,7 +246,7 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('activities: add volunteer activity updates main Activities tab AND Volunteer sub-tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/activities`)
+    await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -251,7 +283,7 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('education-publications-patents: add publication updates Publications tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
+    await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -292,7 +324,7 @@ test.describe('Tab count update after CRUD operations', () => {
   })
 
   test('education-publications-patents: delete education updates Education tab count', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
+    await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 

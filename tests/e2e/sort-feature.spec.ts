@@ -1,15 +1,36 @@
 import { test, expect } from '@playwright/test'
-
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3035'
+import type { APIRequestContext } from '@playwright/test'
+import {
+  createApiContext,
+  createTestUser,
+  createTestCompany,
+  createTestProject,
+  loginAsTestUser,
+  cleanupTestData,
+  TestDataContext,
+} from './fixtures/api-helpers'
+import { FRONTEND_URL } from './runtimeConfig'
 
 test.describe('Sort feature across pages', () => {
+  let testContext: TestDataContext
+  let apiRequest: APIRequestContext
+
+  test.beforeAll(async () => {
+    apiRequest = await createApiContext()
+    const user = await createTestUser(apiRequest)
+    const company = await createTestCompany(apiRequest, user.id)
+    const project = await createTestProject(apiRequest, user.id, company.id)
+    testContext = { user, company, project }
+  })
+
+  test.afterAll(async () => {
+    await cleanupTestData(apiRequest, testContext)
+    await apiRequest.dispose()
+  })
+
   test.beforeEach(async ({ page }) => {
-    await page.goto(BASE_URL)
-    await page.evaluate(() => {
-      localStorage.setItem('user_id', '46')
-      localStorage.setItem('user_name', 'sehoon787')
-    })
-    await page.goto(BASE_URL)
+    await loginAsTestUser(page, testContext.user!)
+    await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
@@ -17,7 +38,7 @@ test.describe('Sort feature across pages', () => {
   // === Projects page sorting ===
 
   test('projects page has sort dropdown', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/projects`)
+    await page.goto('/knowledge/projects')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -27,7 +48,7 @@ test.describe('Sort feature across pages', () => {
   })
 
   test('projects page sort by name changes order', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/projects`)
+    await page.goto('/knowledge/projects')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -49,7 +70,7 @@ test.describe('Sort feature across pages', () => {
   })
 
   test('projects page sort direction toggle works', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/projects`)
+    await page.goto('/knowledge/projects')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -69,7 +90,7 @@ test.describe('Sort feature across pages', () => {
   // === Documents page sorting ===
 
   test('documents page has sort dropdown', async ({ page }) => {
-    await page.goto(`${BASE_URL}/documents`)
+    await page.goto('/documents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -81,7 +102,7 @@ test.describe('Sort feature across pages', () => {
   })
 
   test('documents page sort by document name', async ({ page }) => {
-    await page.goto(`${BASE_URL}/documents`)
+    await page.goto('/documents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -104,7 +125,7 @@ test.describe('Sort feature across pages', () => {
   // === Generate page search and sorting ===
 
   test('generate page has search input and sort dropdown', async ({ page }) => {
-    await page.goto(`${BASE_URL}/generate`)
+    await page.goto('/generate')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -123,7 +144,7 @@ test.describe('Sort feature across pages', () => {
   // === Credentials pages layout ===
 
   test('credentials page has add button in header and sort in subtab row', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/certifications-awards`)
+    await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -145,7 +166,7 @@ test.describe('Sort feature across pages', () => {
   })
 
   test('education page has add button in header', async ({ page }) => {
-    await page.goto(`${BASE_URL}/knowledge/education-publications-patents`)
+    await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
@@ -160,7 +181,7 @@ test.describe('Sort feature across pages', () => {
   // === GitHub repos page sorting (requires GitHub connection) ===
 
   test('github repos page has sort dropdown when connected', async ({ page }) => {
-    await page.goto(`${BASE_URL}/github/repos`)
+    await page.goto('/github/repos')
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(2000)
 

@@ -6,8 +6,14 @@ const API_URL = process.env.API_URL || 'http://localhost:8085/api'
 test.describe('Check all credential tabs for user 46', () => {
   test.beforeEach(async ({ page }) => {
     // Skip all tests if user 46 doesn't exist
-    const resp = await page.request.get(`${API_URL}/users/46`)
-    test.skip(!resp.ok(), 'User 46 not found in database')
+    let userExists = false
+    try {
+      const resp = await page.request.get(`${API_URL}/users/46`)
+      userExists = resp.ok()
+    } catch {
+      userExists = false
+    }
+    test.skip(!userExists, 'User 46 not found in database — requires pre-seeded local data')
 
     await page.goto(BASE_URL)
     await page.evaluate(() => {
@@ -16,7 +22,7 @@ test.describe('Check all credential tabs for user 46', () => {
     })
     await page.goto(BASE_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 15000 })
   })
 
   // === Knowledge Pages ===

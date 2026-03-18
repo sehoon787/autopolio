@@ -1,15 +1,39 @@
 import { test, expect } from '@playwright/test'
-
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3035'
+import type { APIRequestContext } from '@playwright/test'
+import {
+  createApiContext,
+  createTestUser,
+  createTestCompany,
+  createTestProject,
+  loginAsTestUser,
+  cleanupTestData,
+  TestDataContext,
+} from './fixtures/api-helpers'
+import { FRONTEND_URL } from './runtimeConfig'
 
 test.describe('Dashboard career timeline', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(BASE_URL)
-    await page.evaluate(() => {
-      localStorage.setItem('user_id', '46')
-      localStorage.setItem('user_name', 'sehoon787')
+  let testContext: TestDataContext
+  let apiRequest: APIRequestContext
+
+  test.beforeAll(async () => {
+    apiRequest = await createApiContext()
+    const user = await createTestUser(apiRequest)
+    const company = await createTestCompany(apiRequest, user.id, {
+      start_date: '2023-01-01',
+      end_date: '2024-06-30',
     })
-    await page.goto(BASE_URL)
+    const project = await createTestProject(apiRequest, user.id, company.id)
+    testContext = { user, company, project }
+  })
+
+  test.afterAll(async () => {
+    await cleanupTestData(apiRequest, testContext)
+    await apiRequest.dispose()
+  })
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsTestUser(page, testContext.user!)
+    await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
   })
