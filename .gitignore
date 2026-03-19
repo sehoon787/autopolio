@@ -73,6 +73,7 @@ tests/e2e/electron/playwright-report-electron/
 playwright-report/
 frontend/e2e/screenshots/
 **/screenshots/
+!docs/screenshots/
 
 # Temporary files
 nul
