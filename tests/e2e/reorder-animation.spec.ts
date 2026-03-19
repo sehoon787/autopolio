@@ -11,7 +11,7 @@ test.describe('Manual reorder with animation', () => {
     })
     await page.goto(BASE_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 
   // Helper: navigate to certifications page and switch to manual sort

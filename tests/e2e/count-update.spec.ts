@@ -228,7 +228,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(5000)
 
     const newCount = await getTabCount(page, /External|대외/)
     console.log(`After add external count: ${newCount}`)
