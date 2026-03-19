@@ -1,7 +1,9 @@
 {
-  "name": "Autopolio",
+  "name": "Autopolio — AI Portfolio & Resume Generator",
   "short_name": "Autopolio",
-  "description": "Portfolio/Resume Automation Platform",
+  "description": "Turn your GitHub into a professional portfolio. AI-powered resume generator that analyzes repositories and exports tailored resumes.",
+  "lang": "en",
+  "categories": ["productivity", "developer-tools", "utilities"],
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

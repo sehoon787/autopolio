@@ -1,0 +1,9 @@
+# Ensure GitHub detects the correct primary language
+# Vendor directories should not count toward language stats
+frontend/src/components/ui/* linguist-vendored
+data/platform_templates/* linguist-vendored
+
+# Force TypeScript as the detected language for key source files
+*.ts linguist-detectable=true
+*.tsx linguist-detectable=true
+*.py linguist-detectable=true

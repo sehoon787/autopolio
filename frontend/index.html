@@ -1,10 +1,59 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Turn your GitHub into a professional portfolio. AI-powered resume generator that analyzes repositories, detects 200+ technologies, and exports tailored resumes for job platforms." />
+    <meta name="keywords" content="portfolio generator, resume builder, github analysis, AI resume, developer portfolio, career automation, github portfolio, tech stack detection" />
+    <meta name="author" content="Sehoon Kim" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://github.com/sehoon787/Autopolio" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Discord, Slack) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Autopolio — AI-Powered Portfolio & Resume Generator" />
+    <meta property="og:description" content="Turn your GitHub into a professional portfolio. Analyze repos, detect 200+ technologies, and generate tailored resumes with AI." />
+    <meta property="og:image" content="https://raw.githubusercontent.com/sehoon787/Autopolio/main/docs/og-image.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:url" content="https://github.com/sehoon787/Autopolio" />
+    <meta property="og:site_name" content="Autopolio" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Autopolio — AI-Powered Portfolio & Resume Generator" />
+    <meta name="twitter:description" content="Turn your GitHub into a professional portfolio. Analyze repos, detect 200+ technologies, and generate tailored resumes with AI." />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/sehoon787/Autopolio/main/docs/og-image.png" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Autopolio",
+      "description": "AI-powered portfolio and resume automation platform that analyzes GitHub repositories and generates tailored resumes.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Windows, macOS, Linux",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Sehoon Kim",
+        "url": "https://github.com/sehoon787"
+      },
+      "url": "https://github.com/sehoon787/Autopolio",
+      "downloadUrl": "https://github.com/sehoon787/Autopolio/releases",
+      "softwareVersion": "0.1.0",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+    </script>
 
     <!-- Favicon for light mode -->
     <link rel="icon" type="image/png" href="/icon-light.png" media="(prefers-color-scheme: light)" />
@@ -19,7 +68,7 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
 
-    <title>Autopolio - Portfolio/Resume Automation</title>
+    <title>Autopolio — AI-Powered Portfolio & Resume Generator</title>
   </head>
   <body>
     <div id="root"></div>
