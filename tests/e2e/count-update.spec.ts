@@ -129,7 +129,7 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /^Add$|^추가$/ })
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(3000)
 
     const newCount = await getTabCount(page, /^Awards|^수상/)
     console.log(`After add awards count: ${newCount}`)
@@ -186,7 +186,7 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await expect(submitBtn).toBeEnabled({ timeout: 5000 })
     await submitBtn.click()
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(4000)
 
     const newCount = await getTabCount(page, /Training|교육/)
     console.log(`After add training count: ${newCount}`)
