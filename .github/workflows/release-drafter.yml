@@ -3,8 +3,6 @@ name: Release Drafter
 on:
   push:
     branches: [main]
-  pull_request:
-    types: [opened, reopened, synchronize, labeled]
 
 permissions:
   contents: write
@@ -17,5 +15,7 @@ jobs:
 
     steps:
       - uses: release-drafter/release-drafter@v6
+        with:
+          commitish: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

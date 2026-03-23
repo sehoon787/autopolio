@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Have a question? Feel free to ask here, or use [Discussions](https://github.com/sehoon787/Autopolio/discussions) for open-ended conversations.
+        Have a question? Feel free to ask here, or use [Discussions](https://github.com/sehoon787/autopolio/discussions) for open-ended conversations.
 
   - type: textarea
     id: question

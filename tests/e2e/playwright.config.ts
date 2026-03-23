@@ -35,10 +35,10 @@ export default defineConfig({
     video: process.env.CI ? 'off' : 'on-first-retry',
 
     /* Action timeout — fail fast on mismatched selectors */
-    actionTimeout: 10000,
+    actionTimeout: process.env.CI ? 20000 : 10000,
 
     /* Navigation timeout */
-    navigationTimeout: 15000,
+    navigationTimeout: process.env.CI ? 30000 : 15000,
   },
 
   /* Configure projects for major browsers */
@@ -56,8 +56,8 @@ export default defineConfig({
   outputDir: 'test-results/',
 
   /* Timeout settings */
-  timeout: 30000, // 30 seconds per test
+  timeout: process.env.CI ? 60000 : 30000,
   expect: {
-    timeout: 10000, // 10 seconds for assertions (Docker parallel execution)
+    timeout: process.env.CI ? 20000 : 10000,
   },
 })

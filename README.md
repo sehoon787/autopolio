@@ -3,12 +3,12 @@
 > Turn your GitHub into a professional portfolio — powered by AI
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/sehoon787/Autopolio/actions/workflows/ci.yml/badge.svg)](https://github.com/sehoon787/Autopolio/actions/workflows/ci.yml)
-[![Lint](https://github.com/sehoon787/Autopolio/actions/workflows/lint.yml/badge.svg)](https://github.com/sehoon787/Autopolio/actions/workflows/lint.yml)
+[![CI](https://github.com/sehoon787/autopolio/actions/workflows/ci.yml/badge.svg)](https://github.com/sehoon787/autopolio/actions/workflows/ci.yml)
+[![Lint](https://github.com/sehoon787/autopolio/actions/workflows/lint.yml/badge.svg)](https://github.com/sehoon787/autopolio/actions/workflows/lint.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
-[![Stars](https://img.shields.io/github/stars/sehoon787/Autopolio?style=social)](https://github.com/sehoon787/Autopolio)
-[![Release](https://img.shields.io/github/v/release/sehoon787/Autopolio)](https://github.com/sehoon787/Autopolio/releases)
+[![Stars](https://img.shields.io/github/stars/sehoon787/autopolio?style=social)](https://github.com/sehoon787/autopolio)
+[![Release](https://img.shields.io/github/v/release/sehoon787/autopolio)](https://github.com/sehoon787/autopolio/releases)
 
 [🇰🇷 한국어 README](README_ko.md)
 
@@ -72,7 +72,7 @@ Step 7 — Document Generation   Produce DOCX / PDF / Markdown output
 ### Option A: Docker (recommended)
 
 ```bash
-git clone https://github.com/sehoon787/Autopolio.git
+git clone https://github.com/sehoon787/autopolio.git
 cd Autopolio
 
 cp .env.example .env
@@ -86,7 +86,7 @@ Open `http://localhost:3035` in your browser.
 ### Option B: Dev script
 
 ```bash
-git clone https://github.com/sehoon787/Autopolio.git
+git clone https://github.com/sehoon787/autopolio.git
 cd Autopolio
 cp .env.example .env
 

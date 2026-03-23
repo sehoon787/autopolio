@@ -29,7 +29,7 @@ Thank you for your interest in contributing to Autopolio! We welcome contributio
 ### Setup
 
 ```bash
-git clone https://github.com/sehoon787/Autopolio.git
+git clone https://github.com/sehoon787/autopolio.git
 cd Autopolio
 cp .env.example .env
 # Edit .env with your API keys
@@ -156,10 +156,10 @@ Please use the GitHub issue templates to report problems or request features:
 
 | Template | Use for |
 |----------|---------|
-| [Bug Report](https://github.com/sehoon787/Autopolio/issues/new?template=bug_report.yml) | Something is broken |
-| [Feature Request](https://github.com/sehoon787/Autopolio/issues/new?template=feature_request.yml) | Suggest a new feature |
-| [Docs](https://github.com/sehoon787/Autopolio/issues/new?template=docs.yml) | Documentation improvements |
-| [Question](https://github.com/sehoon787/Autopolio/issues/new?template=question.yml) | General questions |
+| [Bug Report](https://github.com/sehoon787/autopolio/issues/new?template=bug_report.yml) | Something is broken |
+| [Feature Request](https://github.com/sehoon787/autopolio/issues/new?template=feature_request.yml) | Suggest a new feature |
+| [Docs](https://github.com/sehoon787/autopolio/issues/new?template=docs.yml) | Documentation improvements |
+| [Question](https://github.com/sehoon787/autopolio/issues/new?template=question.yml) | General questions |
 
 Before opening an issue, please search existing issues to avoid duplicates.
 

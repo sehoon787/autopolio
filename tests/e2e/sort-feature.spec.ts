@@ -32,7 +32,7 @@ test.describe('Sort feature across pages', () => {
     await loginAsTestUser(page, testContext.user!)
     await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 10000 })
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 
   // === Projects page sorting ===

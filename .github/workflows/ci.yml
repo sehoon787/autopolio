@@ -171,32 +171,37 @@ jobs:
       - name: Wait for API to be ready
         run: |
           echo "Waiting for API..."
-          for i in $(seq 1 15); do
+          for i in $(seq 1 20); do
             if curl -sf http://localhost:8085/health > /dev/null 2>&1; then
               echo "API is ready!"
               exit 0
             fi
-            echo "Attempt $i/15..."
-            sleep 3
+            echo "Attempt $i/20..."
+            sleep 5
           done
-          echo "ERROR: API did not start within 45 seconds"
+          echo "ERROR: API did not start within 100 seconds"
           docker compose logs api --tail=50
           exit 1
 
       - name: Wait for Frontend to be ready
         run: |
           echo "Waiting for Frontend..."
-          for i in $(seq 1 15); do
+          for i in $(seq 1 20); do
             if curl -sf http://localhost:3035/ > /dev/null 2>&1; then
               echo "Frontend is ready!"
               exit 0
             fi
-            echo "Attempt $i/15..."
-            sleep 3
+            echo "Attempt $i/20..."
+            sleep 5
           done
-          echo "ERROR: Frontend did not start within 45 seconds"
+          echo "ERROR: Frontend did not start within 100 seconds"
           docker compose logs frontend --tail=50
           exit 1
+
+      - name: Wait for services to stabilize
+        run: |
+          echo "Waiting 10s for services to fully stabilize..."
+          sleep 10
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

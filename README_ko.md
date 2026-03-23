@@ -3,12 +3,12 @@
 > GitHub를 AI로 분석해 전문적인 포트폴리오와 이력서를 자동 생성하세요
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/sehoon787/Autopolio/actions/workflows/ci.yml/badge.svg)](https://github.com/sehoon787/Autopolio/actions/workflows/ci.yml)
-[![Lint](https://github.com/sehoon787/Autopolio/actions/workflows/lint.yml/badge.svg)](https://github.com/sehoon787/Autopolio/actions/workflows/lint.yml)
+[![CI](https://github.com/sehoon787/autopolio/actions/workflows/ci.yml/badge.svg)](https://github.com/sehoon787/autopolio/actions/workflows/ci.yml)
+[![Lint](https://github.com/sehoon787/autopolio/actions/workflows/lint.yml/badge.svg)](https://github.com/sehoon787/autopolio/actions/workflows/lint.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
-[![Stars](https://img.shields.io/github/stars/sehoon787/Autopolio?style=social)](https://github.com/sehoon787/Autopolio)
-[![Release](https://img.shields.io/github/v/release/sehoon787/Autopolio)](https://github.com/sehoon787/Autopolio/releases)
+[![Stars](https://img.shields.io/github/stars/sehoon787/autopolio?style=social)](https://github.com/sehoon787/autopolio)
+[![Release](https://img.shields.io/github/v/release/sehoon787/autopolio)](https://github.com/sehoon787/autopolio/releases)
 
 [🇺🇸 English README](README.md)
 
@@ -72,7 +72,7 @@ Step 7 — Document Generation   DOCX / PDF / Markdown 문서 생성
 ### 방법 A: Docker (권장)
 
 ```bash
-git clone https://github.com/sehoon787/Autopolio.git
+git clone https://github.com/sehoon787/autopolio.git
 cd Autopolio
 
 cp .env.example .env
@@ -86,7 +86,7 @@ docker-compose up -d
 ### 방법 B: 개발 스크립트
 
 ```bash
-git clone https://github.com/sehoon787/Autopolio.git
+git clone https://github.com/sehoon787/autopolio.git
 cd Autopolio
 cp .env.example .env
 

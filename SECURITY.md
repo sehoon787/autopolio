@@ -11,7 +11,7 @@
 If you discover a security vulnerability in Autopolio, please report it responsibly:
 
 1. **Do NOT open a public GitHub issue.**
-2. Email the maintainer at [GitHub Security Advisory](https://github.com/sehoon787/Autopolio/security/advisories/new).
+2. Email the maintainer at [GitHub Security Advisory](https://github.com/sehoon787/autopolio/security/advisories/new).
 3. Include a clear description, reproduction steps, and potential impact.
 
 We aim to acknowledge reports within 48 hours and provide a fix within 7 days for critical issues.

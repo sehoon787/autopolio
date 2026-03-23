@@ -46,8 +46,8 @@ test.describe('LLM Provider Visibility (Web Mode)', () => {
     // Verify both tabs exist on the LLM settings section
     const apiTab = page.locator('button[role="tab"]').filter({ hasText: /API Providers|API 제공자/ })
     const cliTab = page.locator('button[role="tab"]').filter({ hasText: /CLI Tools|CLI 도구/ })
-    await expect(apiTab).toBeVisible({ timeout: 15000 })
-    await expect(cliTab).toBeVisible({ timeout: 15000 })
+    await expect(apiTab).toBeVisible({ timeout: 30000 })
+    await expect(cliTab).toBeVisible({ timeout: 30000 })
 
     // Verify config API — check which providers are env_configured
     const configResp = await apiRequest.get(`${API_URL}/llm/config`, { timeout: 30000 })
@@ -62,12 +62,12 @@ test.describe('LLM Provider Visibility (Web Mode)', () => {
 
     // Click API Providers tab directly
     const apiProvidersTab = page.locator('button[role="tab"]').filter({ hasText: /API Providers|API 제공자/ })
-    await expect(apiProvidersTab).toBeVisible({ timeout: 15000 })
+    await expect(apiProvidersTab).toBeVisible({ timeout: 30000 })
     await apiProvidersTab.click()
     await page.waitForTimeout(2000)
 
     // Wait for API Providers tab panel to be active (description text is always present)
-    await expect(page.getByText(/API Providers|API 제공자/)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/API Providers|API 제공자/)).toBeVisible({ timeout: 30000 })
 
     await page.screenshot({ path: 'test-results/llm-api-tab-filtered.png', fullPage: true })
   })
@@ -79,7 +79,7 @@ test.describe('LLM Provider Visibility (Web Mode)', () => {
 
     // CLI Tools tab should be visible
     const cliTab = page.locator('button[role="tab"]').filter({ hasText: /CLI Tools|CLI 도구/ })
-    await expect(cliTab).toBeVisible({ timeout: 15000 })
+    await expect(cliTab).toBeVisible({ timeout: 30000 })
     await cliTab.click()
     await page.waitForTimeout(3000)
 

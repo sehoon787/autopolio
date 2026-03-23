@@ -97,7 +97,7 @@ SAMPLE_PROJECTS = [
         "start_date": "2026-01-19",
         "team_size": 1,
         "role": "풀스택 개발자",
-        "git_url": "https://github.com/sehoon787/Autopolio.git",
+        "git_url": "https://github.com/sehoon787/autopolio.git",
         "project_type": "personal",
         "company_index": 0,  # VibeCraft
     },
