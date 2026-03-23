@@ -122,15 +122,32 @@ npm run dev
 
 ## Electron Desktop App
 
+Run Autopolio as a standalone desktop application with built-in backend:
+
+### Development
+
+```bash
+# 1. Start the backend
+uv sync
+uv run uvicorn api.main:app --reload --port 8085
+
+# 2. Start Electron (separate terminal)
+cd frontend
+npm install
+npm run electron:dev
+```
+
+### Build Installers
+
 ```bash
 cd frontend
-
-npm run electron:dev            # Development mode
 
 npm run electron:build:win      # Windows exe (NSIS)
 npm run electron:build:mac      # macOS dmg
 npm run electron:build:linux    # Linux AppImage
 ```
+
+> The desktop app auto-detects CLI tools (Claude Code, Gemini CLI) and manages API keys locally. See [RUNTIME_TIER_AUTH.md](docs/RUNTIME_TIER_AUTH.md) for details.
 
 ---
 

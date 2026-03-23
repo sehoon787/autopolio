@@ -122,15 +122,32 @@ npm run dev
 
 ## Electron 데스크톱 앱
 
+Autopolio를 백엔드 내장 독립 데스크톱 앱으로 실행할 수 있습니다:
+
+### 개발 모드
+
+```bash
+# 1. 백엔드 실행
+uv sync
+uv run uvicorn api.main:app --reload --port 8085
+
+# 2. Electron 실행 (별도 터미널)
+cd frontend
+npm install
+npm run electron:dev
+```
+
+### 인스톨러 빌드
+
 ```bash
 cd frontend
-
-npm run electron:dev             # 개발 모드
 
 npm run electron:build:win       # Windows exe (NSIS)
 npm run electron:build:mac       # macOS dmg
 npm run electron:build:linux     # Linux AppImage
 ```
+
+> 데스크톱 앱은 CLI 도구(Claude Code, Gemini CLI)를 자동 감지하고 API 키를 로컬에서 관리합니다. 자세한 내용은 [RUNTIME_TIER_AUTH.md](docs/RUNTIME_TIER_AUTH.md)를 참조하세요.
 
 ---
 
