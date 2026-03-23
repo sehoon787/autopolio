@@ -48,7 +48,7 @@ jobs:
 
       - name: Generate encryption key for tests
         run: |
-          echo "ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> $GITHUB_ENV
 
       - name: Run API tests (SQLite)
         run: uv run pytest tests/api/ -m "not requires_github and not slow" --tb=short -q
@@ -101,7 +101,7 @@ jobs:
 
       - name: Generate encryption key for tests
         run: |
-          echo "ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> $GITHUB_ENV
 
       - name: Run API tests (PostgreSQL)
         run: uv run pytest tests/api/ -m "not requires_github and not slow" --tb=short -q
@@ -136,7 +136,7 @@ jobs:
       - name: Generate encryption key
         run: |
           if [ -z "$ENCRYPTION_KEY_INPUT" ]; then
-            echo "ENCRYPTION_KEY=$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+            echo "ENCRYPTION_KEY=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> $GITHUB_ENV
           else
             echo "ENCRYPTION_KEY=$ENCRYPTION_KEY_INPUT" >> $GITHUB_ENV
           fi

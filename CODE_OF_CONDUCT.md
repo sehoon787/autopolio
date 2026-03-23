@@ -43,7 +43,7 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of unacceptable behavior may be reported to the community leaders
-responsible for enforcement at **sehoon787@gmail.com**. All complaints will be
+responsible for enforcement at **sehoon787@nanver.com**. All complaints will be
 reviewed and investigated promptly and fairly.
 
 ## Enforcement Guidelines
