@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://github.com/sehoon787/autopolio
+Sitemap: https://sehoon787.github.io/autopolio/
