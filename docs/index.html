@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autopolio — AI-Powered Portfolio & Resume Automation</title>
+  <meta name="description" content="Turn your GitHub into a professional portfolio. Autopolio analyzes your commits, detects 200+ technologies, and generates tailored resumes for top job platforms." />
+  <meta property="og:title" content="Autopolio — AI-Powered Portfolio & Resume Automation" />
+  <meta property="og:description" content="Analyze GitHub repos, build a career knowledge base, and generate platform-specific resumes with AI." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080c14;
+      --bg2: #0d1220;
+      --bg3: #111827;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(59,130,246,0.4);
+      --text: #f0f4ff;
+      --text-muted: #8892a4;
+      --blue: #3b82f6;
+      --blue-dark: #2563eb;
+      --blue-light: #60a5fa;
+      --glow: rgba(59,130,246,0.15);
+      --card-bg: rgba(13,18,32,0.8);
+      --radius: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 60px;
+      background: rgba(8,12,20,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      transition: box-shadow .3s;
+    }
+    nav.scrolled { box-shadow: 0 4px 32px rgba(0,0,0,0.5); }
+
+    .nav-logo {
+      font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, var(--blue-light) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex; align-items: center; gap: 1.75rem; list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none; font-size: .875rem;
+      font-weight: 500; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-right { display: flex; align-items: center; gap: .75rem; }
+
+    .btn-gh {
+      display: flex; align-items: center; gap: .45rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); text-decoration: none; padding: .4rem .85rem;
+      border-radius: 8px; font-size: .8rem; font-weight: 500;
+      transition: border-color .2s, background .2s;
+    }
+    .btn-gh:hover { border-color: var(--border-hover); background: rgba(59,130,246,.1); }
+
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: var(--text); border-radius: 2px; transition: .3s;
+    }
+
+    .mobile-menu {
+      display: none; position: fixed; top: 60px; left: 0; right: 0;
+      background: rgba(8,12,20,0.97); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border); padding: 1.5rem 2rem;
+      flex-direction: column; gap: 1.25rem; z-index: 99;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 1rem; }
+    .mobile-menu a:hover { color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center;
+      padding: 8rem 2rem 6rem;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(37,99,235,.18) 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 40% at 80% 80%, rgba(59,130,246,.08) 0%, transparent 60%);
+    }
+
+    .hero-grid {
+      position: absolute; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, black 30%, transparent 80%);
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3);
+      color: var(--blue-light); padding: .35rem .9rem;
+      border-radius: 100px; font-size: .8rem; font-weight: 600;
+      margin-bottom: 1.75rem; position: relative; z-index: 1;
+      animation: fadeUp .6s ease both;
+    }
+    .hero-badge .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--blue); animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .5; transform: scale(1.4); }
+    }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.25rem);
+      font-weight: 900; line-height: 1.1; letter-spacing: -2px;
+      max-width: 800px; position: relative; z-index: 1;
+      animation: fadeUp .7s .1s ease both;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--blue-light) 0%, #818cf8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--text-muted); max-width: 560px;
+      margin: 1.5rem auto 0; position: relative; z-index: 1;
+      animation: fadeUp .7s .2s ease both;
+    }
+
+    .hero-ctas {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      justify-content: center; margin-top: 2.5rem;
+      position: relative; z-index: 1;
+      animation: fadeUp .7s .3s ease both;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+      color: #fff; text-decoration: none; padding: .75rem 1.75rem;
+      border-radius: 10px; font-weight: 600; font-size: .95rem;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 4px 24px rgba(37,99,235,.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(37,99,235,.5); }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border);
+      color: var(--text); text-decoration: none; padding: .75rem 1.75rem;
+      border-radius: 10px; font-weight: 600; font-size: .95rem;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      flex-wrap: wrap; gap: 0;
+      background: rgba(13,18,32,.9); border: 1px solid var(--border);
+      border-radius: var(--radius); margin: 3rem auto 0; max-width: 860px;
+      overflow: hidden; animation: fadeUp .7s .4s ease both;
+    }
+    .stat-item {
+      flex: 1 1 180px; padding: 1.25rem 1.5rem; text-align: center;
+      border-right: 1px solid var(--border); position: relative;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num {
+      font-size: 1.6rem; font-weight: 800; color: var(--blue-light);
+      letter-spacing: -1px; display: block;
+    }
+    .stat-label { font-size: .75rem; color: var(--text-muted); font-weight: 500; margin-top: .2rem; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── SECTIONS ── */
+    section { padding: 6rem 2rem; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+
+    .section-tag {
+      display: inline-block; background: rgba(59,130,246,.12);
+      border: 1px solid rgba(59,130,246,.25); color: var(--blue-light);
+      padding: .3rem .8rem; border-radius: 100px;
+      font-size: .75rem; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      font-weight: 800; letter-spacing: -1px; margin-bottom: .75rem;
+    }
+    .section-sub { color: var(--text-muted); font-size: 1rem; max-width: 540px; }
+
+    /* ── FEATURES ── */
+    #features { background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%); }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 1.25rem; margin-top: 3rem;
+    }
+
+    .feature-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.75rem;
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+      opacity: 0; transform: translateY(20px);
+    }
+    .feature-card.visible { opacity: 1; transform: translateY(0); transition: opacity .5s ease, transform .5s ease, border-color .25s, box-shadow .25s; }
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(59,130,246,.12);
+    }
+
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; color: var(--blue-light); margin-bottom: 1rem;
+    }
+    .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: .5rem; }
+    .feature-desc { color: var(--text-muted); font-size: .875rem; line-height: 1.65; }
+
+    /* ── PIPELINE ── */
+    #how-it-works { background: var(--bg2); }
+
+    .pipeline-header { text-align: center; margin-bottom: 3.5rem; }
+    .pipeline-header .section-sub { margin: 0 auto; }
+
+    .pipeline {
+      display: flex; flex-direction: column; gap: 0;
+      max-width: 700px; margin: 0 auto; position: relative;
+    }
+    .pipeline::before {
+      content: ''; position: absolute;
+      left: 22px; top: 24px; bottom: 24px; width: 2px;
+      background: linear-gradient(180deg, var(--blue-dark) 0%, rgba(59,130,246,.15) 100%);
+    }
+
+    .pipeline-step {
+      display: flex; gap: 1.5rem; align-items: flex-start;
+      padding: 1.25rem 0; position: relative;
+      opacity: 0; transform: translateX(-16px);
+    }
+    .pipeline-step.visible { opacity: 1; transform: translateX(0); transition: opacity .5s ease, transform .5s ease; }
+
+    .step-num {
+      flex-shrink: 0; width: 46px; height: 46px;
+      background: var(--bg3); border: 2px solid var(--blue-dark);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: .8rem; font-weight: 800;
+      color: var(--blue-light); position: relative; z-index: 1;
+    }
+    .step-body { padding-top: .5rem; }
+    .step-title { font-size: .95rem; font-weight: 700; margin-bottom: .3rem; }
+    .step-desc { color: var(--text-muted); font-size: .85rem; }
+
+    /* ── SCREENSHOTS ── */
+    #screenshots { background: linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%); }
+    .screenshots-header { text-align: center; margin-bottom: 3rem; }
+    .screenshots-header .section-sub { margin: 0 auto; }
+
+    .screenshots-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem; margin-top: 2.5rem;
+    }
+
+    .screenshot-card {
+      border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--border); background: var(--bg3);
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+      opacity: 0; transform: translateY(20px);
+    }
+    .screenshot-card.visible { opacity: 1; transform: translateY(0); transition: opacity .5s ease, transform .5s ease, border-color .25s, box-shadow .25s; }
+    .screenshot-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+    .screenshot-card img {
+      width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover;
+    }
+    .screenshot-caption {
+      padding: .75rem 1rem; font-size: .8rem;
+      color: var(--text-muted); font-weight: 500;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── TECH STACK ── */
+    #tech-stack { background: var(--bg); }
+    .tech-section-header { text-align: center; margin-bottom: 3rem; }
+    .tech-section-header .section-sub { margin: 0 auto; }
+
+    .tech-groups { display: flex; flex-direction: column; gap: 1.75rem; }
+    .tech-group {
+      opacity: 0; transform: translateY(16px);
+    }
+    .tech-group.visible { opacity: 1; transform: translateY(0); transition: opacity .5s ease, transform .5s ease; }
+
+    .tech-group-label {
+      font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: .75rem;
+    }
+    .tech-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .tech-pill {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      color: var(--text); padding: .35rem .85rem;
+      border-radius: 100px; font-size: .8rem; font-weight: 500;
+      transition: background .2s, border-color .2s;
+    }
+    .tech-pill:hover { background: rgba(59,130,246,.1); border-color: rgba(59,130,246,.3); }
+    .tech-pill i { font-size: .75rem; color: var(--blue-light); }
+
+    /* ── QUICK START ── */
+    #quick-start {
+      background: linear-gradient(135deg, rgba(37,99,235,.07) 0%, rgba(8,12,20,1) 60%);
+      border-top: 1px solid var(--border);
+    }
+    .quickstart-inner { max-width: 780px; margin: 0 auto; text-align: center; }
+    .quickstart-inner .section-sub { margin: 0 auto .5rem; }
+
+    .code-block {
+      background: #0d1220; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      margin: 2rem auto 0; text-align: left;
+    }
+    .code-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .6rem 1rem; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+    }
+    .code-header span { font-size: .75rem; color: var(--text-muted); font-weight: 500; }
+    .code-dots { display: flex; gap: .4rem; }
+    .code-dots span {
+      width: 11px; height: 11px; border-radius: 50%;
+    }
+    .code-dots span:nth-child(1) { background: #ff5f57; }
+    .code-dots span:nth-child(2) { background: #ffbd2e; }
+    .code-dots span:nth-child(3) { background: #28c840; }
+
+    pre {
+      padding: 1.5rem; overflow-x: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: .85rem; line-height: 1.75;
+    }
+    .c-comment { color: #4b5563; }
+    .c-cmd { color: #60a5fa; }
+    .c-str { color: #34d399; }
+
+    .quickstart-note {
+      margin-top: 1.25rem; font-size: .8rem; color: var(--text-muted);
+    }
+    .quickstart-note code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255,255,255,.08); padding: .1rem .4rem;
+      border-radius: 4px; font-size: .8rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+      padding: 3rem 2rem;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; flex-wrap: wrap; gap: 2rem;
+      align-items: flex-start; justify-content: space-between;
+    }
+    .footer-brand .nav-logo { font-size: 1.1rem; display: inline-block; margin-bottom: .5rem; }
+    .footer-brand p { color: var(--text-muted); font-size: .8rem; max-width: 260px; }
+
+    .footer-links { display: flex; gap: 3rem; flex-wrap: wrap; }
+    .footer-col h4 { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: .75rem; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+    .footer-col a { color: var(--text-muted); text-decoration: none; font-size: .85rem; transition: color .2s; }
+    .footer-col a:hover { color: var(--text); }
+
+    .footer-bottom {
+      max-width: 1100px; margin: 2rem auto 0;
+      padding-top: 1.5rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: .75rem;
+    }
+    .footer-bottom p { font-size: .8rem; color: var(--text-muted); }
+    .footer-bottom a { color: var(--blue-light); text-decoration: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+      .screenshots-grid { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .stats-bar { flex-direction: column; }
+      .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat-item:last-child { border-bottom: none; }
+      .footer-links { gap: 2rem; }
+    }
+
+    @media (max-width: 480px) {
+      .hero h1 { letter-spacing: -1px; }
+      .hero-ctas { flex-direction: column; width: 100%; }
+      .btn-primary, .btn-secondary { justify-content: center; width: 100%; }
+      nav { padding: 0 1.25rem; }
+      section { padding: 4rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">Autopolio</a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How it Works</a></li>
+    <li><a href="#screenshots">Screenshots</a></li>
+    <li><a href="#tech-stack">Tech Stack</a></li>
+    <li><a href="#quick-start">Get Started</a></li>
+  </ul>
+  <div class="nav-right">
+    <a class="btn-gh" href="https://github.com/sehoon787/autopolio" target="_blank" rel="noopener">
+      <i class="fab fa-github"></i> GitHub
+    </a>
+  </div>
+  <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features" onclick="closeMenu()">Features</a>
+  <a href="#how-it-works" onclick="closeMenu()">How it Works</a>
+  <a href="#screenshots" onclick="closeMenu()">Screenshots</a>
+  <a href="#tech-stack" onclick="closeMenu()">Tech Stack</a>
+  <a href="#quick-start" onclick="closeMenu()">Get Started</a>
+  <a href="https://github.com/sehoon787/autopolio" target="_blank" rel="noopener"><i class="fab fa-github"></i> View on GitHub</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-badge">
+    <span class="dot"></span>
+    AI-Powered · Open Source
+  </div>
+
+  <h1>Turn your GitHub into a<br /><span>professional portfolio</span></h1>
+
+  <p class="hero-sub">
+    Autopolio analyzes your commit history, auto-detects 200+ technologies, and generates tailored resumes for top job platforms — powered by GPT-4, Claude, and Gemini.
+  </p>
+
+  <div class="hero-ctas">
+    <a href="#quick-start" class="btn-primary">
+      <i class="fas fa-rocket"></i> Get Started
+    </a>
+    <a href="https://github.com/sehoon787/autopolio" target="_blank" rel="noopener" class="btn-secondary">
+      <i class="fab fa-github"></i> View on GitHub
+    </a>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-num">200+</span>
+      <span class="stat-label">Technologies Detected</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">7</span>
+      <span class="stat-label">Pipeline Steps</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">3</span>
+      <span class="stat-label">Job Platforms</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">3</span>
+      <span class="stat-label">LLM Providers</span>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div>
+      <span class="section-tag">Features</span>
+      <h2 class="section-title">Everything you need to stand out</h2>
+      <p class="section-sub">From raw GitHub data to polished, platform-ready resumes — fully automated.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fab fa-github"></i></div>
+        <div class="feature-title">GitHub Repository Analysis</div>
+        <div class="feature-desc">Parses full commit history and auto-detects 200+ technologies across JavaScript, Python, Java, Flutter, PHP and more — without any LLM.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fas fa-user-check"></i></div>
+        <div class="feature-title">Per-Contributor Breakdown</div>
+        <div class="feature-desc">Isolates your commits from team repositories. Parses Conventional Commits, classifies work areas, and builds your individual contribution profile.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fas fa-database"></i></div>
+        <div class="feature-title">Career Knowledge Base</div>
+        <div class="feature-desc">Structured management of companies, projects, and achievements. Modeled after battle-tested portfolio formats with quantitative metrics.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fas fa-file-alt"></i></div>
+        <div class="feature-title">Platform Resume Templates</div>
+        <div class="feature-desc">Pre-built HTML templates for Saramin, Remember, and Jumpit. Mustache syntax, real-time preview, and one-click full-screen export.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fas fa-brain"></i></div>
+        <div class="feature-title">Multi-LLM AI Summarization</div>
+        <div class="feature-desc">Choose between OpenAI GPT-4, Anthropic Claude, or Google Gemini. Supports both API keys and local CLI authentication with automatic fallback.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="fas fa-download"></i></div>
+        <div class="feature-title">Multiple Export Formats</div>
+        <div class="feature-desc">Generate DOCX, PDF, and Markdown from a single knowledge base. Download ready-to-submit resumes or editable Word documents in one click.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works">
+  <div class="section-inner">
+    <div class="pipeline-header">
+      <span class="section-tag">How it Works</span>
+      <h2 class="section-title">7-Step Automated Pipeline</h2>
+      <p class="section-sub">A structured pipeline inspired by enterprise data workflows — from raw repository data to publication-ready documents.</p>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <div class="step-title">GitHub Analysis</div>
+          <div class="step-desc">Connect via OAuth and fetch complete commit history, statistics, and contributor data from your repositories.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <div class="step-title">Code Extraction</div>
+          <div class="step-desc">Detect code patterns, project architecture, and file structure to understand what you actually built.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <div class="step-title">Tech Detection</div>
+          <div class="step-desc">Auto-detect tech stack from dependency files — package.json, requirements.txt, pom.xml, pubspec.yaml and 50+ more.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">04</div>
+        <div class="step-body">
+          <div class="step-title">Achievement Detection</div>
+          <div class="step-desc">Extract quantitative achievements from commit messages: performance improvements, efficiency gains, and accuracy metrics.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">05</div>
+        <div class="step-body">
+          <div class="step-title">LLM Summarization</div>
+          <div class="step-desc">Generate polished, human-readable project summaries using your preferred LLM — OpenAI, Claude, or Gemini.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">06</div>
+        <div class="step-body">
+          <div class="step-title">Template Mapping</div>
+          <div class="step-desc">Map your structured data to platform-specific templates for Saramin, Remember, Jumpit, or your own custom format.</div>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">07</div>
+        <div class="step-body">
+          <div class="step-title">Document Generation</div>
+          <div class="step-desc">Produce submission-ready DOCX, PDF, and Markdown files with a single click. Preview before download.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section id="screenshots">
+  <div class="section-inner">
+    <div class="screenshots-header">
+      <span class="section-tag">Screenshots</span>
+      <h2 class="section-title">See it in action</h2>
+      <p class="section-sub">A clean, focused interface built for developers — dark by default, fast by design.</p>
+    </div>
+
+    <div class="screenshots-grid">
+      <div class="screenshot-card">
+        <img src="screenshots/01-dashboard.png" alt="Dashboard and career timeline view" loading="lazy" />
+        <div class="screenshot-caption"><i class="fas fa-chart-bar" style="color:var(--blue-light);margin-right:.4rem"></i>Dashboard &amp; Career Timeline</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/02-projects.png" alt="Project management view" loading="lazy" />
+        <div class="screenshot-caption"><i class="fas fa-folder-open" style="color:var(--blue-light);margin-right:.4rem"></i>Project Management</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/03-platforms.png" alt="Job platform templates" loading="lazy" />
+        <div class="screenshot-caption"><i class="fas fa-file-invoice" style="color:var(--blue-light);margin-right:.4rem"></i>Job Platform Templates</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/06-generate.png" alt="Document generation view" loading="lazy" />
+        <div class="screenshot-caption"><i class="fas fa-magic" style="color:var(--blue-light);margin-right:.4rem"></i>Document Generation</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech-stack">
+  <div class="section-inner">
+    <div class="tech-section-header">
+      <span class="section-tag">Tech Stack</span>
+      <h2 class="section-title">Built on proven technologies</h2>
+      <p class="section-sub">A modern full-stack architecture with desktop support, multi-LLM integration, and automated CI/CD.</p>
+    </div>
+
+    <div class="tech-groups">
+      <div class="tech-group">
+        <div class="tech-group-label">Backend</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fas fa-circle"></i> FastAPI</span>
+          <span class="tech-pill"><i class="fas fa-circle"></i> SQLAlchemy</span>
+          <span class="tech-pill"><i class="fas fa-circle"></i> SQLite</span>
+          <span class="tech-pill"><i class="fab fa-python"></i> Python</span>
+        </div>
+      </div>
+      <div class="tech-group">
+        <div class="tech-group-label">Frontend</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fab fa-react"></i> React 19</span>
+          <span class="tech-pill"><i class="fas fa-code"></i> TypeScript</span>
+          <span class="tech-pill"><i class="fas fa-bolt"></i> Vite</span>
+          <span class="tech-pill"><i class="fas fa-paint-brush"></i> Tailwind CSS</span>
+          <span class="tech-pill"><i class="fas fa-cube"></i> Shadcn/ui</span>
+        </div>
+      </div>
+      <div class="tech-group">
+        <div class="tech-group-label">Desktop</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fas fa-desktop"></i> Electron</span>
+          <span class="tech-pill"><i class="fas fa-box"></i> electron-builder</span>
+        </div>
+      </div>
+      <div class="tech-group">
+        <div class="tech-group-label">LLM Providers</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fas fa-brain"></i> OpenAI GPT-4</span>
+          <span class="tech-pill"><i class="fas fa-brain"></i> Anthropic Claude</span>
+          <span class="tech-pill"><i class="fab fa-google"></i> Google Gemini</span>
+        </div>
+      </div>
+      <div class="tech-group">
+        <div class="tech-group-label">Testing</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fas fa-vial"></i> pytest</span>
+          <span class="tech-pill"><i class="fas fa-theater-masks"></i> Playwright</span>
+          <span class="tech-pill"><i class="fas fa-check-circle"></i> ruff</span>
+        </div>
+      </div>
+      <div class="tech-group">
+        <div class="tech-group-label">CI/CD</div>
+        <div class="tech-pills">
+          <span class="tech-pill"><i class="fab fa-github"></i> GitHub Actions</span>
+          <span class="tech-pill"><i class="fab fa-docker"></i> Docker</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section id="quick-start">
+  <div class="section-inner">
+    <div class="quickstart-inner">
+      <span class="section-tag">Quick Start</span>
+      <h2 class="section-title">Up and running in minutes</h2>
+      <p class="section-sub">Clone the repo, configure your environment, and launch with Docker.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span>Terminal</span>
+        </div>
+        <pre><span class="c-comment"># 1. Clone the repository</span>
+<span class="c-cmd">git</span> clone https://github.com/sehoon787/autopolio.git <span class="c-str">&amp;&amp;</span> <span class="c-cmd">cd</span> autopolio
+
+<span class="c-comment"># 2. Configure environment</span>
+<span class="c-cmd">cp</span> .env.example .env   <span class="c-comment"># then edit .env with your API keys</span>
+
+<span class="c-comment"># 3. Start with Docker</span>
+<span class="c-cmd">docker-compose</span> up -d</pre>
+      </div>
+
+      <p class="quickstart-note">
+        Frontend runs at <code>http://localhost:3035</code> &nbsp;·&nbsp; API docs at <code>http://localhost:8085/docs</code>
+      </p>
+
+      <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+        <a href="https://github.com/sehoon787/autopolio" target="_blank" rel="noopener" class="btn-primary">
+          <i class="fab fa-github"></i> View on GitHub
+        </a>
+        <a href="https://github.com/sehoon787/autopolio/blob/main/README.md" target="_blank" rel="noopener" class="btn-secondary">
+          <i class="fas fa-book"></i> Read the Docs
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="#" class="nav-logo">Autopolio</a>
+      <p>AI-powered portfolio and resume automation for developers. Open source under Apache 2.0.</p>
+    </div>
+
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/sehoon787/autopolio" target="_blank" rel="noopener"><i class="fab fa-github" style="margin-right:.4rem"></i>GitHub</a></li>
+          <li><a href="https://github.com/sehoon787/autopolio/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a></li>
+          <li><a href="https://github.com/sehoon787/autopolio/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/sehoon787/autopolio/releases" target="_blank" rel="noopener">Releases</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://github.com/sehoon787/autopolio/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+          <li><a href="https://github.com/sehoon787/autopolio/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0 License</a></li>
+          <li><a href="https://github.com/sponsors/sehoon787" target="_blank" rel="noopener"><i class="fas fa-heart" style="color:#f43f5e;margin-right:.3rem"></i>Sponsor</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <p>Built by <a href="https://github.com/sehoon787" target="_blank" rel="noopener">Sehoon Kim</a> &nbsp;·&nbsp; Released under <a href="https://github.com/sehoon787/autopolio/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a></p>
+    <p style="color:var(--text-muted);font-size:.75rem;">© 2026 Autopolio</p>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll shadow
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // Hamburger menu
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  hamburger.addEventListener('click', () => {
+    mobileMenu.classList.toggle('open');
+  });
+  function closeMenu() { mobileMenu.classList.remove('open'); }
+
+  // IntersectionObserver for fade-in animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const delay = el.dataset.delay || 0;
+        setTimeout(() => el.classList.add('visible'), Number(delay));
+        observer.unobserve(el);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  // Stagger feature cards
+  document.querySelectorAll('.feature-card').forEach((el, i) => {
+    el.dataset.delay = i * 80;
+    observer.observe(el);
+  });
+
+  // Pipeline steps
+  document.querySelectorAll('.pipeline-step').forEach((el, i) => {
+    el.dataset.delay = i * 100;
+    observer.observe(el);
+  });
+
+  // Screenshot cards
+  document.querySelectorAll('.screenshot-card').forEach((el, i) => {
+    el.dataset.delay = i * 100;
+    observer.observe(el);
+  });
+
+  // Tech groups
+  document.querySelectorAll('.tech-group').forEach((el, i) => {
+    el.dataset.delay = i * 80;
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>
