@@ -19,7 +19,7 @@
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.5.0",
     "electron": "^40.6.1",
     "js-yaml": "^4.1.0"
   }
