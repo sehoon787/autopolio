@@ -31,9 +31,9 @@ runs:
         path: |
           ~/.cache/uv
           .venv
-        key: uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+        key: uv-v2-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
         restore-keys: |
-          uv-${{ runner.os }}-py${{ inputs.python-version }}-
+          uv-v2-${{ runner.os }}-py${{ inputs.python-version }}-
 
     - name: Install dependencies
       if: inputs.install-deps == 'true'
