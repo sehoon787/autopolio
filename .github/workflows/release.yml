@@ -72,7 +72,7 @@ jobs:
 
       - name: Azure Login (OIDC)
         if: steps.azure-check.outputs.has-creds == 'true'
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -94,7 +94,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: frontend/release/*.exe
@@ -196,7 +196,7 @@ jobs:
         run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos
           path: frontend/release/*.dmg
@@ -214,14 +214,14 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-windows
           path: release-assets/
 
       - name: Download macOS artifacts
         if: needs.build-macos.result == 'success'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-macos
           path: release-assets/
