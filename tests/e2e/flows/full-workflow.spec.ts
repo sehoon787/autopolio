@@ -79,7 +79,7 @@ test.describe('Complete Portfolio Workflow', () => {
       page.getByRole('heading', { name: /Project Management|프로젝트 관리/ })
     ).toBeVisible({ timeout: 10000 })
 
-    await page.getByRole('button', { name: /Add Project|프로젝트 추가|Add/ }).click()
+    await page.getByRole('button', { name: /^Add Project$|^프로젝트 추가$/ }).click()
 
     const projectDialog = page.getByRole('dialog')
     await expect(projectDialog).toBeVisible({ timeout: 10000 })

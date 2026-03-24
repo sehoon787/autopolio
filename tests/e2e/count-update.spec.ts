@@ -43,7 +43,7 @@ test.describe('Tab count update after CRUD operations', () => {
     await loginAsTestUser(page, testContext.user)
     await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 
@@ -64,7 +64,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('certifications-awards: add certification updates Certifications tab count', async ({ page }) => {
     await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Get initial count from "Certifications (N)" sub-tab
     const initialCount = await getTabCount(page, /^Certifications|^자격증/)
@@ -105,7 +105,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('certifications-awards: add award updates Awards tab count', async ({ page }) => {
     await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Switch to Awards sub-tab
     const awardsTab = page.getByRole('tab', { name: /^Awards|^수상/ })
@@ -147,7 +147,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('education-publications-patents: add training updates Training tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Switch to Training sub-tab
     const trainingTab = page.getByRole('tab', { name: /Training|교육/ })
@@ -203,7 +203,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('activities: add external activity updates External tab count', async ({ page }) => {
     await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Switch to External sub-tab
     const extTab = page.getByRole('tab', { name: /External|대외/ })
@@ -244,7 +244,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('activities: add volunteer activity updates main Activities tab AND Volunteer sub-tab count', async ({ page }) => {
     await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Volunteer tab is default
     const initialVolunteerCount = await getTabCount(page, /Volunteer|봉사/)
@@ -281,7 +281,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('education-publications-patents: add publication updates Publications tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     // Switch to Publications sub-tab
     const pubTab = page.getByRole('tab', { name: /Publications|논문/ })
@@ -322,7 +322,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('education-publications-patents: delete education updates Education tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.locator('[role="tab"]').first().waitFor({ state: 'visible', timeout: 15000 })
 
     const initialCount = await getTabCount(page, /Education|학력/)
     console.log(`Initial education count: ${initialCount}`)

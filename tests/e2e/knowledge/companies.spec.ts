@@ -110,7 +110,7 @@ test.describe('Companies CRUD', () => {
 
     await page.goto('/knowledge/companies')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2000)
 
     // Wait for company to appear
     await expect(page.getByText(company.name)).toBeVisible({ timeout: 15000 })
