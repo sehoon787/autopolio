@@ -304,6 +304,9 @@ test.describe('Tab count update after CRUD operations', () => {
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test Publication for Count')).toBeVisible({ timeout: 10000 })
+
     const newCount = await getTabCount(page, /Publications|논문/)
     console.log(`After add publications count: ${newCount}`)
     expect(newCount).toBe(initialCount + 1)

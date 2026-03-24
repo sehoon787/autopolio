@@ -11,7 +11,6 @@ test.describe('Manual reorder with animation', () => {
     })
     await page.goto(BASE_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 

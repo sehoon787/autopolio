@@ -41,7 +41,6 @@ test.describe('Credential Timeline View', () => {
     await loginAsTestUser(page, testContext.user)
     await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 

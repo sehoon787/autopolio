@@ -22,7 +22,6 @@ test.describe('Check all credential tabs for user 46', () => {
     })
     await page.goto(BASE_URL)
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForLoadState('networkidle')
     await page.locator('nav').first().waitFor({ state: 'visible', timeout: 30000 })
   })
 
