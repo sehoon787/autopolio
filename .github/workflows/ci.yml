@@ -153,6 +153,9 @@ jobs:
           OPENAI_API_KEY=sk-test-dummy-key
           GITHUB_CLIENT_ID=test-client-id
           GITHUB_CLIENT_SECRET=test-client-secret
+          POSTGRES_USER=autopolio
+          POSTGRES_PASSWORD=autopolio
+          POSTGRES_DB=autopolio
           DEBUG=true
           ENVFILE
           echo "ENCRYPTION_KEY=${{ env.ENCRYPTION_KEY }}" >> .env
