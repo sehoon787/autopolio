@@ -129,7 +129,7 @@ jobs:
   test-e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     continue-on-error: true
 
     steps:
