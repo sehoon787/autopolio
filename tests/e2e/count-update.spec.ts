@@ -64,7 +64,7 @@ test.describe('Tab count update after CRUD operations', () => {
   test('certifications-awards: add certification updates Certifications tab count', async ({ page }) => {
     await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('networkidle')
 
     // Get initial count from "Certifications (N)" sub-tab
     const initialCount = await getTabCount(page, /^Certifications|^자격증/)
@@ -73,7 +73,6 @@ test.describe('Tab count update after CRUD operations', () => {
     // Click "Add Certification" button
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     // Find the name input in the dialog
     const dialog = page.locator('[role="dialog"]')
@@ -84,7 +83,7 @@ test.describe('Tab count update after CRUD operations', () => {
     // Submit
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(3000)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     // Check count updated WITHOUT clicking tab
     const newCount = await getTabCount(page, /^Certifications|^자격증/)
@@ -99,14 +98,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('certifications-awards: add award updates Awards tab count', async ({ page }) => {
     await page.goto('/knowledge/certifications-awards')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('networkidle')
 
     // Switch to Awards sub-tab
     const awardsTab = page.getByRole('tab', { name: /^Awards|^수상/ })
@@ -119,7 +118,6 @@ test.describe('Tab count update after CRUD operations', () => {
     // Add new award — use the page-level Add button (not inside dialog)
     const addBtn = page.getByRole('button', { name: /^Add$|^추가$/ }).first()
     await addBtn.click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 10000 })
@@ -130,7 +128,6 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /^Add$|^추가$/ })
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
-    await page.waitForTimeout(3000)
 
     const newCount = await getTabCount(page, /^Awards|^수상/)
     console.log(`After add awards count: ${newCount}`)
@@ -143,14 +140,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('education-publications-patents: add training updates Training tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForLoadState('networkidle')
 
     // Switch to Training sub-tab
     const trainingTab = page.getByRole('tab', { name: /Training|교육/ })
@@ -163,7 +160,6 @@ test.describe('Tab count update after CRUD operations', () => {
     // Add new training
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 10000 })
@@ -187,7 +183,7 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await expect(submitBtn).toBeEnabled({ timeout: 5000 })
     await submitBtn.click()
-    await page.waitForTimeout(4000)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     const newCount = await getTabCount(page, /Training|교육/)
     console.log(`After add training count: ${newCount}`)
@@ -200,14 +196,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('activities: add external activity updates External tab count', async ({ page }) => {
     await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('networkidle')
 
     // Switch to External sub-tab
     const extTab = page.getByRole('tab', { name: /External|대외/ })
@@ -220,7 +216,6 @@ test.describe('Tab count update after CRUD operations', () => {
     // Add new external activity
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 10000 })
@@ -229,7 +224,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(5000)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     const newCount = await getTabCount(page, /External|대외/)
     console.log(`After add external count: ${newCount}`)
@@ -242,14 +237,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('activities: add volunteer activity updates main Activities tab AND Volunteer sub-tab count', async ({ page }) => {
     await page.goto('/knowledge/activities')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForLoadState('networkidle')
 
     // Volunteer tab is default
     const initialVolunteerCount = await getTabCount(page, /Volunteer|봉사/)
@@ -258,15 +253,15 @@ test.describe('Tab count update after CRUD operations', () => {
     // Add new volunteer activity
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
     const nameInput = dialog.locator('input').first()
     await nameInput.fill('Test Volunteer for Count')
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(5000)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     const newVolunteerCount = await getTabCount(page, /Volunteer|봉사/)
     console.log(`After add volunteer count: ${newVolunteerCount}`)
@@ -279,14 +274,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('education-publications-patents: add publication updates Publications tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForLoadState('networkidle')
 
     // Switch to Publications sub-tab
     const pubTab = page.getByRole('tab', { name: /Publications|논문/ })
@@ -299,15 +294,15 @@ test.describe('Tab count update after CRUD operations', () => {
     // Add new publication
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
     const titleInput = dialog.locator('input').first()
     await titleInput.fill('Test Publication for Count')
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(5000)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     const newCount = await getTabCount(page, /Publications|논문/)
     console.log(`After add publications count: ${newCount}`)
@@ -320,14 +315,14 @@ test.describe('Tab count update after CRUD operations', () => {
       const deleteBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await deleteBtn.click()
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(500)
     }
   })
 
   test('education-publications-patents: delete education updates Education tab count', async ({ page }) => {
     await page.goto('/knowledge/education-publications-patents')
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(1000)
+    await page.waitForLoadState('networkidle')
 
     const initialCount = await getTabCount(page, /Education|학력/)
     console.log(`Initial education count: ${initialCount}`)
@@ -349,9 +344,9 @@ test.describe('Tab count update after CRUD operations', () => {
     // First add a temp education
     const addBtn = page.getByRole('button', { name: /Add|추가/ })
     await addBtn.first().click()
-    await page.waitForTimeout(500)
 
     const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 10000 })
 
     // Select degree (required)
     const degreeSelect = dialog.locator('button[role="combobox"]').first()
@@ -373,7 +368,7 @@ test.describe('Tab count update after CRUD operations', () => {
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
-    await page.waitForTimeout(1500)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
     const afterAddCount = await getTabCount(page, /Education|학력/)
     console.log(`After add education count: ${afterAddCount}`)
@@ -386,7 +381,7 @@ test.describe('Tab count update after CRUD operations', () => {
       const delBtn = card.locator('button').filter({ has: page.locator('svg') }).last()
       page.on('dialog', dialog => dialog.accept())
       await delBtn.click()
-      await page.waitForTimeout(1500)
+      await page.waitForTimeout(500)
 
       const afterDeleteCount = await getTabCount(page, /Education|학력/)
       console.log(`After delete education count: ${afterDeleteCount}`)

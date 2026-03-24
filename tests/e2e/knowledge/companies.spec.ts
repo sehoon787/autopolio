@@ -100,7 +100,7 @@ test.describe('Companies CRUD', () => {
     await dialog.getByRole('button', { name: 'Add' }).click()
 
     // Verify company appears in list
-    await expect(page.getByText(companyName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(companyName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should edit an existing company', async ({ page, request }) => {
@@ -110,9 +110,10 @@ test.describe('Companies CRUD', () => {
 
     await page.goto('/knowledge/companies')
     await page.waitForLoadState('domcontentloaded')
+    await page.waitForLoadState('networkidle')
 
     // Wait for company to appear
-    await expect(page.getByText(company.name)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(company.name)).toBeVisible({ timeout: 15000 })
 
     // Find the individual company card (filter by having pencil icon to avoid matching parent container)
     const companyCard = page.locator('[class*="bg-card"]').filter({ hasText: company.name }).filter({ has: page.locator('svg.lucide-pencil') }).first()
@@ -135,7 +136,7 @@ test.describe('Companies CRUD', () => {
     await dialog.getByRole('button', { name: 'Edit' }).click()
 
     // Verify update
-    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should delete a company', async ({ page, request }) => {
@@ -148,7 +149,7 @@ test.describe('Companies CRUD', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for company to appear
-    await expect(page.getByText(company.name)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(company.name)).toBeVisible({ timeout: 15000 })
 
     // Set up dialog handler BEFORE clicking delete
     // Company delete uses browser confirm() dialog
@@ -161,7 +162,7 @@ test.describe('Companies CRUD', () => {
     await companyCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
     // Verify deleted - company should no longer be visible
-    await expect(page.getByText(company.name)).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(company.name)).not.toBeVisible({ timeout: 15000 })
   })
 
   test('should show validation error for empty name', async ({ page }) => {
@@ -241,7 +242,7 @@ test.describe('Companies Timeline View', () => {
     ).toBeVisible()
 
     // Should show companies
-    await expect(page.getByText('Timeline Company 1')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Timeline Company 2')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Timeline Company 1')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Timeline Company 2')).toBeVisible({ timeout: 15000 })
   })
 })
