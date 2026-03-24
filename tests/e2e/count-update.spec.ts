@@ -263,6 +263,9 @@ test.describe('Tab count update after CRUD operations', () => {
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test Volunteer for Count')).toBeVisible({ timeout: 10000 })
+
     const newVolunteerCount = await getTabCount(page, /Volunteer|봉사/)
     console.log(`After add volunteer count: ${newVolunteerCount}`)
     expect(newVolunteerCount).toBe(initialVolunteerCount + 1)

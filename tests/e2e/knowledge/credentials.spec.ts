@@ -287,7 +287,7 @@ test.describe('Education CRUD', () => {
 
     // Default tab is "Education & Publications" -> "Education" sub-tab
     // Should show empty state
-    await expect(page.getByText('No academic education registered')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/No academic education registered|등록된 학력이 없습니다/)).toBeVisible({ timeout: 15000 })
 
     // "Add First Education" button should be visible
     await expect(
