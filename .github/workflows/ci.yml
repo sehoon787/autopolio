@@ -208,6 +208,31 @@ jobs:
           echo "Waiting 10s for services to fully stabilize..."
           sleep 10
 
+      - name: Debug - Verify API proxy through frontend
+        run: |
+          echo "=== Direct API health check ==="
+          curl -sf http://localhost:8085/health && echo "OK" || echo "FAIL"
+
+          echo ""
+          echo "=== API through nginx proxy ==="
+          curl -sf http://localhost:3035/api/llm/providers && echo "OK" || echo "FAIL - nginx proxy broken"
+
+          echo ""
+          echo "=== Frontend page HTML (first 50 lines) ==="
+          curl -s http://localhost:3035/ | head -50
+
+          echo ""
+          echo "=== Docker container status ==="
+          docker compose ps
+
+          echo ""
+          echo "=== Frontend nginx error log (last 20 lines) ==="
+          docker compose exec -T frontend cat /var/log/nginx/error.log 2>/dev/null | tail -20 || echo "No error log"
+
+          echo ""
+          echo "=== API logs (last 20 lines) ==="
+          docker compose logs api --tail=20
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:

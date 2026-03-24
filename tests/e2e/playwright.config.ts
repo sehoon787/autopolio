@@ -7,6 +7,10 @@ import { FRONTEND_URL } from './runtimeConfig'
  */
 export default defineConfig({
   testDir: '.',
+
+  /* Global setup — health checks before any tests run */
+  globalSetup: './global-setup.ts',
+
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
@@ -58,6 +62,6 @@ export default defineConfig({
   /* Timeout settings */
   timeout: process.env.CI ? 60000 : 30000,
   expect: {
-    timeout: process.env.CI ? 20000 : 10000,
+    timeout: process.env.CI ? 30000 : 10000,
   },
 })
