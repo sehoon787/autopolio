@@ -129,7 +129,7 @@ jobs:
   test-e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 12
     continue-on-error: true
 
     steps:
@@ -176,37 +176,35 @@ jobs:
       - name: Wait for API to be ready
         run: |
           echo "Waiting for API..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 30); do
             if curl -sf http://localhost:8085/health > /dev/null 2>&1; then
-              echo "API is ready!"
+              echo "API is ready after ${i}s!"
               exit 0
             fi
-            echo "Attempt $i/20..."
-            sleep 5
+            sleep 2
           done
-          echo "ERROR: API did not start within 100 seconds"
+          echo "ERROR: API did not start within 60 seconds"
           docker compose logs api --tail=50
           exit 1
 
       - name: Wait for Frontend to be ready
         run: |
           echo "Waiting for Frontend..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 30); do
             if curl -sf http://localhost:3035/ > /dev/null 2>&1; then
-              echo "Frontend is ready!"
+              echo "Frontend is ready after ${i}s!"
               exit 0
             fi
-            echo "Attempt $i/20..."
-            sleep 5
+            sleep 2
           done
-          echo "ERROR: Frontend did not start within 100 seconds"
+          echo "ERROR: Frontend did not start within 60 seconds"
           docker compose logs frontend --tail=50
           exit 1
 
       - name: Wait for services to stabilize
         run: |
-          echo "Waiting 10s for services to fully stabilize..."
-          sleep 10
+          echo "Waiting 5s for services to stabilize..."
+          sleep 5
 
       - name: Debug - Verify API proxy through frontend
         run: |

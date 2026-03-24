@@ -15,8 +15,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Allow 1 retry in CI for flaky Docker timing issues */
-  retries: process.env.CI ? 1 : 0,
+  /* No retries in CI — fail fast to keep under 10 min */
+  retries: 0,
   /* Run 4 parallel workers on CI for faster execution */
   workers: process.env.CI ? 4 : undefined,
   /* Reporter to use */
@@ -30,7 +30,7 @@ export default defineConfig({
     baseURL: FRONTEND_URL,
 
     /* Collect trace when retrying the failed test */
-    trace: 'on-first-retry',
+    trace: 'off',
 
     /* Screenshot on failure */
     screenshot: 'only-on-failure',
@@ -60,7 +60,7 @@ export default defineConfig({
   outputDir: 'test-results/',
 
   /* Timeout settings */
-  timeout: process.env.CI ? 60000 : 30000,
+  timeout: process.env.CI ? 30000 : 30000,
   expect: {
     timeout: process.env.CI ? 30000 : 10000,
   },
