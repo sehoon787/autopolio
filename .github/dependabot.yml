@@ -2,20 +2,14 @@ version: 2
 
 updates:
   # Python (pip) - root
-  # Note: project uses uv/pyproject.toml. Dependabot pip ecosystem reads
-  # pyproject.toml [project.dependencies] but does not update uv.lock.
-  # Manually run `uv lock` after merging dependabot PRs.
+  # Security-only: normal version bumps disabled (open-pull-requests-limit: 0).
+  # Dependabot Security Updates still create PRs for known CVEs.
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - python
@@ -26,12 +20,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - frontend
@@ -42,12 +31,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - tests
@@ -58,11 +42,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
-    groups:
-      actions:
-        patterns:
-          - '*'
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - ci
