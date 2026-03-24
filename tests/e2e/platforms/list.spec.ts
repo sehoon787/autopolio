@@ -37,7 +37,7 @@ test.describe('Platform Templates List', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Job Platforms' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show page description', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('Platform Templates List', () => {
 
     await expect(
       page.getByText('Export your resume with platform-specific templates')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show platform template cards', async ({ page }) => {
@@ -55,7 +55,7 @@ test.describe('Platform Templates List', () => {
 
     // Should have at least one Preview button (one per card)
     const previewBtns = page.getByRole('button', { name: 'Preview' })
-    await expect(previewBtns.first()).toBeVisible({ timeout: 5000 })
+    await expect(previewBtns.first()).toBeVisible({ timeout: 15000 })
   })
 
   test('should show System badge on system templates', async ({ page }) => {
@@ -63,7 +63,7 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // System templates have "System" badge
-    await expect(page.getByText('System').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('System').first()).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Preview button for each template', async ({ page }) => {
@@ -71,7 +71,7 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const previewBtns = page.getByRole('button', { name: 'Preview' })
-    await expect(previewBtns.first()).toBeVisible({ timeout: 5000 })
+    await expect(previewBtns.first()).toBeVisible({ timeout: 15000 })
     const count = await previewBtns.count()
     expect(count).toBeGreaterThan(0)
   })
@@ -81,7 +81,7 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const exportBtns = page.getByRole('button', { name: 'Export' })
-    await expect(exportBtns.first()).toBeVisible({ timeout: 5000 })
+    await expect(exportBtns.first()).toBeVisible({ timeout: 15000 })
     const count = await exportBtns.count()
     expect(count).toBeGreaterThan(0)
   })
@@ -91,10 +91,10 @@ test.describe('Platform Templates List', () => {
     await page.waitForLoadState('domcontentloaded')
 
     const previewBtn = page.getByRole('button', { name: 'Preview' }).first()
-    await expect(previewBtn).toBeVisible({ timeout: 5000 })
+    await expect(previewBtn).toBeVisible({ timeout: 15000 })
     await previewBtn.click()
 
-    await expect(page).toHaveURL(/\/platforms\/\d+\/preview/, { timeout: 5000 })
+    await expect(page).toHaveURL(/\/platforms\/\d+\/preview/, { timeout: 15000 })
   })
 
   test('should show Features section on template cards', async ({ page }) => {

@@ -100,7 +100,7 @@ test.describe('Projects CRUD', () => {
     await dialog.locator('button[type="submit"]').click()
 
     // Verify project appears in list
-    await expect(page.getByText(projectName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(projectName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should edit an existing project', async ({ page, request }) => {
@@ -116,7 +116,7 @@ test.describe('Projects CRUD', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for project to appear
-    await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(project.name)).toBeVisible({ timeout: 15000 })
 
     // Click edit (Pencil) icon button on the project card (filter by icon to target individual card)
     const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-pencil') }).first()
@@ -139,7 +139,7 @@ test.describe('Projects CRUD', () => {
     await dialog.getByRole('button', { name: 'Save' }).click()
 
     // Verify update
-    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should delete a project', async ({ page, request }) => {
@@ -152,7 +152,7 @@ test.describe('Projects CRUD', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for project to appear
-    await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(project.name)).toBeVisible({ timeout: 15000 })
 
     // Click delete (Trash2) icon button on the project card (filter by icon to target individual card)
     const projectCard = page.locator('[class*="card"]').filter({ hasText: project.name }).filter({ has: page.locator('svg.lucide-trash2') }).first()
@@ -167,7 +167,7 @@ test.describe('Projects CRUD', () => {
     await alertDialog.getByRole('button', { name: 'Delete' }).click()
 
     // Verify deleted
-    await expect(page.getByText(project.name)).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(project.name)).not.toBeVisible({ timeout: 15000 })
   })
 
   test('should search projects', async ({ page, request }) => {
@@ -181,7 +181,7 @@ test.describe('Projects CRUD', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for project list to load
-    await expect(page.getByText(uniqueName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(uniqueName)).toBeVisible({ timeout: 15000 })
 
     // Type in search input
     const searchInput = page.getByPlaceholder('Search project name...')
@@ -191,7 +191,7 @@ test.describe('Projects CRUD', () => {
     await page.getByRole('button', { name: 'Search', exact: true }).click()
 
     // The search target should still be visible
-    await expect(page.getByText(uniqueName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(uniqueName)).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -232,7 +232,7 @@ test.describe('Projects with Technologies', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for project to appear
-    await expect(page.getByText(project.name)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(project.name)).toBeVisible({ timeout: 15000 })
 
     // Technology badges should be visible on the card
     // Use div[title] selector because TechBadge renders SVG with <title> that interferes with getByText

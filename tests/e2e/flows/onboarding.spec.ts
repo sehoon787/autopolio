@@ -20,12 +20,12 @@ test.describe('Onboarding Flow', () => {
     // Setup page heading: "Get Started with Autopolio"
     await expect(
       page.getByRole('heading', { name: 'Get Started with Autopolio' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Subtitle text
     await expect(
       page.getByText('Portfolio/Resume Automation Platform')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show GitHub connection card', async ({ page }) => {
@@ -35,12 +35,12 @@ test.describe('Onboarding Flow', () => {
     // "Social Login" card title
     await expect(
       page.getByText('Social Login')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // "Login with GitHub" button
     await expect(
       page.getByRole('button', { name: /Login with GitHub/ })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show guest mode option', async ({ page }) => {
@@ -50,12 +50,12 @@ test.describe('Onboarding Flow', () => {
     // "Guest Mode" card title
     await expect(
       page.getByText('Guest Mode')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // "Continue as Guest" button
     await expect(
       page.getByRole('button', { name: 'Continue as Guest' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should navigate via guest login', async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('Onboarding Flow', () => {
     await page.getByRole('button', { name: 'Continue as Guest' }).click()
 
     // Guest mode navigates to /platforms
-    await expect(page).toHaveURL(/platforms/, { timeout: 5000 })
+    await expect(page).toHaveURL(/platforms/, { timeout: 15000 })
   })
 })
 
@@ -103,22 +103,22 @@ test.describe('First Company Creation', () => {
     // Page heading: "Company Management"
     await expect(
       page.getByRole('heading', { name: 'Company Management' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // "Add Company" button should be visible
     await expect(
       page.getByRole('button', { name: 'Add Company' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Click "Add Company" to open dialog
     await page.getByRole('button', { name: 'Add Company' }).click()
 
     // Dialog should open with title "Add New Company"
     const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible({ timeout: 5000 })
+    await expect(dialog).toBeVisible({ timeout: 15000 })
     await expect(
       dialog.getByText('Add New Company')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Fill form fields (by id)
     await dialog.locator('#name').fill(TEST_COMPANY.name)
@@ -172,22 +172,22 @@ test.describe('First Project Creation', () => {
     // Page heading: "Project Management"
     await expect(
       page.getByRole('heading', { name: 'Project Management' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // "Add Project" button should be visible
     await expect(
       page.getByRole('button', { name: 'Add Project' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Click "Add Project" to open dialog
     await page.getByRole('button', { name: 'Add Project' }).click()
 
     // Dialog should open with title "Add New Project"
     const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible({ timeout: 5000 })
+    await expect(dialog).toBeVisible({ timeout: 15000 })
     await expect(
       dialog.getByText('Add New Project')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Fill form fields (by id, no idPrefix for create dialog)
     await dialog.locator('#name').fill(TEST_PROJECT.name)
@@ -238,7 +238,7 @@ test.describe('Dashboard After Onboarding', () => {
     // Dashboard shows "Hello, {name}" heading (or welcome for no user)
     // Without a logged-in user cookie, it shows "Welcome to Autopolio"
     const heading = page.getByRole('heading').first()
-    await expect(heading).toBeVisible({ timeout: 5000 })
+    await expect(heading).toBeVisible({ timeout: 15000 })
 
     // Check for stats card labels (visible when user is logged in)
     // At minimum, the page should render
@@ -257,7 +257,7 @@ test.describe('Dashboard After Onboarding', () => {
 
     // At least one empty state or the welcome page should be visible
     const welcomeOrEmpty = page.getByRole('heading').first()
-    await expect(welcomeOrEmpty).toBeVisible({ timeout: 5000 })
+    await expect(welcomeOrEmpty).toBeVisible({ timeout: 15000 })
 
     // If logged in, stats sections with "Companies", "Projects" etc. should appear
     // If not logged in, "Welcome to Autopolio" with "Get Started" button

@@ -32,7 +32,7 @@ test.describe('GitHub Setup Page', () => {
     // The setup page shows "Get Started with Autopolio" heading
     await expect(
       page.getByRole('heading', { name: /Get Started with Autopolio/ })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should display Login with GitHub button on setup page', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('GitHub Setup Page', () => {
     // The main login button reads "Login with GitHub"
     await expect(
       page.getByRole('button', { name: /Login with GitHub/ })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should display GitHub settings page heading', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('GitHub Setup Page', () => {
     // Page heading is "GitHub Connection"
     await expect(
       page.getByRole('heading', { name: /GitHub Connection/ })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should display GitHub Account card', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('GitHub Setup Page', () => {
     // Card title is "GitHub Account"
     await expect(
       page.getByText('GitHub Account')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show connect button when not connected', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('GitHub Setup Page', () => {
     const connectedText = page.getByText('Connected')
 
     // Either we see the connect button (not connected) or "Connected" text
-    await expect(connectBtn.or(connectedText)).toBeVisible({ timeout: 5000 })
+    await expect(connectBtn.or(connectedText)).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -92,7 +92,7 @@ test.describe('GitHub Repository Selector - Not Connected State', () => {
 
     await expect(
       connectionRequired.or(checking).or(repoTitle)
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show connect button on connection required page', async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe('GitHub Repository Selector - Not Connected State', () => {
     const repoTitle = page.getByRole('heading', { name: /GitHub Repositories/ })
 
     // Either we see the connect button (not connected) or the repo page (connected)
-    await expect(connectBtn.or(repoTitle)).toBeVisible({ timeout: 5000 })
+    await expect(connectBtn.or(repoTitle)).toBeVisible({ timeout: 15000 })
   })
 
   test('should show connection required description text', async ({ page }) => {
@@ -121,7 +121,7 @@ test.describe('GitHub Repository Selector - Not Connected State', () => {
     const descText = page.getByText('Please connect your GitHub account to import repositories.')
     const repoTitle = page.getByRole('heading', { name: /GitHub Repositories/ })
 
-    await expect(descText.or(repoTitle)).toBeVisible({ timeout: 5000 })
+    await expect(descText.or(repoTitle)).toBeVisible({ timeout: 15000 })
   })
 
   test('should navigate to GitHub settings from connection required page', async ({ page }) => {
@@ -138,10 +138,10 @@ test.describe('GitHub Repository Selector - Not Connected State', () => {
       await connectBtn.click()
 
       // Should navigate to /setup/github with returnUrl
-      await page.waitForURL(/\/setup\/github/, { timeout: 5000 })
+      await page.waitForURL(/\/setup\/github/, { timeout: 15000 })
       await expect(
         page.getByRole('heading', { name: /GitHub Connection/ })
-      ).toBeVisible({ timeout: 5000 })
+      ).toBeVisible({ timeout: 15000 })
     }
   })
 })

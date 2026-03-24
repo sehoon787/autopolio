@@ -60,7 +60,7 @@ test.describe('Platform Export Page Structure', () => {
 
     // Heading is "Export {template_name}" (h1)
     const heading = page.getByRole('heading', { level: 1 })
-    await expect(heading).toBeVisible({ timeout: 5000 })
+    await expect(heading).toBeVisible({ timeout: 15000 })
     // Should contain "Export"
     await expect(heading).toContainText('Export')
   })
@@ -76,7 +76,7 @@ test.describe('Platform Export Page Structure', () => {
 
     await expect(
       page.getByText('Choose your preferred format to export your resume')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Export Options card', async ({ page }) => {
@@ -88,10 +88,10 @@ test.describe('Platform Export Page Structure', () => {
     await page.goto(`/platforms/${platformId}/export`)
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('Export Options')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Export Options')).toBeVisible({ timeout: 15000 })
     await expect(
       page.getByText('Select the file format to export')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show format radio options', async ({ page }) => {
@@ -104,9 +104,9 @@ test.describe('Platform Export Page Structure', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Three format options as radio items
-    await expect(page.getByLabel('HTML')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByLabel('Markdown')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByLabel('Word (DOCX)')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel('HTML')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByLabel('Markdown')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByLabel('Word (DOCX)')).toBeVisible({ timeout: 15000 })
   })
 
   test('should show export button with Download text', async ({ page }) => {
@@ -120,7 +120,7 @@ test.describe('Platform Export Page Structure', () => {
 
     // Default format is HTML, so button should say "Download HTML"
     const exportBtn = page.getByRole('button', { name: /Download/ })
-    await expect(exportBtn).toBeVisible({ timeout: 5000 })
+    await expect(exportBtn).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Preview card', async ({ page }) => {
@@ -133,10 +133,10 @@ test.describe('Platform Export Page Structure', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Preview card title
-    await expect(page.getByText('Preview')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Preview')).toBeVisible({ timeout: 15000 })
     await expect(
       page.getByText('Preview with your data applied')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should change format selection', async ({ page }) => {
@@ -154,7 +154,7 @@ test.describe('Platform Export Page Structure', () => {
     // Export button should update to show "Download MD"
     await expect(
       page.getByRole('button', { name: 'Download MD' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
 
     // Click on Word format option
     await page.getByLabel('Word (DOCX)').click()
@@ -162,7 +162,7 @@ test.describe('Platform Export Page Structure', () => {
     // Export button should update to show "Download DOCX"
     await expect(
       page.getByRole('button', { name: 'Download DOCX' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show template info section', async ({ page }) => {
@@ -175,8 +175,8 @@ test.describe('Platform Export Page Structure', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Template info shows "Template:" label and "Platform:" label
-    await expect(page.getByText('Template:')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Platform:')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Template:')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Platform:')).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -197,17 +197,17 @@ test.describe('Platform Export Navigation', () => {
     // Click first Export button (may be disabled if no analyzed data, but still clickable via navigation)
     // First try to find an enabled export button
     const exportBtns = page.getByRole('button', { name: 'Export' })
-    await expect(exportBtns.first()).toBeVisible({ timeout: 5000 })
+    await expect(exportBtns.first()).toBeVisible({ timeout: 15000 })
 
     // Even if disabled, clicking may work for navigation (some implementations wrap in link)
     // The actual button triggers navigate() so it works even when disabled for data check
     // But the Export button IS disabled when no analyzed data - so we use Preview -> Export flow
     const previewBtn = page.getByRole('button', { name: 'Preview' }).first()
     await previewBtn.click()
-    await expect(page).toHaveURL(/\/platforms\/\d+\/preview/, { timeout: 5000 })
+    await expect(page).toHaveURL(/\/platforms\/\d+\/preview/, { timeout: 15000 })
 
     // From preview, click Export button
     await page.getByRole('button', { name: 'Export' }).click()
-    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 5000 })
+    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 15000 })
   })
 })

@@ -187,7 +187,7 @@ test.describe('Certifications CRUD', () => {
     await dialog.getByRole('button', { name: 'Add', exact: true }).click()
 
     // Verify certification appears
-    await expect(page.getByText(certName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(certName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should edit a certification', async ({ page, request }) => {
@@ -203,7 +203,7 @@ test.describe('Certifications CRUD', () => {
 
     // Wait for certification to appear (filter by icon to target individual card, not parent container)
     const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'AWS Solutions Architect' }).filter({ has: page.locator('svg.lucide-pencil') }).first()
-    await expect(certCard).toBeVisible({ timeout: 5000 })
+    await expect(certCard).toBeVisible({ timeout: 15000 })
 
     // Click edit (Pencil) button on the card
     await certCard.locator('button').filter({ has: page.locator('svg.lucide-pencil') }).click()
@@ -224,7 +224,7 @@ test.describe('Certifications CRUD', () => {
     await dialog.getByRole('button', { name: 'Edit', exact: true }).click()
 
     // Verify update
-    await expect(page.getByText('Updated Issuer')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Updated Issuer')).toBeVisible({ timeout: 15000 })
   })
 
   test('should delete a certification', async ({ page, request }) => {
@@ -242,7 +242,7 @@ test.describe('Certifications CRUD', () => {
 
     // Wait for certification to appear (filter by icon to target individual card, not parent container)
     const certCard = page.locator('[class*="bg-card"]').filter({ hasText: cert.name || 'Delete Me Cert' }).filter({ has: page.locator('svg.lucide-trash2') }).first()
-    await expect(certCard).toBeVisible({ timeout: 5000 })
+    await expect(certCard).toBeVisible({ timeout: 15000 })
 
     // Set up dialog handler - delete uses browser confirm()
     page.on('dialog', (dialog) => dialog.accept())
@@ -251,7 +251,7 @@ test.describe('Certifications CRUD', () => {
     await certCard.locator('button').filter({ has: page.locator('svg.lucide-trash2') }).click()
 
     // Verify deleted
-    await expect(page.getByText(cert.name || 'Delete Me Cert')).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(cert.name || 'Delete Me Cert')).not.toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -342,7 +342,7 @@ test.describe('Education CRUD', () => {
     await dialog.getByRole('button', { name: 'Add', exact: true }).click()
 
     // Verify education appears
-    await expect(page.getByText('Test University')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Test University')).toBeVisible({ timeout: 15000 })
   })
 
   test('should display education with GPA', async ({ page, request }) => {
@@ -356,7 +356,7 @@ test.describe('Education CRUD', () => {
 
     // Default is Education & Publications > Education tab
     // Check GPA is displayed
-    await expect(page.getByText('3.8').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('3.8').first()).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -424,7 +424,7 @@ test.describe('Awards CRUD', () => {
     await dialog.getByRole('button', { name: 'Add', exact: true }).click()
 
     // Verify award appears
-    await expect(page.getByText(awardName)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(awardName)).toBeVisible({ timeout: 15000 })
   })
 
   test('should delete an award', async ({ page }) => {

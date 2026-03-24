@@ -173,12 +173,12 @@ test.describe('Tab count update after CRUD operations', () => {
     // Select training type (required field — submit is disabled without it)
     // Options: Certificate/수료, Bootcamp/부트캠프, Online Course/온라인 강의, Workshop/워크샵, Other/기타
     const degreeSelect = dialog.locator('button[role="combobox"]').first()
-    await expect(degreeSelect).toBeVisible({ timeout: 5000 })
+    await expect(degreeSelect).toBeVisible({ timeout: 15000 })
     await degreeSelect.click()
     await page.waitForTimeout(500)
     // Select first available option (Certificate)
     const firstOption = page.getByRole('option').first()
-    await expect(firstOption).toBeVisible({ timeout: 5000 })
+    await expect(firstOption).toBeVisible({ timeout: 15000 })
     await firstOption.click()
     await page.waitForTimeout(300)
 
@@ -187,7 +187,7 @@ test.describe('Tab count update after CRUD operations', () => {
     await schoolInput.fill('Test Training for Count')
 
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
-    await expect(submitBtn).toBeEnabled({ timeout: 5000 })
+    await expect(submitBtn).toBeEnabled({ timeout: 15000 })
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
 

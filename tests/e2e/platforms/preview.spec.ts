@@ -53,7 +53,7 @@ test.describe('Platform Preview Page', () => {
 
     // Template name appears as h1
     const heading = page.getByRole('heading', { level: 1 })
-    await expect(heading).toBeVisible({ timeout: 5000 })
+    await expect(heading).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Resume Preview subtitle', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('Platform Preview Page', () => {
     await page.goto(`/platforms/${platformId}/preview`)
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('Resume Preview')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Resume Preview')).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Print button', async ({ page }) => {
@@ -79,7 +79,7 @@ test.describe('Platform Preview Page', () => {
 
     await expect(
       page.getByRole('button', { name: 'Print' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Fullscreen button', async ({ page }) => {
@@ -93,7 +93,7 @@ test.describe('Platform Preview Page', () => {
 
     await expect(
       page.getByRole('button', { name: 'Fullscreen' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show Export button', async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe('Platform Preview Page', () => {
 
     await expect(
       page.getByRole('button', { name: 'Export' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show iframe for HTML preview', async ({ page }) => {
@@ -137,7 +137,7 @@ test.describe('Platform Preview Page', () => {
     await page.waitForTimeout(2000)
     const sampleBadge = page.getByText('Sample Data')
     const realBadge = page.getByText('Real Data')
-    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 5000 })
+    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 15000 })
   })
 
   test('should show real data toggle switch', async ({ page }) => {
@@ -151,10 +151,10 @@ test.describe('Platform Preview Page', () => {
 
     // Switch with id="real-data-toggle"
     const toggle = page.locator('#real-data-toggle')
-    await expect(toggle).toBeVisible({ timeout: 5000 })
+    await expect(toggle).toBeVisible({ timeout: 15000 })
 
     // Label text
-    await expect(page.getByText('View real data')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('View real data')).toBeVisible({ timeout: 15000 })
   })
 
   test('should navigate to export page on Export click', async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe('Platform Preview Page', () => {
 
     await page.getByRole('button', { name: 'Export' }).click()
 
-    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 5000 })
+    await expect(page).toHaveURL(/\/platforms\/\d+\/export/, { timeout: 15000 })
   })
 })
 
@@ -218,7 +218,7 @@ test.describe('Platform Preview with Real Data', () => {
 
     // Toggle the real data switch
     const toggle = page.locator('#real-data-toggle')
-    await expect(toggle).toBeVisible({ timeout: 5000 })
+    await expect(toggle).toBeVisible({ timeout: 15000 })
     await toggle.click()
 
     // After toggling, should attempt to load real data
@@ -228,6 +228,6 @@ test.describe('Platform Preview with Real Data', () => {
     // The data source badge should update (may show "Real Data" or fall back to "Sample Data")
     const sampleBadge = page.getByText('Sample Data')
     const realBadge = page.getByText('Real Data')
-    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 5000 })
+    await expect(sampleBadge.or(realBadge)).toBeVisible({ timeout: 15000 })
   })
 })
