@@ -68,8 +68,6 @@ test.describe('LLM Provider Visibility (Web Mode)', () => {
 
     // Wait for API Providers tab panel to be active (description text is always present)
     await expect(page.getByText(/API Providers|API 제공자/)).toBeVisible({ timeout: 30000 })
-
-    await page.screenshot({ path: 'test-results/llm-api-tab-filtered.png', fullPage: true })
   })
 
   test('CLI tab shows both CLI tools', async ({ page }) => {

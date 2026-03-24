@@ -85,6 +85,9 @@ test.describe('Tab count update after CRUD operations', () => {
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test Cert for Count')).toBeVisible({ timeout: 10000 })
+
     // Check count updated WITHOUT clicking tab
     const newCount = await getTabCount(page, /^Certifications|^자격증/)
     console.log(`After add certifications count: ${newCount}`)
@@ -128,6 +131,9 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /^Add$|^추가$/ })
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
+
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test Award for Count')).toBeVisible({ timeout: 10000 })
 
     const newCount = await getTabCount(page, /^Awards|^수상/)
     console.log(`After add awards count: ${newCount}`)
@@ -185,6 +191,9 @@ test.describe('Tab count update after CRUD operations', () => {
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
 
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test Training for Count')).toBeVisible({ timeout: 10000 })
+
     const newCount = await getTabCount(page, /Training|교육/)
     console.log(`After add training count: ${newCount}`)
     expect(newCount).toBe(initialCount + 1)
@@ -225,6 +234,9 @@ test.describe('Tab count update after CRUD operations', () => {
     const submitBtn = dialog.getByRole('button', { name: /Save|Add|저장|추가/ })
     await submitBtn.click()
     await expect(dialog).not.toBeVisible({ timeout: 10000 })
+
+    // Wait for the new item to appear (confirms data refetch completed)
+    await expect(page.locator('text=Test External for Count')).toBeVisible({ timeout: 10000 })
 
     const newCount = await getTabCount(page, /External|대외/)
     console.log(`After add external count: ${newCount}`)
