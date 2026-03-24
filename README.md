@@ -147,7 +147,7 @@ npm run electron:build:mac      # macOS dmg
 npm run electron:build:linux    # Linux AppImage
 ```
 
-> The desktop app auto-detects CLI tools (Claude Code, Gemini CLI) and manages API keys locally. See [RUNTIME_TIER_AUTH.md](docs/RUNTIME_TIER_AUTH.md) for details.
+> The desktop app auto-detects CLI tools (Claude Code, Gemini CLI) and manages API keys locally.
 
 ---
 
@@ -261,7 +261,7 @@ Full interactive documentation is at `http://localhost:8085/docs` when the serve
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting bugs, proposing features, and submitting pull requests. The project roadmap is tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting bugs, proposing features, and submitting pull requests.
 
 This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 

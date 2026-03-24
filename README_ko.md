@@ -147,7 +147,7 @@ npm run electron:build:mac       # macOS dmg
 npm run electron:build:linux     # Linux AppImage
 ```
 
-> 데스크톱 앱은 CLI 도구(Claude Code, Gemini CLI)를 자동 감지하고 API 키를 로컬에서 관리합니다. 자세한 내용은 [RUNTIME_TIER_AUTH.md](docs/RUNTIME_TIER_AUTH.md)를 참조하세요.
+> 데스크톱 앱은 CLI 도구(Claude Code, Gemini CLI)를 자동 감지하고 API 키를 로컬에서 관리합니다.
 
 ---
 
@@ -261,7 +261,7 @@ Autopolio/
 
 ## 기여하기
 
-기여를 환영합니다. 버그 신고, 기능 제안, PR 제출 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참조하세요. 프로젝트 로드맵은 [docs/ROADMAP.md](docs/ROADMAP.md)에서 확인할 수 있습니다.
+기여를 환영합니다. 버그 신고, 기능 제안, PR 제출 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참조하세요.
 
 이 프로젝트는 [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md)를 따릅니다.
 

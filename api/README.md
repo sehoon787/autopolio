@@ -65,7 +65,7 @@ api/
 
 ## 6-Phase Analysis Pipeline
 
-See [docs/PIPELINE.md](../docs/PIPELINE.md) for full details.
+See `CLAUDE.md` for full pipeline details.
 
 | Phase | Name | Description |
 |-------|------|-------------|
@@ -79,7 +79,7 @@ See [docs/PIPELINE.md](../docs/PIPELINE.md) for full details.
 ## Key Services
 
 - **ContentGenerator** (`services/core/content_generator.py`): Generates implementation details, development timeline, detailed achievements, and architecture patterns via parallel (API) or sequential (CLI) LLM calls.
-- **CLILLMService** (`services/llm/cli_llm_service.py`): Runs CLI tools (Claude Code, Gemini CLI, Codex) as subprocesses. Follows the [CLI auth priority policy](../docs/RUNTIME_TIER_AUTH.md). Codex CLI JSONL output is parsed with error/turn.failed event handling.
+- **CLILLMService** (`services/llm/cli_llm_service.py`): Runs CLI tools (Claude Code, Gemini CLI, Codex) as subprocesses. Codex CLI JSONL output is parsed with error/turn.failed event handling.
 - **CLIService** (`services/llm/cli_service.py`): CLI detection, auth status checks, and OAuth login flow. Uses `stdin=DEVNULL` for login subprocess to ensure localhost callback OAuth (not code-exchange).
 - **TechnologyDetectionService**: Parses `package.json`, `requirements.txt`, `pom.xml`, etc. to detect 200+ technologies without LLM.
 
