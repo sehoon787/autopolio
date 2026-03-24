@@ -206,8 +206,8 @@ jobs:
           echo "Waiting 5s for services to stabilize..."
           sleep 5
 
-      - name: Debug - Verify API proxy through frontend
-        timeout-minutes: 1
+      - name: Debug - Verify services and frontend bundle
+        timeout-minutes: 2
         run: |
           echo "=== Direct API health check ==="
           curl -sf http://localhost:8085/health && echo "OK" || echo "FAIL"
@@ -215,8 +215,42 @@ jobs:
           curl -sf http://localhost:3035/api/llm/providers && echo "OK" || echo "FAIL - nginx proxy broken"
           echo "=== Docker container status ==="
           docker compose ps
-          echo "=== API logs (last 10 lines) ==="
-          docker compose logs api --tail=10
+
+          echo ""
+          echo "=== Served HTML (last 10 lines) ==="
+          curl -s http://localhost:3035/ | tail -10
+
+          echo ""
+          echo "=== Script tags in served HTML ==="
+          curl -s http://localhost:3035/ | grep -i '<script' || echo "NO SCRIPT TAGS FOUND"
+
+          echo ""
+          echo "=== JS bundle file inside container ==="
+          timeout 10 docker compose exec -T frontend ls -la /usr/share/nginx/html/assets/ 2>&1 || echo "TIMEOUT or ERROR"
+
+          echo ""
+          echo "=== JS bundle HTTP response headers ==="
+          JS_FILE=$(curl -s http://localhost:3035/ | grep -oP 'src="/assets/index-[^"]+\.js"' | grep -oP '/assets/[^"]+')
+          if [ -n "$JS_FILE" ]; then
+            echo "Found JS bundle: $JS_FILE"
+            curl -sI "http://localhost:3035${JS_FILE}" 2>&1 | head -15
+            echo ""
+            echo "=== JS bundle first 200 bytes ==="
+            curl -s "http://localhost:3035${JS_FILE}" | head -c 200
+            echo ""
+          else
+            echo "ERROR: Could not find JS bundle path in HTML"
+            echo "Full HTML:"
+            curl -s http://localhost:3035/
+          fi
+
+          echo ""
+          echo "=== nginx error log ==="
+          timeout 5 docker compose exec -T frontend cat /var/log/nginx/error.log 2>&1 | tail -20 || echo "No error log or timeout"
+
+          echo ""
+          echo "=== nginx access log (last 10) ==="
+          timeout 5 docker compose exec -T frontend cat /var/log/nginx/access.log 2>&1 | tail -10 || echo "No access log or timeout"
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

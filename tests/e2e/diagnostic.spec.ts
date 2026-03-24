@@ -9,6 +9,8 @@ test.describe('CI Diagnostic', () => {
   test('capture page state on load', async ({ page }) => {
     const consoleLogs: string[] = []
     const pageErrors: string[] = []
+    const networkRequests: { url: string; status: number; contentType: string; size: number }[] = []
+    const failedRequests: { url: string; error: string }[] = []
 
     // Capture ALL console messages
     page.on('console', (msg) => {
@@ -18,6 +20,27 @@ test.describe('CI Diagnostic', () => {
     // Capture JS runtime errors
     page.on('pageerror', (error) => {
       pageErrors.push(`${error.name}: ${error.message}`)
+    })
+
+    // Intercept network responses — track JS/CSS loading
+    page.on('response', (response) => {
+      const url = response.url()
+      if (url.includes('/assets/') || url.includes('.js') || url.includes('.css')) {
+        networkRequests.push({
+          url,
+          status: response.status(),
+          contentType: response.headers()['content-type'] || '(none)',
+          size: parseInt(response.headers()['content-length'] || '0', 10),
+        })
+      }
+    })
+
+    // Capture failed requests
+    page.on('requestfailed', (request) => {
+      failedRequests.push({
+        url: request.url(),
+        error: request.failure()?.errorText || '(unknown)',
+      })
     })
 
     // Navigate to frontend
@@ -33,10 +56,44 @@ test.describe('CI Diagnostic', () => {
     // Wait a bit more for React to hydrate
     await page.waitForTimeout(3000)
 
+    // Dump network requests for assets
+    console.log('\n=== NETWORK REQUESTS (assets/js/css) ===')
+    if (networkRequests.length === 0) {
+      console.log('(NO asset requests captured — JS bundle was never requested!)')
+    } else {
+      for (const req of networkRequests) {
+        console.log(`  ${req.status} ${req.contentType} ${req.url} (${req.size} bytes)`)
+      }
+    }
+
+    // Dump failed requests
+    console.log('\n=== FAILED REQUESTS ===')
+    if (failedRequests.length === 0) {
+      console.log('(none)')
+    } else {
+      for (const req of failedRequests) {
+        console.log(`  FAIL: ${req.url} — ${req.error}`)
+      }
+    }
+
+    // Check script tags in served HTML
+    const html = await page.content()
+    console.log(`\n=== PAGE HTML LENGTH: ${html.length} ===`)
+
+    const scriptTags = html.match(/<script[^>]*>/g) || []
+    console.log(`\n=== SCRIPT TAGS FOUND (${scriptTags.length}) ===`)
+    for (const tag of scriptTags) {
+      console.log(`  ${tag}`)
+    }
+
     // Dump console logs
     console.log('\n=== BROWSER CONSOLE LOGS ===')
-    for (const log of consoleLogs) {
-      console.log(log)
+    if (consoleLogs.length === 0) {
+      console.log('(ZERO console logs — JS never executed)')
+    } else {
+      for (const log of consoleLogs) {
+        console.log(log)
+      }
     }
 
     // Dump page errors
@@ -48,10 +105,6 @@ test.describe('CI Diagnostic', () => {
         console.log(err)
       }
     }
-
-    // Check page content
-    const html = await page.content()
-    console.log(`\n=== PAGE HTML LENGTH: ${html.length} ===`)
 
     // Check for loading spinner
     const spinner = page.locator('.animate-spin')
