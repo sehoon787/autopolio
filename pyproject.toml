@@ -3,7 +3,7 @@ name = "autopolio"
 version = "0.1.0"
 description = "Portfolio/Resume automation platform with GitHub analysis and LLM-powered summaries"
 license = {text = "Apache-2.0"}
-authors = [{name = "Sehoon Kim", email = "sehoon787@gmail.com"}]
+authors = [{name = "Sehoon Kim", email = "sehoon787@nanver.com"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -25,7 +25,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "email-validator>=2.0.0",
     # Authentication
-    "python-jose[cryptography]>=3.3.0",
+    # python-jose removed — not imported anywhere in the codebase
     "passlib[bcrypt]>=1.7.4",
     "httpx>=0.27.2",
     # GitHub API
@@ -37,7 +37,7 @@ dependencies = [
     # Document generation
     "python-docx>=1.1.2",
     "reportlab>=4.2.2",
-    "PyPDF2>=3.0.1",
+    "pypdf>=5.0.0",
     "markdown>=3.7",
     "chevron>=0.14.0",  # Mustache templating for platform templates
     # Encryption

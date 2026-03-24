@@ -4,14 +4,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=autopolio
-      - POSTGRES_PASSWORD=autopolio
-      - POSTGRES_DB=autopolio
+      - POSTGRES_USER=${POSTGRES_USER:-autopolio}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-autopolio}
+      - POSTGRES_DB=${POSTGRES_DB:-autopolio}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U autopolio"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autopolio}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,14 +27,14 @@ services:
       - ./result:/app/result
       - ./config:/app/config
       - ./.env:/app/.env.init:ro
-      # Mount host CLI auth dirs (rw so CLI login/logout can save credentials)
-      - ~/.claude:/root/.claude
-      - ~/.gemini:/root/.gemini
-      - ~/.codex:/root/.codex
+      # Mount host CLI auth dirs (read-only — login should happen on host, not in Docker)
+      - ~/.claude:/root/.claude:ro
+      - ~/.gemini:/root/.gemini:ro
+      - ~/.codex:/root/.codex:ro
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://autopolio:autopolio@db:5432/autopolio
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-autopolio}:${POSTGRES_PASSWORD:-autopolio}@db:5432/${POSTGRES_DB:-autopolio}
       - ENABLE_MIGRATIONS=true
       - TZ=Asia/Seoul
       - AUTOPOLIO_RUNTIME=docker

@@ -74,7 +74,7 @@ class DocumentService:
 
     async def _parse_pdf_template(self, file_path: str) -> Tuple[str, Dict[str, str]]:
         """Parse a PDF template (extract text and find placeholders)."""
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
 
         reader = PdfReader(file_path)
         content_parts = []
