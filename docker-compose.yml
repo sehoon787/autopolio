@@ -4,14 +4,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-autopolio}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-autopolio}
-      - POSTGRES_DB=${POSTGRES_DB:-autopolio}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autopolio}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-autopolio}:${POSTGRES_PASSWORD:-autopolio}@db:5432/${POSTGRES_DB:-autopolio}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - ENABLE_MIGRATIONS=true
       - TZ=Asia/Seoul
       - AUTOPOLIO_RUNTIME=docker
