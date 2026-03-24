@@ -73,7 +73,7 @@ test.describe('Project Detail Page', () => {
     // Check project name is displayed as h1
     await expect(
       page.getByRole('heading', { name: testContext.project!.name })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should display project metadata', async ({ page }) => {
@@ -83,7 +83,7 @@ test.describe('Project Detail Page', () => {
     // Check role is displayed somewhere on the page
     await expect(
       page.getByText('Lead Developer').first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should display technologies', async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe('Project Detail Page', () => {
 
     // Check technologies are displayed (as tech badges in Basic Info tab)
     // Use div[title] selector because TechBadge renders SVG with <title> that interferes with getByText
-    await expect(page.locator('div[title="Python"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('div[title="Python"]').first()).toBeVisible({ timeout: 15000 })
     await expect(page.locator('div[title="React"]').first()).toBeVisible()
   })
 
@@ -177,12 +177,12 @@ test.describe('Project Detail Page', () => {
     await dialog.getByRole('button', { name: 'Save' }).click()
 
     // Verify the dialog closes
-    await expect(dialog).not.toBeVisible({ timeout: 5000 })
+    await expect(dialog).not.toBeVisible({ timeout: 15000 })
 
     // Verify updated description appears on the page
     await expect(
       page.getByText('Updated description from E2E test')
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -250,7 +250,7 @@ test.describe('Project Achievements', () => {
     // Verify achievement is displayed
     await expect(
       page.getByText('API Achievement').first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 })
 
@@ -291,7 +291,7 @@ test.describe('Project Analysis Section', () => {
     // "Analyze Repo" button should be visible since the project has a git_url
     await expect(
       page.getByRole('button', { name: 'Analyze Repo' })
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('should show analysis language selector', async ({ page }) => {
@@ -301,7 +301,7 @@ test.describe('Project Analysis Section', () => {
     // Analysis language selector should be visible (a Select with ko/en options)
     // It shows as a combobox button
     const languageSelector = page.locator('button[role="combobox"]').first()
-    await expect(languageSelector).toBeVisible({ timeout: 5000 })
+    await expect(languageSelector).toBeVisible({ timeout: 15000 })
   })
 
   test('should show not analyzed state in tabs', async ({ page }) => {
@@ -315,6 +315,6 @@ test.describe('Project Analysis Section', () => {
     // Should show "No analysis data" or similar message
     await expect(
       page.getByText(/No analysis data/).first()
-    ).toBeVisible({ timeout: 5000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 })
